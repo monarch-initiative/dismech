@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3761,6 +3826,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3803,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 46</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 49</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=FOXG1%20Disorder"
@@ -3840,7 +3912,7 @@
             </div>
 
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
-                FOXG1 disorder is a rare monogenic neurodevelopmental disorder caused by heterozygous pathogenic variants, deletions, or copy-number changes affecting FOXG1 dosage. The core mechanism is disrupted FOXG1-dependent transcriptional control during forebrain development, leading to cortical and corpus callosum malformations, delayed myelination, severe developmental disability, movement disorder, epilepsy, feeding problems, and visual abnormalities.
+                FOXG1 disorder is a rare monogenic neurodevelopmental disorder caused by heterozygous pathogenic variants, copy-number changes, or long-range regulatory rearrangements affecting FOXG1 function or regulation. The core mechanism is disrupted FOXG1-dependent transcriptional control during forebrain development, leading to cortical and corpus callosum malformations, delayed myelination, severe developmental disability, movement disorder, epilepsy, feeding problems, and visual abnormalities.
             </p>
 
         </header>
@@ -3956,7 +4028,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">5</div>
+                <div class="stat-value">7</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -3977,7 +4049,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">46</div>
+                <div class="stat-value">49</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3991,6 +4063,14 @@
             </div>
             </a>
 
+
+            <a class="stat-link" href="#genetic">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🔬</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Variants</div>
+            </div>
+            </a>
 
 
             <a class="stat-link" href="#treatments">
@@ -4084,6 +4164,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4105,6 +4186,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4201,6 +4283,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4260,6 +4343,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4325,6 +4409,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4364,13 +4449,171 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">5</span>
+                <span class="card-count">7</span>
             </div>
 
-            <div class="item-box pathophys-box anchor-target" id="pathophysiology-foxg1-transcription-factor-dosage-disruption" data-dismech-node="FOXG1 Transcription-Factor Dosage Disruption" data-dismech-type="pathophysiology">
-                <div class="item-name">FOXG1 Transcription-Factor Dosage Disruption</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-translocation-of-foxg1-regulatory-domain-a" data-dismech-node="Translocation of FOXG1 Regulatory Domain A" data-dismech-type="pathophysiology">
+                <div class="item-name">Translocation of FOXG1 Regulatory Domain A</div>
 
-                <div class="item-desc">Heterozygous FOXG1 loss-of-function variants, deletions, or duplications alter FOXG1 dosage and disrupt transcriptional regulation in the developing telencephalon and anterior forebrain.</div>
+
+                <div class="item-desc">The de novo t(9;14) in Mehrjouy patient P1 interrupts FOXG1 regulatory Domain A without truncating FOXG1. Its chromosome 9 breakpoint does not truncate a gene in the study&#39;s annotation.</div>
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <span class="tag tag-classification">Genetic context</span>
+
+
+
+
+
+
+        <span class="tag tag-classification">Variant type: translocation</span>
+
+
+        <span class="tag tag-classification">Genomic context: intergenic region</span>
+
+
+
+        <span class="tag tag-classification">variant_origin: DE_NOVO</span>
+
+
+
+
+        <span class="tag tag-classification">zygosity: HETEROZYGOUS</span>
+
+
+
+    </div>
+
+
+<div class="affected-regions">
+    <div class="item-meta"><strong>Affected regions (reference genome)</strong></div>
+
+    <div class="affected-region">
+        <div class="item-meta">
+            <strong>FOXG1 regulatory Domain A (proximal hESC TAD)</strong>
+            <span class="tag tag-classification">14q12</span>
+
+        </div>
+
+
+
+
+        <div class="item-desc">Domain A is the proximal domain in the paper&#39;s human embryonic stem-cell TAD map. In patient P1, the breakpoint approximately 502 kb downstream of FOXG1 lies within Domain A, proximal to the refined critical smallest region of overlap (SRO). It separates intact FOXG1 from the SRO; the refined SRO itself lies proximal to the hESC-specific boundary between Domains A and B. This names the interrupted domain, not a deleted enhancer or boundary.</div>
+    </div>
+
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Proposed FOXG1 Dysregulation after Domain A Rearrangement</span>
+
+	                            <span class="crosslink-desc">Separation of FOXG1 from the refined SRO is proposed to alter its regulation through regulatory interactions not measured in P1.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29289958" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29289958" target="_blank">PMID:29289958</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Herein we map three de novo translocation breakpoints to the proximal regulatory domain of FOXG1."</div>
+
+
+                <div class="evidence-explanation">P1 is one of the translocations mapped within the proximal regulatory domain, Domain A in the paper&#39;s hESC TAD map.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="url:https://d-nb.info/1155958349/34" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://d-nb.info/1155958349/34" target="_blank">url:https://d-nb.info/1155958349/34</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The BP on chromosome 9 does not truncate any gene or predicted regulatory domain. The breakpoint on the chromosome 14 truncates a highly conserved regulatory landscape 502 kb downstream of FOXG1."</div>
+
+
+                <div class="evidence-explanation">The archived publisher full text of PMID:29289958 reports P1&#39;s breakpoint context. Downstream here is relative to FOXG1; it does not mean the separate distal hESC TAD, Domain B.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-proposed-foxg1-dysregulation-after-domain-a-rearrangement" data-dismech-node="Proposed FOXG1 Dysregulation after Domain A Rearrangement" data-dismech-type="pathophysiology">
+                <div class="item-name">Proposed FOXG1 Dysregulation after Domain A Rearrangement</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
+                <div class="item-desc">Rearrangement within Domain A is proposed to impair FOXG1 regulation by separating the gene from the refined SRO. The direction, tissue distribution, and developmental timing of the P1 expression effect remain unmeasured. The authors argue against enhancer adoption from Domain B following loss of the hESC-specific A/B boundary as the main explanation for the syndrome; ectopic expression is not demonstrated in P1.</div>
 
 
 
@@ -4424,6 +4667,128 @@ This pathophysiological event involves FOXG1 (hgnc:3811). hgnc:3811 is a gene fr
 
 
 
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">FOXG1 Transcription-Factor Dosage Disruption</span>
+
+	                            <span class="crosslink-desc">Altered regulation may converge on the established FOXG1 developmental pathway; P1 transcription-factor dosage was not measured.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29289958" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29289958" target="_blank">PMID:29289958</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Our data support the importance of a critical regulatory region (SRO) proximal to the hESC-specific TAD boundary."</div>
+
+
+                <div class="evidence-explanation">Clinical mapping supports a regulatory role for the refined SRO. The inferred expression consequence in P1 remains provisional; this statement does not establish enhancer adoption or a measured change in FOXG1 expression.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-foxg1-transcription-factor-dosage-disruption" data-dismech-node="FOXG1 Transcription-Factor Dosage Disruption" data-dismech-type="pathophysiology">
+                <div class="item-name">FOXG1 Transcription-Factor Dosage Disruption</div>
+
+
+                <div class="item-desc">Heterozygous FOXG1 loss-of-function variants, deletions, or duplications alter FOXG1 dosage and disrupt transcriptional regulation in the developing telencephalon and anterior forebrain.</div>
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        FOXG1
+
+
+    <a href="https://bioregistry.io/hgnc:3811" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:3811</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves FOXG1 (hgnc:3811). hgnc:3811 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
                 <div class="item-meta">
 
 
@@ -4434,11 +4799,11 @@ This pathophysiological event involves FOXG1 (hgnc:3811). hgnc:3811 is a gene fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0021537" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0021537</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0021537" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0021537</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal telencephalon development (GO:0021537). GO:0021537 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4468,11 +4833,11 @@ This pathophysiological event involves abnormal telencephalon development (GO:00
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030900" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0030900</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030900" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0030900</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal forebrain development (GO:0030900). GO:0030900 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4507,11 +4872,11 @@ This pathophysiological event involves abnormal forebrain development (GO:003090
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000981" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0000981</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000981" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0000981</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
 Relation: this pathophysiological event involves this molecular function
 This pathophysiological event involves abnormal DNA-binding transcription factor activity, RNA polymerase II-specific (GO:0000981). GO:0000981 is a molecular function from the Gene Ontology.</span>
                     </span>
@@ -4591,6 +4956,7 @@ This pathophysiological event involves abnormal DNA-binding transcription factor
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4612,6 +4978,7 @@ This pathophysiological event involves abnormal DNA-binding transcription factor
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4638,6 +5005,7 @@ This pathophysiological event involves abnormal DNA-binding transcription factor
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cortical-and-callosal-developmental-disruption" data-dismech-node="Cortical and Callosal Developmental Disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">Cortical and Callosal Developmental Disruption</div>
 
+
                 <div class="item-desc">Disrupted FOXG1 function impairs neural progenitor expansion, neocortical neurogenesis, cortical layer formation, and corpus callosum formation, producing the forebrain and white-matter malformation component of FOXG1 disorder.</div>
 
 
@@ -4652,11 +5020,11 @@ This pathophysiological event involves abnormal DNA-binding transcription factor
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0011020" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0011020</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0011020" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0011020</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves neural progenitor cell (CL:0011020). CL:0011020 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4693,11 +5061,11 @@ This pathophysiological event involves neural progenitor cell (CL:0011020). CL:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0021537" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0021537</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0021537" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0021537</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal telencephalon development (GO:0021537). GO:0021537 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4727,11 +5095,11 @@ This pathophysiological event involves abnormal telencephalon development (GO:00
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030900" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0030900</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030900" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0030900</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal forebrain development (GO:0030900). GO:0030900 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4796,6 +5164,7 @@ This pathophysiological event involves abnormal forebrain development (GO:003090
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4817,6 +5186,7 @@ This pathophysiological event involves abnormal forebrain development (GO:003090
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4843,6 +5213,7 @@ This pathophysiological event involves abnormal forebrain development (GO:003090
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-oligodendrocyte-maturation-and-myelination-delay" data-dismech-node="Oligodendrocyte Maturation and Myelination Delay" data-dismech-type="pathophysiology">
                 <div class="item-name">Oligodendrocyte Maturation and Myelination Delay</div>
 
+
                 <div class="item-desc">FOXG1 deficiency delays oligodendrocyte precursor cell maturation and early myelin formation, providing a mechanism for the delayed myelination seen in neuroimaging studies.</div>
 
 
@@ -4857,11 +5228,11 @@ This pathophysiological event involves abnormal forebrain development (GO:003090
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002453" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0002453</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002453" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0002453</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves oligodendrocyte precursor cell (CL:0002453). CL:0002453 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4887,11 +5258,11 @@ This pathophysiological event involves oligodendrocyte precursor cell (CL:000245
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000128" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000128</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000128" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000128</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves oligodendrocyte (CL:0000128). CL:0000128 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4928,11 +5299,11 @@ This pathophysiological event involves oligodendrocyte (CL:0000128). CL:0000128 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048709" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0048709</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048709" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0048709</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased oligodendrocyte differentiation (GO:0048709). GO:0048709 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4962,11 +5333,11 @@ This pathophysiological event involves decreased oligodendrocyte differentiation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042552" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0042552</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042552" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0042552</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased myelination (GO:0042552). GO:0042552 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5031,6 +5402,7 @@ This pathophysiological event involves decreased myelination (GO:0042552). GO:00
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5052,6 +5424,7 @@ This pathophysiological event involves decreased myelination (GO:0042552). GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5078,6 +5451,7 @@ This pathophysiological event involves decreased myelination (GO:0042552). GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-synaptic-and-motor-circuit-dysfunction" data-dismech-node="Synaptic and Motor-Circuit Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Synaptic and Motor-Circuit Dysfunction</div>
 
+
                 <div class="item-desc">FOXG1 frameshift models show dysregulated cortical synaptic, neuronal-projection, migration, and synaptic-vesicle gene programs, providing a mechanism for motor and behavioral phenotypes.</div>
 
 
@@ -5092,11 +5466,11 @@ This pathophysiological event involves decreased myelination (GO:0042552). GO:00
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000540</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5133,11 +5507,11 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0050808" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0050808</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0050808" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0050808</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal synapse organization (GO:0050808). GO:0050808 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5202,6 +5576,7 @@ This pathophysiological event involves abnormal synapse organization (GO:0050808
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5223,6 +5598,7 @@ This pathophysiological event involves abnormal synapse organization (GO:0050808
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5248,6 +5624,7 @@ This pathophysiological event involves abnormal synapse organization (GO:0050808
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-foxg1-static-neurodevelopmental-encephalopathy" data-dismech-node="FOXG1 Static Neurodevelopmental Encephalopathy" data-dismech-type="pathophysiology">
                 <div class="item-name">FOXG1 Static Neurodevelopmental Encephalopathy</div>
+
 
                 <div class="item-desc">The integrated consequence of disrupted forebrain development, delayed myelination, and altered synaptic programs is a severe, non-degenerative developmental encephalopathy with intellectual and developmental disability, seizures, movement disorder, gastrointestinal issues, visual abnormalities, sleep problems, and behavioral features.</div>
 
@@ -5509,6 +5886,7 @@ This pathophysiological event involves abnormal synapse organization (GO:0050808
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5530,6 +5908,7 @@ This pathophysiological event involves abnormal synapse organization (GO:0050808
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5578,7 +5957,7 @@ This pathophysiological event involves abnormal synapse organization (GO:0050808
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AAV9 FOXG1 gene therapy candidate FRF-001\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"FRF-001 is an investigational intracerebroventricular AAV9 gene-therapy candidate being evaluated for safety, tolerability, and efficacy in FOXG1 syndrome; it is not an established approved treatment.\"}, {\"id\": \"Abnormal corpus callosum morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Corpus callosum hypogenesis or related callosal abnormalities are common imaging findings.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001273\"}}, {\"id\": \"Absent speech\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Many affected individuals have minimal or absent speech.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001344\"}}, {\"id\": \"Anti-dyskinetic pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anti-dyskinetic pharmacotherapy may be considered for the prominent dyskinetic movement disorder in FOXG1 syndrome; specific agent selection is individualized because the cited GeneReviews management recommendation does not name a single preferred drug.\"}, {\"id\": \"Antiseizure pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Seizures are managed by an experienced neurologist using standard antiseizure medication approaches tailored to seizure type and burden.\", \"meta\": {\"therapeutic_agents\": [\"anticonvulsant agent\"]}}, {\"id\": \"Autistic behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Autistic features and impaired social reciprocity occur in the FOXG1 phenotype.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000729\"}}, {\"id\": \"Bilateral tonic-clonic seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral tonic-clonic seizures are a frequent seizure type.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002069\"}}, {\"id\": \"Bruxism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bruxism is a frequent oral-motor manifestation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003763\"}}, {\"id\": \"Choreoathetosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Choreoathetosis is part of the complex involuntary-movement phenotype.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001266\"}}, {\"id\": \"Cognitive impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cognitive impairment is a frequent developmental endpoint.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100543\"}}, {\"id\": \"Constipation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Constipation is a frequent gastrointestinal manifestation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002019\"}}, {\"id\": \"Cortical and Callosal Developmental Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disrupted FOXG1 function impairs neural progenitor expansion, neocortical neurogenesis, cortical layer formation, and corpus callosum formation, producing the forebrain and white-matter malformation component of FOXG1 disorder.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neural progenitor cell\"], \"biological_processes\": [\"telencephalon development\", \"forebrain development\"]}}, {\"id\": \"Decreased body weight\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Decreased body weight is frequent and overlaps with feeding difficulty and poor weight gain.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004325\"}}, {\"id\": \"Delayed myelination\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed myelination is a recurrent neuroimaging abnormality.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012448\"}}, {\"id\": \"Dyskinesia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dyskinesia is a very frequent movement abnormality in FOXG1 syndrome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0100660\"}}, {\"id\": \"Dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dystonia is a frequent component of the movement disorder.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001332\"}}, {\"id\": \"Excessive salivation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Excessive salivation is frequent.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003781\"}}, {\"id\": \"FOXG1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"FOXG1\"], \"gene_terms\": [{\"label\": \"FOXG1\", \"id\": \"hgnc:3811\"}], \"association\": \"Causal heterozygous pathogenic variant or dosage alteration\"}}, {\"id\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The integrated consequence of disrupted forebrain development, delayed myelination, and altered synaptic programs is a severe, non-degenerative developmental encephalopathy with intellectual and developmental disability, seizures, movement disorder, gastrointestinal issues, visual abnormalities, sleep problems, and behavioral features.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"FOXG1 Transcription-Factor Dosage Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous FOXG1 loss-of-function variants, deletions, or duplications alter FOXG1 dosage and disrupt transcriptional regulation in the developing telencephalon and anterior forebrain.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"telencephalon development\", \"forebrain development\"], \"molecular_functions\": [\"DNA-binding transcription factor activity, RNA polymerase II-specific\"], \"genes\": [\"FOXG1\"], \"gene_terms\": [{\"label\": \"FOXG1\", \"id\": \"hgnc:3811\"}]}}, {\"id\": \"Feeding difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Feeding difficulties and poor weight gain are very frequent.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0011968\"}}, {\"id\": \"Focal-onset seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Focal-onset seizures are a frequent seizure type.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0007359\"}}, {\"id\": \"Gait disturbance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gait disturbance reflects the severe motor impairment in FOXG1 syndrome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001288\"}}, {\"id\": \"Gastroesophageal reflux\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gastroesophageal reflux is a frequent gastrointestinal manifestation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002020\"}}, {\"id\": \"Hyperkinetic-dyskinetic movement disorder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A combined hyperkinetic and dyskinetic movement disorder is distinctive.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002487\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia is a common early neurologic feature.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Inappropriate crying\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Inappropriate crying episodes are frequent.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0030215\"}}, {\"id\": \"Infantile spasms\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Infantile spasms are a frequent seizure type in FOXG1 syndrome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012469\"}}, {\"id\": \"Motor delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Motor delay is a very frequent developmental manifestation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001270\"}}, {\"id\": \"Motor stereotypy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Repetitive mannerisms and stereotypic movements are very frequent.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000733\"}}, {\"id\": \"Multidisciplinary supportive and rehabilitative care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Supportive care includes developmental and educational supports, rehabilitation, physical and occupational therapy, feeding support, reflux care, ophthalmology care, scoliosis monitoring, and family support.\"}, {\"id\": \"Myoclonus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Myoclonus occurs as a frequent abnormal movement or seizure-associated manifestation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001336\"}}, {\"id\": \"Oligodendrocyte Maturation and Myelination Delay\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FOXG1 deficiency delays oligodendrocyte precursor cell maturation and early myelin formation, providing a mechanism for the delayed myelination seen in neuroimaging studies.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"oligodendrocyte precursor cell\", \"oligodendrocyte\"], \"biological_processes\": [\"oligodendrocyte differentiation\", \"myelination\"]}}, {\"id\": \"Orofacial dyskinesia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Orofacial dyskinesia is a frequent cranial movement manifestation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002310\"}}, {\"id\": \"Paroxysmal bursts of laughter\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Paroxysmal bursts of laughter are a frequent behavioral manifestation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000749\"}}, {\"id\": \"Progressive microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive postnatal microcephaly is a core FOXG1 syndrome feature.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000253\"}}, {\"id\": \"Reduced eye contact\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced eye contact is a frequent social-communication feature.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000817\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures are frequent and show genotype-dependent burden.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Severe global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe global developmental delay is a major neurodevelopmental manifestation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011344\"}}, {\"id\": \"Severe postnatal growth retardation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe postnatal growth retardation is frequent.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0008850\"}}, {\"id\": \"Short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Short stature is a frequent growth finding.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004322\"}}, {\"id\": \"Sleep abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sleep problems are frequent in the neurobehavioral phenotype.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002360\"}}, {\"id\": \"Spasticity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Spasticity is a frequent pyramidal motor feature.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001257\"}}, {\"id\": \"Strabismus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Strabismus is a very frequent ophthalmologic feature.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000486\"}}, {\"id\": \"Synaptic and Motor-Circuit Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FOXG1 frameshift models show dysregulated cortical synaptic, neuronal-projection, migration, and synaptic-vesicle gene programs, providing a mechanism for motor and behavioral phenotypes.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"synapse organization\"]}}, {\"id\": \"Visual impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Visual impairment and cortical visual impairment are recognized manifestations.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000505\"}}], \"edges\": [{\"source\": \"FOXG1 Transcription-Factor Dosage Disruption\", \"target\": \"Cortical and Callosal Developmental Disruption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"FOXG1 dosage disruption perturbs cortical neurogenesis, cortical layer formation, and corpus callosum formation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"FOXG1 Transcription-Factor Dosage Disruption\", \"target\": \"Oligodendrocyte Maturation and Myelination Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"FOXG1 dosage disruption affects oligodendrocyte lineage maturation and myelin development.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"FOXG1 Transcription-Factor Dosage Disruption\", \"target\": \"Synaptic and Motor-Circuit Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"FOXG1 dosage disruption changes cortical synaptic gene programs that contribute to motor and behavioral phenotypes.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Cortical and Callosal Developmental Disruption\", \"target\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cortical and callosal malformations contribute to severe developmental disability, absent speech, seizures, and motor impairment.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Oligodendrocyte Maturation and Myelination Delay\", \"target\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Delayed myelination contributes to impaired neural circuit function in the static encephalopathy.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Synaptic and Motor-Circuit Dysfunction\", \"target\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Synaptic and motor-circuit dysfunction contributes to dyskinesia, stereotypies, epilepsy, and severe neurodevelopmental disability.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Progressive microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Severe global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Dyskinesia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Hyperkinetic-dyskinetic movement disorder\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Absent speech\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Abnormal corpus callosum morphology\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Delayed myelination\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Motor stereotypy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Autistic behavior\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Strabismus\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Visual impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Feeding difficulties\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Motor delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Gait disturbance\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Spasticity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Choreoathetosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Myoclonus\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Orofacial dyskinesia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Infantile spasms\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Bilateral tonic-clonic seizure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Focal-onset seizure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Sleep abnormality\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Paroxysmal bursts of laughter\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Reduced eye contact\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Inappropriate crying\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Constipation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Gastroesophageal reflux\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Bruxism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Excessive salivation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Short stature\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Decreased body weight\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Severe postnatal growth retardation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Cognitive impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary supportive and rehabilitative care\", \"target\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Antiseizure pharmacotherapy\", \"target\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Anti-dyskinetic pharmacotherapy\", \"target\": \"Synaptic and Motor-Circuit Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"AAV9 FOXG1 gene therapy candidate FRF-001\", \"target\": \"FOXG1 Transcription-Factor Dosage Disruption\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"FOXG1\", \"target\": \"FOXG1 Transcription-Factor Dosage Disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AAV9 FOXG1 gene therapy candidate FRF-001\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"FRF-001 is an investigational intracerebroventricular AAV9 gene-therapy candidate being evaluated for safety, tolerability, and efficacy in FOXG1 syndrome; it is not an established approved treatment.\"}, {\"id\": \"Abnormal corpus callosum morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Corpus callosum hypogenesis or related callosal abnormalities are common imaging findings.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001273\"}}, {\"id\": \"Absent speech\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Many affected individuals have minimal or absent speech.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001344\"}}, {\"id\": \"Anti-dyskinetic pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anti-dyskinetic pharmacotherapy may be considered for the prominent dyskinetic movement disorder in FOXG1 syndrome; specific agent selection is individualized because the cited GeneReviews management recommendation does not name a single preferred drug.\"}, {\"id\": \"Antiseizure pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Seizures are managed by an experienced neurologist using standard antiseizure medication approaches tailored to seizure type and burden.\", \"meta\": {\"therapeutic_agents\": [\"anticonvulsant agent\"]}}, {\"id\": \"Autistic behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Autistic features and impaired social reciprocity occur in the FOXG1 phenotype.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000729\"}}, {\"id\": \"Bilateral tonic-clonic seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral tonic-clonic seizures are a frequent seizure type.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002069\"}}, {\"id\": \"Bruxism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bruxism is a frequent oral-motor manifestation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003763\"}}, {\"id\": \"Choreoathetosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Choreoathetosis is part of the complex involuntary-movement phenotype.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001266\"}}, {\"id\": \"Cognitive impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cognitive impairment is a frequent developmental endpoint.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100543\"}}, {\"id\": \"Constipation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Constipation is a frequent gastrointestinal manifestation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002019\"}}, {\"id\": \"Cortical and Callosal Developmental Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disrupted FOXG1 function impairs neural progenitor expansion, neocortical neurogenesis, cortical layer formation, and corpus callosum formation, producing the forebrain and white-matter malformation component of FOXG1 disorder.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neural progenitor cell\"], \"biological_processes\": [\"telencephalon development\", \"forebrain development\"]}}, {\"id\": \"Decreased body weight\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Decreased body weight is frequent and overlaps with feeding difficulty and poor weight gain.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004325\"}}, {\"id\": \"Delayed myelination\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed myelination is a recurrent neuroimaging abnormality.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012448\"}}, {\"id\": \"Dyskinesia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dyskinesia is a very frequent movement abnormality in FOXG1 syndrome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0100660\"}}, {\"id\": \"Dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dystonia is a frequent component of the movement disorder.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001332\"}}, {\"id\": \"Excessive salivation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Excessive salivation is frequent.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003781\"}}, {\"id\": \"FOXG1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"FOXG1\"], \"gene_terms\": [{\"label\": \"FOXG1\", \"id\": \"hgnc:3811\"}], \"association\": \"Causal heterozygous pathogenic variant or dosage alteration\", \"variant_count\": 1}}, {\"id\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The integrated consequence of disrupted forebrain development, delayed myelination, and altered synaptic programs is a severe, non-degenerative developmental encephalopathy with intellectual and developmental disability, seizures, movement disorder, gastrointestinal issues, visual abnormalities, sleep problems, and behavioral features.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"FOXG1 Transcription-Factor Dosage Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous FOXG1 loss-of-function variants, deletions, or duplications alter FOXG1 dosage and disrupt transcriptional regulation in the developing telencephalon and anterior forebrain.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"telencephalon development\", \"forebrain development\"], \"molecular_functions\": [\"DNA-binding transcription factor activity, RNA polymerase II-specific\"], \"genes\": [\"FOXG1\"], \"gene_terms\": [{\"label\": \"FOXG1\", \"id\": \"hgnc:3811\"}]}}, {\"id\": \"Feeding difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Feeding difficulties and poor weight gain are very frequent.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0011968\"}}, {\"id\": \"Focal-onset seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Focal-onset seizures are a frequent seizure type.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0007359\"}}, {\"id\": \"Gait disturbance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gait disturbance reflects the severe motor impairment in FOXG1 syndrome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001288\"}}, {\"id\": \"Gastroesophageal reflux\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gastroesophageal reflux is a frequent gastrointestinal manifestation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002020\"}}, {\"id\": \"Hyperkinetic-dyskinetic movement disorder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A combined hyperkinetic and dyskinetic movement disorder is distinctive.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002487\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia is a common early neurologic feature.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Inappropriate crying\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Inappropriate crying episodes are frequent.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0030215\"}}, {\"id\": \"Infantile spasms\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Infantile spasms are a frequent seizure type in FOXG1 syndrome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012469\"}}, {\"id\": \"Motor delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Motor delay is a very frequent developmental manifestation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001270\"}}, {\"id\": \"Motor stereotypy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Repetitive mannerisms and stereotypic movements are very frequent.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000733\"}}, {\"id\": \"Multidisciplinary supportive and rehabilitative care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Supportive care includes developmental and educational supports, rehabilitation, physical and occupational therapy, feeding support, reflux care, ophthalmology care, scoliosis monitoring, and family support.\"}, {\"id\": \"Myoclonus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Myoclonus occurs as a frequent abnormal movement or seizure-associated manifestation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001336\"}}, {\"id\": \"Oligodendrocyte Maturation and Myelination Delay\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FOXG1 deficiency delays oligodendrocyte precursor cell maturation and early myelin formation, providing a mechanism for the delayed myelination seen in neuroimaging studies.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"oligodendrocyte precursor cell\", \"oligodendrocyte\"], \"biological_processes\": [\"oligodendrocyte differentiation\", \"myelination\"]}}, {\"id\": \"Orofacial dyskinesia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Orofacial dyskinesia is a frequent cranial movement manifestation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002310\"}}, {\"id\": \"P1 de novo t(9;14) downstream of FOXG1 (Mehrjouy 2018)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Mehrjouy patient P1 (ClinVar SCV000576475) carries de novo t(9;14). Sanger sequencing placed the GRCh37 chromosome 14 junctions at 29,738,725 and 29,738,735, approximately 502 kb downstream of FOXG1, with small junction deletions. The reported phenotype includes seizures, severe developmental delay, postnatal microcephaly, hypotonia, and absent speech. FOXG1 expression was not measured in P1; the regulatory target assignment reflects the clinical mapping model.\", \"meta\": {\"evidence_count\": 4, \"regulatory_target_gene\": {\"label\": \"FOXG1\", \"id\": \"hgnc:3811\"}, \"genes\": [\"FOXG1\"], \"gene_terms\": [{\"label\": \"FOXG1\", \"id\": \"hgnc:3811\"}], \"variant_type\": \"translocation\", \"genomic_contexts\": [\"intergenic region\"], \"affected_regions\": [{\"name\": \"FOXG1 regulatory Domain A (proximal hESC TAD)\", \"chromosomal_region\": \"14q12\", \"description\": \"The 14q12 breakpoint lies in Domain A, the proximal hESC TAD, approximately 502 kb downstream of FOXG1 and proximal to the refined critical SRO. The translocation separates intact FOXG1 from the SRO, which lies proximal to the hESC-specific boundary between Domains A and B. Neither the SRO nor that boundary is shown to be deleted by P1\u0027s translocation.\"}]}}, {\"id\": \"Paroxysmal bursts of laughter\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Paroxysmal bursts of laughter are a frequent behavioral manifestation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000749\"}}, {\"id\": \"Progressive microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive postnatal microcephaly is a core FOXG1 syndrome feature.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000253\"}}, {\"id\": \"Proposed FOXG1 Dysregulation after Domain A Rearrangement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Rearrangement within Domain A is proposed to impair FOXG1 regulation by separating the gene from the refined SRO. The direction, tissue distribution, and developmental timing of the P1 expression effect remain unmeasured. The authors argue against enhancer adoption from Domain B following loss of the hESC-specific A/B boundary as the main explanation for the syndrome; ectopic expression is not demonstrated in P1.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"FOXG1\"], \"gene_terms\": [{\"label\": \"FOXG1\", \"id\": \"hgnc:3811\"}], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Reduced eye contact\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced eye contact is a frequent social-communication feature.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000817\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures are frequent and show genotype-dependent burden.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Severe global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe global developmental delay is a major neurodevelopmental manifestation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011344\"}}, {\"id\": \"Severe postnatal growth retardation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe postnatal growth retardation is frequent.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0008850\"}}, {\"id\": \"Short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Short stature is a frequent growth finding.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004322\"}}, {\"id\": \"Sleep abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sleep problems are frequent in the neurobehavioral phenotype.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002360\"}}, {\"id\": \"Spasticity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Spasticity is a frequent pyramidal motor feature.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001257\"}}, {\"id\": \"Strabismus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Strabismus is a very frequent ophthalmologic feature.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000486\"}}, {\"id\": \"Synaptic and Motor-Circuit Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FOXG1 frameshift models show dysregulated cortical synaptic, neuronal-projection, migration, and synaptic-vesicle gene programs, providing a mechanism for motor and behavioral phenotypes.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"synapse organization\"]}}, {\"id\": \"Translocation of FOXG1 Regulatory Domain A\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The de novo t(9;14) in Mehrjouy patient P1 interrupts FOXG1 regulatory Domain A without truncating FOXG1. Its chromosome 9 breakpoint does not truncate a gene in the study\u0027s annotation.\", \"meta\": {\"evidence_count\": 2, \"genetic_context\": {\"variant_type\": \"translocation\", \"variant_origin\": \"DE_NOVO\", \"zygosity\": \"HETEROZYGOUS\", \"genomic_contexts\": [\"intergenic region\"], \"affected_regions\": [{\"name\": \"FOXG1 regulatory Domain A (proximal hESC TAD)\", \"chromosomal_region\": \"14q12\", \"description\": \"Domain A is the proximal domain in the paper\u0027s human embryonic stem-cell TAD map. In patient P1, the breakpoint approximately 502 kb downstream of FOXG1 lies within Domain A, proximal to the refined critical smallest region of overlap (SRO). It separates intact FOXG1 from the SRO; the refined SRO itself lies proximal to the hESC-specific boundary between Domains A and B. This names the interrupted domain, not a deleted enhancer or boundary.\"}]}, \"role\": \"trigger\"}}, {\"id\": \"Visual impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Visual impairment and cortical visual impairment are recognized manifestations.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000505\"}}], \"edges\": [{\"source\": \"Translocation of FOXG1 Regulatory Domain A\", \"target\": \"Proposed FOXG1 Dysregulation after Domain A Rearrangement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Separation of FOXG1 from the refined SRO is proposed to alter its regulation through regulatory interactions not measured in P1.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Proposed FOXG1 Dysregulation after Domain A Rearrangement\", \"target\": \"FOXG1 Transcription-Factor Dosage Disruption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered regulation may converge on the established FOXG1 developmental pathway; P1 transcription-factor dosage was not measured.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"FOXG1 Transcription-Factor Dosage Disruption\", \"target\": \"Cortical and Callosal Developmental Disruption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"FOXG1 dosage disruption perturbs cortical neurogenesis, cortical layer formation, and corpus callosum formation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"FOXG1 Transcription-Factor Dosage Disruption\", \"target\": \"Oligodendrocyte Maturation and Myelination Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"FOXG1 dosage disruption affects oligodendrocyte lineage maturation and myelin development.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"FOXG1 Transcription-Factor Dosage Disruption\", \"target\": \"Synaptic and Motor-Circuit Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"FOXG1 dosage disruption changes cortical synaptic gene programs that contribute to motor and behavioral phenotypes.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Cortical and Callosal Developmental Disruption\", \"target\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cortical and callosal malformations contribute to severe developmental disability, absent speech, seizures, and motor impairment.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Oligodendrocyte Maturation and Myelination Delay\", \"target\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Delayed myelination contributes to impaired neural circuit function in the static encephalopathy.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Synaptic and Motor-Circuit Dysfunction\", \"target\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Synaptic and motor-circuit dysfunction contributes to dyskinesia, stereotypies, epilepsy, and severe neurodevelopmental disability.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Progressive microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Severe global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Dyskinesia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Hyperkinetic-dyskinetic movement disorder\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Absent speech\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Abnormal corpus callosum morphology\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Delayed myelination\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Motor stereotypy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Autistic behavior\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Strabismus\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Visual impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Feeding difficulties\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Motor delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Gait disturbance\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Spasticity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Choreoathetosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Myoclonus\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Orofacial dyskinesia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Infantile spasms\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Bilateral tonic-clonic seizure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Focal-onset seizure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Sleep abnormality\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Paroxysmal bursts of laughter\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Reduced eye contact\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Inappropriate crying\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Constipation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Gastroesophageal reflux\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Bruxism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Excessive salivation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Short stature\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Decreased body weight\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Severe postnatal growth retardation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"target\": \"Cognitive impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary supportive and rehabilitative care\", \"target\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Antiseizure pharmacotherapy\", \"target\": \"FOXG1 Static Neurodevelopmental Encephalopathy\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Anti-dyskinetic pharmacotherapy\", \"target\": \"Synaptic and Motor-Circuit Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"AAV9 FOXG1 gene therapy candidate FRF-001\", \"target\": \"FOXG1 Transcription-Factor Dosage Disruption\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"FOXG1\", \"target\": \"FOXG1 Transcription-Factor Dosage Disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FOXG1\", \"target\": \"Proposed FOXG1 Dysregulation after Domain A Rearrangement\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"P1 de novo t(9;14) downstream of FOXG1 (Mehrjouy 2018)\", \"target\": \"FOXG1\", \"predicate\": \"has_regulatory_target\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5601,15 +5980,13 @@ This pathophysiological event involves abnormal synapse organization (GO:0050808
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Musculoskeletal<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Nervous System<span class="pill-count">(16)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Nervous System<span class="pill-count">(24)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Growth<span class="pill-count">(2)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Other<span class="pill-count">(10)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Growth<span class="pill-count">(3)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5638,15 +6015,18 @@ This pathophysiological event involves abnormal synapse organization (GO:0050808
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0011968</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0011968</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is feeding difficulties (HP:0011968). HP:0011968 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5666,6 +6046,7 @@ This clinical feature is feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5708,15 +6089,18 @@ This clinical feature is feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002019" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002019</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002019" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002019</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is constipation (HP:0002019). HP:0002019 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5736,6 +6120,7 @@ This clinical feature is constipation (HP:0002019). HP:0002019 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5778,15 +6163,18 @@ This clinical feature is constipation (HP:0002019). HP:0002019 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002020" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002020</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002020" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002020</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is gastroesophageal reflux (HP:0002020). HP:0002020 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5806,6 +6194,7 @@ This clinical feature is gastroesophageal reflux (HP:0002020). HP:0002020 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5857,15 +6246,18 @@ This clinical feature is gastroesophageal reflux (HP:0002020). HP:0002020 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000486</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000486</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is strabismus (HP:0000486). HP:0000486 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5885,6 +6277,7 @@ This clinical feature is strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5927,15 +6320,18 @@ This clinical feature is strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000505</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000505</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is visual impairment (HP:0000505). HP:0000505 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5955,6 +6351,7 @@ This clinical feature is visual impairment (HP:0000505). HP:0000505 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5987,14 +6384,14 @@ This clinical feature is visual impairment (HP:0000505). HP:0000505 is a phenoty
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-excessive-salivation" data-dismech-node="Excessive salivation" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-progressive-microcephaly" data-dismech-node="Progressive microcephaly" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Excessive salivation
+                        Progressive microcephaly
 
-                        <span class="phenotype-freq">FREQUENT</span>
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
 
@@ -6006,15 +6403,18 @@ This clinical feature is visual impairment (HP:0000505). HP:0000505 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003781" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0003781</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000253" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000253</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is excessive salivation (HP:0003781). HP:0003781 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is progressive microcephaly (HP:0000253). HP:0000253 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6034,6 +6434,81 @@ This clinical feature is excessive salivation (HP:0003781). HP:0003781 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0000253 | Progressive microcephaly | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet lists progressive microcephaly as very frequent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-excessive-salivation" data-dismech-node="Excessive salivation" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Excessive salivation
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003781" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0003781</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is excessive salivation (HP:0003781). HP:0003781 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:561854" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:561854" target="_blank">ORPHA:561854</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6085,15 +6560,18 @@ This clinical feature is excessive salivation (HP:0003781). HP:0003781 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001252</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6113,6 +6591,7 @@ This clinical feature is hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6155,15 +6634,18 @@ This clinical feature is hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001257</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001257</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is spasticity (HP:0001257). HP:0001257 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6183,6 +6665,7 @@ This clinical feature is spasticity (HP:0001257). HP:0001257 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6215,7 +6698,7 @@ This clinical feature is spasticity (HP:0001257). HP:0001257 is a phenotype from
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">16</span>
+                    <span class="cat-count">24</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-severe-global-developmental-delay" data-dismech-node="Severe global developmental delay" data-dismech-type="phenotype">
@@ -6234,15 +6717,18 @@ This clinical feature is spasticity (HP:0001257). HP:0001257 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011344" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0011344</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011344" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0011344</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is severe global developmental delay (HP:0011344). HP:0011344 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6262,6 +6748,7 @@ This clinical feature is severe global developmental delay (HP:0011344). HP:0011
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6304,15 +6791,18 @@ This clinical feature is severe global developmental delay (HP:0011344). HP:0011
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100660" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0100660</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100660" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0100660</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is dyskinesia (HP:0100660). HP:0100660 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6335,6 +6825,7 @@ This clinical feature is dyskinesia (HP:0100660). HP:0100660 is a phenotype from
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6343,6 +6834,107 @@ This clinical feature is dyskinesia (HP:0100660). HP:0100660 is a phenotype from
 
 
                 <div class="evidence-explanation">Orphanet lists dyskinesia as very frequent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hyperkinetic-dyskinetic-movement-disorder" data-dismech-node="Hyperkinetic-dyskinetic movement disorder" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hyperkinetic-dyskinetic movement disorder
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Hyperkinetic movements</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002487" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002487</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is hyperkinetic movements (HP:0002487). HP:0002487 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:561854" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:561854" target="_blank">ORPHA:561854</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0002487 | Hyperkinetic movements | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet lists hyperkinetic movements as frequent.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26344814" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26344814" target="_blank">PMID:26344814</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A hyperkinetic-dyskinetic movement disorder emerges as a distinctive feature of the FOXG1-related phenotype."</div>
+
+
+                <div class="evidence-explanation">The clinical movement-disorder series supports dyskinesia as a distinctive FOXG1 phenotype.</div>
 
 
 
@@ -6374,15 +6966,18 @@ This clinical feature is dyskinesia (HP:0100660). HP:0100660 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is seizures, annotated with Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6402,6 +6997,7 @@ This clinical feature is seizures, annotated with Seizure (HP:0001250). HP:00012
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6444,15 +7040,18 @@ This clinical feature is seizures, annotated with Seizure (HP:0001250). HP:00012
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001344" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001344</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001344" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001344</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is absent speech (HP:0001344). HP:0001344 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6472,6 +7071,7 @@ This clinical feature is absent speech (HP:0001344). HP:0001344 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6514,15 +7114,18 @@ This clinical feature is absent speech (HP:0001344). HP:0001344 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001273" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001273</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001273" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001273</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is abnormal corpus callosum morphology (HP:0001273). HP:0001273 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6542,6 +7145,7 @@ This clinical feature is abnormal corpus callosum morphology (HP:0001273). HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6584,15 +7188,18 @@ This clinical feature is abnormal corpus callosum morphology (HP:0001273). HP:00
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012448" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0012448</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012448" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0012448</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is delayed myelination (HP:0012448). HP:0012448 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6615,6 +7222,7 @@ This clinical feature is delayed myelination (HP:0012448). HP:0012448 is a pheno
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6623,6 +7231,80 @@ This clinical feature is delayed myelination (HP:0012448). HP:0012448 is a pheno
 
 
                 <div class="evidence-explanation">Orphanet lists delayed myelination as frequent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-motor-stereotypy" data-dismech-node="Motor stereotypy" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Motor stereotypy
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000733" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000733</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is abnormal repetitive mannerisms, annotated with Motor stereotypy (HP:0000733). HP:0000733 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:561854" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:561854" target="_blank">ORPHA:561854</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0000733 | Abnormal repetitive mannerisms | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet lists abnormal repetitive mannerisms as very frequent.</div>
 
 
 
@@ -6654,15 +7336,18 @@ This clinical feature is delayed myelination (HP:0012448). HP:0012448 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000729</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000729</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is autistic behavior (HP:0000729). HP:0000729 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6682,6 +7367,7 @@ This clinical feature is autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6724,15 +7410,18 @@ This clinical feature is autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001270</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001270</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is motor delay (HP:0001270). HP:0001270 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6752,6 +7441,7 @@ This clinical feature is motor delay (HP:0001270). HP:0001270 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6794,15 +7484,18 @@ This clinical feature is motor delay (HP:0001270). HP:0001270 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001288" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001288</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001288" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001288</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is gait disturbance (HP:0001288). HP:0001288 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6822,6 +7515,7 @@ This clinical feature is gait disturbance (HP:0001288). HP:0001288 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6864,15 +7558,18 @@ This clinical feature is gait disturbance (HP:0001288). HP:0001288 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001266" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001266</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001266" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001266</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is choreoathetosis (HP:0001266). HP:0001266 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6892,6 +7589,7 @@ This clinical feature is choreoathetosis (HP:0001266). HP:0001266 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6934,15 +7632,18 @@ This clinical feature is choreoathetosis (HP:0001266). HP:0001266 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001332</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0001332</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is dystonia (HP:0001332). HP:0001332 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6962,6 +7663,7 @@ This clinical feature is dystonia (HP:0001332). HP:0001332 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7004,15 +7706,18 @@ This clinical feature is dystonia (HP:0001332). HP:0001332 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001336" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001336</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001336" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0001336</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is myoclonus (HP:0001336). HP:0001336 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7035,6 +7740,7 @@ This clinical feature is myoclonus (HP:0001336). HP:0001336 is a phenotype from 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7043,6 +7749,154 @@ This clinical feature is myoclonus (HP:0001336). HP:0001336 is a phenotype from 
 
 
                 <div class="evidence-explanation">Orphanet lists myoclonus as frequent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-orofacial-dyskinesia" data-dismech-node="Orofacial dyskinesia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Orofacial dyskinesia
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002310" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0002310</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is orofacial dyskinesia (HP:0002310). HP:0002310 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:561854" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:561854" target="_blank">ORPHA:561854</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0002310 | Orofacial dyskinesia | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet lists orofacial dyskinesia as frequent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-infantile-spasms" data-dismech-node="Infantile spasms" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Infantile spasms
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012469" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0012469</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is infantile spasms (HP:0012469). HP:0012469 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:561854" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:561854" target="_blank">ORPHA:561854</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0012469 | Infantile spasms | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet lists infantile spasms as frequent.</div>
 
 
 
@@ -7074,15 +7928,18 @@ This clinical feature is myoclonus (HP:0001336). HP:0001336 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002069" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0002069</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002069" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0002069</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is bilateral tonic-clonic seizure (HP:0002069). HP:0002069 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7102,6 +7959,7 @@ This clinical feature is bilateral tonic-clonic seizure (HP:0002069). HP:0002069
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7144,15 +8002,18 @@ This clinical feature is bilateral tonic-clonic seizure (HP:0002069). HP:0002069
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007359" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0007359</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007359" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0007359</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is focal-onset seizure (HP:0007359). HP:0007359 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7172,6 +8033,7 @@ This clinical feature is focal-onset seizure (HP:0007359). HP:0007359 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7216,15 +8078,18 @@ This clinical feature is focal-onset seizure (HP:0007359). HP:0007359 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0002360</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0002360</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is sleep abnormality, annotated with Sleep disturbance (HP:0002360). HP:0002360 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7244,6 +8109,7 @@ This clinical feature is sleep abnormality, annotated with Sleep disturbance (HP
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7255,610 +8121,6 @@ This clinical feature is sleep abnormality, annotated with Sleep disturbance (HP
 
 
                 <div class="evidence-explanation">Orphanet lists sleep abnormality as frequent.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-cognitive-impairment" data-dismech-node="Cognitive impairment" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Cognitive impairment
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0100543</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is cognitive impairment (HP:0100543). HP:0100543 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:561854" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:561854" target="_blank">ORPHA:561854</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0100543 | Cognitive impairment | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet lists cognitive impairment as frequent.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Growth
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-short-stature" data-dismech-node="Short stature" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Short stature
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0004322</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:561854" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:561854" target="_blank">ORPHA:561854</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0004322 | Short stature | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet lists short stature as frequent.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-decreased-body-weight" data-dismech-node="Decreased body weight" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Decreased body weight
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004325" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0004325</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is decreased body weight (HP:0004325). HP:0004325 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:561854" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:561854" target="_blank">ORPHA:561854</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0004325 | Decreased body weight | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet lists decreased body weight as frequent.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-7">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">10</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-progressive-microcephaly" data-dismech-node="Progressive microcephaly" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Progressive microcephaly
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000253" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0000253</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is progressive microcephaly (HP:0000253). HP:0000253 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:561854" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:561854" target="_blank">ORPHA:561854</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0000253 | Progressive microcephaly | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet lists progressive microcephaly as very frequent.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hyperkinetic-dyskinetic-movement-disorder" data-dismech-node="Hyperkinetic-dyskinetic movement disorder" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hyperkinetic-dyskinetic movement disorder
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Hyperkinetic movements</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002487" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0002487</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is hyperkinetic movements (HP:0002487). HP:0002487 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:561854" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:561854" target="_blank">ORPHA:561854</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0002487 | Hyperkinetic movements | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet lists hyperkinetic movements as frequent.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:26344814" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26344814" target="_blank">PMID:26344814</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"A hyperkinetic-dyskinetic movement disorder emerges as a distinctive feature of the FOXG1-related phenotype."</div>
-
-
-                <div class="evidence-explanation">The clinical movement-disorder series supports dyskinesia as a distinctive FOXG1 phenotype.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-motor-stereotypy" data-dismech-node="Motor stereotypy" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Motor stereotypy
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000733" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0000733</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is abnormal repetitive mannerisms, annotated with Motor stereotypy (HP:0000733). HP:0000733 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:561854" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:561854" target="_blank">ORPHA:561854</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0000733 | Abnormal repetitive mannerisms | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet lists abnormal repetitive mannerisms as very frequent.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-orofacial-dyskinesia" data-dismech-node="Orofacial dyskinesia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Orofacial dyskinesia
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002310" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0002310</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is orofacial dyskinesia (HP:0002310). HP:0002310 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:561854" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:561854" target="_blank">ORPHA:561854</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0002310 | Orofacial dyskinesia | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet lists orofacial dyskinesia as frequent.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-infantile-spasms" data-dismech-node="Infantile spasms" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Infantile spasms
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012469" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0012469</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is infantile spasms (HP:0012469). HP:0012469 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:561854" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:561854" target="_blank">ORPHA:561854</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0012469 | Infantile spasms | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet lists infantile spasms as frequent.</div>
 
 
 
@@ -7890,15 +8152,18 @@ This clinical feature is infantile spasms (HP:0012469). HP:0012469 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000749" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0000749</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000749" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0000749</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is paroxysmal bursts of laughter (HP:0000749). HP:0000749 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7918,6 +8183,7 @@ This clinical feature is paroxysmal bursts of laughter (HP:0000749). HP:0000749 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7960,15 +8226,18 @@ This clinical feature is paroxysmal bursts of laughter (HP:0000749). HP:0000749 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000817" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0000817</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000817" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0000817</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is reduced eye contact (HP:0000817). HP:0000817 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7988,6 +8257,7 @@ This clinical feature is reduced eye contact (HP:0000817). HP:0000817 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8030,15 +8300,18 @@ This clinical feature is reduced eye contact (HP:0000817). HP:0000817 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030215" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0030215</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030215" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0030215</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is inappropriate crying (HP:0030215). HP:0030215 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8058,6 +8331,7 @@ This clinical feature is inappropriate crying (HP:0030215). HP:0030215 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8100,15 +8374,18 @@ This clinical feature is inappropriate crying (HP:0030215). HP:0030215 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003763" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0003763</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003763" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0003763</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is bruxism (HP:0003763). HP:0003763 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8131,6 +8408,7 @@ This clinical feature is bruxism (HP:0003763). HP:0003763 is a phenotype from th
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8139,6 +8417,237 @@ This clinical feature is bruxism (HP:0003763). HP:0003763 is a phenotype from th
 
 
                 <div class="evidence-explanation">Orphanet lists bruxism as frequent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cognitive-impairment" data-dismech-node="Cognitive impairment" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Cognitive impairment
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0100543</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is cognitive impairment (HP:0100543). HP:0100543 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:561854" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:561854" target="_blank">ORPHA:561854</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0100543 | Cognitive impairment | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet lists cognitive impairment as frequent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-6">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Growth
+                    <span class="cat-count">3</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-short-stature" data-dismech-node="Short stature" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Short stature
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0004322</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:561854" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:561854" target="_blank">ORPHA:561854</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0004322 | Short stature | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet lists short stature as frequent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-decreased-body-weight" data-dismech-node="Decreased body weight" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Decreased body weight
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004325" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0004325</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is decreased body weight (HP:0004325). HP:0004325 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:561854" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:561854" target="_blank">ORPHA:561854</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0004325 | Decreased body weight | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet lists decreased body weight as frequent.</div>
 
 
 
@@ -8170,15 +8679,18 @@ This clinical feature is bruxism (HP:0003763). HP:0003763 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008850" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0008850</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008850" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0008850</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is severe postnatal growth retardation (HP:0008850). HP:0008850 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8198,6 +8710,7 @@ This clinical feature is severe postnatal growth retardation (HP:0008850). HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8281,10 +8794,10 @@ This clinical feature is severe postnatal growth retardation (HP:0008850). HP:00
                         Gene: FOXG1
 
 
-    <a href="https://bioregistry.io/hgnc:3811" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-50">hgnc:3811</a>
+    <a href="https://bioregistry.io/hgnc:3811" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-51">hgnc:3811</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-50">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is FOXG1 (hgnc:3811). hgnc:3811 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -8292,6 +8805,9 @@ This disease-associated gene is FOXG1 (hgnc:3811). hgnc:3811 is a gene from the 
 
 
                 </div>
+
+
+
 
 
 
@@ -8310,6 +8826,7 @@ This disease-associated gene is FOXG1 (hgnc:3811). hgnc:3811 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8337,6 +8854,7 @@ This disease-associated gene is FOXG1 (hgnc:3811). hgnc:3811 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8355,6 +8873,180 @@ This disease-associated gene is FOXG1 (hgnc:3811). hgnc:3811 is a gene from the 
     </details>
 
 
+
+                <details class="variant-list">
+                    <summary class="variant-list-toggle">Variants (1)</summary>
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-p1-de-novo-t-9-14-downstream-of-foxg1-mehrjouy-2018" data-dismech-node="P1 de novo t(9;14) downstream of FOXG1 (Mehrjouy 2018)" data-dismech-type="genetic">
+
+    <div class="item-name">
+        P1 de novo t(9;14) downstream of FOXG1 (Mehrjouy 2018)
+
+    </div>
+
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+            Regulatory target: FOXG1
+
+
+    <a href="https://bioregistry.io/hgnc:3811" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-52">hgnc:3811</a>
+
+
+            <span class="pill-tip" role="tooltip" id="pill-tip-52">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant has a reported or proposed regulatory effect on this gene
+This variant has a reported or proposed regulatory effect on FOXG1 (hgnc:3811). hgnc:3811 is a gene from the HUGO Gene Nomenclature Committee.</span>
+        </span>
+
+
+        <span class="tag" style="background: #e0e7ff; color: #3730a3;">translocation</span>
+
+
+
+    </div>
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #6b7280;">Genomic context:</strong>
+
+        <span class="tag" style="background: #f1f5f9; color: #475569;">intergenic region</span>
+
+    </div>
+
+
+
+<div class="affected-regions">
+    <div class="item-meta"><strong>Affected regions (reference genome)</strong></div>
+
+    <div class="affected-region">
+        <div class="item-meta">
+            <strong>FOXG1 regulatory Domain A (proximal hESC TAD)</strong>
+            <span class="tag tag-classification">14q12</span>
+
+        </div>
+
+
+
+
+        <div class="item-desc">The 14q12 breakpoint lies in Domain A, the proximal hESC TAD, approximately 502 kb downstream of FOXG1 and proximal to the refined critical SRO. The translocation separates intact FOXG1 from the SRO, which lies proximal to the hESC-specific boundary between Domains A and B. Neither the SRO nor that boundary is shown to be deleted by P1&#39;s translocation.</div>
+    </div>
+
+</div>
+
+
+
+    <div class="item-desc">Mehrjouy patient P1 (ClinVar SCV000576475) carries de novo t(9;14). Sanger sequencing placed the GRCh37 chromosome 14 junctions at 29,738,725 and 29,738,735, approximately 502 kb downstream of FOXG1, with small junction deletions. The reported phenotype includes seizures, severe developmental delay, postnatal microcephaly, hypotonia, and absent speech. FOXG1 expression was not measured in P1; the regulatory target assignment reflects the clinical mapping model.</div>
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (4 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29289958" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29289958" target="_blank">PMID:29289958</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Herein we map three de novo translocation breakpoints to the proximal regulatory domain of FOXG1."</div>
+
+
+                <div class="evidence-explanation">P1 is one of the mapped translocations within the proximal regulatory domain.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="url:https://d-nb.info/1155958349/34" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://d-nb.info/1155958349/34" target="_blank">url:https://d-nb.info/1155958349/34</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The breakpoint on the chromosome 14 truncates a highly conserved regulatory landscape 502 kb downstream of FOXG1. ... GRCh37 ... t(9;14)(q22.31;q12) ... chr9:pter_cen_94269450::chr14:29738735_qter ... chr14:pter_cen_29738725::chr9:94269454_qter ... Nine base pairs (CACAGCCTC) were deleted on the..."</div>
+
+
+                <div class="evidence-explanation">The Patient 1 section of the archived publisher full text of PMID:29289958 gives the GRCh37 derivative junctions and the small deletions detected by Sanger sequencing. The ellipses delimit exact genome-build and junction fragments from the sequence description, followed by the sentence specifying the deletions.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="url:https://d-nb.info/1155958349/34" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://d-nb.info/1155958349/34" target="_blank">url:https://d-nb.info/1155958349/34</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We submitted P1-P3 to ClinVar and the accession numbers are: SCV000576475 = P1, SCV000576474 = P2, SCV000576473 = P3."</div>
+
+
+                <div class="evidence-explanation">The same publisher full text explicitly links P1 to ClinVar SCV000576475.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
+
+
+
+    </div>
+
+
+                </details>
 
             </div>
 
@@ -8384,7 +9076,7 @@ This disease-associated gene is FOXG1 (hgnc:3811). hgnc:3811 is a gene from the 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-51">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-53">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-53">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8412,6 +9104,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -8447,6 +9153,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8487,7 +9194,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-52">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-52">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-54">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-54">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8528,16 +9235,30 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C264" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-53">NCIT:C264</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C264" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-55">NCIT:C264</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-53">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses anticonvulsant agent (NCIT:C264). NCIT:C264 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -8571,6 +9292,7 @@ This treatment uses anticonvulsant agent (NCIT:C264). NCIT:C264 is a therapeutic
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8611,7 +9333,7 @@ This treatment uses anticonvulsant agent (NCIT:C264). NCIT:C264 is a therapeutic
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-54">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-54">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-56">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-56">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8638,6 +9360,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -8673,6 +9409,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8713,7 +9450,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-55">genetic therapy<span class="pill-tip" role="tooltip" id="pill-tip-55">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-57">genetic therapy<span class="pill-tip" role="tooltip" id="pill-tip-57">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is genetic therapy, annotated with Gene Therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8741,6 +9478,31 @@ This treatment is genetic therapy, annotated with Gene Therapy (NCIT:C15238). NC
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Gene therapy</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -8776,6 +9538,7 @@ This treatment is genetic therapy, annotated with Gene Therapy (NCIT:C15238). NC
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8848,11 +9611,11 @@ This treatment is genetic therapy, annotated with Gene Therapy (NCIT:C15238). NC
         genetic testing
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-56">NCIT:C15709</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-58">NCIT:C15709</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-56">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-58">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -8892,6 +9655,7 @@ This treatment is genetic therapy, annotated with Gene Therapy (NCIT:C15238). NC
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8937,11 +9701,11 @@ This treatment is genetic therapy, annotated with Gene Therapy (NCIT:C15238). NC
         magnetic resonance imaging procedure
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C16809" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-57">NCIT:C16809</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C16809" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-59">NCIT:C16809</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-57">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-59">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -8981,6 +9745,7 @@ This treatment is genetic therapy, annotated with Gene Therapy (NCIT:C15238). NC
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9079,6 +9844,7 @@ This treatment is genetic therapy, annotated with Gene Therapy (NCIT:C15238). NC
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9126,8 +9892,8 @@ This treatment is genetic therapy, annotated with Gene Therapy (NCIT:C15238). NC
 creation_date: &#34;2026-05-10T00:00:00Z&#34;
 description: &gt;-
   FOXG1 disorder is a rare monogenic neurodevelopmental disorder caused by
-  heterozygous pathogenic variants, deletions, or copy-number changes affecting
-  FOXG1 dosage. The core mechanism is disrupted FOXG1-dependent transcriptional
+  heterozygous pathogenic variants, copy-number changes, or long-range regulatory
+  rearrangements affecting FOXG1 function or regulation. The core mechanism is disrupted FOXG1-dependent transcriptional
   control during forebrain development, leading to cortical and corpus callosum
   malformations, delayed myelination, severe developmental disability, movement
   disorder, epilepsy, feeding problems, and visual abnormalities.
@@ -9210,6 +9976,105 @@ inheritance:
       GeneReviews supports autosomal dominant inheritance and notes that most
       probands have a de novo FOXG1 pathogenic variant.
 pathophysiology:
+- name: Translocation of FOXG1 Regulatory Domain A
+  biological_scale: MOLECULAR
+  role: trigger
+  genetic_context:
+    variant_type: translocation
+    genomic_contexts:
+    - intergenic region
+    zygosity: HETEROZYGOUS
+    variant_origin: DE_NOVO
+    affected_regions:
+    - name: FOXG1 regulatory Domain A (proximal hESC TAD)
+      chromosomal_region: 14q12
+      description: &gt;-
+        Domain A is the proximal domain in the paper&#39;s human embryonic
+        stem-cell TAD map. In patient P1, the breakpoint approximately
+        502 kb downstream of FOXG1 lies within Domain A, proximal to the
+        refined critical smallest region of overlap (SRO). It separates
+        intact FOXG1 from the SRO; the refined SRO itself lies proximal to
+        the hESC-specific boundary between Domains A and B. This names
+        the interrupted domain, not a deleted enhancer or boundary.
+  description: &gt;-
+    The de novo t(9;14) in Mehrjouy patient P1 interrupts FOXG1 regulatory
+    Domain A without truncating FOXG1. Its chromosome 9
+    breakpoint does not truncate a gene in the study&#39;s annotation.
+  evidence:
+  - reference: PMID:29289958
+    reference_title: Regulatory variants of FOXG1 in the context of its topological domain organisation.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Herein we map three de novo translocation breakpoints to the proximal regulatory domain of FOXG1.&#34;
+    explanation: &gt;-
+      P1 is one of the translocations mapped within the proximal
+      regulatory domain, Domain A in the paper&#39;s hESC TAD map.
+  - reference: url:https://d-nb.info/1155958349/34
+    reference_title: https://d-nb.info/1155958349/34
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The BP on chromosome 9 does not truncate any gene or predicted regulatory
+      domain. The breakpoint on the chromosome 14 truncates a highly conserved
+      regulatory landscape 502 kb downstream of FOXG1.
+    explanation: &gt;-
+      The archived publisher full text of PMID:29289958 reports P1&#39;s
+      breakpoint context. Downstream here is relative to FOXG1; it does
+      not mean the separate distal hESC TAD, Domain B.
+  downstream:
+  - target: Proposed FOXG1 Dysregulation after Domain A Rearrangement
+    causal_link_type: DIRECT
+    description: &gt;-
+      Separation of FOXG1 from the refined SRO is proposed to alter its
+      regulation through regulatory interactions not measured in P1.
+    evidence:
+    - reference: PMID:29289958
+      reference_title: Regulatory variants of FOXG1 in the context of its topological domain organisation.
+      supports: SUPPORT
+      directness: INDIRECT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Our data support the importance of a critical regulatory region (SRO) proximal to the hESC-specific TAD boundary.&#34;
+      explanation: Clinical mapping supports a position effect, without measuring P1 expression in developing neural tissue.
+- name: Proposed FOXG1 Dysregulation after Domain A Rearrangement
+  biological_scale: MOLECULAR
+  mechanism_confidence: PROVISIONAL
+  description: &gt;-
+    Rearrangement within Domain A is proposed to impair FOXG1 regulation
+    by separating the gene from the refined SRO. The direction, tissue
+    distribution, and developmental timing of the P1 expression effect
+    remain unmeasured. The authors argue against enhancer adoption from
+    Domain B following loss of the hESC-specific A/B boundary as the
+    main explanation for the syndrome; ectopic expression is not
+    demonstrated in P1.
+  genes:
+  - preferred_term: FOXG1
+    term:
+      id: hgnc:3811
+      label: FOXG1
+  evidence:
+  - reference: PMID:29289958
+    reference_title: Regulatory variants of FOXG1 in the context of its topological domain organisation.
+    supports: SUPPORT
+    directness: INDIRECT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Our data support the importance of a critical regulatory region (SRO) proximal to the hESC-specific TAD boundary.&#34;
+    explanation: &gt;-
+      Clinical mapping supports a regulatory role for the refined SRO.
+      The inferred expression consequence in P1 remains provisional;
+      this statement does not establish enhancer adoption or a measured
+      change in FOXG1 expression.
+  downstream:
+  - target: FOXG1 Transcription-Factor Dosage Disruption
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: Altered regulation may converge on the established FOXG1 developmental pathway; P1 transcription-factor dosage was not measured.
+    evidence:
+    - reference: PMID:29289958
+      reference_title: Regulatory variants of FOXG1 in the context of its topological domain organisation.
+      supports: SUPPORT
+      directness: INDIRECT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;FOXG1 syndrome is caused by FOXG1 intragenic point mutations, or by long-range position effects (LRPE) of intergenic structural variants.&#34;
+      explanation: Phenotypic concordance motivates convergence on FOXG1 dysfunction, rather than demonstrating a patient dosage measurement.
 - name: FOXG1 Transcription-Factor Dosage Disruption
   description: &gt;-
     Heterozygous FOXG1 loss-of-function variants, deletions, or duplications
@@ -10110,6 +10975,79 @@ genetic:
       Inclusion required documentation of a (likely) pathogenic variant in FOXG1.
     explanation: &gt;-
       The registry required molecular confirmation of FOXG1 pathogenicity.
+  variants:
+  - name: P1 de novo t(9;14) downstream of FOXG1 (Mehrjouy 2018)
+    variant_type: translocation
+    genomic_contexts:
+    - intergenic region
+    affected_regions:
+    - name: FOXG1 regulatory Domain A (proximal hESC TAD)
+      chromosomal_region: 14q12
+      description: &gt;-
+        The 14q12 breakpoint lies in Domain A, the proximal hESC TAD,
+        approximately 502 kb downstream of FOXG1 and proximal to the
+        refined critical SRO. The translocation separates intact FOXG1
+        from the SRO, which lies proximal to the hESC-specific boundary
+        between Domains A and B. Neither the SRO nor that boundary is
+        shown to be deleted by P1&#39;s translocation.
+    regulatory_target_gene:
+      preferred_term: FOXG1
+      term:
+        id: hgnc:3811
+        label: FOXG1
+    description: &gt;-
+      Mehrjouy patient P1 (ClinVar SCV000576475) carries de novo t(9;14).
+      Sanger sequencing placed the GRCh37 chromosome 14 junctions at
+      29,738,725 and 29,738,735, approximately 502 kb downstream of FOXG1,
+      with small junction deletions. The reported phenotype includes
+      seizures, severe developmental delay, postnatal microcephaly,
+      hypotonia, and absent speech. FOXG1 expression was not measured in P1;
+      the regulatory target assignment reflects the clinical mapping model.
+    evidence:
+    - reference: PMID:29289958
+      reference_title: Regulatory variants of FOXG1 in the context of its topological domain organisation.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Herein we map three de novo translocation breakpoints to the proximal regulatory domain of FOXG1.&#34;
+      explanation: P1 is one of the mapped translocations within the proximal regulatory domain.
+    - reference: url:https://d-nb.info/1155958349/34
+      reference_title: https://d-nb.info/1155958349/34
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        The breakpoint on the chromosome 14 truncates a highly conserved
+        regulatory landscape 502 kb downstream of FOXG1. ...
+        GRCh37 ... t(9;14)(q22.31;q12) ...
+        chr9:pter_cen_94269450::chr14:29738735_qter ...
+        chr14:pter_cen_29738725::chr9:94269454_qter ...
+        Nine base pairs (CACAGCCTC) were deleted on the der
+        (14), and three base pairs (CAT) were deleted on the der(9)
+      explanation: &gt;-
+        The Patient 1 section of the archived publisher full text of
+        PMID:29289958 gives the GRCh37 derivative junctions and the small
+        deletions detected by Sanger sequencing. The ellipses delimit
+        exact genome-build and junction fragments from the sequence
+        description, followed by the sentence specifying the deletions.
+    - reference: url:https://d-nb.info/1155958349/34
+      reference_title: https://d-nb.info/1155958349/34
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        We submitted P1-P3 to ClinVar and the accession numbers are:
+        SCV000576475 = P1, SCV000576474 = P2, SCV000576473 = P3.
+      explanation: The same publisher full text explicitly links P1 to ClinVar SCV000576475.
+    - reference: url:https://d-nb.info/1155958349/34
+      reference_title: https://d-nb.info/1155958349/34
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        The proximal limit of the SRO is supported by two of our de novo
+        translocation breakpoints (P1, P2) as well as by two recently mapped
+        BPs (DGAP245, NIJ1)
+      explanation: &gt;-
+        Places P1 on the proximal side of the refined SRO. Domain A is
+        proximal to Domain B in the hESC TAD map, even though P1 and the
+        SRO are hundreds of kilobases downstream of FOXG1.
 diagnosis:
 - name: Molecular genetic testing
   description: &gt;-
@@ -10301,6 +11239,18 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Deep-research attempts used the required repo workflow. Falcon and OpenAI provider attempts produced no substantive output within bounded waits and were terminated to avoid a long silent block. The Asta provider completed and generated research/FOXG1_Disorder-deep-research-asta.md; this curation uses that artifact plus targeted PubMed, Orphanet, GeneReviews, and ClinicalTrials.gov evidence.</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -10699,7 +11649,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "FOXG1 Disorder", "mondoId": "MONDO:0100040", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "FOXG1_Disorder", "yamlRevision": "e3f165b3e3f2"};
+        const OS_CONFIG = {"diseaseName": "FOXG1 Disorder", "mondoId": "MONDO:0100040", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "FOXG1_Disorder", "yamlRevision": "f81b6752462b"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4199,6 +4271,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4387,6 +4460,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4411,6 +4485,7 @@
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4580,6 +4655,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4614,6 +4690,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-pcyt1a-allele-combination" data-dismech-node="Biallelic PCYT1A Allele Combination" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic PCYT1A Allele Combination</div>
+
 
                 <div class="item-desc">Homozygous or compound heterozygous PCYT1A alleles affecting the catalytic domain, the regulatory linker, or the autoinhibitory helix of CCT-alpha.</div>
 
@@ -4710,6 +4787,7 @@ This pathophysiological event involves PCYT1A (hgnc:8754). hgnc:8754 is a gene f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4732,6 +4810,7 @@ This pathophysiological event involves PCYT1A (hgnc:8754). hgnc:8754 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-cct-alpha-catalytic-function-and-fold-stability" data-dismech-node="Impaired CCT-alpha Catalytic Function and Fold Stability" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired CCT-alpha Catalytic Function and Fold Stability</div>
+
 
                 <div class="item-desc">CCT-alpha is the rate-determining enzyme of the Kennedy pathway and is normally activated by binding to phosphatidylcholine-deficient membranes, which makes it a lipid sensor as well as a catalyst. Disease alleles impair that function in several distinct ways, and not all of them by simple reduction: E280del in the autoinhibitory helix raises lipid-independent constitutive activity around four-fold and, unexpectedly, also enhances the response to anionic lipid vesicles around four-fold.</div>
 
@@ -4844,6 +4923,7 @@ This pathophysiological event involves nuclear envelope (GO:0005635). GO:0005635
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4870,6 +4950,7 @@ This pathophysiological event involves nuclear envelope (GO:0005635). GO:0005635
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4892,6 +4973,7 @@ This pathophysiological event involves nuclear envelope (GO:0005635). GO:0005635
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-deficient-phosphatidylcholine-synthesis" data-dismech-node="Deficient Phosphatidylcholine Synthesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Deficient Phosphatidylcholine Synthesis</div>
+
 
                 <div class="item-desc">Phosphatidylcholine is the principal glycerophospholipid of eukaryotic membranes and an essential component of all of them, which is what makes the tissue selectivity of this disorder hard to explain. The affected tissues are presumed to be those with a stringent requirement for CCT-alpha specifically, rather than those with the highest membrane turnover in general.</div>
 
@@ -4991,6 +5073,7 @@ This pathophysiological event involves decreased phosphatidylcholine biosyntheti
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5013,6 +5096,7 @@ This pathophysiological event involves decreased phosphatidylcholine biosyntheti
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-growth-plate-failure-with-metaphyseal-and-vertebral-change" data-dismech-node="Growth-Plate Failure with Metaphyseal and Vertebral Change" data-dismech-type="pathophysiology">
                 <div class="item-name">Growth-Plate Failure with Metaphyseal and Vertebral Change</div>
+
 
                 <div class="item-desc">Progressive metaphyseal irregularity and cupping with shortened tubular bones, and platyspondyly with anterior vertebral protrusions. The combined vertebral and metaphyseal involvement is what places the disorder in the spondylometaphyseal group.</div>
 
@@ -5116,6 +5200,7 @@ This pathophysiological event involves chondrocyte (CL:0000138). CL:0000138 is a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5138,6 +5223,7 @@ This pathophysiological event involves chondrocyte (CL:0000138). CL:0000138 is a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-severe-short-stature-with-lower-limb-bowing" data-dismech-node="Severe Short Stature with Lower-Limb Bowing" data-dismech-type="pathophysiology">
                 <div class="item-name">Severe Short Stature with Lower-Limb Bowing</div>
+
 
                 <div class="item-desc">Postnatal growth deficiency producing severe short stature with rhizomelia, and progressive bowing of the lower limbs.</div>
 
@@ -5207,6 +5293,7 @@ This pathophysiological event involves chondrocyte (CL:0000138). CL:0000138 is a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5229,6 +5316,7 @@ This pathophysiological event involves chondrocyte (CL:0000138). CL:0000138 is a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-retinal-fatty-acid-dysregulation-and-ferroptosis-in-mueller-glia" data-dismech-node="Retinal Fatty-Acid Dysregulation and Ferroptosis in Mueller Glia" data-dismech-type="pathophysiology">
                 <div class="item-name">Retinal Fatty-Acid Dysregulation and Ferroptosis in Mueller Glia</div>
+
 
                 <div class="item-desc">In the retina, PCYT1A is expressed mainly in Mueller glial cells of the inner nuclear layer, not in the photoreceptors that die. Retina-specific Pcyt1a knockout produces reduced scotopic electroretinogram responses and progressive photoreceptor degeneration together with loss of inner-nuclear-layer cells, and proteomics implicates dysregulated fatty acid metabolism and activation of ferroptosis rather than a shortfall of phosphatidylcholine. The photoreceptor loss is therefore non-cell-autonomous on this evidence — a Mueller glial lesion that photoreceptors do not survive.</div>
 
@@ -5388,6 +5476,7 @@ This pathophysiological event involves increased ferroptosis (GO:0097707). GO:00
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5409,6 +5498,7 @@ This pathophysiological event involves increased ferroptosis (GO:0097707). GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5436,6 +5526,7 @@ This pathophysiological event involves increased ferroptosis (GO:0097707). GO:00
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5458,6 +5549,7 @@ This pathophysiological event involves increased ferroptosis (GO:0097707). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cone-rod-photoreceptor-degeneration" data-dismech-node="Cone-Rod Photoreceptor Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Cone-Rod Photoreceptor Degeneration</div>
+
 
                 <div class="item-desc">Early-onset, progressive visual impairment with a pigmentary maculopathy and electroretinographic evidence of cone-rod dysfunction. This is the feature that distinguishes SMD-CRD from all other spondylometaphyseal dysplasias, and the one that determines long-term function in survivors.</div>
 
@@ -5591,6 +5683,7 @@ This pathophysiological event involves retinal cone cell (CL:0000573). CL:000057
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5655,15 +5748,13 @@ This pathophysiological event involves retinal cone cell (CL:0000573). CL:000057
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Eye<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Eye<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Limbs<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Limbs<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(1)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Growth<span class="pill-count">(2)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5673,8 +5764,129 @@ This pathophysiological event involves retinal cone cell (CL:0000573). CL:000057
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cone-rod-dystrophy" data-dismech-node="Cone-Rod Dystrophy" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Cone-Rod Dystrophy
+
+                        <span class="phenotype-freq">OBLIGATE</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Cone/cone-rod dystrophy</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000548" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0000548</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cone/cone-rod dystrophy (HP:0000548), qualified as course progressive. HP:0000548 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Course: PROGRESSIVE</span>
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28272537" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28272537" target="_blank">PMID:28272537</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Affected patients have early-onset, progressive visual impairment associated with a pigmentary maculopathy and electroretinographic evidence of cone-rod dysfunction."</div>
+
+
+                <div class="evidence-explanation">The retinal phenotype is named in the disorder&#39;s own definition, hence the OBLIGATE band.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29122926" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29122926" target="_blank">PMID:29122926</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Cone rod dystrophy is a feature of SMDCRD which is caused by loss-of-function variants in PCYT1A."</div>
+
+
+                <div class="evidence-explanation">Independent corroboration from the paper describing the sibling PLCB3 disorder, which surveys eye involvement across the spondylometaphyseal dysplasias and attributes the cone-rod phenotype specifically to PCYT1A. Useful precisely because it comes from outside the PCYT1A literature.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-electroretinogram" data-dismech-node="Abnormal Electroretinogram" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -5692,15 +5904,18 @@ This pathophysiological event involves retinal cone cell (CL:0000573). CL:000057
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000512" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0000512</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000512" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000512</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal electroretinogram (HP:0000512). HP:0000512 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5720,6 +5935,7 @@ This clinical feature is Abnormal electroretinogram (HP:0000512). HP:0000512 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5762,10 +5978,10 @@ This clinical feature is Abnormal electroretinogram (HP:0000512). HP:0000512 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000505</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000505</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Visual impairment (HP:0000505), qualified as course progressive. HP:0000505 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5794,6 +6010,9 @@ This clinical feature is Visual impairment (HP:0000505), qualified as course pro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5808,6 +6027,7 @@ This clinical feature is Visual impairment (HP:0000505), qualified as course pro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5840,8 +6060,102 @@ This clinical feature is Visual impairment (HP:0000505), qualified as course pro
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Limbs
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-progressive-lower-limb-bowing" data-dismech-node="Progressive Lower-Limb Bowing" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Progressive Lower-Limb Bowing
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Bowing of the legs</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002979" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002979</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Bowing of the legs (HP:0002979), qualified as course progressive. HP:0002979 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Course: PROGRESSIVE</span>
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24387991" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24387991" target="_blank">PMID:24387991</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"characterized by severe short stature, progressive lower-limb bowing, flattened vertebral bodies, metaphyseal involvement, and visual impairment caused by cone-rod dystrophy"</div>
+
+
+                <div class="evidence-explanation">&#34;Progressive lower-limb bowing&#34; supports both the phenotype and the PROGRESSIVE clinical-course qualifier.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-metaphyseal-cupping-and-irregularity" data-dismech-node="Metaphyseal Cupping and Irregularity" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -5859,10 +6173,10 @@ This clinical feature is Visual impairment (HP:0000505), qualified as course pro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003021" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0003021</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003021" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0003021</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Metaphyseal cupping (HP:0003021), qualified as course progressive. HP:0003021 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5891,6 +6205,9 @@ This clinical feature is Metaphyseal cupping (HP:0003021), qualified as course p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5905,6 +6222,7 @@ This clinical feature is Metaphyseal cupping (HP:0003021), qualified as course p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5956,15 +6274,18 @@ This clinical feature is Metaphyseal cupping (HP:0003021), qualified as course p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000926" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000926</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000926" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000926</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Platyspondyly (HP:0000926). HP:0000926 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5984,6 +6305,7 @@ This clinical feature is Platyspondyly (HP:0000926). HP:0000926 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6035,15 +6357,18 @@ This clinical feature is Platyspondyly (HP:0000926). HP:0000926 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0003510</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0003510</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Severe short stature (HP:0003510). HP:0003510 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6063,6 +6388,7 @@ This clinical feature is Severe short stature (HP:0003510). HP:0003510 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6105,15 +6431,18 @@ This clinical feature is Severe short stature (HP:0003510). HP:0003510 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008905" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0008905</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008905" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0008905</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Rhizomelia (HP:0008905). HP:0008905 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6133,6 +6462,7 @@ This clinical feature is Rhizomelia (HP:0008905). HP:0008905 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6144,221 +6474,6 @@ This clinical feature is Rhizomelia (HP:0008905). HP:0008905 is a phenotype from
 
 
                 <div class="evidence-explanation">Names rhizomelia with the associated lower-limb bowing.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-progressive-lower-limb-bowing" data-dismech-node="Progressive Lower-Limb Bowing" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Progressive Lower-Limb Bowing
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Bowing of the legs</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002979" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002979</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Bowing of the legs (HP:0002979), qualified as course progressive. HP:0002979 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Course: PROGRESSIVE</span>
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:24387991" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24387991" target="_blank">PMID:24387991</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"characterized by severe short stature, progressive lower-limb bowing, flattened vertebral bodies, metaphyseal involvement, and visual impairment caused by cone-rod dystrophy"</div>
-
-
-                <div class="evidence-explanation">&#34;Progressive lower-limb bowing&#34; supports both the phenotype and the PROGRESSIVE clinical-course qualifier.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-cone-rod-dystrophy" data-dismech-node="Cone-Rod Dystrophy" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Cone-Rod Dystrophy
-
-                        <span class="phenotype-freq">OBLIGATE</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Cone/cone-rod dystrophy</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000548" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000548</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Cone/cone-rod dystrophy (HP:0000548), qualified as course progressive. HP:0000548 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Course: PROGRESSIVE</span>
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:28272537" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28272537" target="_blank">PMID:28272537</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Affected patients have early-onset, progressive visual impairment associated with a pigmentary maculopathy and electroretinographic evidence of cone-rod dysfunction."</div>
-
-
-                <div class="evidence-explanation">The retinal phenotype is named in the disorder&#39;s own definition, hence the OBLIGATE band.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:29122926" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29122926" target="_blank">PMID:29122926</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Cone rod dystrophy is a feature of SMDCRD which is caused by loss-of-function variants in PCYT1A."</div>
-
-
-                <div class="evidence-explanation">Independent corroboration from the paper describing the sibling PLCB3 disorder, which surveys eye involvement across the spondylometaphyseal dysplasias and attributes the cone-rod phenotype specifically to PCYT1A. Useful precisely because it comes from outside the PCYT1A literature.</div>
 
 
 
@@ -6450,6 +6565,9 @@ This disease-associated gene is PCYT1A (hgnc:8754). hgnc:8754 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6464,6 +6582,7 @@ This disease-associated gene is PCYT1A (hgnc:8754). hgnc:8754 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6491,6 +6610,7 @@ This disease-associated gene is PCYT1A (hgnc:8754). hgnc:8754 is a gene from the
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6512,6 +6632,7 @@ This disease-associated gene is PCYT1A (hgnc:8754). hgnc:8754 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6595,6 +6716,31 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">No therapy alters the retinal degeneration. Management is regular ophthalmological assessment with low-vision aids, educational support, and counselling about the progressive course.</div>
 
 
@@ -6619,6 +6765,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6682,6 +6829,31 @@ This treatment is orthopedic surgical procedure (NCIT:C16186). NCIT:C16186 is a 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Surgical and orthotic management of progressive lower-limb bowing and of the spinal deformity, as for skeletal dysplasias generally. No disease-specific orthopaedic protocol has been published.</div>
 
 
@@ -6733,6 +6905,31 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Autosomal recessive inheritance carries a 25 percent recurrence risk. Counselling is complicated by the three-phenotype allelic spectrum: predicting whether a subsequent affected child will have the skeletal, the retinal, or both components is not currently possible from genotype.</div>
 
 
@@ -6754,6 +6951,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6862,6 +7060,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6949,6 +7148,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7025,6 +7225,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7110,6 +7311,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7162,6 +7364,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 

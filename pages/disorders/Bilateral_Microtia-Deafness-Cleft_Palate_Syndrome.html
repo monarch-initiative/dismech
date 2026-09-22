@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4128,6 +4200,7 @@ The mouse is unusually informative here and unusually divergent. Hoxa2-null mice
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4198,6 +4271,7 @@ The mouse is unusually informative here and unusually divergent. Hoxa2-null mice
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4219,6 +4293,7 @@ The mouse is unusually informative here and unusually divergent. Hoxa2-null mice
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4330,6 +4405,7 @@ This subtype is caused by variation in HOXA2 (hgnc:5103). hgnc:5103 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4411,6 +4487,7 @@ This subtype is caused by variation in HOXA2 (hgnc:5103). hgnc:5103 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4432,6 +4509,7 @@ This subtype is caused by variation in HOXA2 (hgnc:5103). hgnc:5103 is a gene fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4540,6 +4618,7 @@ This subtype is caused by variation in HOXA2 (hgnc:5103). hgnc:5103 is a gene fr
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4564,6 +4643,7 @@ This subtype is caused by variation in HOXA2 (hgnc:5103). hgnc:5103 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4585,6 +4665,7 @@ This subtype is caused by variation in HOXA2 (hgnc:5103). hgnc:5103 is a gene fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4660,6 +4741,7 @@ This subtype is caused by variation in HOXA2 (hgnc:5103). hgnc:5103 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4681,6 +4763,7 @@ This subtype is caused by variation in HOXA2 (hgnc:5103). hgnc:5103 is a gene fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4770,6 +4853,7 @@ This subtype is caused by variation in HOXA2 (hgnc:5103). hgnc:5103 is a gene fr
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4794,6 +4878,7 @@ This subtype is caused by variation in HOXA2 (hgnc:5103). hgnc:5103 is a gene fr
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4815,6 +4900,7 @@ This subtype is caused by variation in HOXA2 (hgnc:5103). hgnc:5103 is a gene fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4852,6 +4938,7 @@ This subtype is caused by variation in HOXA2 (hgnc:5103). hgnc:5103 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hoxa2-loss-of-function" data-dismech-node="HOXA2 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">HOXA2 Loss of Function</div>
+
 
                 <div class="item-desc">Two allele classes have been reported. Heterozygous nonsense alleles (p.Lys213*, p.Glu224*, p.Gln235*) truncate the protein and act by haploinsufficiency. The recessive allele is instead a homeodomain missense, p.Q186K, at a highly conserved residue; homology modelling predicts the mutant lysine side chain sits further from a nearby phosphate group, losing a hydrogen bond and impairing DNA binding.</div>
 
@@ -5040,6 +5127,7 @@ This pathophysiological event involves DNA-binding transcription factor activity
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5061,6 +5149,7 @@ This pathophysiological event involves DNA-binding transcription factor activity
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5090,6 +5179,7 @@ This pathophysiological event involves DNA-binding transcription factor activity
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -5112,6 +5202,7 @@ This pathophysiological event involves DNA-binding transcription factor activity
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-transactivation-of-the-long-range-hmx1-enhancer" data-dismech-node="Impaired Transactivation of the Long-Range HMX1 Enhancer" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Transactivation of the Long-Range HMX1 Enhancer</div>
+
 
                 <div class="item-desc">Hoxa2 binds a long-range enhancer of Hmx1 in the mouse - Hmx1 is itself a transcription factor required for eye and ear development - and both reported Chinese nonsense alleles fail to activate that enhancer in reporter assays. This is the one HOXA2 target so far tied experimentally to the human microtia alleles.</div>
 
@@ -5246,6 +5337,7 @@ This pathophysiological event involves abnormal ear morphogenesis (GO:0042471). 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5267,6 +5359,7 @@ This pathophysiological event involves abnormal ear morphogenesis (GO:0042471). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5292,6 +5385,7 @@ This pathophysiological event involves abnormal ear morphogenesis (GO:0042471). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-second-pharyngeal-arch-neural-crest-identity" data-dismech-node="Loss of Second Pharyngeal Arch Neural Crest Identity" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Second Pharyngeal Arch Neural Crest Identity</div>
+
 
                 <div class="item-desc">In Hoxa2-null mice, rhombomeric segmentation and neural crest migration are intact, but the mesenchymal neural crest derivatives of the second arch are missing and the surviving second-arch mesenchymal crest adopts first-arch identity. The lesion is one of identity assignment rather than of crest generation or survival - which distinguishes it from the ribosome-biogenesis neurocristopathies that conform to the same module node.</div>
 
@@ -5508,6 +5602,7 @@ This pathophysiological event occurs in second pharyngeal arch, annotated with p
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5530,6 +5625,7 @@ This pathophysiological event occurs in second pharyngeal arch, annotated with p
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-homeotic-transformation-of-second-arch-skeletal-derivatives" data-dismech-node="Homeotic Transformation of Second-Arch Skeletal Derivatives" data-dismech-type="pathophysiology">
                 <div class="item-name">Homeotic Transformation of Second-Arch Skeletal Derivatives</div>
+
 
                 <div class="item-desc">In the mouse null, second-arch skeletal elements are absent and are replaced by duplicated first-arch structures, including duplicated ossification centres of the middle-ear bones and a second Meckel&#39;s cartilage beside the otic capsule. Because the middle-ear ossicles are second- and first-arch derivatives, this is the developmental origin of the conductive component of the hearing impairment.</div>
 
@@ -5738,6 +5834,7 @@ This pathophysiological event occurs in auditory ossicle, annotated with auditor
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5759,6 +5856,7 @@ This pathophysiological event occurs in auditory ossicle, annotated with auditor
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5784,6 +5882,7 @@ This pathophysiological event occurs in auditory ossicle, annotated with auditor
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failed-auricular-morphogenesis" data-dismech-node="Failed Auricular Morphogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Failed Auricular Morphogenesis</div>
+
 
                 <div class="item-desc">The auricle fails to form normally. Timing determines severity in the mouse: early Hoxa2 inactivation abolishes the auricle and duplicates the external auditory canal, while late inactivation leaves a hypomorphic auricle resembling the human phenotype. Hoxa2 acts on pinna morphogenesis partly through BMP signalling and Eya1 expression.</div>
 
@@ -5950,6 +6049,7 @@ This pathophysiological event occurs in auricle, annotated with pinna (UBERON:00
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5971,6 +6071,7 @@ This pathophysiological event occurs in auricle, annotated with pinna (UBERON:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5996,6 +6097,7 @@ This pathophysiological event occurs in auricle, annotated with pinna (UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mis-attachment-of-the-extrinsic-tongue-and-hyoid-muscles" data-dismech-node="Mis-Attachment of the Extrinsic Tongue and Hyoid Muscles" data-dismech-type="pathophysiology">
                 <div class="item-name">Mis-Attachment of the Extrinsic Tongue and Hyoid Muscles</div>
+
 
                 <div class="item-desc">In Hoxa2 mutant mice the attachments and trajectories of the extrinsic tongue and hyoid muscles are abnormal. The abnormal trajectory of two of them, the styloglossus and the stylohyoideus, blocks the attachment of the hyoglossus to the greater horn of the hyoid, and that blocked attachment correlated exactly with the presence of cleft palate in those animals. The node is mouse-derived; no comparable observation has been reported in HOXA2-mutant patients, in whom tongue and hyoid muscle anatomy has not been described.</div>
 
@@ -6162,6 +6264,7 @@ This pathophysiological event occurs in hyoid bone greater horn (UBERON:0003997)
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6183,6 +6286,7 @@ This pathophysiological event occurs in hyoid bone greater horn (UBERON:0003997)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6208,6 +6312,7 @@ This pathophysiological event occurs in hyoid bone greater horn (UBERON:0003997)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-abnormal-tongue-posture-obstructing-palatal-shelf-closure" data-dismech-node="Abnormal Tongue Posture Obstructing Palatal Shelf Closure" data-dismech-type="pathophysiology">
                 <div class="item-name">Abnormal Tongue Posture Obstructing Palatal Shelf Closure</div>
+
 
                 <div class="item-desc">The proposed mechanical consequence, stated by its authors as a suggestion rather than an observation: with the hyoglossus unable to depress the lateral edges of the tongue, the tongue adopts an abnormal posture that blocks closure of the palatal shelves. It is not the only published account of the Hoxa2 cleft - see the hoxa2_cleft_palate_tongue_versus_intrinsic_palate discussion and the Intrinsic Palatal Shelf Fusion Defect node - and neither account has been tested in a human patient.</div>
 
@@ -6337,6 +6442,7 @@ This pathophysiological event occurs in secondary palatal shelf (UBERON:0005619)
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6359,6 +6465,7 @@ This pathophysiological event occurs in secondary palatal shelf (UBERON:0005619)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-intrinsic-palatal-shelf-fusion-defect" data-dismech-node="Intrinsic Palatal Shelf Fusion Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Intrinsic Palatal Shelf Fusion Defect</div>
+
 
                 <div class="item-desc">A second, independent route to the same cleft. Hoxa2 is expressed in the developing palate itself between E12.5 and E15.5, and Hoxa2-null palatal shelves cultured in the absence of the tongue fuse at lower rates than heterozygous or wild-type shelves, as do shelves in which Hoxa2 is knocked down with antisense constructs. Null palates show an overall increase in cell proliferation, and Hoxa2 represses Msx1, Bmp4, Barx1 and Ptx1 within the palate. On the authors&#39; reading the mouse cleft is therefore not solely secondary to the tongue. Whether either route operates in HOXA2-mutant humans is unknown.</div>
 
@@ -6471,6 +6578,7 @@ This pathophysiological event occurs in secondary palatal shelf (UBERON:0005619)
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6495,6 +6603,7 @@ This pathophysiological event occurs in secondary palatal shelf (UBERON:0005619)
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6516,6 +6625,7 @@ This pathophysiological event occurs in secondary palatal shelf (UBERON:0005619)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6583,11 +6693,9 @@ This pathophysiological event occurs in secondary palatal shelf (UBERON:0005619)
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Ear<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Ear<span class="pill-count">(3)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Head and Neck<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6597,8 +6705,134 @@ This pathophysiological event occurs in secondary palatal shelf (UBERON:0005619)
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Ear
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">3</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-bilateral-microtia" data-dismech-node="Bilateral Microtia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Bilateral Microtia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008551" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0008551</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Bilateral microtia, annotated with Microtia (HP:0008551). HP:0008551 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Reported in all five citable published HOXA2 families - one recessive (PMID:18394579) and four dominant (PMID:23775976, PMID:27503514, and two families in PMID:32649979). A sixth family (PMID:31567444) exists but has no abstract in PubMed and so carries no quotable evidence; see the entry-level notes. No frequency band is asserted, because the denominator is a handful of families rather than a systematically ascertained cohort.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (4 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18394579" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18394579" target="_blank">PMID:18394579</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We ascertained a consanguineous Iranian family segregating with autosomal-recessive bilateral microtia, mixed symmetrical severe to profound hearing impairment, and partial cleft palate."</div>
+
+
+                <div class="evidence-explanation">Bilateral microtia in the recessive family.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23775976" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23775976" target="_blank">PMID:23775976</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We ascertained a three-generation family with bilateral microtia and hearing loss segregating as an autosomal dominant trait."</div>
+
+
+                <div class="evidence-explanation">Bilateral microtia in the first dominant family.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27503514" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27503514" target="_blank">PMID:27503514</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Here we describe a five-generation family with isolated bilateral microtia segregating as an autosomal dominant trait."</div>
+
+
+                <div class="evidence-explanation">Bilateral microtia in a second dominant family.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-hearing-impairment" data-dismech-node="Hearing Impairment" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6614,15 +6848,18 @@ This pathophysiological event occurs in secondary palatal shelf (UBERON:0005619)
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000365</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000365</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Present in the recessive family (PMID:18394579, mixed and severe to profound) and in one dominant family (PMID:23775976). PMID:32649979 describes the reported HOXA2 families collectively as having microtia &#34;with or without hearing impairment&#34;, so no band is asserted.</div>
@@ -6644,6 +6881,7 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6671,6 +6909,7 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6679,6 +6918,80 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
                 <div class="evidence-explanation">The literature summary records hearing impairment as a variable rather than constant feature of HOXA2-related microtia.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-mixed-hearing-impairment" data-dismech-node="Mixed Hearing Impairment" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Mixed Hearing Impairment
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000410" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000410</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Mixed hearing impairment (HP:0000410). HP:0000410 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Reported in the single recessive family (PMID:18394579). Not reported in any dominant family, where audiological characterisation is not given in the abstracts.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18394579" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18394579" target="_blank">PMID:18394579</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We ascertained a consanguineous Iranian family segregating with autosomal-recessive bilateral microtia, mixed symmetrical severe to profound hearing impairment, and partial cleft palate."</div>
+
+
+                <div class="evidence-explanation">Specifies the mixed, symmetrical, severe-to-profound character of the recessive subtype&#39;s hearing loss.</div>
 
 
 
@@ -6717,15 +7030,18 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000175</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000175</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Reported in the recessive family only (PMID:18394579), and explicitly described as incomplete when that family is summarised by later authors (PMID:27503514). Absent from all four dominant families.</div>
@@ -6747,6 +7063,7 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6774,6 +7091,7 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6798,6 +7116,7 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6806,205 +7125,6 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
 
 
                 <div class="evidence-explanation">Cleft palate is a constant feature of the mouse null, which is the second sentence of this phenotype&#39;s description.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-bilateral-microtia" data-dismech-node="Bilateral Microtia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Bilateral Microtia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0008551" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0008551</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Bilateral microtia, annotated with Microtia (HP:0008551). HP:0008551 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Reported in all five citable published HOXA2 families - one recessive (PMID:18394579) and four dominant (PMID:23775976, PMID:27503514, and two families in PMID:32649979). A sixth family (PMID:31567444) exists but has no abstract in PubMed and so carries no quotable evidence; see the entry-level notes. No frequency band is asserted, because the denominator is a handful of families rather than a systematically ascertained cohort.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (4 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:18394579" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18394579" target="_blank">PMID:18394579</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"We ascertained a consanguineous Iranian family segregating with autosomal-recessive bilateral microtia, mixed symmetrical severe to profound hearing impairment, and partial cleft palate."</div>
-
-
-                <div class="evidence-explanation">Bilateral microtia in the recessive family.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:23775976" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23775976" target="_blank">PMID:23775976</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"We ascertained a three-generation family with bilateral microtia and hearing loss segregating as an autosomal dominant trait."</div>
-
-
-                <div class="evidence-explanation">Bilateral microtia in the first dominant family.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:27503514" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27503514" target="_blank">PMID:27503514</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Here we describe a five-generation family with isolated bilateral microtia segregating as an autosomal dominant trait."</div>
-
-
-                <div class="evidence-explanation">Bilateral microtia in a second dominant family.</div>
-
-
-
-            </div>
-
-
-            <div class="evidence-more">+ 1 more reference</div>
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-mixed-hearing-impairment" data-dismech-node="Mixed Hearing Impairment" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Mixed Hearing Impairment
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000410" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000410</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Mixed hearing impairment (HP:0000410). HP:0000410 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Reported in the single recessive family (PMID:18394579). Not reported in any dominant family, where audiological characterisation is not given in the abstracts.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:18394579" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18394579" target="_blank">PMID:18394579</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"We ascertained a consanguineous Iranian family segregating with autosomal-recessive bilateral microtia, mixed symmetrical severe to profound hearing impairment, and partial cleft palate."</div>
-
-
-                <div class="evidence-explanation">Specifies the mixed, symmetrical, severe-to-profound character of the recessive subtype&#39;s hearing loss.</div>
 
 
 
@@ -7094,6 +7214,9 @@ This disease-associated gene is HOXA2 (hgnc:5103). hgnc:5103 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7108,6 +7231,7 @@ This disease-associated gene is HOXA2 (hgnc:5103). hgnc:5103 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7132,6 +7256,7 @@ This disease-associated gene is HOXA2 (hgnc:5103). hgnc:5103 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7168,6 +7293,12 @@ This disease-associated gene is HOXA2 (hgnc:5103). hgnc:5103 is a gene from the 
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">A homozygous missense change at a highly conserved homeodomain residue, absent from 231 Iranian and 109 Belgian controls. Homology modelling predicts impaired DNA binding; the variant has not been assayed functionally.</div>
 
 
@@ -7192,6 +7323,7 @@ This disease-associated gene is HOXA2 (hgnc:5103). hgnc:5103 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7228,6 +7360,12 @@ This disease-associated gene is HOXA2 (hgnc:5103). hgnc:5103 is a gene from the 
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">A recurrent heterozygous nonsense allele, found independently in a three-generation US family and in one of the two Chinese families.</div>
 
 
@@ -7252,6 +7390,7 @@ This disease-associated gene is HOXA2 (hgnc:5103). hgnc:5103 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7288,6 +7427,12 @@ This disease-associated gene is HOXA2 (hgnc:5103). hgnc:5103 is a gene from the 
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">A heterozygous truncating allele segregating in all affected members of a five-generation Italian family and absent from public databases.</div>
 
 
@@ -7312,6 +7457,7 @@ This disease-associated gene is HOXA2 (hgnc:5103). hgnc:5103 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7400,6 +7546,31 @@ This treatment is auricular reconstruction, annotated with Reconstructive Surger
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Staged surgical reconstruction of the external ear, using autologous costal cartilage or an alloplastic framework, is the standard management of bilateral microtia. No HOXA2-specific surgical series exists; management follows general microtia practice.</div>
 
 
@@ -7464,6 +7635,31 @@ This treatment is cleft palate repair, annotated with Palatorrhaphy (NCIT:C16838
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -7538,6 +7734,31 @@ This treatment is hearing amplification, annotated with Supportive Care (NCIT:C1
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Device</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Amplification, typically bone-conduction in the presence of aural atresia, addresses the conductive component of the hearing loss and is fitted early to protect speech and language development.</div>
 
 
@@ -7607,6 +7828,31 @@ This treatment is speech and language therapy, annotated with Speech Language Th
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Indicated for the recessive subtype, where cleft palate and severe to profound hearing impairment both threaten speech development.</div>
 
 
@@ -7657,6 +7903,31 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">The counselling differs sharply between subtypes: a 25% sibling recurrence risk for the biallelic recessive form, against 50% transmission from an affected parent carrying a nonsense allele. Establishing which allele class is present is therefore the practical purpose of molecular testing.</div>
 
 
@@ -7678,6 +7949,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7753,6 +8025,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7804,6 +8077,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7881,6 +8155,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7937,6 +8212,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8101,6 +8377,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8140,6 +8417,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8277,6 +8555,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8316,6 +8595,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8453,6 +8733,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8492,6 +8773,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8629,6 +8911,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8688,6 +8971,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8727,6 +9011,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10513,6 +10798,73 @@ datasets: []
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Naming and lumping: MONDO:0012854 is labelled for the recessive microtia-deafness-cleft palate presentation, but its synonym set also carries &#34;microtia with or without hearing impairment&#34;, the dominant form. Both are HOXA2 allelic disorders acting through the same second-arch mechanism, so they are curated here as one entry with two has_subtypes rather than as separate diseases; the cleft palate is the discriminating feature and appears only in the biallelic family. The falcon deep-research report argues the other way - &#34;those dominant conditions should not be merged with this recessive phenotype&#34; - on the grounds that the dominant families are non-syndromic. That was considered and not followed: MONDO carries both under one concept, the gene and the second-arch mechanism are shared, and the has_subtypes split keeps the two presentations separately addressable, which is what the report&#39;s objection is really asking for. A future splitter should read this paragraph first rather than re-deriving the disagreement.
+Conformance: three nodes conform to kb/modules/pharyngeal_arch_patterning_serial_homology.yaml. HOXA2 is a distinct trigger from the module&#39;s worked examples - it is an arch-identity selector lesion, not a ribosome-biogenesis neurocristopathy and not an EDN1-EDNRA-DLX5/6 dorsoventral-code lesion - and the module&#39;s own description invites exactly this substitution at the trigger node.
+Frequency bands are deliberately absent from the phenotype records. Five published families is a case-series denominator, not a cohort; per-family counts are recorded in each phenotype&#39;s notes instead.
+Not curated for want of a citable source: the audiological subtype of the hearing loss in the dominant families, the specific auricular morphology described as distinctive in PMID:27503514 (which appears only in that paper&#39;s title), external auditory canal atresia status, any longitudinal or surgical outcome data, the Marx grade of the microtia (the falcon report gives type II), and unilateral cochlear absence in one of the four affected members of the Iranian family. That last one bears directly on the hoxa2_sensorineural_component_unexplained discussion - it is the only reported inner-ear finding in the disease - but the falcon report sources it to Alasti&#39;s 2009 thesis, which carries no PMID and no DOI, so it cannot be cached or quoted and is recorded here instead.
+Deep-research retrieval pass. A falcon report was run on 2026-09-04 and is committed at research/Bilateral_Microtia-Deafness-Cleft_Palate_Syndrome-deep-research-falcon.md (30 citations; 11 of 11 references verified, 2 on topic, 1 flagged off topic). It surfaced one real gap and two leads that were checked and not taken.
+The gap is a sixth published HOXA2 family: Meddaugh and Zambrano 2020 (PMID:31567444), a four-generation pedigree with microtia and variable hearing impairment, which the manual sweep missed. It cannot be curated as evidence. Its PubMed record carries no abstract - the cached reference is title-only - so there is no quotable sentence, and a title is not a finding. It is therefore recorded here rather than added to references: as a tagged-but-not-mined citation. The report attributes a truncating allele around Glu229 to it, distinct from the p.E224* and p.Q235* alleles curated below; that attribution is unverified and is not asserted anywhere in this entry. Every family-count statement in this entry enumerates the five families it can cite and should be read that way.
+Lead not taken: Wilderman et al. 2024 describe a roughly 600-kb noncoding global control region between NPVF and NFE2L3 that drives anterior HOXA expression in embryonic craniofacial tissue, whose deletion in mouse produces orofacial clefts resembling the Hoxa2 null. That is upstream regulatory architecture for the HOXA cluster, not a HOXA2 lesion in any reported patient with this disease, and the report says so itself. It is a candidate for a future regulatory-variant node, not a claim this entry can make now.
+Cleft-palate mechanism, corrected on review. An earlier revision of this entry stated in the Cleft Palate Repair treatment that the cleft was caused by &#34;ectopic second-arch cartilage obstructing elevation of the palatal shelves&#34;. No cited reference said that. The nearest thing in the sources is PMID:7903600&#39;s duplicated Meckel&#39;s cartilage beside the otic capsule, which is a middle-ear finding and says nothing about the palate. The clause was removed and replaced with the two mouse accounts that are actually published, now curated as the Abnormal Tongue Posture Obstructing Palatal Shelf Closure and Intrinsic Palatal Shelf Fusion Defect nodes and as the hoxa2_cleft_palate_tongue_versus_intrinsic_palate discussion. The downstream edge from Homeotic Transformation of Second-Arch Skeletal Derivatives to Cleft Palate was removed at the same time: no source links the skeletal transformation to the cleft, and its evidence - that the mouse null is born with cleft palate - is a genotype-level co-occurrence, so it now sits on the Cleft Palate phenotype where it belongs.
+Searches behind that correction, run 2026-09-04 on PubMed: &#34;HOXA2 AND hyoglossus&#34; returns PMID:10529419 alone; &#34;HOXA2 AND tongue muscle&#34; returns PMID:10529419 and PMID:11076757 (an overexpression study); &#34;HOXA2 AND palatogenesis&#34; returns PMID:10529419, PMID:19653318 and PMID:10789828 (a murine expression study). All are mouse. Nothing describes tongue, hyoid or palatal-shelf anatomy in a HOXA2-mutant human, which is why both mechanism nodes are marked as untested in patients rather than asserted of them.
+Confirmed rather than changed: the report&#39;s management citations are the general microtia and aural-atresia literature (international consensus recommendations, integrated atresia management, a national treatment guideline), none of it HOXA2-specific. That independently supports the treatments section&#39;s statement that no HOXA2-specific outcome data exists, which had rested on the curator&#39;s own search.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Remove fabricated cleft-palate mechanism; curate the two published mouse accounts</strong> · 2026-09-04T20:33:14Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Bilateral_Microtia-Deafness-Cleft_Palate_Syndrome/2026-09-04T203314Z-claude-code-7c2b49.yaml">View source</a></p>
+                        <p class="research-review-text">Review of PR #10909 found a fabricated mechanism in an ungated prose field: the Cleft Palate Repair treatment&#39;s target_mechanisms description asserted that the cleft was caused by &#39;ectopic second-arch cartilage obstructing elevation of the palatal shelves&#39;. No cited reference says this. All nine references cited in the entry were grepped for palate, cartilage, shelf, shelves, tongue, hyoglossus and hyoid: the only near neighbour is PMID:7903600&#39;s duplicated Meckel&#39;s cartilage beside the otic capsule, a middle-ear finding that says nothing about the palate, and PMID:7903600&#39;s statement that the mouse null is born with cleft palate, which is the fact and not the mechanism. The falcon deep-research report does not contain the claim either; its own wording is the hedged &#39;abnormal palate development provides a route to cleft palate&#39;.
+
+The clause was removed and replaced with the two mouse accounts that are actually published, each curated as a pathophysiology node with quoted evidence.
+
+1. Barrow and Capecchi 1999 (PMID:10529419, fetched via just fetch-reference): mis-attachment of the extrinsic tongue and hyoid muscles, with the abnormal trajectory of the styloglossus and stylohyoideus blocking the hyoglossus attachment to the greater horn of the hyoid, correlating exactly with cleft palate; and the authors&#39; suggestion that the resulting tongue posture blocks palatal shelf closure. Curated as two nodes so that the observation and the interpretation carry separate evidence, with the Hoxa1/Hoxa2 double-mutant rescue as the support for the link. Added the double-mutant mouse as an animal model with two RESCUES links.
+
+2. Smith et al. 2009 (PMID:19653318, found by PubMed search for HOXA2 AND palatogenesis): Hoxa2 expression in the palate itself, reduced fusion of Hoxa2-null shelves cultured without a tongue, and the authors&#39; explicit conclusion that the cleft is not solely due to the tongue musculature. Curated as the Intrinsic Palatal Shelf Fusion Defect node hanging off HOXA2 Loss of Function.
+
+A CONTROVERSY discussion, hoxa2_cleft_palate_tongue_versus_intrinsic_palate, records that the two accounts are both mouse, are compatible, have not been weighed against each other, and have not been examined in a HOXA2-mutant patient. The entry now asserts neither as the mechanism of the human cleft.
+
+The downstream edge from Homeotic Transformation of Second-Arch Skeletal Derivatives to Cleft Palate was removed: no source links the skeletal transformation to the cleft. Its evidence, that the mouse null is born with cleft palate, is a genotype-level co-occurrence and was moved to the Cleft Palate phenotype, where the description already made that statement.
+
+Smaller prose corrections found in the same sweep: the treatment notes said &#39;seven cited references&#39; and there are now nine; a model readout interpretation turned &#39;penetrance dramatically reduced&#39; into &#39;most double mutants&#39;, which the abstract does not support; the HMX1 enhancer node stated Hoxa2-Hmx1 enhancer binding without the &#39;in mouse&#39; qualifier the source carries; CL:0000008 carried a preferred_term broader than the ontology label; and the notes now record that the falcon report argued against lumping the dominant families and why that was not followed.
+
+Validation: just validate (schema, terms, references - 77/77 snippets verified), validate-terms, count-verified-snippets, check-entity-refs, check-duplicate-keys, check-causal-targets, check-enum-values, check-qualifier-terms, check-folded-hyphens, check-snippet-length, check-title-snippets, check-snippet-grading, validate-disorders. Pathograph wiring was checked by hand: no dangling bare-name targets, no node without an incoming edge except the root, and every phenotype is a target.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Review round 1 fixes: prevalence band, two ontology rebindings, deep-research pass, pathograph joins</strong> · 2026-09-04T18:08:31Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Bilateral_Microtia-Deafness-Cleft_Palate_Syndrome/2026-09-04T180831Z-claude-code-4da9ea.yaml">View source</a></p>
+                        <p class="research-review-text">Addressed the CHANGES_REQUESTED review of 2026-09-04T06:58Z on PR #10909. All four blocking items fixed and all three suggestions taken, in one push.
+
+BLOCKING 1 (fixed). prevalence_class on the all-causes microtia birth-prevalence record was BAND_1_9_PER_100000 while the recorded interval is 10.0-12.5 per 100,000, so the whole interval sat above the band ceiling. Changed to BAND_1_5_PER_10000, which the schema defines as 1-9 per 10,000 equals 10-99 per 100,000. Rate numbers and notes unchanged; the arithmetic was already correct.
+
+BLOCKING 2 (fixed). Ran a falcon deep-research pass and committed research/Bilateral_Microtia-Deafness-Cleft_Palate_Syndrome-deep-research-falcon.md with its citations sidecar, artifact, and the eleven DOI reference caches the run fetched. 30 citations, 11 of 11 references verified at 0.0 confabulation, 2 on topic, 1 flagged off topic, 29 of 29 terms resolved. just preflight-dr against MONDO:0012854 returns PASS with HOXA2 mentioned 54 times. The report&#39;s outcome is recorded in the entry-level notes:
+
+ - One real gap found. Meddaugh and Zambrano 2020 (PMID:31567444) is a sixth published HOXA2 family, a four-generation pedigree with microtia and variable hearing impairment, which the manual sweep missed. It cannot be curated as evidence: both the PubMed record and the DOI record are abstract-free, so the caches are title-only and there is no quotable sentence. Recorded in notes rather than added to references: as a tagged-but-not-mined citation, following the same reasoning the sibling hearing-loss entries use for the GeneReviews overview. The report attributes a truncating allele around Glu229 to that family; that is unverified and is explicitly not asserted anywhere in the entry. Softened the two family-count statements (the Bilateral Microtia phenotype notes and the CASES_IN_LITERATURE prevalence notes) so they read as counts of citable families rather than of the literature, without moving the ULTRA_RARE band.
+ - One lead checked and not taken. Wilderman et al. 2024 describe a roughly 600-kb noncoding global control region between NPVF and NFE2L3 driving anterior HOXA expression, whose mouse deletion produces orofacial clefts resembling the Hoxa2 null. That is upstream regulatory architecture for the cluster, not a HOXA2 lesion in any reported patient with this disease; the report says so itself. Recorded as a candidate for a future regulatory-variant node.
+ - One independent confirmation. The report&#39;s management citations are all general microtia and aural-atresia literature - international consensus recommendations, integrated atresia management, a national treatment guideline - and none is HOXA2-specific. That corroborates the treatments section&#39;s existing statement that no HOXA2-specific outcome data exists, which had rested on the curator&#39;s own search.
+
+BLOCKING 3 (fixed). Rebound the Loss of Second Pharyngeal Arch Neural Crest Identity cell type from CL:0000333 migratory neural crest cell to CL:0000008 migratory cranial neural crest cell, which matches the node&#39;s own preferred_term. Verified through OAK and it passes validate-terms and dynamic-enum membership; both CURIEs were already cached so no cache CSV changed.
+
+BLOCKING 4 (fixed). Rebound the Auricular Reconstruction treatment term from the generic NCIT:C15329 Surgical Procedure to NCIT:C25351 Reconstructive Surgery. Confirmed through OAK that NCIT:C25351 has NCIT:C25218 Clinical Intervention or Procedure among its ancestors, so it is a valid TreatmentTerm.
+
+SUGGESTION (taken). Added target_mechanisms to the two therapeutic treatments, using bare pathograph names rather than entity-reference syntax. Auricular Reconstruction targets the Bilateral Microtia phenotype and Hearing Amplification targets the Hearing Impairment phenotype, both with treatment_effect: BYPASSES, because neither corrects the developmental lesion. Verified with dismech.graph.build_causal_graph that both edges resolve and orphan_targets is empty. Neither link carries evidence, and each treatment&#39;s notes now says why: no published series reports outcomes in HOXA2-mutant patients, so a quote would have to come from the general microtia literature and would attribute to this disease something no source says about it.
+
+SUGGESTION (taken). Replaced the ambiguous attaches_to: animal_models#Mouse on the HUMAN_MODEL_MISMATCH discussion, which resolved against species and so pointed at all three mouse models indistinguishably, with the two specific model names the mismatch concerns: Hoxa2 null mouse (Rijli 1993) and Hoxa-2 null mouse (Gendron-Maguire 1993). Both resolve under check-entity-refs.
+
+SUGGESTION (taken, in a different form than proposed). Bilaterality is now carried on the Bilateral Microtia phenotype_term&#39;s preferred_term, which reads Bilateral microtia against the HP:0008551 Microtia binding. A laterality qualifier was considered and rejected: HP has no non-obsolete bilateral-microtia term (HP:0040111 is obsolete), no dismech entry uses a laterality predicate-value qualifier so there is no precedent to follow, and CLAUDE.md records that qualifier terms are invisible to validate-terms and have previously hidden 32 wrong bindings. Carrying the specificity in preferred_term is the pattern the Ontology Term Contract endorses.
+
+Validation. just validate, validate-terms, count-verified-snippets (57/57), check-entity-refs, check-duplicate-keys, check-causal-targets, check-enum-values, check-qualifier-terms all pass on the file. Whole-KB check-folded-hyphens, check-title-snippets, check-snippet-length and check-snippet-grading report no new divergences. check-source-defect-claims reports nothing for this entry. qc-deep-research on the new report shows 11 cited references not consumed into the entry, which is an advisory census and well inside the normal range. No cache/**.csv changed.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

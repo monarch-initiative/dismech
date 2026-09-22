@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4225,6 +4297,7 @@ Reported patients present in early childhood with T-cell lymphopenia and infecti
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4305,6 +4378,7 @@ Reported patients present in early childhood with T-cell lymphopenia and infecti
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4393,6 +4467,7 @@ The direction of the error matters: it is optimistic, so a damaging human allele
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4414,6 +4489,7 @@ The direction of the error matters: it is optimistic, so a damaging human allele
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4441,6 +4517,7 @@ The direction of the error matters: it is optimistic, so a damaging human allele
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4561,6 +4638,7 @@ The direction of the error matters: it is optimistic, so a damaging human allele
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-cd247-loss-of-function-variants" data-dismech-node="Biallelic CD247 Loss-of-Function Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic CD247 Loss-of-Function Variants</div>
 
+
                 <div class="item-desc">Reported germline alleles include an initiation-codon change (p.M1T) and a nonsense change truncating the protein before all three ITAMs (p.Q70X). The two act differently: p.M1T abolishes translation initiation, while p.Q70X leaves a truncated chain that can still be detected intracellularly with a transmembrane-directed antibody but not with an ITAM-3-directed one. That distinction matters, because a retained truncated chain can compete with wild-type CD247 whereas a true null cannot.
 A third reported allele is a homozygous single-C insertion after nucleotide 411 in exon 7. It behaves as a true null at the protein level: no CD3zeta is detectable in the patient&#39;s T cells, and when the mutant cDNA is transduced into a CD247-deficient background the nascent protein is not detected at all on metabolic labelling, indicating it is made and then rapidly degraded. That completes the allelic picture — one allele class is degraded away, another is retained as a truncated competitor, and the two are not interchangeable when predicting a novel variant&#39;s behaviour.</div>
 
@@ -4656,6 +4734,8 @@ This genetic context concerns CD247 (hgnc:1677). hgnc:1677 is a gene from the HU
 
 
 
+
+
         <span class="tag tag-classification">allele_type: NONSENSE</span>
 
 
@@ -4671,6 +4751,9 @@ This genetic context concerns CD247 (hgnc:1677). hgnc:1677 is a gene from the HU
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
     <div class="context-notes">Recorded for the p.Q70X nonsense allele. The other reported germline change, p.M1T, is an initiation-codon variant rather than a nonsense one; both are biallelic and germline.</div>
@@ -4720,6 +4803,7 @@ This genetic context concerns CD247 (hgnc:1677). hgnc:1677 is a gene from the HU
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4741,6 +4825,7 @@ This genetic context concerns CD247 (hgnc:1677). hgnc:1677 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4768,6 +4853,7 @@ This genetic context concerns CD247 (hgnc:1677). hgnc:1677 is a gene from the HU
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4792,6 +4878,7 @@ This genetic context concerns CD247 (hgnc:1677). hgnc:1677 is a gene from the HU
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-tcr-cd3-complex-assembly-and-surface-expression" data-dismech-node="Impaired TCR/CD3 Complex Assembly and Surface Expression" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired TCR/CD3 Complex Assembly and Surface Expression</div>
+
 
                 <div class="item-desc">The zeta-zeta homodimer is one of the invariant dimers the octameric receptor needs to complete assembly in the endoplasmic reticulum and leave it. Without it the incomplete complex is retained rather than exported, and surface receptor density falls sharply — unlike CD3gamma deficiency, where CD3delta can partly substitute and T-cell numbers stay normal. This was in fact the first biochemical description of the disorder, made before the gene was identified, as a failure of the zeta chain to associate with the rest of the complex.</div>
 
@@ -4917,6 +5004,7 @@ This pathophysiological event involves decreased alpha-beta T cell receptor comp
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4938,6 +5026,7 @@ This pathophysiological event involves decreased alpha-beta T cell receptor comp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4965,6 +5054,7 @@ This pathophysiological event involves decreased alpha-beta T cell receptor comp
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4989,6 +5079,7 @@ This pathophysiological event involves decreased alpha-beta T cell receptor comp
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-itam-dependent-proximal-tcr-signaling" data-dismech-node="Loss of ITAM-Dependent Proximal TCR Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of ITAM-Dependent Proximal TCR Signaling</div>
+
 
                 <div class="item-desc">CD247 carries three of the ten ITAMs in the receptor complex. Their tyrosines are the docking sites that, once phosphorylated by LCK, recruit ZAP70 and start the proximal signalling cascade. In CD247 deficiency this step fails, and the failure is not repaired by restoring surface receptor: revertant variants that put the receptor back on the membrane still fail to support TCR-induced ZAP70 phosphorylation. The activation defect is therefore partly independent of receptor density.</div>
 
@@ -5097,6 +5188,7 @@ This pathophysiological event involves decreased T cell receptor signaling pathw
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5118,6 +5210,7 @@ This pathophysiological event involves decreased T cell receptor signaling pathw
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5143,6 +5236,7 @@ This pathophysiological event involves decreased T cell receptor signaling pathw
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failed-thymic-selection-and-t-cell-development" data-dismech-node="Failed Thymic Selection and T-Cell Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Failed Thymic Selection and T-Cell Development</div>
+
 
                 <div class="item-desc">Thymocytes need a TCR signal of the right strength to be positively selected, and a strong one to be negatively selected against self. With the zeta chain missing, both arms fail: few cells complete development, giving profound peripheral T-cell lymphopenia, and the self-reactive cells that should have been deleted are not, which is the accepted explanation for the autoimmunity that appears in longer-surviving patients.</div>
 
@@ -5268,6 +5362,7 @@ This pathophysiological event involves decreased thymic T cell selection (GO:004
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5290,6 +5385,7 @@ This pathophysiological event involves decreased thymic T cell selection (GO:004
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-t-cell-lymphopenia-with-impaired-function" data-dismech-node="T-Cell Lymphopenia with Impaired Function" data-dismech-type="pathophysiology">
                 <div class="item-name">T-Cell Lymphopenia with Impaired Function</div>
+
 
                 <div class="item-desc">Peripheral T-cell numbers are very low, and the cells that are present carry little surface receptor and respond poorly through it while responding normally to TCR-independent stimuli such as anti-CD2, phorbol esters and IL-2. That dissociation — bad through the receptor, fine around it — is the laboratory signature of the disorder and separates it from lymphopenias with a general proliferative defect.</div>
 
@@ -5400,6 +5496,7 @@ This pathophysiological event involves decreased T cell activation (GO:0042110).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5422,6 +5519,7 @@ This pathophysiological event involves decreased T cell activation (GO:0042110).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-revertant-somatic-mosaicism" data-dismech-node="Revertant Somatic Mosaicism" data-dismech-type="pathophysiology">
                 <div class="item-name">Revertant Somatic Mosaicism</div>
+
 
                 <div class="item-desc">A second, spontaneous change at or near the germline codon arises in a subset of T cells and partially restores CD247. This is the usual course in this disorder rather than a rarity, and the revertant cells are selected for because they can express a receptor. Crucially the rescue is partial in a specific way: expression comes back, function does not, and the revertant population stays a minority and has not altered any reported patient&#39;s clinical status. The node is a modifier of the disease course rather than a step in the causal chain, so it carries no downstream edge.</div>
 
@@ -5494,6 +5592,7 @@ This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5518,6 +5617,7 @@ This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5539,6 +5639,7 @@ This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5608,9 +5709,11 @@ This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Immune<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Immune<span class="pill-count">(3)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5619,221 +5722,8 @@ This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Immune
+                    Blood
                     <span class="cat-count">3</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-combined-immunodeficiency" data-dismech-node="Combined Immunodeficiency" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Combined Immunodeficiency
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0005387" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0005387</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Combined immunodeficiency (HP:0005387). HP:0005387 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:35748970" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35748970" target="_blank">PMID:35748970</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"CD3 deficiency CD3Z AR 186780 Very lowN ormalL ow Normal NK, no  T cells"</div>
-
-
-                <div class="evidence-explanation">The IUIS row placing CD3Z deficiency among the combined immunodeficiencies, with very low T cells and preserved NK cells.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-infections" data-dismech-node="Recurrent Infections" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Recurrent Infections
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002719" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0002719</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Recurrent infections (HP:0002719). HP:0002719 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:40711587" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40711587" target="_blank">PMID:40711587</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"All reported patients showed T cell lymphopenia, suffered infections, and required stem cell transplantation to survive."</div>
-
-
-                <div class="evidence-explanation">Records infection in all reported patients.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-autoimmunity" data-dismech-node="Autoimmunity" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Autoimmunity
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002960" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0002960</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Autoimmunity (HP:0002960). HP:0002960 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:40711587" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40711587" target="_blank">PMID:40711587</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Older patients also showed autoimmune features, suggesting poor T-cell selection."</div>
-
-
-                <div class="evidence-explanation">Records the autoimmune features and the selection failure they are attributed to.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">4</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-t-b-nk-immunophenotype" data-dismech-node="T-B+NK+ Immunophenotype" data-dismech-type="phenotype">
@@ -5852,15 +5742,18 @@ This clinical feature is Autoimmunity (HP:0002960). HP:0002960 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025808" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0025808</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0025808" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0025808</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Decreased natural killer cell-induced killing of target cells (HP:0025808). HP:0025808 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5880,6 +5773,7 @@ This clinical feature is Decreased natural killer cell-induced killing of target
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5907,6 +5801,7 @@ This clinical feature is Decreased natural killer cell-induced killing of target
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5915,59 +5810,6 @@ This clinical feature is Decreased natural killer cell-induced killing of target
 
 
                 <div class="evidence-explanation">Qualifies the NK preservation: the cells are there but functionally and phenotypically abnormal.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-reduced-surface-tcr-cd3-expression" data-dismech-node="Reduced Surface TCR/CD3 Expression" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Reduced Surface TCR/CD3 Expression
-
-
-                    </div>
-
-
-                    <div class="item-desc">Needs an ontology term. HPO was searched through the OAK ols:hp adapter for &#34;T cell receptor&#34;, &#34;CD3&#34;, &#34;surface CD3&#34; and &#34;TCR expression&#34;, with HP:0031382 used as a positive control to confirm the search was returning results rather than failing silently. Nothing matches receptor density per cell. The nearest hits are counts and proportions — HP:0005403 Decreased total T cell count, HP:5210413 Decreased total T cell proportion — which measure how many T cells there are rather than how much receptor each one carries. Those are the wrong measurement here and binding to one would misstate the finding, so this is recorded unbound.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:17170122" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17170122" target="_blank">PMID:17170122</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The few T cells present contained no detectable CD3zeta protein, expressed low levels of cell surface CD3epsilon, and were nonfunctional."</div>
-
-
-                <div class="evidence-explanation">Documents the reduced surface CD3 on the residual T cells.</div>
 
 
 
@@ -5999,15 +5841,18 @@ This clinical feature is Decreased natural killer cell-induced killing of target
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031382" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0031382</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031382" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0031382</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Decreased anti-CD3/28-induced T-cell proliferation (HP:0031382). HP:0031382 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6027,6 +5872,7 @@ This clinical feature is Decreased anti-CD3/28-induced T-cell proliferation (HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6069,15 +5915,18 @@ This clinical feature is Decreased anti-CD3/28-induced T-cell proliferation (HP:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005403" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0005403</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005403" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0005403</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Decreased total T cell count (HP:0005403). HP:0005403 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6100,6 +5949,7 @@ This clinical feature is Decreased total T cell count (HP:0005403). HP:0005403 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6108,6 +5958,297 @@ This clinical feature is Decreased total T cell count (HP:0005403). HP:0005403 i
 
 
                 <div class="evidence-explanation">Records T-cell lymphopenia in all reported patients.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Immune
+                    <span class="cat-count">3</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-combined-immunodeficiency" data-dismech-node="Combined Immunodeficiency" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Combined Immunodeficiency
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005387" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0005387</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Combined immunodeficiency (HP:0005387). HP:0005387 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35748970" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35748970" target="_blank">PMID:35748970</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"CD3 deficiency CD3Z AR 186780 Very lowN ormalL ow Normal NK, no  T cells"</div>
+
+
+                <div class="evidence-explanation">The IUIS row placing CD3Z deficiency among the combined immunodeficiencies, with very low T cells and preserved NK cells.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-infections" data-dismech-node="Recurrent Infections" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Recurrent Infections
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002719" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002719</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Recurrent infections (HP:0002719). HP:0002719 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40711587" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40711587" target="_blank">PMID:40711587</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"All reported patients showed T cell lymphopenia, suffered infections, and required stem cell transplantation to survive."</div>
+
+
+                <div class="evidence-explanation">Records infection in all reported patients.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-autoimmunity" data-dismech-node="Autoimmunity" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Autoimmunity
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002960" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002960</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Autoimmunity (HP:0002960). HP:0002960 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40711587" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40711587" target="_blank">PMID:40711587</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Older patients also showed autoimmune features, suggesting poor T-cell selection."</div>
+
+
+                <div class="evidence-explanation">Records the autoimmune features and the selection failure they are attributed to.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Other
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-reduced-surface-tcr-cd3-expression" data-dismech-node="Reduced Surface TCR/CD3 Expression" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Reduced Surface TCR/CD3 Expression
+
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Needs an ontology term. HPO was searched through the OAK ols:hp adapter for &#34;T cell receptor&#34;, &#34;CD3&#34;, &#34;surface CD3&#34; and &#34;TCR expression&#34;, with HP:0031382 used as a positive control to confirm the search was returning results rather than failing silently. Nothing matches receptor density per cell. The nearest hits are counts and proportions — HP:0005403 Decreased total T cell count, HP:5210413 Decreased total T cell proportion — which measure how many T cells there are rather than how much receptor each one carries. Those are the wrong measurement here and binding to one would misstate the finding, so this is recorded unbound.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17170122" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17170122" target="_blank">PMID:17170122</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The few T cells present contained no detectable CD3zeta protein, expressed low levels of cell surface CD3epsilon, and were nonfunctional."</div>
+
+
+                <div class="evidence-explanation">Documents the reduced surface CD3 on the residual T cells.</div>
 
 
 
@@ -6197,6 +6338,9 @@ This disease-associated gene is CD247 (hgnc:1677). hgnc:1677 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6211,6 +6355,7 @@ This disease-associated gene is CD247 (hgnc:1677). hgnc:1677 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6238,6 +6383,7 @@ This disease-associated gene is CD247 (hgnc:1677). hgnc:1677 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6259,6 +6405,7 @@ This disease-associated gene is CD247 (hgnc:1677). hgnc:1677 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6318,6 +6465,9 @@ This disease-associated gene is CD247 (hgnc:1677). hgnc:1677 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6332,6 +6482,7 @@ This disease-associated gene is CD247 (hgnc:1677). hgnc:1677 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6356,6 +6507,7 @@ This disease-associated gene is CD247 (hgnc:1677). hgnc:1677 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6438,6 +6590,31 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Cell therapy</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">The only reported curative option, and one that every reported patient required in order to survive. It replaces the defective T-cell compartment with donor-derived cells; it does not correct CD247 in the patient&#39;s own haematopoietic stem cells.</div>
 
 
@@ -6468,6 +6645,7 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6511,6 +6689,7 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6574,6 +6753,20 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">The most time-critical intervention, and the one that is lost if diagnosis is late. An infant with profound T-cell lymphopenia given a live vaccine is at risk of disseminated disease from the vaccine strain itself — BCGosis where BCG is given at birth, vaccine-associated paralytic poliomyelitis where oral polio vaccine is used. Both are preventable by deferring the vaccine, which requires knowing the diagnosis before the vaccine is given, which in turn is what newborn screening buys.</div>
 
 
@@ -6600,6 +6793,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6624,6 +6818,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6698,6 +6893,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6754,6 +6950,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6808,6 +7005,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6881,6 +7079,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6966,6 +7165,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7018,6 +7218,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7136,6 +7337,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7175,6 +7377,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7287,6 +7490,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7326,6 +7530,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8694,6 +8899,29 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Immunodeficiency 25 (CD247/CD3zeta deficiency)</strong> · 2026-08-31T17:38:55Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Immunodeficiency_25/2026-08-31T173855Z-claude-code-65a975.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of immunodeficiency 25 (MONDO:0012426), CD247/CD3zeta deficiency. One openscientist deep-research report was generated and preflighted with &#34;just preflight-dr ... MONDO:0012426&#34;, which PASSed with CD247 as the dominant gene mention and matching OMIM 610163.
+
+The deep-research report made a material contribution here rather than merely confirming the entry. The first draft was written from a PubMed-led search that had surfaced the two recent Regueiro-group papers but not the founding case. The report identified Rieux-Laucat et al. NEJM 2006, PMID:16672702, the four-month-old boy with homozygous Q70X and three heterozygous somatic second-site changes; that reference was fetched and its quoted sentences verified against the cache before being added. PMID:28743717 was added alongside it, distinguishing true reversion from second-site compensation and supplying the measured mutation-propensity explanation for why reversion is common in this gene.
+
+Pathograph: biallelic CD247 loss-of-function variants, impaired TCR/CD3 complex assembly and surface expression, loss of ITAM-dependent proximal TCR signaling, failed thymic selection and T-cell development, T-cell lymphopenia with impaired function. A sixth node, Revertant Somatic Mosaicism, is curated with no downstream edge because it modifies the disease course without being a step toward the phenotype; treating it as a causal step would wrongly imply it contributes to the immunodeficiency.
+
+Two model systems are curated. The MA5.8 murine CD247-deficient T-cell line is recorded as FAILS_TO_RECAPITULATE, because the Q70X allele restores surface TCR in that line and not in human cells; the error direction is optimistic, making a damaging human allele look tolerated. That grounds a HUMAN_MODEL_MISMATCH discussion, supported additionally by the established mouse-human reciprocity of CD3gamma and CD3delta roles, which means the mismatch should be assumed across the CD3 complex rather than rediscovered per subunit. The ZKO CRISPR Jurkat line carries the positive mechanistic argument.
+
+A second genetic entry records heterozygous nonsense CD247 alleles with relationship_type DISPUTED. Their dominant-negative effect is well demonstrated in cell lines under overexpression, but no segregation or penetrance data are reported and the source states the correlation with clinical features only as a possibility, so recording it as CAUSATIVE would overstate the claim. An OPEN_QUESTION discussion records what would settle it.
+
+Validated with just validate for schema and references, 42 of 42 snippets verified against cached references, plus just validate-terms, just check-entity-refs and just check-duplicate-keys, all passing.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

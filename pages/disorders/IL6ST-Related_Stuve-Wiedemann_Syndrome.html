@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4295,6 +4367,7 @@ Those extra features are what &#34;extended&#34; names — congenital thrombocyt
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4316,6 +4389,7 @@ Those extra features are what &#34;extended&#34; names — congenital thrombocyt
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4414,6 +4488,7 @@ Those extra features are what &#34;extended&#34; names — congenital thrombocyt
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4488,6 +4563,7 @@ Those extra features are what &#34;extended&#34; names — congenital thrombocyt
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4522,6 +4598,7 @@ Those extra features are what &#34;extended&#34; names — congenital thrombocyt
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-il6st-loss-of-function" data-dismech-node="Biallelic IL6ST Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic IL6ST Loss of Function</div>
+
 
                 <div class="item-desc">Biallelic essential loss-of-function IL6ST alleles — nonsense (c.841C&gt;T, p.Arg281*), an intronic splice variant causing exon 13 skipping (c.1699+4A&gt;G), and a further truncating allele (p.Ser375*) — abolish functional cell-surface GP130. The truncating alleles lie in the extracellular domains, so the predicted products are soluble rather than membrane-anchored receptor fragments; the exon-13 skipping allele instead misfolds the membrane-proximal D6 domain, which is where the receptor transmits signal across the membrane.</div>
 
@@ -4583,6 +4660,8 @@ This pathophysiological event involves IL6ST (hgnc:6021). hgnc:6021 is a gene fr
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4597,6 +4676,9 @@ This pathophysiological event involves IL6ST (hgnc:6021). hgnc:6021 is a gene fr
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Homozygous germline null alleles of IL6ST (nonsense or essential splice). No compound-heterozygous STWS2 genotype has been reported; every published case arose in a consanguineous or homozygous-by-descent setting.</div>
 
@@ -4682,6 +4764,7 @@ This pathophysiological event involves cytokine receptor activity (GO:0004896), 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4703,6 +4786,7 @@ This pathophysiological event involves cytokine receptor activity (GO:0004896), 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4730,6 +4814,7 @@ This pathophysiological event involves cytokine receptor activity (GO:0004896), 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4752,6 +4837,7 @@ This pathophysiological event involves cytokine receptor activity (GO:0004896), 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pan-il-6-family-gp130-signaling-failure" data-dismech-node="Pan-IL-6-Family GP130 Signaling Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Pan-IL-6-Family GP130 Signaling Failure</div>
+
 
                 <div class="item-desc">GP130 is the shared transducer of the whole IL-6 cytokine family, so its complete loss silences every member at once — IL-6, IL-11, IL-27, oncostatin M and LIF have all been shown unresponsive in patient cells. This is the node that separates STWS2 from STWS1: LIFR loss removes only the LIF-receiving chain, leaving IL-6, IL-11 and IL-27 signaling intact. It also separates STWS2 from the IL6ST hyper-IgE and craniosynostosis phenotypes, which are cytokine-selective defects that spare LIF. Lentiviral reconstitution of GP130 in patient cells restores signaling, which is the strongest available evidence that the failure is the direct consequence of the genotype.</div>
 
@@ -5040,6 +5126,7 @@ This pathophysiological event involves decreased JAK-STAT cascade, annotated wit
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5061,6 +5148,7 @@ This pathophysiological event involves decreased JAK-STAT cascade, annotated wit
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5088,6 +5176,7 @@ This pathophysiological event involves decreased JAK-STAT cascade, annotated wit
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5112,6 +5201,7 @@ This pathophysiological event involves decreased JAK-STAT cascade, annotated wit
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failed-lif-dependent-skeletal-development" data-dismech-node="Failed LIF-Dependent Skeletal Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Failed LIF-Dependent Skeletal Development</div>
+
 
                 <div class="item-desc">Absent LIF-family signaling in the developing skeleton produces the bent-bone phenotype. That this arm is LIF-driven rather than IL-6- or IL-11-driven is inferred from the near-identity of the STWS2 and STWS1 skeletal phenotypes: LIFR loss removes only LIF-family input, and reproduces the same bowing, shortening and defective mineralization.</div>
 
@@ -5329,6 +5419,7 @@ This pathophysiological event involves decreased chondrocyte differentiation (GO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5350,6 +5441,7 @@ This pathophysiological event involves decreased chondrocyte differentiation (GO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5377,6 +5469,7 @@ This pathophysiological event involves decreased chondrocyte differentiation (GO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5399,6 +5492,7 @@ This pathophysiological event involves decreased chondrocyte differentiation (GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-autonomic-and-respiratory-dysfunction" data-dismech-node="Autonomic and Respiratory Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Autonomic and Respiratory Dysfunction</div>
+
 
                 <div class="item-desc">As in LIFR-related STWS1, loss of LIF-family signaling in autonomic and sensory neurons produces neonatal dysautonomia, and the neonate presents with lung dysfunction that, combined with the narrow thorax, is the usual proximate cause of perinatal death.</div>
 
@@ -5494,6 +5588,7 @@ This pathophysiological event involves cytokine-mediated signaling pathway (GO:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5515,6 +5610,7 @@ This pathophysiological event involves cytokine-mediated signaling pathway (GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5540,6 +5636,7 @@ This pathophysiological event involves cytokine-mediated signaling pathway (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-il-6-and-il-11-dependent-hematopoietic-epithelial-and-hepatic-responses" data-dismech-node="Loss of IL-6 and IL-11 Dependent Hematopoietic, Epithelial and Hepatic Responses" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of IL-6 and IL-11 Dependent Hematopoietic, Epithelial and Hepatic Responses</div>
+
 
                 <div class="item-desc">This node is what &#34;extended&#34; Stuve-Wiedemann syndrome means. IL-11 is required for megakaryocytopoiesis and IL-6 for the hepatic acute-phase response; both are intact in STWS1 and both are lost in STWS2. The resulting congenital thrombocytopenia, eczematoid dermatitis, renal abnormalities and absent acute-phase response are the features that distinguish the IL6ST disorder clinically from the LIFR one, and they are the mechanistic signature of losing the shared transducer rather than one ligand chain.</div>
 
@@ -5681,6 +5778,7 @@ This pathophysiological event involves interleukin-11-mediated signaling pathway
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5702,6 +5800,7 @@ This pathophysiological event involves interleukin-11-mediated signaling pathway
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5769,23 +5868,272 @@ This pathophysiological event involves interleukin-11-mediated signaling pathway
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Immune<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Limbs<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Genitourinary<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Immune<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Respiratory<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Limbs<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(6)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Metabolism<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Musculoskeletal<span class="pill-count">(4)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Nervous System<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Respiratory<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
 
 
             <details class="phenotype-category-group" id="pheno-cat-1">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Blood
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-congenital-thrombocytopenia" data-dismech-node="Congenital Thrombocytopenia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Congenital Thrombocytopenia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001905" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001905</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Congenital thrombocytopenia (HP:0001905). HP:0001905 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31914175" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31914175" target="_blank">PMID:31914175</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"with additional features such as congenital thrombocytopenia, eczematoid dermatitis, renal abnormalities, and defective acute-phase response"</div>
+
+
+                <div class="evidence-explanation">Lists congenital thrombocytopenia among the additional features.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Genitourinary
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-renal-morphology" data-dismech-node="Abnormal Renal Morphology" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Abnormal Renal Morphology
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012210" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0012210</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal renal morphology (HP:0012210). HP:0012210 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31914175" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31914175" target="_blank">PMID:31914175</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"with additional features such as congenital thrombocytopenia, eczematoid dermatitis, renal abnormalities, and defective acute-phase response"</div>
+
+
+                <div class="evidence-explanation">Lists renal abnormalities among the additional features.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Head and Neck
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dolichocephaly" data-dismech-node="Dolichocephaly" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Dolichocephaly
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000268" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000268</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dolichocephaly (HP:0000268). HP:0000268 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40835206" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40835206" target="_blank">PMID:40835206</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The fetus died in utero in gestational week 34 and was born with dolichocephalus, severe bowing and shortening of limb bones, a narrow upper thorax, joint dislocations and abnormal bone mineralization."</div>
+
+
+                <div class="evidence-explanation">Reports dolichocephalus directly.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Immune
@@ -5806,15 +6154,18 @@ This pathophysiological event involves interleukin-11-mediated signaling pathway
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000964" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000964</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000964" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000964</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Eczematoid dermatitis (HP:0000964). HP:0000964 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5834,6 +6185,7 @@ This clinical feature is Eczematoid dermatitis (HP:0000964). HP:0000964 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5862,7 +6214,7 @@ This clinical feature is Eczematoid dermatitis (HP:0000964). HP:0000964 is a phe
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-2">
+            <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Limbs
@@ -5885,15 +6237,18 @@ This clinical feature is Eczematoid dermatitis (HP:0000964). HP:0000964 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006487" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0006487</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006487" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0006487</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Bowing of the long bones (HP:0006487). HP:0006487 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5913,6 +6268,7 @@ This clinical feature is Bowing of the long bones (HP:0006487). HP:0006487 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5941,163 +6297,16 @@ This clinical feature is Bowing of the long bones (HP:0006487). HP:0006487 is a 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-3">
+            <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Musculoskeletal
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-narrow-thorax" data-dismech-node="Narrow Thorax" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Narrow Thorax
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Narrow chest</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000774" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000774</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Narrow chest (HP:0000774). HP:0000774 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:40835206" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40835206" target="_blank">PMID:40835206</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The fetus died in utero in gestational week 34 and was born with dolichocephalus, severe bowing and shortening of limb bones, a narrow upper thorax, joint dislocations and abnormal bone mineralization."</div>
-
-
-                <div class="evidence-explanation">Records a narrow upper thorax on postmortem examination.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-joint-dislocations" data-dismech-node="Joint Dislocations" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Joint Dislocations
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001373" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001373</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Joint dislocation (HP:0001373). HP:0001373 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:40835206" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40835206" target="_blank">PMID:40835206</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The fetus died in utero in gestational week 34 and was born with dolichocephalus, severe bowing and shortening of limb bones, a narrow upper thorax, joint dislocations and abnormal bone mineralization."</div>
-
-
-                <div class="evidence-explanation">Reports joint dislocations directly.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Nervous System
+                    Metabolism
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-autonomic-nervous-system-physiology" data-dismech-node="Abnormal Autonomic Nervous System Physiology" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-defective-acute-phase-response" data-dismech-node="Defective Acute-Phase Response" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Abnormal Autonomic Nervous System Physiology
+                        Defective Acute-Phase Response
 
 
 
@@ -6106,97 +6315,23 @@ This clinical feature is Joint dislocation (HP:0001373). HP:0001373 is a phenoty
 
                     <span class="phenotype-id">
 
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0012332</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal autonomic nervous system physiology (HP:0012332). HP:0012332 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
+                        <span class="phenotype-term-label">Decreased circulating C-reactive protein concentration</span>
 
 
 
 
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:40835206" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40835206" target="_blank">PMID:40835206</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Stüve-Wiedemann syndrome is a rare skeletal dysplasia characterized by severe shortening and bowing of the long bones and by immunological and autonomous dysfunction, usually resulting in early death."</div>
-
-
-                <div class="evidence-explanation">&#34;Autonomous dysfunction&#34; (dysautonomia) is given as a defining feature of the syndrome for which IL6ST is one of the two causative genes.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Respiratory
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-neonatal-respiratory-distress" data-dismech-node="Neonatal Respiratory Distress" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Neonatal Respiratory Distress
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002643" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002643</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0032437" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0032437</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Neonatal respiratory distress (HP:0002643). HP:0002643 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Decreased circulating C-reactive protein concentration (HP:0032437). HP:0032437 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6219,14 +6354,15 @@ This clinical feature is Neonatal respiratory distress (HP:0002643). HP:0002643 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"We describe three unrelated families with at least five affected individuals who presented with lethal Stüve-Wiedemann-like syndrome characterized by skeletal dysplasia and neonatal lung dysfunction with additional features such as congenital thrombocytopenia, eczematoid dermatitis, renal..."</div>
+                <div class="evidence-snippet">"with additional features such as congenital thrombocytopenia, eczematoid dermatitis, renal abnormalities, and defective acute-phase response"</div>
 
 
-                <div class="evidence-explanation">Neonatal lung dysfunction is named as a defining feature.</div>
+                <div class="evidence-explanation">Lists a defective acute-phase response among the additional features. The HP binding is to the C-reactive protein readout, which is the measurable form the defect takes; &#34;defective acute-phase response&#34; itself has no HP term.</div>
 
 
 
@@ -6244,11 +6380,11 @@ This clinical feature is Neonatal respiratory distress (HP:0002643). HP:0002643 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-6">
+            <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">6</span>
+                    Musculoskeletal
+                    <span class="cat-count">4</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-short-long-bones" data-dismech-node="Short Long Bones" data-dismech-type="phenotype">
@@ -6281,6 +6417,9 @@ This clinical feature is Short long bone (HP:0003026). HP:0003026 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6298,6 +6437,7 @@ This clinical feature is Short long bone (HP:0003026). HP:0003026 is a phenotype
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6306,6 +6446,80 @@ This clinical feature is Short long bone (HP:0003026). HP:0003026 is a phenotype
 
 
                 <div class="evidence-explanation">Documents shortening together with bowing at 21 weeks of gestation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-narrow-thorax" data-dismech-node="Narrow Thorax" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Narrow Thorax
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Narrow chest</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000774" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000774</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Narrow chest (HP:0000774). HP:0000774 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40835206" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40835206" target="_blank">PMID:40835206</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The fetus died in utero in gestational week 34 and was born with dolichocephalus, severe bowing and shortening of limb bones, a narrow upper thorax, joint dislocations and abnormal bone mineralization."</div>
+
+
+                <div class="evidence-explanation">Records a narrow upper thorax on postmortem examination.</div>
 
 
 
@@ -6337,15 +6551,18 @@ This clinical feature is Short long bone (HP:0003026). HP:0003026 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011849" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0011849</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011849" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0011849</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal bone ossification (HP:0011849). HP:0011849 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6365,6 +6582,7 @@ This clinical feature is Abnormal bone ossification (HP:0011849). HP:0011849 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6391,9 +6609,9 @@ This clinical feature is Abnormal bone ossification (HP:0011849). HP:0011849 is 
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-dolichocephaly" data-dismech-node="Dolichocephaly" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-joint-dislocations" data-dismech-node="Joint Dislocations" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Dolichocephaly
+                        Joint Dislocations
 
 
 
@@ -6405,15 +6623,18 @@ This clinical feature is Abnormal bone ossification (HP:0011849). HP:0011849 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000268" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000268</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001373" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001373</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Dolichocephaly (HP:0000268). HP:0000268 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Joint dislocation (HP:0001373). HP:0001373 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6436,6 +6657,7 @@ This clinical feature is Dolichocephaly (HP:0000268). HP:0000268 is a phenotype 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6443,7 +6665,7 @@ This clinical feature is Dolichocephaly (HP:0000268). HP:0000268 is a phenotype 
                 <div class="evidence-snippet">"The fetus died in utero in gestational week 34 and was born with dolichocephalus, severe bowing and shortening of limb bones, a narrow upper thorax, joint dislocations and abnormal bone mineralization."</div>
 
 
-                <div class="evidence-explanation">Reports dolichocephalus directly.</div>
+                <div class="evidence-explanation">Reports joint dislocations directly.</div>
 
 
 
@@ -6459,9 +6681,18 @@ This clinical feature is Dolichocephaly (HP:0000268). HP:0000268 is a phenotype 
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-congenital-thrombocytopenia" data-dismech-node="Congenital Thrombocytopenia" data-dismech-type="phenotype">
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-8">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Nervous System
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-autonomic-nervous-system-physiology" data-dismech-node="Abnormal Autonomic Nervous System Physiology" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Congenital Thrombocytopenia
+                        Abnormal Autonomic Nervous System Physiology
 
 
 
@@ -6473,83 +6704,18 @@ This clinical feature is Dolichocephaly (HP:0000268). HP:0000268 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001905" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001905</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Congenital thrombocytopenia (HP:0001905). HP:0001905 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31914175" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31914175" target="_blank">PMID:31914175</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"with additional features such as congenital thrombocytopenia, eczematoid dermatitis, renal abnormalities, and defective acute-phase response"</div>
-
-
-                <div class="evidence-explanation">Lists congenital thrombocytopenia among the additional features.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-renal-morphology" data-dismech-node="Abnormal Renal Morphology" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Abnormal Renal Morphology
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012210" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0012210</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0012332</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal renal morphology (HP:0012210). HP:0012210 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Abnormal autonomic nervous system physiology (HP:0012332). HP:0012332 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6561,10 +6727,10 @@ This clinical feature is Abnormal renal morphology (HP:0012210). HP:0012210 is a
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:31914175" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:40835206" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31914175" target="_blank">PMID:31914175</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40835206" target="_blank">PMID:40835206</a>
                     </span>
 
 
@@ -6572,14 +6738,15 @@ This clinical feature is Abnormal renal morphology (HP:0012210). HP:0012210 is a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"with additional features such as congenital thrombocytopenia, eczematoid dermatitis, renal abnormalities, and defective acute-phase response"</div>
+                <div class="evidence-snippet">"Stüve-Wiedemann syndrome is a rare skeletal dysplasia characterized by severe shortening and bowing of the long bones and by immunological and autonomous dysfunction, usually resulting in early death."</div>
 
 
-                <div class="evidence-explanation">Lists renal abnormalities among the additional features.</div>
+                <div class="evidence-explanation">&#34;Autonomous dysfunction&#34; (dysautonomia) is given as a defining feature of the syndrome for which IL6ST is one of the two causative genes.</div>
 
 
 
@@ -6595,9 +6762,20 @@ This clinical feature is Abnormal renal morphology (HP:0012210). HP:0012210 is a
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-defective-acute-phase-response" data-dismech-node="Defective Acute-Phase Response" data-dismech-type="phenotype">
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-9">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Respiratory
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-neonatal-respiratory-distress" data-dismech-node="Neonatal Respiratory Distress" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Defective Acute-Phase Response
+                        Neonatal Respiratory Distress
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
 
@@ -6606,20 +6784,21 @@ This clinical feature is Abnormal renal morphology (HP:0012210). HP:0012210 is a
 
                     <span class="phenotype-id">
 
-                        <span class="phenotype-term-label">Decreased circulating C-reactive protein concentration</span>
 
 
 
-
-    <a href="http://purl.obolibrary.org/obo/HP_0032437" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0032437</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002643" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0002643</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Decreased circulating C-reactive protein concentration (HP:0032437). HP:0032437 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Neonatal respiratory distress (HP:0002643). HP:0002643 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6642,14 +6821,15 @@ This clinical feature is Decreased circulating C-reactive protein concentration 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"with additional features such as congenital thrombocytopenia, eczematoid dermatitis, renal abnormalities, and defective acute-phase response"</div>
+                <div class="evidence-snippet">"We describe three unrelated families with at least five affected individuals who presented with lethal Stüve-Wiedemann-like syndrome characterized by skeletal dysplasia and neonatal lung dysfunction with additional features such as congenital thrombocytopenia, eczematoid dermatitis, renal..."</div>
 
 
-                <div class="evidence-explanation">Lists a defective acute-phase response among the additional features. The HP binding is to the C-reactive protein readout, which is the measurable form the defect takes; &#34;defective acute-phase response&#34; itself has no HP term.</div>
+                <div class="evidence-explanation">Neonatal lung dysfunction is named as a defining feature.</div>
 
 
 
@@ -6739,6 +6919,9 @@ This disease-associated gene is IL6ST (hgnc:6021). hgnc:6021 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6753,6 +6936,7 @@ This disease-associated gene is IL6ST (hgnc:6021). hgnc:6021 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6780,6 +6964,7 @@ This disease-associated gene is IL6ST (hgnc:6021). hgnc:6021 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6801,6 +6986,7 @@ This disease-associated gene is IL6ST (hgnc:6021). hgnc:6021 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6883,6 +7069,31 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">There is no disease-modifying therapy. Management is intensive neonatal and supportive care directed at the respiratory failure, the autonomic instability and the feeding difficulties.</div>
 
 
@@ -6904,6 +7115,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6967,6 +7179,20 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Autosomal recessive recurrence risk of 25% for the parents of an affected child. All reported cases have been homozygous, so carrier testing of both parents and prenatal or preimplantation testing are the relevant options.</div>
 
 
@@ -6988,6 +7214,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7067,6 +7294,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7088,6 +7316,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7143,6 +7372,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7164,6 +7394,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7235,6 +7466,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7256,6 +7488,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7347,6 +7580,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7399,6 +7633,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7588,6 +7823,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7640,6 +7876,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 

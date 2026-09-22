@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4100,6 +4172,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4174,6 +4247,25 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                ERCC6
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:3438" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:3438</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in ERCC6 (hgnc:3438). hgnc:3438 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">ERCC6 (CSB)-associated COFS syndrome, the most common subtype with severe prenatal-onset microcephaly, congenital cataracts, arthrogryposis, and progressive neurodegeneration. Allelic with severe Cockayne syndrome type II.</div>
@@ -4196,6 +4288,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4238,6 +4331,25 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                ERCC2
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:3434" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:3434</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in ERCC2 (hgnc:3434). hgnc:3434 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">ERCC2 (XPD)-associated COFS syndrome. Allelic with xeroderma pigmentosum group D and trichothiodystrophy; severe phenotype with COFS features results from missense alleles disrupting TFIIH-coupled NER and transcription.</div>
@@ -4260,6 +4372,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4302,6 +4415,25 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                ERCC5
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:3437" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:3437</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in ERCC5 (hgnc:3437). hgnc:3437 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">ERCC5 (XPG)-associated COFS syndrome. Allelic with xeroderma pigmentosum group G and the XP/CS complex; COFS-spectrum cases harbor severe XPG loss-of-function alleles.</div>
@@ -4324,6 +4456,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4366,6 +4499,25 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                ERCC1
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:3433" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:3433</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in ERCC1 (hgnc:3433). hgnc:3433 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">ERCC1-associated COFS syndrome. Severe loss-of-function alleles in ERCC1 destabilize the ERCC1-XPF endonuclease complex producing a COFS-spectrum phenotype with prenatal onset and lethality in infancy.</div>
@@ -4388,6 +4540,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4436,6 +4589,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ner-gene-biallelic-loss-of-function" data-dismech-node="NER Gene Biallelic Loss-of-Function" data-dismech-type="pathophysiology">
                 <div class="item-name">NER Gene Biallelic Loss-of-Function</div>
 
+
                 <div class="item-desc">Biallelic pathogenic loss-of-function variants in one of four NER genes (ERCC6/CSB, ERCC2/XPD, ERCC5/XPG, or ERCC1) eliminate or destabilise the protein product, removing its contribution to transcription-coupled NER. COFS represents the severe prenatal-onset end of the NER-deficiency allelic spectrum.</div>
 
 
@@ -4458,11 +4612,11 @@
         ERCC6
 
 
-    <a href="https://bioregistry.io/hgnc:3438" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:3438</a>
+    <a href="https://bioregistry.io/hgnc:3438" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:3438</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves decreased ERCC6 (hgnc:3438). hgnc:3438 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -4501,11 +4655,11 @@ This pathophysiological event involves decreased ERCC6 (hgnc:3438). hgnc:3438 is
         ERCC2
 
 
-    <a href="https://bioregistry.io/hgnc:3434" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:3434</a>
+    <a href="https://bioregistry.io/hgnc:3434" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:3434</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves decreased ERCC2 (hgnc:3434). hgnc:3434 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -4544,11 +4698,11 @@ This pathophysiological event involves decreased ERCC2 (hgnc:3434). hgnc:3434 is
         ERCC5
 
 
-    <a href="https://bioregistry.io/hgnc:3437" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:3437</a>
+    <a href="https://bioregistry.io/hgnc:3437" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:3437</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves decreased ERCC5 (hgnc:3437). hgnc:3437 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -4587,11 +4741,11 @@ This pathophysiological event involves decreased ERCC5 (hgnc:3437). hgnc:3437 is
         ERCC1
 
 
-    <a href="https://bioregistry.io/hgnc:3433" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:3433</a>
+    <a href="https://bioregistry.io/hgnc:3433" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:3433</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves decreased ERCC1 (hgnc:3433). hgnc:3433 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -4637,7 +4791,7 @@ This pathophysiological event involves decreased ERCC1 (hgnc:3433). hgnc:3433 is
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Defective Transcription-Coupled Nucleotide Excision Repair</span>
 
-	                            <span class="crosslink-desc">Loss of CSB, XPD, XPG, or ERCC1-XPF function abolishes the downstream TC-NER complex required for processing transcription- stalling lesions.</span>
+	                            <span class="crosslink-desc">Loss of CSB, XPD, XPG, or ERCC1-XPF function abolishes the downstream TC-NER complex required for processing transcription-stalling lesions.</span>
 
 
 	                        </div>
@@ -4704,6 +4858,7 @@ This pathophysiological event involves decreased ERCC1 (hgnc:3433). hgnc:3433 is
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4725,6 +4880,7 @@ This pathophysiological event involves decreased ERCC1 (hgnc:3433). hgnc:3433 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4751,6 +4907,7 @@ This pathophysiological event involves decreased ERCC1 (hgnc:3433). hgnc:3433 is
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-transcription-coupled-nucleotide-excision-repair" data-dismech-node="Defective Transcription-Coupled Nucleotide Excision Repair" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective Transcription-Coupled Nucleotide Excision Repair</div>
 
+
                 <div class="item-desc">The TC-NER complex (CSA/CSB → UVSSA-USP7 → TFIIH-XPD → XPG → ERCC1-XPF) is impaired when any required component is missing or destabilised. Damage in actively transcribed DNA can no longer be efficiently removed. COFS shares this defect with Cockayne syndrome (see Cockayne_Syndrome.yaml); the shared biology is mirrored here rather than inherited via `conforms_to` because dismech modules are reserved for cross-disorder conserved mechanisms.</div>
 
 
@@ -4772,11 +4929,11 @@ This pathophysiological event involves decreased ERCC1 (hgnc:3433). hgnc:3433 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0006283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0006283</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased transcription-coupled nucleotide-excision repair (GO:0006283). GO:0006283 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4849,6 +5006,7 @@ This pathophysiological event involves decreased transcription-coupled nucleotid
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4870,6 +5028,7 @@ This pathophysiological event involves decreased transcription-coupled nucleotid
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4895,6 +5054,7 @@ This pathophysiological event involves decreased transcription-coupled nucleotid
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-accumulation-of-transcription-blocking-dna-lesions" data-dismech-node="Accumulation of Transcription-Blocking DNA Lesions" data-dismech-type="pathophysiology">
                 <div class="item-name">Accumulation of Transcription-Blocking DNA Lesions</div>
+
 
                 <div class="item-desc">Persistent unrepaired bulky DNA adducts and oxidative lesions stall RNA polymerase II on the template strand of actively transcribed genes, preventing transcription elongation. The high transcriptional demand of neural progenitors and developing neurons makes these cells especially vulnerable.</div>
 
@@ -4956,6 +5116,7 @@ This pathophysiological event involves decreased transcription-coupled nucleotid
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4979,6 +5140,7 @@ This pathophysiological event involves decreased transcription-coupled nucleotid
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-neurogenesis" data-dismech-node="Impaired Neurogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Neurogenesis</div>
 
+
                 <div class="item-desc">Transcriptional arrest in proliferating neural progenitors impairs neuronal differentiation and neurogenesis, reducing neuron production. This developmental arm produces the microcephaly and cerebellar hypoplasia of COFS.</div>
 
 
@@ -5000,11 +5162,11 @@ This pathophysiological event involves decreased transcription-coupled nucleotid
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0022008" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0022008</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0022008" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0022008</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased neurogenesis (GO:0022008). GO:0022008 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5085,6 +5247,7 @@ This pathophysiological event involves decreased neurogenesis (GO:0022008). GO:0
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5107,6 +5270,7 @@ This pathophysiological event involves decreased neurogenesis (GO:0022008). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-neurodegeneration" data-dismech-node="Progressive Neurodegeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Neurodegeneration</div>
+
 
                 <div class="item-desc">Transcriptional arrest in post-mitotic neurons drives progressive neurodegeneration of surviving neurons. This degenerative arm contributes to the severe progressive psychomotor decline of COFS, distinct from the developmental neurogenesis deficit.</div>
 
@@ -5208,6 +5372,7 @@ This pathophysiological event involves decreased neurogenesis (GO:0022008). GO:0
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5253,7 +5418,7 @@ This pathophysiological event involves decreased neurogenesis (GO:0022008). GO:0
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Accumulation of Transcription-Blocking DNA Lesions\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persistent unrepaired bulky DNA adducts and oxidative lesions stall RNA polymerase II on the template strand of actively transcribed genes, preventing transcription elongation. The high transcriptional demand of neural progenitors and developing neurons makes these cells especially vulnerable.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Arthrogryposis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital, often prenatal-onset multiple joint contractures with a neurogenic basis, frequently detected on antenatal ultrasound.\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0002804\"}}, {\"id\": \"Brain Atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive loss of brain parenchyma, a hallmark of the rapidly progressive neurodegeneration that defines COFS syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012444\"}}, {\"id\": \"Cerebellar Hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypoplastic cerebellum with infratentorial microscopic anomalies reminiscent of pontocerebellar hypoplasia. Frequently visible on prenatal ultrasound when COFS is detected in utero.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001321\"}}, {\"id\": \"Cerebral Calcification\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intracranial calcification accompanying the progressive brain atrophy, a finding shared with Cockayne syndrome within the NER-disorder spectrum.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002514\"}}, {\"id\": \"Congenital Cataracts\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral congenital cataracts, often with microphthalmia, microcornea, and optic atrophy. A defining ocular feature of the syndrome.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000519\"}}, {\"id\": \"Cutaneous Photosensitivity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased skin sensitivity to ultraviolet light, reflecting the underlying NER deficiency. Severity varies with the specific NER gene defect.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000992\"}}, {\"id\": \"Defective Transcription-Coupled Nucleotide Excision Repair\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The TC-NER complex (CSA/CSB \\u2192 UVSSA-USP7 \\u2192 TFIIH-XPD \\u2192 XPG \\u2192 ERCC1-XPF) is impaired when any required component is missing or destabilised. Damage in actively transcribed DNA can no longer be efficiently removed. COFS shares this defect with Cockayne syndrome (see Cockayne_Syndrome.yaml); the shared biology is mirrored here rather than inherited via `conforms_to` because dismech modules are reserved for cross-disorder conserved mechanisms.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"transcription-coupled nucleotide-excision repair\"]}}, {\"id\": \"ERCC1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ERCC1\"], \"gene_terms\": [{\"label\": \"ERCC1\", \"id\": \"hgnc:3433\"}], \"subtypes\": [\"COFS4\"], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"ERCC2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ERCC2\"], \"gene_terms\": [{\"label\": \"ERCC2\", \"id\": \"hgnc:3434\"}], \"subtypes\": [\"COFS2\"], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"ERCC5\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ERCC5\"], \"gene_terms\": [{\"label\": \"ERCC5\", \"id\": \"hgnc:3437\"}], \"subtypes\": [\"COFS3\"], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"ERCC6\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ERCC6\"], \"gene_terms\": [{\"label\": \"ERCC6\", \"id\": \"hgnc:3438\"}], \"subtypes\": [\"COFS1\"], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Failure to Thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Postnatal failure to thrive with severe feeding difficulties, compounding the prenatal-onset growth failure characteristic of the syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001508\"}}, {\"id\": \"Growth Failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe prenatal and postnatal growth failure with intrauterine growth retardation and failure to thrive in survivors.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001510\"}}, {\"id\": \"Impaired Neurogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Transcriptional arrest in proliferating neural progenitors impairs neuronal differentiation and neurogenesis, reducing neuron production. This developmental arm produces the microcephaly and cerebellar hypoplasia of COFS.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"neurogenesis\"]}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital, prenatal-onset microcephaly with markedly reduced head circumference, present in fetuses and at birth.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000252\"}}, {\"id\": \"Microcornea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormally small cornea, one of the ocular anomalies that co-occur with congenital cataracts, microphthalmia, and optic atrophy in COFS.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000482\"}}, {\"id\": \"Microphthalmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced ocular globe size frequently co-occurring with congenital cataracts, microcornea, and optic atrophy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000568\"}}, {\"id\": \"NER Gene Biallelic Loss-of-Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic loss-of-function variants in one of four NER genes (ERCC6/CSB, ERCC2/XPD, ERCC5/XPG, or ERCC1) eliminate or destabilise the protein product, removing its contribution to transcription-coupled NER. COFS represents the severe prenatal-onset end of the NER-deficiency allelic spectrum.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"ERCC6\", \"ERCC2\", \"ERCC5\", \"ERCC1\"], \"gene_terms\": [{\"label\": \"ERCC6\", \"id\": \"hgnc:3438\", \"modifier\": \"DECREASED\"}, {\"label\": \"ERCC2\", \"id\": \"hgnc:3434\", \"modifier\": \"DECREASED\"}, {\"label\": \"ERCC5\", \"id\": \"hgnc:3437\", \"modifier\": \"DECREASED\"}, {\"label\": \"ERCC1\", \"id\": \"hgnc:3433\", \"modifier\": \"DECREASED\"}]}}, {\"id\": \"Optic Atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Optic nerve atrophy is a recognised ocular finding in COFS syndrome, reported in case series of XPD- and ERCC2-mutated patients.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000648\"}}, {\"id\": \"Progressive Neurodegeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Transcriptional arrest in post-mitotic neurons drives progressive neurodegeneration of surviving neurons. This degenerative arm contributes to the severe progressive psychomotor decline of COFS, distinct from the developmental neurogenesis deficit.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Recurrent Pneumonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent episodes of pneumonia, a frequent cause of morbidity and early death in COFS patients owing to neurogenic feeding difficulties and aspiration.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0006532\"}}, {\"id\": \"Sensorineural Hearing Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Profound bilateral sensorineural hearing loss in COFS, with histopathologic evidence of accelerated cochlear nerve degeneration (axonal loss in the spiral lamina, complete absence of afferent fibers innervating inner hair cells). Reported in ERCC2/XPD-mutated patients and confirmed at autopsy.\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0000407\"}}, {\"id\": \"Severe Psychomotor Retardation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Profound global developmental delay with progressive neurodegeneration typically leading to early death.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0011344\"}}, {\"id\": \"Ventriculomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Enlargement of the cerebral ventricles, detectable prenatally and reflecting the underlying neurodegeneration and impaired brain growth.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002119\"}}], \"edges\": [{\"source\": \"NER Gene Biallelic Loss-of-Function\", \"target\": \"Defective Transcription-Coupled Nucleotide Excision Repair\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of CSB, XPD, XPG, or ERCC1-XPF function abolishes the downstream TC-NER complex required for processing transcription- stalling lesions.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"NER Gene Biallelic Loss-of-Function\", \"target\": \"Congenital Cataracts\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Biallelic NER-gene defects produce congenital cataracts through incompletely resolved developmental mechanisms.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"NER Gene Biallelic Loss-of-Function\", \"target\": \"Microphthalmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Biallelic NER-gene defects produce microphthalmia through incompletely resolved developmental mechanisms.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"NER Gene Biallelic Loss-of-Function\", \"target\": \"Microcornea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Biallelic NER-gene defects produce microcornea through incompletely resolved developmental mechanisms.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"NER Gene Biallelic Loss-of-Function\", \"target\": \"Arthrogryposis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Biallelic NER-gene defects produce neurogenic arthrogryposis through incompletely resolved developmental mechanisms.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"NER Gene Biallelic Loss-of-Function\", \"target\": \"Growth Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Biallelic NER-gene defects produce severe growth failure through incompletely resolved developmental mechanisms.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Defective Transcription-Coupled Nucleotide Excision Repair\", \"target\": \"Accumulation of Transcription-Blocking DNA Lesions\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without functional TC-NER, transcription-blocking lesions persist and accumulate in active genes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Defective Transcription-Coupled Nucleotide Excision Repair\", \"target\": \"Cutaneous Photosensitivity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Defective NER leaves UV-induced DNA damage unrepaired, producing profound cutaneous photosensitivity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accumulation of Transcription-Blocking DNA Lesions\", \"target\": \"Impaired Neurogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent stalled transcription in proliferating neural progenitors impairs neuronal differentiation and neurogenesis.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Accumulation of Transcription-Blocking DNA Lesions\", \"target\": \"Progressive Neurodegeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent stalled transcription in post-mitotic neurons drives progressive neurodegeneration.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neurogenesis\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired prenatal neurogenesis reduces brain growth, producing congenital microcephaly.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Neurogenesis\", \"target\": \"Cerebellar Hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired neurogenesis contributes to cerebellar and infratentorial hypoplasia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Neurogenesis\", \"target\": \"Ventriculomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired brain development can include prenatal ventriculomegaly.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Neurodegeneration\", \"target\": \"Brain Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive neurodegeneration manifests as brain atrophy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Neurodegeneration\", \"target\": \"Cerebral Calcification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The progressive neurologic disorder includes intracranial calcifications with brain atrophy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Neurodegeneration\", \"target\": \"Severe Psychomotor Retardation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurodegeneration contributes to severe progressive psychomotor impairment.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Neurodegeneration\", \"target\": \"Sensorineural Hearing Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive neural degeneration can involve cochlear and retrocochlear neurons, producing sensorineural hearing loss.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Neurodegeneration\", \"target\": \"Optic Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive neurodegeneration can involve the optic nerve, producing optic atrophy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Neurodegeneration\", \"target\": \"Failure to Thrive\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe neurodegeneration can impair feeding and contribute to postnatal failure to thrive.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"neurogenic feeding difficulty\"]}, {\"source\": \"Progressive Neurodegeneration\", \"target\": \"Recurrent Pneumonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe neurologic impairment can cause dysphagia and aspiration, contributing to recurrent pneumonia.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"neurogenic dysphagia\", \"aspiration\"]}, {\"source\": \"ERCC6\", \"target\": \"NER Gene Biallelic Loss-of-Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ERCC2\", \"target\": \"NER Gene Biallelic Loss-of-Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ERCC5\", \"target\": \"NER Gene Biallelic Loss-of-Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ERCC1\", \"target\": \"NER Gene Biallelic Loss-of-Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Accumulation of Transcription-Blocking DNA Lesions\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persistent unrepaired bulky DNA adducts and oxidative lesions stall RNA polymerase II on the template strand of actively transcribed genes, preventing transcription elongation. The high transcriptional demand of neural progenitors and developing neurons makes these cells especially vulnerable.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Arthrogryposis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital, often prenatal-onset multiple joint contractures with a neurogenic basis, frequently detected on antenatal ultrasound.\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0002804\"}}, {\"id\": \"Brain Atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive loss of brain parenchyma, a hallmark of the rapidly progressive neurodegeneration that defines COFS syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012444\"}}, {\"id\": \"Cerebellar Hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypoplastic cerebellum with infratentorial microscopic anomalies reminiscent of pontocerebellar hypoplasia. Frequently visible on prenatal ultrasound when COFS is detected in utero.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001321\"}}, {\"id\": \"Cerebral Calcification\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intracranial calcification accompanying the progressive brain atrophy, a finding shared with Cockayne syndrome within the NER-disorder spectrum.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002514\"}}, {\"id\": \"Congenital Cataracts\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral congenital cataracts, often with microphthalmia, microcornea, and optic atrophy. A defining ocular feature of the syndrome.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000519\"}}, {\"id\": \"Cutaneous Photosensitivity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased skin sensitivity to ultraviolet light, reflecting the underlying NER deficiency. Severity varies with the specific NER gene defect.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000992\"}}, {\"id\": \"Defective Transcription-Coupled Nucleotide Excision Repair\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The TC-NER complex (CSA/CSB \\u2192 UVSSA-USP7 \\u2192 TFIIH-XPD \\u2192 XPG \\u2192 ERCC1-XPF) is impaired when any required component is missing or destabilised. Damage in actively transcribed DNA can no longer be efficiently removed. COFS shares this defect with Cockayne syndrome (see Cockayne_Syndrome.yaml); the shared biology is mirrored here rather than inherited via `conforms_to` because dismech modules are reserved for cross-disorder conserved mechanisms.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"transcription-coupled nucleotide-excision repair\"]}}, {\"id\": \"ERCC1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ERCC1\"], \"gene_terms\": [{\"label\": \"ERCC1\", \"id\": \"hgnc:3433\"}], \"subtypes\": [\"COFS4\"], \"association\": \"Pathogenic Variants\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"ERCC2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ERCC2\"], \"gene_terms\": [{\"label\": \"ERCC2\", \"id\": \"hgnc:3434\"}], \"subtypes\": [\"COFS2\"], \"association\": \"Pathogenic Variants\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"ERCC5\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ERCC5\"], \"gene_terms\": [{\"label\": \"ERCC5\", \"id\": \"hgnc:3437\"}], \"subtypes\": [\"COFS3\"], \"association\": \"Pathogenic Variants\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"ERCC6\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ERCC6\"], \"gene_terms\": [{\"label\": \"ERCC6\", \"id\": \"hgnc:3438\"}], \"subtypes\": [\"COFS1\"], \"association\": \"Pathogenic Variants\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Failure to Thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Postnatal failure to thrive with severe feeding difficulties, compounding the prenatal-onset growth failure characteristic of the syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001508\"}}, {\"id\": \"Growth Failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe prenatal and postnatal growth failure with intrauterine growth retardation and failure to thrive in survivors.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001510\"}}, {\"id\": \"Impaired Neurogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Transcriptional arrest in proliferating neural progenitors impairs neuronal differentiation and neurogenesis, reducing neuron production. This developmental arm produces the microcephaly and cerebellar hypoplasia of COFS.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"neurogenesis\"]}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital, prenatal-onset microcephaly with markedly reduced head circumference, present in fetuses and at birth.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000252\"}}, {\"id\": \"Microcornea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormally small cornea, one of the ocular anomalies that co-occur with congenital cataracts, microphthalmia, and optic atrophy in COFS.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000482\"}}, {\"id\": \"Microphthalmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced ocular globe size frequently co-occurring with congenital cataracts, microcornea, and optic atrophy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000568\"}}, {\"id\": \"NER Gene Biallelic Loss-of-Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic loss-of-function variants in one of four NER genes (ERCC6/CSB, ERCC2/XPD, ERCC5/XPG, or ERCC1) eliminate or destabilise the protein product, removing its contribution to transcription-coupled NER. COFS represents the severe prenatal-onset end of the NER-deficiency allelic spectrum.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"ERCC6\", \"ERCC2\", \"ERCC5\", \"ERCC1\"], \"gene_terms\": [{\"label\": \"ERCC6\", \"id\": \"hgnc:3438\", \"modifier\": \"DECREASED\"}, {\"label\": \"ERCC2\", \"id\": \"hgnc:3434\", \"modifier\": \"DECREASED\"}, {\"label\": \"ERCC5\", \"id\": \"hgnc:3437\", \"modifier\": \"DECREASED\"}, {\"label\": \"ERCC1\", \"id\": \"hgnc:3433\", \"modifier\": \"DECREASED\"}]}}, {\"id\": \"Optic Atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Optic nerve atrophy is a recognised ocular finding in COFS syndrome, reported in case series of XPD- and ERCC2-mutated patients.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000648\"}}, {\"id\": \"Progressive Neurodegeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Transcriptional arrest in post-mitotic neurons drives progressive neurodegeneration of surviving neurons. This degenerative arm contributes to the severe progressive psychomotor decline of COFS, distinct from the developmental neurogenesis deficit.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Recurrent Pneumonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent episodes of pneumonia, a frequent cause of morbidity and early death in COFS patients owing to neurogenic feeding difficulties and aspiration.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0006532\"}}, {\"id\": \"Sensorineural Hearing Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Profound bilateral sensorineural hearing loss in COFS, with histopathologic evidence of accelerated cochlear nerve degeneration (axonal loss in the spiral lamina, complete absence of afferent fibers innervating inner hair cells). Reported in ERCC2/XPD-mutated patients and confirmed at autopsy.\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0000407\"}}, {\"id\": \"Severe Psychomotor Retardation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Profound global developmental delay with progressive neurodegeneration typically leading to early death.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0011344\"}}, {\"id\": \"Ventriculomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Enlargement of the cerebral ventricles, detectable prenatally and reflecting the underlying neurodegeneration and impaired brain growth.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002119\"}}], \"edges\": [{\"source\": \"NER Gene Biallelic Loss-of-Function\", \"target\": \"Defective Transcription-Coupled Nucleotide Excision Repair\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of CSB, XPD, XPG, or ERCC1-XPF function abolishes the downstream TC-NER complex required for processing transcription-stalling lesions.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"NER Gene Biallelic Loss-of-Function\", \"target\": \"Congenital Cataracts\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Biallelic NER-gene defects produce congenital cataracts through incompletely resolved developmental mechanisms.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"NER Gene Biallelic Loss-of-Function\", \"target\": \"Microphthalmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Biallelic NER-gene defects produce microphthalmia through incompletely resolved developmental mechanisms.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"NER Gene Biallelic Loss-of-Function\", \"target\": \"Microcornea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Biallelic NER-gene defects produce microcornea through incompletely resolved developmental mechanisms.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"NER Gene Biallelic Loss-of-Function\", \"target\": \"Arthrogryposis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Biallelic NER-gene defects produce neurogenic arthrogryposis through incompletely resolved developmental mechanisms.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"NER Gene Biallelic Loss-of-Function\", \"target\": \"Growth Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Biallelic NER-gene defects produce severe growth failure through incompletely resolved developmental mechanisms.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Defective Transcription-Coupled Nucleotide Excision Repair\", \"target\": \"Accumulation of Transcription-Blocking DNA Lesions\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without functional TC-NER, transcription-blocking lesions persist and accumulate in active genes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Defective Transcription-Coupled Nucleotide Excision Repair\", \"target\": \"Cutaneous Photosensitivity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Defective NER leaves UV-induced DNA damage unrepaired, producing profound cutaneous photosensitivity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accumulation of Transcription-Blocking DNA Lesions\", \"target\": \"Impaired Neurogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent stalled transcription in proliferating neural progenitors impairs neuronal differentiation and neurogenesis.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Accumulation of Transcription-Blocking DNA Lesions\", \"target\": \"Progressive Neurodegeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent stalled transcription in post-mitotic neurons drives progressive neurodegeneration.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neurogenesis\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired prenatal neurogenesis reduces brain growth, producing congenital microcephaly.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Neurogenesis\", \"target\": \"Cerebellar Hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired neurogenesis contributes to cerebellar and infratentorial hypoplasia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Neurogenesis\", \"target\": \"Ventriculomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired brain development can include prenatal ventriculomegaly.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Neurodegeneration\", \"target\": \"Brain Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive neurodegeneration manifests as brain atrophy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Neurodegeneration\", \"target\": \"Cerebral Calcification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The progressive neurologic disorder includes intracranial calcifications with brain atrophy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Neurodegeneration\", \"target\": \"Severe Psychomotor Retardation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurodegeneration contributes to severe progressive psychomotor impairment.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Neurodegeneration\", \"target\": \"Sensorineural Hearing Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive neural degeneration can involve cochlear and retrocochlear neurons, producing sensorineural hearing loss.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Neurodegeneration\", \"target\": \"Optic Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive neurodegeneration can involve the optic nerve, producing optic atrophy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Neurodegeneration\", \"target\": \"Failure to Thrive\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe neurodegeneration can impair feeding and contribute to postnatal failure to thrive.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"neurogenic feeding difficulty\"]}, {\"source\": \"Progressive Neurodegeneration\", \"target\": \"Recurrent Pneumonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe neurologic impairment can cause dysphagia and aspiration, contributing to recurrent pneumonia.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"neurogenic dysphagia\", \"aspiration\"]}, {\"source\": \"ERCC6\", \"target\": \"NER Gene Biallelic Loss-of-Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ERCC2\", \"target\": \"NER Gene Biallelic Loss-of-Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ERCC5\", \"target\": \"NER Gene Biallelic Loss-of-Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ERCC1\", \"target\": \"NER Gene Biallelic Loss-of-Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5282,11 +5447,11 @@ This pathophysiological event involves decreased neurogenesis (GO:0022008). GO:0
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Integument<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Nervous System<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Musculoskeletal<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Growth<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Nervous System<span class="pill-count">(4)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Other<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Growth<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5315,15 +5480,18 @@ This pathophysiological event involves decreased neurogenesis (GO:0022008). GO:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0000407</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0000407</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5343,6 +5511,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5370,6 +5539,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5391,6 +5561,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5442,15 +5613,18 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000519" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0000519</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000519" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000519</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Congenital cataract, annotated with Developmental cataract (HP:0000519). HP:0000519 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5470,6 +5644,7 @@ This clinical feature is Congenital cataract, annotated with Developmental catar
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5494,6 +5669,7 @@ This clinical feature is Congenital cataract, annotated with Developmental catar
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5534,15 +5710,18 @@ This clinical feature is Congenital cataract, annotated with Developmental catar
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0000568</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000568</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5562,6 +5741,7 @@ This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5602,15 +5782,18 @@ This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000648" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0000648</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000648" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000648</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5630,6 +5813,7 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5654,6 +5838,7 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5694,15 +5879,18 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000482" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0000482</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000482" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000482</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Microcornea (HP:0000482). HP:0000482 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5722,6 +5910,7 @@ This clinical feature is Microcornea (HP:0000482). HP:0000482 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5771,15 +5960,18 @@ This clinical feature is Microcornea (HP:0000482). HP:0000482 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000252</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5799,6 +5991,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5823,6 +6016,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5872,15 +6066,18 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006532" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0006532</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006532" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0006532</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Recurrent pneumonia (HP:0006532). HP:0006532 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5900,6 +6097,7 @@ This clinical feature is Recurrent pneumonia (HP:0006532). HP:0006532 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5949,15 +6147,18 @@ This clinical feature is Recurrent pneumonia (HP:0006532). HP:0006532 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000992" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000992</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000992" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000992</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cutaneous photosensitivity (HP:0000992). HP:0000992 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5977,6 +6178,7 @@ This clinical feature is Cutaneous photosensitivity (HP:0000992). HP:0000992 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6001,6 +6203,7 @@ This clinical feature is Cutaneous photosensitivity (HP:0000992). HP:0000992 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6032,8 +6235,213 @@ This clinical feature is Cutaneous photosensitivity (HP:0000992). HP:0000992 is 
             <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Musculoskeletal
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-arthrogryposis" data-dismech-node="Arthrogryposis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Arthrogryposis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Arthrogryposis multiplex congenita</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002804" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002804</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Arthrogryposis multiplex congenita (HP:0002804). HP:0002804 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20456449" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20456449" target="_blank">PMID:20456449</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Cerebro-oculo-facio-skeletal (COFS) syndrome is an autosomal recessive disorder characterized by microcephaly, congenital cataracts, facial dysmorphism, neurogenic arthrogryposis, growth failure and severe psychomotor retardation."</div>
+
+
+                <div class="evidence-explanation">ERCC6 Finnish founder cohort documents neurogenic arthrogryposis as a cardinal feature.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24700531" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24700531" target="_blank">PMID:24700531</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We report on a family with five fetuses conceived to first cousin parents presenting with abnormal ultrasound findings including contractures and microcephaly."</div>
+
+
+                <div class="evidence-explanation">ERCC5-truncating family with prenatally diagnosed contractures supports the prenatal-onset joint pathology.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301516" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301516" target="_blank">PMID:20301516</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"COFS syndrome is characterized by very severe prenatal developmental anomalies (arthrogryposis and microphthalmia)."</div>
+
+
+                <div class="evidence-explanation">GeneReviews identifies arthrogryposis as a defining prenatal anomaly of the COFS end of the Cockayne syndrome spectrum.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cerebral-calcification" data-dismech-node="Cerebral Calcification" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Cerebral Calcification
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002514" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002514</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cerebral calcification (HP:0002514). HP:0002514 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11443545" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11443545" target="_blank">PMID:11443545</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Cerebro-oculo-facio-skeletal (COFS) syndrome is a recessively inherited rapidly progressive neurologic disorder leading to brain atrophy, with calcifications, cataracts, microcornea, optic atrophy, progressive joint contractures, and growth failure."</div>
+
+
+                <div class="evidence-explanation">XPD-mutated COFS case series lists cerebral calcifications alongside brain atrophy.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-7">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">4</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-cerebellar-hypoplasia" data-dismech-node="Cerebellar Hypoplasia" data-dismech-type="phenotype">
@@ -6050,15 +6458,18 @@ This clinical feature is Cutaneous photosensitivity (HP:0000992). HP:0000992 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001321" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001321</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001321" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001321</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cerebellar hypoplasia (HP:0001321). HP:0001321 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6078,6 +6489,7 @@ This clinical feature is Cerebellar hypoplasia (HP:0001321). HP:0001321 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6102,6 +6514,7 @@ This clinical feature is Cerebellar hypoplasia (HP:0001321). HP:0001321 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6144,10 +6557,10 @@ This clinical feature is Cerebellar hypoplasia (HP:0001321). HP:0001321 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011344" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0011344</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011344" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0011344</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Severe global developmental delay (HP:0011344), qualified as course progressive. HP:0011344 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6176,6 +6589,9 @@ This clinical feature is Severe global developmental delay (HP:0011344), qualifi
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6190,6 +6606,7 @@ This clinical feature is Severe global developmental delay (HP:0011344), qualifi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6214,6 +6631,7 @@ This clinical feature is Severe global developmental delay (HP:0011344), qualifi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6254,15 +6672,18 @@ This clinical feature is Severe global developmental delay (HP:0011344), qualifi
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002119" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002119</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002119" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002119</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6282,6 +6703,7 @@ This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6308,9 +6730,99 @@ This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotyp
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-brain-atrophy" data-dismech-node="Brain Atrophy" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Brain Atrophy
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012444" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0012444</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Brain atrophy (HP:0012444), qualified as course progressive. HP:0012444 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Course: PROGRESSIVE</span>
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11443545" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11443545" target="_blank">PMID:11443545</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Cerebro-oculo-facio-skeletal (COFS) syndrome is a recessively inherited rapidly progressive neurologic disorder leading to brain atrophy, with calcifications, cataracts, microcornea, optic atrophy, progressive joint contractures, and growth failure."</div>
+
+
+                <div class="evidence-explanation">XPD-mutated COFS case series describes progressive brain atrophy as a defining neurologic feature.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-7">
+            <details class="phenotype-category-group" id="pheno-cat-8">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Growth
@@ -6333,15 +6845,18 @@ This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001510</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001510</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6361,6 +6876,7 @@ This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6385,6 +6901,7 @@ This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6425,15 +6942,18 @@ This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001508</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001508</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6456,6 +6976,7 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6464,287 +6985,6 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
                 <div class="evidence-explanation">ERCC2-Gly47Arg COFS case documents failure to thrive among the cardinal clinical features.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-8">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">3</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-arthrogryposis" data-dismech-node="Arthrogryposis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Arthrogryposis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Arthrogryposis multiplex congenita</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002804" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002804</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Arthrogryposis multiplex congenita (HP:0002804). HP:0002804 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (3 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20456449" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20456449" target="_blank">PMID:20456449</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Cerebro-oculo-facio-skeletal (COFS) syndrome is an autosomal recessive disorder characterized by microcephaly, congenital cataracts, facial dysmorphism, neurogenic arthrogryposis, growth failure and severe psychomotor retardation."</div>
-
-
-                <div class="evidence-explanation">ERCC6 Finnish founder cohort documents neurogenic arthrogryposis as a cardinal feature.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:24700531" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24700531" target="_blank">PMID:24700531</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"We report on a family with five fetuses conceived to first cousin parents presenting with abnormal ultrasound findings including contractures and microcephaly."</div>
-
-
-                <div class="evidence-explanation">ERCC5-truncating family with prenatally diagnosed contractures supports the prenatal-onset joint pathology.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20301516" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301516" target="_blank">PMID:20301516</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"COFS syndrome is characterized by very severe prenatal developmental anomalies (arthrogryposis and microphthalmia)."</div>
-
-
-                <div class="evidence-explanation">GeneReviews identifies arthrogryposis as a defining prenatal anomaly of the COFS end of the Cockayne syndrome spectrum.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-brain-atrophy" data-dismech-node="Brain Atrophy" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Brain Atrophy
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012444" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0012444</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Brain atrophy (HP:0012444), qualified as course progressive. HP:0012444 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Course: PROGRESSIVE</span>
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:11443545" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11443545" target="_blank">PMID:11443545</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Cerebro-oculo-facio-skeletal (COFS) syndrome is a recessively inherited rapidly progressive neurologic disorder leading to brain atrophy, with calcifications, cataracts, microcornea, optic atrophy, progressive joint contractures, and growth failure."</div>
-
-
-                <div class="evidence-explanation">XPD-mutated COFS case series describes progressive brain atrophy as a defining neurologic feature.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-cerebral-calcification" data-dismech-node="Cerebral Calcification" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Cerebral Calcification
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002514" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002514</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Cerebral calcification (HP:0002514). HP:0002514 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:11443545" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11443545" target="_blank">PMID:11443545</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Cerebro-oculo-facio-skeletal (COFS) syndrome is a recessively inherited rapidly progressive neurologic disorder leading to brain atrophy, with calcifications, cataracts, microcornea, optic atrophy, progressive joint contractures, and growth failure."</div>
-
-
-                <div class="evidence-explanation">XPD-mutated COFS case series lists cerebral calcifications alongside brain atrophy.</div>
 
 
 
@@ -6817,17 +7057,22 @@ This clinical feature is Cerebral calcification (HP:0002514). HP:0002514 is a ph
                         Gene: ERCC6
 
 
-    <a href="https://bioregistry.io/hgnc:3438" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-23">hgnc:3438</a>
+    <a href="https://bioregistry.io/hgnc:3438" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-27">hgnc:3438</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is ERCC6 (hgnc:3438). hgnc:3438 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
 
                 </div>
+
+
+
 
 
 
@@ -6846,6 +7091,7 @@ This disease-associated gene is ERCC6 (hgnc:3438). hgnc:3438 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6870,6 +7116,7 @@ This disease-associated gene is ERCC6 (hgnc:3438). hgnc:3438 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6912,17 +7159,22 @@ This disease-associated gene is ERCC6 (hgnc:3438). hgnc:3438 is a gene from the 
                         Gene: ERCC2
 
 
-    <a href="https://bioregistry.io/hgnc:3434" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-24">hgnc:3434</a>
+    <a href="https://bioregistry.io/hgnc:3434" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-28">hgnc:3434</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is ERCC2 (hgnc:3434). hgnc:3434 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
 
                 </div>
+
+
+
 
 
 
@@ -6941,6 +7193,7 @@ This disease-associated gene is ERCC2 (hgnc:3434). hgnc:3434 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6965,6 +7218,7 @@ This disease-associated gene is ERCC2 (hgnc:3434). hgnc:3434 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7007,17 +7261,22 @@ This disease-associated gene is ERCC2 (hgnc:3434). hgnc:3434 is a gene from the 
                         Gene: ERCC5
 
 
-    <a href="https://bioregistry.io/hgnc:3437" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-25">hgnc:3437</a>
+    <a href="https://bioregistry.io/hgnc:3437" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-29">hgnc:3437</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is ERCC5 (hgnc:3437). hgnc:3437 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
 
                 </div>
+
+
+
 
 
 
@@ -7036,6 +7295,7 @@ This disease-associated gene is ERCC5 (hgnc:3437). hgnc:3437 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7060,6 +7320,7 @@ This disease-associated gene is ERCC5 (hgnc:3437). hgnc:3437 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7102,17 +7363,22 @@ This disease-associated gene is ERCC5 (hgnc:3437). hgnc:3437 is a gene from the 
                         Gene: ERCC1
 
 
-    <a href="https://bioregistry.io/hgnc:3433" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-26">hgnc:3433</a>
+    <a href="https://bioregistry.io/hgnc:3433" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-30">hgnc:3433</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is ERCC1 (hgnc:3433). hgnc:3433 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
 
                 </div>
+
+
+
 
 
 
@@ -7131,6 +7397,7 @@ This disease-associated gene is ERCC1 (hgnc:3433). hgnc:3433 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7155,6 +7422,7 @@ This disease-associated gene is ERCC1 (hgnc:3433). hgnc:3433 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7205,7 +7473,7 @@ This disease-associated gene is ERCC1 (hgnc:3433). hgnc:3433 is a gene from the 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-27">sunlight avoidance<span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">sunlight avoidance<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is sunlight avoidance, annotated with Lifestyle Therapy (NCIT:C15900). NCIT:C15900 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7238,6 +7506,20 @@ This treatment is sunlight avoidance, annotated with Lifestyle Therapy (NCIT:C15
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Limit ultraviolet exposure and use sunscreen and protective sunglasses for photosensitive skin and vulnerable ocular tissues.</div>
 
 
@@ -7262,6 +7544,7 @@ This treatment is sunlight avoidance, annotated with Lifestyle Therapy (NCIT:C15
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7283,6 +7566,7 @@ This treatment is sunlight avoidance, annotated with Lifestyle Therapy (NCIT:C15
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7314,7 +7598,7 @@ This treatment is sunlight avoidance, annotated with Lifestyle Therapy (NCIT:C15
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-28">gastrostomy<span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">gastrostomy<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is gastrostomy (NCIT:C52006). NCIT:C52006 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7347,6 +7631,20 @@ This treatment is gastrostomy (NCIT:C52006). NCIT:C52006 is a clinical intervent
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Gastrostomy can support nutrition when severe neurologic disease makes oral feeding unsafe or inadequate.</div>
 
 
@@ -7368,6 +7666,7 @@ This treatment is gastrostomy (NCIT:C52006). NCIT:C52006 is a clinical intervent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7399,7 +7698,7 @@ This treatment is gastrostomy (NCIT:C52006). NCIT:C52006 is a clinical intervent
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-29">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7432,6 +7731,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Supportive care is individualized and may include feeding support, developmental services, symptom-directed medication, and physical therapy to preserve comfort and prevent contractures.</div>
 
 
@@ -7453,6 +7766,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7484,7 +7798,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-30">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7516,6 +7830,20 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Autosomal-recessive inheritance with substantial recurrence risk in consanguineous families. Carrier testing and prenatal diagnosis (DNA repair assays on chorionic villi or amniocytes, plus targeted molecular testing) are available once the family-specific variant(s) are known.</div>
 
 
@@ -7537,6 +7865,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7564,6 +7893,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7585,6 +7915,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7648,11 +7979,11 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
         molecular genetic testing
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-31">NCIT:C19770</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-35">NCIT:C19770</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -7690,6 +8021,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7805,6 +8137,11 @@ has_subtypes:
     term:
       id: MONDO:0008955
       label: cerebrooculofacioskeletal syndrome 1
+  genes:
+  - preferred_term: ERCC6
+    term:
+      id: hgnc:3438
+      label: ERCC6
   evidence:
   - reference: PMID:20456449
     reference_title: &#34;ERCC6 founder mutation identified in Finnish patients with COFS syndrome.&#34;
@@ -7824,6 +8161,11 @@ has_subtypes:
     term:
       id: MONDO:0012553
       label: cerebrooculofacioskeletal syndrome 2
+  genes:
+  - preferred_term: ERCC2
+    term:
+      id: hgnc:3434
+      label: ERCC2
   evidence:
   - reference: PMID:11443545
     reference_title: &#34;Cerebro-oculo-facio-skeletal syndrome with a nucleotide excision-repair defect and a mutated XPD gene, with prenatal diagnosis in a triplet pregnancy.&#34;
@@ -7842,6 +8184,11 @@ has_subtypes:
     term:
       id: MONDO:0014696
       label: cerebrooculofacioskeletal syndrome 3
+  genes:
+  - preferred_term: ERCC5
+    term:
+      id: hgnc:3437
+      label: ERCC5
   evidence:
   - reference: PMID:24700531
     reference_title: &#34;A novel homozygous ERCC5 truncating mutation in a family with prenatal arthrogryposis--further evidence of genotype-phenotype correlation.&#34;
@@ -7860,6 +8207,11 @@ has_subtypes:
     term:
       id: MONDO:0012554
       label: cerebrooculofacioskeletal syndrome 4
+  genes:
+  - preferred_term: ERCC1
+    term:
+      id: hgnc:3433
+      label: ERCC1
   evidence:
   - reference: PMID:17273966
     reference_title: &#34;First reported patient with human ERCC1 deficiency has cerebro-oculo-facio-skeletal syndrome with a mild defect in nucleotide excision repair and severe developmental failure.&#34;
@@ -7900,8 +8252,8 @@ pathophysiology:
   - target: Defective Transcription-Coupled Nucleotide Excision Repair
     description: &gt;-
       Loss of CSB, XPD, XPG, or ERCC1-XPF function abolishes the
-      downstream TC-NER complex required for processing transcription-
-      stalling lesions.
+      downstream TC-NER complex required for processing transcription-stalling
+      lesions.
     causal_link_type: DIRECT
     evidence:
     - reference: PMID:20687508
@@ -8567,6 +8919,7 @@ inheritance:
     explanation: GeneReviews establishes autosomal recessive inheritance for the Cockayne/COFS clinical spectrum.
 genetic:
 - name: ERCC6
+  relationship_type: CAUSATIVE
   subtype: COFS1
   gene_term:
     preferred_term: ERCC6
@@ -8591,6 +8944,7 @@ genetic:
     snippet: &#34;All mutations have been found in Cockayne syndrome gene, CSB, xeroderma pigmentosum genes, XPD and XPG and ERCC1 gene involved in the transcription-coupled NER pathway.&#34;
     explanation: Review confirms ERCC6/CSB as one of four COFS-causing NER genes.
 - name: ERCC2
+  relationship_type: CAUSATIVE
   subtype: COFS2
   gene_term:
     preferred_term: ERCC2
@@ -8615,6 +8969,7 @@ genetic:
     snippet: &#34;Only three patients with cerebro-oculo-facio-skeletal syndrome (COFS), caused by mutations in ERCC2, have been published so far.&#34;
     explanation: Recent case report adds a fourth ERCC2-mutated COFS patient, demonstrating the rarity but consistency of the ERCC2-COFS association.
 - name: ERCC5
+  relationship_type: CAUSATIVE
   subtype: COFS3
   gene_term:
     preferred_term: ERCC5
@@ -8639,6 +8994,7 @@ genetic:
     snippet: &#34;The phenotype in the family we report on is consistent with a severe manifestation of cerebrooculofacioskeletal syndrome.&#34;
     explanation: Family-based exome sequencing identifies an ERCC5 truncating mutation segregating with severe COFS phenotype.
 - name: ERCC1
+  relationship_type: CAUSATIVE
   subtype: COFS4
   gene_term:
     preferred_term: ERCC1
@@ -8810,6 +9166,8 @@ treatments:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -9070,7 +9428,7 @@ This is a comprehensive request for a disease characteristics research report on
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "COFS Syndrome", "mondoId": "MONDO:0008926", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "COFS_Syndrome", "yamlRevision": "608515966651"};
+        const OS_CONFIG = {"diseaseName": "COFS Syndrome", "mondoId": "MONDO:0008926", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "COFS_Syndrome", "yamlRevision": "15adb90cebbd"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

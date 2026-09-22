@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4225,6 +4297,7 @@ The genotype-to-cell-type mapping is unusually clean and has been demonstrated i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4308,6 +4381,7 @@ The genotype-to-cell-type mapping is unusually clean and has been demonstrated i
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4334,6 +4408,7 @@ The genotype-to-cell-type mapping is unusually clean and has been demonstrated i
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4355,6 +4430,7 @@ The genotype-to-cell-type mapping is unusually clean and has been demonstrated i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4488,6 +4564,7 @@ The genotype-to-cell-type mapping is unusually clean and has been demonstrated i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reep1-exon-5-skipping-variant" data-dismech-node="REEP1 Exon 5 Skipping Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">REEP1 Exon 5 Skipping Variant</div>
 
+
                 <div class="item-desc">The founding allele is c.304-2A&gt;G, which destroys the exon 5 splice acceptor. Skipping is complete and in frame, so the transcript escapes nonsense-mediated decay and is expressed at normal levels, encoding p.102_139del — a protein missing 38 internal residues that include part of the C-terminal amphipathic helix. This is the crucial feature: the product is a stable, internally shortened protein rather than an absent one.</div>
 
 
@@ -4582,6 +4659,8 @@ This genetic context concerns REEP1 (hgnc:25786). hgnc:25786 is a gene from the 
 
 
 
+
+
         <span class="tag tag-classification">allele_type: SPLICE_SITE</span>
 
 
@@ -4597,6 +4676,9 @@ This genetic context concerns REEP1 (hgnc:25786). hgnc:25786 is a gene from the 
         <span class="tag tag-classification">functional_impact_category: NEOMORPHIC</span>
 
     </div>
+
+
+
 
 
     <div class="context-notes">Recorded as neomorphic rather than loss of function because the product retains its normal membrane-shaping activity and acquires resistance to degradation; the loss-of-function alleles of the same gene cause a different disease, SPG31.</div>
@@ -4646,6 +4728,7 @@ This genetic context concerns REEP1 (hgnc:25786). hgnc:25786 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4667,6 +4750,7 @@ This genetic context concerns REEP1 (hgnc:25786). hgnc:25786 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4692,6 +4776,7 @@ This genetic context concerns REEP1 (hgnc:25786). hgnc:25786 is a gene from the 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-huwe1-dependent-reep1-degradation" data-dismech-node="Impaired HUWE1-Dependent REEP1 Degradation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired HUWE1-Dependent REEP1 Degradation</div>
+
 
                 <div class="item-desc">Wild-type REEP1 is a short-lived protein cleared through the ubiquitin-proteasome system, with HUWE1 identified by proteomics as the E3 ligase responsible. The dHMN alleles are poorly ubiquitinated and therefore escape that clearance. This is a regulatory escape rather than a change in the protein&#39;s own catalytic or structural activity, which is why the node is tagged as a gain of function rather than as an increase in a normally regulated process.</div>
 
@@ -4817,6 +4902,7 @@ This pathophysiological event involves decreased proteasomal turnover of REEP1, 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4838,6 +4924,7 @@ This pathophysiological event involves decreased proteasomal turnover of REEP1, 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4863,6 +4950,7 @@ This pathophysiological event involves decreased proteasomal turnover of REEP1, 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-accumulation-of-shaping-competent-reep1" data-dismech-node="Accumulation of Shaping-Competent REEP1" data-dismech-type="pathophysiology">
                 <div class="item-name">Accumulation of Shaping-Competent REEP1</div>
+
 
                 <div class="item-desc">The variant protein builds up in peripheral nerve while retaining full membrane-curvature activity, confirmed directly in liposome shaping assays and by modelling. Excess curvature-inducing protein in the ER membrane is the proposed proximate insult — too much shaping activity, in the wrong amount, rather than too little.</div>
 
@@ -4962,6 +5050,7 @@ This pathophysiological event involves membrane curvature induction by REEP1, an
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4988,6 +5077,7 @@ This pathophysiological event involves membrane curvature induction by REEP1, an
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5010,6 +5100,13 @@ This pathophysiological event involves membrane curvature induction by REEP1, an
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aberrant-subcellular-localization-and-atlastin-1-mis-recruitment" data-dismech-node="Aberrant Subcellular Localization and Atlastin-1 Mis-recruitment" data-dismech-type="pathophysiology">
                 <div class="item-name">Aberrant Subcellular Localization and Atlastin-1 Mis-recruitment</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">The dHMN allele does not simply accumulate; it accumulates in the wrong place. On overexpression it shows a subcellular localization defect distinct from that of the HSP-associated missense allele, and — uniquely among the two — it recruits atlastin-1, one of REEP1&#39;s binding partners, to those altered sites. Atlastin-1 is the GTPase that fuses ER tubules, so pulling it away from where it belongs is a plausible route from mislocalised REEP1 to a fragmented network.
 This node is marked PROVISIONAL and sits in parallel with, not in place of, the direct accumulation-to-fragmentation link. The localization work is from an independent group and predates the accumulation model by more than a decade, which is why it is worth carrying: it is the only pre-2026, allele-specific mechanistic data available and it points the same way. But it was done by overexpression in non-neuronal cell lines, and nobody has shown that atlastin-1 mis-recruitment is what fragments the ER in the knock-in mouse.</div>
@@ -5064,6 +5161,7 @@ This node is marked PROVISIONAL and sits in parallel with, not in place of, the 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5086,6 +5184,7 @@ This node is marked PROVISIONAL and sits in parallel with, not in place of, the 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-endoplasmic-reticulum-fragmentation-in-spinal-motor-neurons" data-dismech-node="Endoplasmic Reticulum Fragmentation in Spinal Motor Neurons" data-dismech-type="pathophysiology">
                 <div class="item-name">Endoplasmic Reticulum Fragmentation in Spinal Motor Neurons</div>
+
 
                 <div class="item-desc">The tubular ER network breaks up in spinal motor neurons, and does so before the neurons are lost, which is what establishes it as a step in the causal chain rather than a consequence of degeneration. Cortical motor neurons are spared. Neurons are particularly exposed to this lesion because the ER has to extend into axons and dendrites over very large distances, so a shaping defect that is tolerable elsewhere is not tolerable here.</div>
 
@@ -5231,6 +5330,7 @@ This pathophysiological event involves abnormal endoplasmic reticulum organizati
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5253,6 +5353,7 @@ This pathophysiological event involves abnormal endoplasmic reticulum organizati
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-spinal-motor-neuron-axonal-degeneration" data-dismech-node="Spinal Motor Neuron Axonal Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Spinal Motor Neuron Axonal Degeneration</div>
+
 
                 <div class="item-desc">Length-dependent degeneration of lower motor neuron axons, producing denervation of the distal muscles they supply. REEP1 is strongly expressed in lower motor neurons, which supplies the tissue-level reason a REEP1 lesion can produce a lower motor neuron rather than a purely central phenotype. This is the node at which dHMN5B and SPG31 diverge: the same gene degenerates cortical motor neuron axons when its function is lost.</div>
 
@@ -5360,6 +5461,7 @@ This pathophysiological event involves lower motor neuron (CL:0008039). CL:00080
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5381,6 +5483,7 @@ This pathophysiological event involves lower motor neuron (CL:0008039). CL:00080
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5406,6 +5509,7 @@ This pathophysiological event involves lower motor neuron (CL:0008039). CL:00080
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-distal-motor-amyotrophy-with-upper-limb-predominance" data-dismech-node="Distal Motor Amyotrophy with Upper-Limb Predominance" data-dismech-type="pathophysiology">
                 <div class="item-name">Distal Motor Amyotrophy with Upper-Limb Predominance</div>
+
 
                 <div class="item-desc">Slowly progressive distal wasting and weakness that begins in the small hand muscles and later involves the peroneal group, with depressed distal reflexes, pes cavus, and — the feature that keeps it in the pure motor category — preserved sensory nerve conduction. Upper motor neuron signs are described as blurring the boundary with Silver syndrome and with the spastic paraplegia end of the REEP1 spectrum, but this entry found no citable observation of pyramidal signs in a genotyped dHMN5B patient; what is documented is pronounced hyperreflexia in the separate recessive REEP1 phenotype.</div>
 
@@ -5441,6 +5545,7 @@ This pathophysiological event involves lower motor neuron (CL:0008039). CL:00080
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5489,7 +5594,7 @@ This pathophysiological event involves lower motor neuron (CL:0008039). CL:00080
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aberrant Subcellular Localization and Atlastin-1 Mis-recruitment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The dHMN allele does not simply accumulate; it accumulates in the wrong place. On overexpression it shows a subcellular localization defect distinct from that of the HSP-associated missense allele, and \\u2014 uniquely among the two \\u2014 it recruits atlastin-1, one of REEP1\u0027s binding partners, to those altered sites. Atlastin-1 is the GTPase that fuses ER tubules, so pulling it away from where it belongs is a plausible route from mislocalised REEP1 to a fragmented network.\\nThis node is marked PROVISIONAL and sits in parallel with, not in place of, the direct accumulation-to-fragmentation link. The localization work is from an independent group and predates the accumulation model by more than a decade, which is why it is worth carrying: it is the only pre-2026, allele-specific mechanistic data available and it points the same way. But it was done by overexpression in non-neuronal cell lines, and nobody has shown that atlastin-1 mis-recruitment is what fragments the ER in the knock-in mouse.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Accumulation of Shaping-Competent REEP1\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The variant protein builds up in peripheral nerve while retaining full membrane-curvature activity, confirmed directly in liposome shaping assays and by modelling. Excess curvature-inducing protein in the ER membrane is the proposed proximate insult \\u2014 too much shaping activity, in the wrong amount, rather than too little.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"membrane curvature induction by REEP1\"]}}, {\"id\": \"Distal Motor Amyotrophy with Upper-Limb Predominance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Slowly progressive distal wasting and weakness that begins in the small hand muscles and later involves the peroneal group, with depressed distal reflexes, pes cavus, and \\u2014 the feature that keeps it in the pure motor category \\u2014 preserved sensory nerve conduction. Upper motor neuron signs are described as blurring the boundary with Silver syndrome and with the spastic paraplegia end of the REEP1 spectrum, but this entry found no citable observation of pyramidal signs in a genotyped dHMN5B patient; what is documented is pronounced hyperreflexia in the separate recessive REEP1 phenotype.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Endoplasmic Reticulum Fragmentation in Spinal Motor Neurons\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The tubular ER network breaks up in spinal motor neurons, and does so before the neurons are lost, which is what establishes it as a step in the causal chain rather than a consequence of degeneration. Cortical motor neurons are spared. Neurons are particularly exposed to this lesion because the ER has to extend into axons and dendrites over very large distances, so a shaping defect that is tolerable elsewhere is not tolerable here.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"spinal cord motor neuron\"], \"biological_processes\": [\"endoplasmic reticulum organization\"], \"animal_models\": [{\"name\": \"REEP1 \\u0394exon5 knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Reep1 \\u0394exon5 knock-in, genotype-matched to the human founding allele\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Spinal motor neurons are lost with ER fragmentation preceding the loss, while cortical motor neurons are spared \\u2014 the human dHMN pattern, and the inverse of what the knockout does.\"}]}}, {\"id\": \"Impaired HUWE1-Dependent REEP1 Degradation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Wild-type REEP1 is a short-lived protein cleared through the ubiquitin-proteasome system, with HUWE1 identified by proteomics as the E3 ligase responsible. The dHMN alleles are poorly ubiquitinated and therefore escape that clearance. This is a regulatory escape rather than a change in the protein\u0027s own catalytic or structural activity, which is why the node is tagged as a gain of function rather than as an increase in a normally regulated process.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"HUWE1-dependent REEP1 ubiquitination\", \"proteasomal turnover of REEP1\"]}}, {\"id\": \"REEP1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"REEP1\"], \"gene_terms\": [{\"label\": \"REEP1\", \"id\": \"hgnc:25786\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"REEP1 Exon 5 Skipping Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The founding allele is c.304-2A\u003eG, which destroys the exon 5 splice acceptor. Skipping is complete and in frame, so the transcript escapes nonsense-mediated decay and is expressed at normal levels, encoding p.102_139del \\u2014 a protein missing 38 internal residues that include part of the C-terminal amphipathic helix. This is the crucial feature: the product is a stable, internally shortened protein rather than an absent one.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"REEP1\"], \"gene_terms\": [{\"label\": \"REEP1\", \"id\": \"hgnc:25786\"}], \"genetic_context\": {\"allele_type\": \"SPLICE_SITE\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"NEOMORPHIC\", \"gene_terms\": [{\"label\": \"REEP1\", \"id\": \"hgnc:25786\"}]}}}, {\"id\": \"REEP1 \\u0394exon5 knock-in mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The most faithful available model, and one built to carry the patients\u0027 actual allele rather than a null. It reproduces the cell-type selectivity of the human disease and orders the events within it.\"}, {\"id\": \"Reep1 knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The loss-of-function model. Included deliberately as a negative: it is the model a curator would reach for first when looking for \\\"a REEP1 mouse\\\", and it models the wrong REEP1 disease.\"}, {\"id\": \"Spinal Motor Neuron Axonal Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Length-dependent degeneration of lower motor neuron axons, producing denervation of the distal muscles they supply. REEP1 is strongly expressed in lower motor neurons, which supplies the tissue-level reason a REEP1 lesion can produce a lower motor neuron rather than a purely central phenotype. This is the node at which dHMN5B and SPG31 diverge: the same gene degenerates cortical motor neuron axons when its function is lost.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"lower motor neuron\"], \"animal_models\": [{\"name\": \"Reep1 knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Reep1 null\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"The knockout progressively loses cortical motor neurons while spinal motor neurons remain intact. It therefore models SPG31, not dHMN5B, and gives the opposite cell-type answer to the disease this entry describes.\"}]}}], \"edges\": [{\"source\": \"REEP1 Exon 5 Skipping Variant\", \"target\": \"Impaired HUWE1-Dependent REEP1 Degradation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The shortened protein is a poor ubiquitination substrate, so its normal proteasomal turnover fails.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired HUWE1-Dependent REEP1 Degradation\", \"target\": \"Accumulation of Shaping-Competent REEP1\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of clearance is what allows the still-active protein to build up.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accumulation of Shaping-Competent REEP1\", \"target\": \"Aberrant Subcellular Localization and Atlastin-1 Mis-recruitment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The dHMN allele localises differently from wild-type REEP1 and from the HSP missense allele, and drags a binding partner with it.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accumulation of Shaping-Competent REEP1\", \"target\": \"Endoplasmic Reticulum Fragmentation in Spinal Motor Neurons\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excess shaping-competent REEP1 disorganises the tubular ER network.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Aberrant Subcellular Localization and Atlastin-1 Mis-recruitment\", \"target\": \"Endoplasmic Reticulum Fragmentation in Spinal Motor Neurons\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sequestering the ER-fusion GTPase away from its normal sites is a candidate route to a fragmented tubular network.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Endoplasmic Reticulum Fragmentation in Spinal Motor Neurons\", \"target\": \"Spinal Motor Neuron Axonal Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disorganised ER precedes and is proposed to drive the loss of spinal motor neurons and their axons.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Spinal Motor Neuron Axonal Degeneration\", \"target\": \"Distal Motor Amyotrophy with Upper-Limb Predominance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Denervation of distal muscles produces the wasting and weakness that define the clinical syndrome.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"REEP1 \\u0394exon5 knock-in mouse\", \"target\": \"Endoplasmic Reticulum Fragmentation in Spinal Motor Neurons\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Spinal motor neurons are lost with ER fragmentation preceding the loss, while cortical motor neurons are spared \\u2014 the human dHMN pattern, and the inverse of what the knockout does.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Mouse motor units differ in length and metabolic demand from human ones, so the model cannot speak to the upper-limb predominance or the slow decades-long progression seen in patients. The reported readouts are histological rather than functional, so the relationship between ER fragmentation and motor performance in the model is inferred rather than measured here.\"}, {\"source\": \"Reep1 knockout mouse\", \"target\": \"Spinal Motor Neuron Axonal Degeneration\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"The knockout progressively loses cortical motor neurons while spinal motor neurons remain intact. It therefore models SPG31, not dHMN5B, and gives the opposite cell-type answer to the disease this entry describes.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"The mismatch is not a matter of degree but of direction: the knockout removes the protein, whereas the disease accumulates it. Any inference about dHMN5B drawn from this model would be reversed. It remains the correct model for REEP1 loss-of-function disease.\"}, {\"source\": \"REEP1\", \"target\": \"REEP1 Exon 5 Skipping Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aberrant Subcellular Localization and Atlastin-1 Mis-recruitment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The dHMN allele does not simply accumulate; it accumulates in the wrong place. On overexpression it shows a subcellular localization defect distinct from that of the HSP-associated missense allele, and \\u2014 uniquely among the two \\u2014 it recruits atlastin-1, one of REEP1\u0027s binding partners, to those altered sites. Atlastin-1 is the GTPase that fuses ER tubules, so pulling it away from where it belongs is a plausible route from mislocalised REEP1 to a fragmented network.\\nThis node is marked PROVISIONAL and sits in parallel with, not in place of, the direct accumulation-to-fragmentation link. The localization work is from an independent group and predates the accumulation model by more than a decade, which is why it is worth carrying: it is the only pre-2026, allele-specific mechanistic data available and it points the same way. But it was done by overexpression in non-neuronal cell lines, and nobody has shown that atlastin-1 mis-recruitment is what fragments the ER in the knock-in mouse.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Accumulation of Shaping-Competent REEP1\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The variant protein builds up in peripheral nerve while retaining full membrane-curvature activity, confirmed directly in liposome shaping assays and by modelling. Excess curvature-inducing protein in the ER membrane is the proposed proximate insult \\u2014 too much shaping activity, in the wrong amount, rather than too little.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"membrane curvature induction by REEP1\"]}}, {\"id\": \"Distal Motor Amyotrophy with Upper-Limb Predominance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Slowly progressive distal wasting and weakness that begins in the small hand muscles and later involves the peroneal group, with depressed distal reflexes, pes cavus, and \\u2014 the feature that keeps it in the pure motor category \\u2014 preserved sensory nerve conduction. Upper motor neuron signs are described as blurring the boundary with Silver syndrome and with the spastic paraplegia end of the REEP1 spectrum, but this entry found no citable observation of pyramidal signs in a genotyped dHMN5B patient; what is documented is pronounced hyperreflexia in the separate recessive REEP1 phenotype.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Endoplasmic Reticulum Fragmentation in Spinal Motor Neurons\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The tubular ER network breaks up in spinal motor neurons, and does so before the neurons are lost, which is what establishes it as a step in the causal chain rather than a consequence of degeneration. Cortical motor neurons are spared. Neurons are particularly exposed to this lesion because the ER has to extend into axons and dendrites over very large distances, so a shaping defect that is tolerable elsewhere is not tolerable here.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"spinal cord motor neuron\"], \"biological_processes\": [\"endoplasmic reticulum organization\"], \"animal_models\": [{\"name\": \"REEP1 \\u0394exon5 knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Reep1 \\u0394exon5 knock-in, genotype-matched to the human founding allele\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Spinal motor neurons are lost with ER fragmentation preceding the loss, while cortical motor neurons are spared \\u2014 the human dHMN pattern, and the inverse of what the knockout does.\"}]}}, {\"id\": \"Impaired HUWE1-Dependent REEP1 Degradation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Wild-type REEP1 is a short-lived protein cleared through the ubiquitin-proteasome system, with HUWE1 identified by proteomics as the E3 ligase responsible. The dHMN alleles are poorly ubiquitinated and therefore escape that clearance. This is a regulatory escape rather than a change in the protein\u0027s own catalytic or structural activity, which is why the node is tagged as a gain of function rather than as an increase in a normally regulated process.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"HUWE1-dependent REEP1 ubiquitination\", \"proteasomal turnover of REEP1\"]}}, {\"id\": \"REEP1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"REEP1\"], \"gene_terms\": [{\"label\": \"REEP1\", \"id\": \"hgnc:25786\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"REEP1 Exon 5 Skipping Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The founding allele is c.304-2A\u003eG, which destroys the exon 5 splice acceptor. Skipping is complete and in frame, so the transcript escapes nonsense-mediated decay and is expressed at normal levels, encoding p.102_139del \\u2014 a protein missing 38 internal residues that include part of the C-terminal amphipathic helix. This is the crucial feature: the product is a stable, internally shortened protein rather than an absent one.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"REEP1\"], \"gene_terms\": [{\"label\": \"REEP1\", \"id\": \"hgnc:25786\"}], \"genetic_context\": {\"allele_type\": \"SPLICE_SITE\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"NEOMORPHIC\", \"gene_terms\": [{\"label\": \"REEP1\", \"id\": \"hgnc:25786\"}]}}}, {\"id\": \"REEP1 \\u0394exon5 knock-in mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The most faithful available model, and one built to carry the patients\u0027 actual allele rather than a null. It reproduces the cell-type selectivity of the human disease and orders the events within it.\"}, {\"id\": \"Reep1 knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The loss-of-function model. Included deliberately as a negative: it is the model a curator would reach for first when looking for \\\"a REEP1 mouse\\\", and it models the wrong REEP1 disease.\"}, {\"id\": \"Spinal Motor Neuron Axonal Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Length-dependent degeneration of lower motor neuron axons, producing denervation of the distal muscles they supply. REEP1 is strongly expressed in lower motor neurons, which supplies the tissue-level reason a REEP1 lesion can produce a lower motor neuron rather than a purely central phenotype. This is the node at which dHMN5B and SPG31 diverge: the same gene degenerates cortical motor neuron axons when its function is lost.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"lower motor neuron\"], \"animal_models\": [{\"name\": \"Reep1 knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Reep1 null\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"The knockout progressively loses cortical motor neurons while spinal motor neurons remain intact. It therefore models SPG31, not dHMN5B, and gives the opposite cell-type answer to the disease this entry describes.\"}]}}], \"edges\": [{\"source\": \"REEP1 Exon 5 Skipping Variant\", \"target\": \"Impaired HUWE1-Dependent REEP1 Degradation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The shortened protein is a poor ubiquitination substrate, so its normal proteasomal turnover fails.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired HUWE1-Dependent REEP1 Degradation\", \"target\": \"Accumulation of Shaping-Competent REEP1\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of clearance is what allows the still-active protein to build up.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accumulation of Shaping-Competent REEP1\", \"target\": \"Aberrant Subcellular Localization and Atlastin-1 Mis-recruitment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The dHMN allele localises differently from wild-type REEP1 and from the HSP missense allele, and drags a binding partner with it.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accumulation of Shaping-Competent REEP1\", \"target\": \"Endoplasmic Reticulum Fragmentation in Spinal Motor Neurons\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excess shaping-competent REEP1 disorganises the tubular ER network.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Aberrant Subcellular Localization and Atlastin-1 Mis-recruitment\", \"target\": \"Endoplasmic Reticulum Fragmentation in Spinal Motor Neurons\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sequestering the ER-fusion GTPase away from its normal sites is a candidate route to a fragmented tubular network.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Endoplasmic Reticulum Fragmentation in Spinal Motor Neurons\", \"target\": \"Spinal Motor Neuron Axonal Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disorganised ER precedes and is proposed to drive the loss of spinal motor neurons and their axons.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Spinal Motor Neuron Axonal Degeneration\", \"target\": \"Distal Motor Amyotrophy with Upper-Limb Predominance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Denervation of distal muscles produces the wasting and weakness that define the clinical syndrome.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"REEP1 \\u0394exon5 knock-in mouse\", \"target\": \"Endoplasmic Reticulum Fragmentation in Spinal Motor Neurons\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Spinal motor neurons are lost with ER fragmentation preceding the loss, while cortical motor neurons are spared \\u2014 the human dHMN pattern, and the inverse of what the knockout does.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Mouse motor units differ in length and metabolic demand from human ones, so the model cannot speak to the upper-limb predominance or the slow decades-long progression seen in patients. The reported readouts are histological rather than functional, so the relationship between ER fragmentation and motor performance in the model is inferred rather than measured here.\"}, {\"source\": \"Reep1 knockout mouse\", \"target\": \"Spinal Motor Neuron Axonal Degeneration\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"The knockout progressively loses cortical motor neurons while spinal motor neurons remain intact. It therefore models SPG31, not dHMN5B, and gives the opposite cell-type answer to the disease this entry describes.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"The mismatch is not a matter of degree but of direction: the knockout removes the protein, whereas the disease accumulates it. Any inference about dHMN5B drawn from this model would be reversed. It remains the correct model for REEP1 loss-of-function disease.\"}, {\"source\": \"REEP1\", \"target\": \"REEP1 Exon 5 Skipping Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5508,9 +5613,9 @@ This pathophysiological event involves lower motor neuron (CL:0008039). CL:00080
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Limbs<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Limbs<span class="pill-count">(6)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(6)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Nervous System<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5520,85 +5625,6 @@ This pathophysiological event involves lower motor neuron (CL:0008039). CL:00080
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Limbs
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-pes-cavus" data-dismech-node="Pes Cavus" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Pes Cavus
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001761" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0001761</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Pes cavus (HP:0001761). HP:0001761 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38702287" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38702287" target="_blank">PMID:38702287</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The determination of the different genes involved in dHMNs made it possible to observe a genotypic overlap with some other neurogenetic disorders and other hereditary neuropathies such as CMT2"</div>
-
-
-                <div class="evidence-explanation">Places dHMN in the CMT2-overlapping distal neuropathy group, where pes cavus is the shared foot deformity; the quote does not name the deformity, hence indirect.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
                     <span class="cat-count">6</span>
                 </summary>
 
@@ -5616,10 +5642,10 @@ This clinical feature is Pes cavus (HP:0001761). HP:0001761 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003393" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0003393</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003393" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0003393</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Thenar muscle atrophy (HP:0003393), qualified as course progressive. HP:0003393 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5648,6 +5674,9 @@ This clinical feature is Thenar muscle atrophy (HP:0003393), qualified as course
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5665,6 +5694,7 @@ This clinical feature is Thenar muscle atrophy (HP:0003393), qualified as course
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5704,10 +5734,10 @@ This clinical feature is Thenar muscle atrophy (HP:0003393), qualified as course
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009049" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0009049</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0009049" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0009049</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Peroneal muscle atrophy (HP:0009049), qualified as course progressive. HP:0009049 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5736,6 +5766,9 @@ This clinical feature is Peroneal muscle atrophy (HP:0009049), qualified as cour
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5753,6 +5786,7 @@ This clinical feature is Peroneal muscle atrophy (HP:0009049), qualified as cour
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5792,10 +5826,10 @@ This clinical feature is Peroneal muscle atrophy (HP:0009049), qualified as cour
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011727" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0011727</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011727" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0011727</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Peroneal muscle weakness (HP:0011727), qualified as course progressive. HP:0011727 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5824,6 +5858,9 @@ This clinical feature is Peroneal muscle weakness (HP:0011727), qualified as cou
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5843,6 +5880,7 @@ This clinical feature is Peroneal muscle weakness (HP:0011727), qualified as cou
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5851,6 +5889,80 @@ This clinical feature is Peroneal muscle weakness (HP:0011727), qualified as cou
 
 
                 <div class="evidence-explanation">Supports slowly progressive distal motor weakness as the syndrome&#39;s defining feature; the peroneal localisation comes from the disease&#39;s HPO annotation set, hence indirect.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pes-cavus" data-dismech-node="Pes Cavus" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Pes Cavus
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001761" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001761</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pes cavus (HP:0001761). HP:0001761 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38702287" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38702287" target="_blank">PMID:38702287</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The determination of the different genes involved in dHMNs made it possible to observe a genotypic overlap with some other neurogenetic disorders and other hereditary neuropathies such as CMT2"</div>
+
+
+                <div class="evidence-explanation">Places dHMN in the CMT2-overlapping distal neuropathy group, where pes cavus is the shared foot deformity; the quote does not name the deformity, hence indirect.</div>
 
 
 
@@ -5894,6 +6006,9 @@ This clinical feature is Absent Achilles reflex (HP:0003438). HP:0003438 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5911,6 +6026,7 @@ This clinical feature is Absent Achilles reflex (HP:0003438). HP:0003438 is a ph
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5964,6 +6080,9 @@ This clinical feature is Decreased patellar reflex (HP:0011808). HP:0011808 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5981,6 +6100,7 @@ This clinical feature is Decreased patellar reflex (HP:0011808). HP:0011808 is a
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6005,6 +6125,15 @@ This clinical feature is Decreased patellar reflex (HP:0011808). HP:0011808 is a
 
 
                 </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Nervous System
+                    <span class="cat-count">1</span>
+                </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-motor-axonal-neuropathy" data-dismech-node="Motor Axonal Neuropathy" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6034,6 +6163,9 @@ This clinical feature is Motor axonal neuropathy (HP:0007002). HP:0007002 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6048,6 +6180,7 @@ This clinical feature is Motor axonal neuropathy (HP:0007002). HP:0007002 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6148,6 +6281,9 @@ This disease-associated gene is REEP1 (hgnc:25786). hgnc:25786 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6162,6 +6298,7 @@ This disease-associated gene is REEP1 (hgnc:25786). hgnc:25786 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6191,6 +6328,7 @@ This disease-associated gene is REEP1 (hgnc:25786). hgnc:25786 is a gene from th
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6212,6 +6350,7 @@ This disease-associated gene is REEP1 (hgnc:25786). hgnc:25786 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6294,6 +6433,31 @@ This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">No disease-modifying therapy exists. Management is orthotic and physiotherapeutic — ankle-foot orthoses for foot drop, hand function support, and maintenance of range of movement.</div>
 
 
@@ -6320,6 +6484,7 @@ This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6344,6 +6509,7 @@ This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6418,6 +6584,7 @@ This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6469,6 +6636,7 @@ This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6537,6 +6705,7 @@ This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6613,6 +6782,7 @@ This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6697,6 +6867,7 @@ This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6749,6 +6920,7 @@ This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6807,6 +6979,7 @@ This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6862,6 +7035,7 @@ This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6914,6 +7088,7 @@ This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7063,6 +7238,7 @@ This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7122,6 +7298,7 @@ This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7171,6 +7348,7 @@ This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7298,6 +7476,7 @@ This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7337,6 +7516,7 @@ This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8597,6 +8777,42 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Three things in the deep-research report are deliberately not curated, recorded here so a later curator does not read the gaps as oversights and &#34;fix&#34; them.
+ER stress and oxidative stress are named in the report as downstream effectors, citing PMID:36834939 and PMID:32878877. Both are REEP1-null mouse and REEP1-knockdown zebrafish work, framed around SPG31 — that is, the loss-of-function direction, which is the opposite of the mechanism this entry argues and the same reason the knockout mouse is graded FAILS_TO_RECAPITULATE. Importing them would contradict the entry&#39;s thesis, so they are excluded on purpose rather than missed.
+HP:0003431 (Decreased motor nerve conduction velocity) appears in the report&#39;s HPO table but is not modelled as a phenotype. The backing quote describes motor and sensory conduction velocities as normal, which is what an axonal rather than demyelinating neuropathy predicts; the abnormality is in CMAP amplitude, not velocity. The axonal pattern is captured by HP:0007002 instead. If a genotyped dHMN5B series later reports slowed motor conduction, this is the term to add.
+Pyramidal signs are described in the report and in review prose as occurring in dHMN5B, but no citable observation in a genotyped patient was found. The entry states what is documented — hyperreflexia in the separate recessive REEP1 phenotype — rather than repeating the uncited assertion.
+The mechanism in this entry rests heavily on one recent study (PMID:41268727) that supplies the ubiquitination defect, the HUWE1 identification, the liposome shaping result and both mouse lines. That concentration is worth noting: the causal chain from failed degradation through accumulation to ER fragmentation is coherent and internally well controlled, but it has not yet been reproduced by an independent group. The corroboration from PMID:29124833 is directional only — it supports toxic gain of function for a different REEP1 allele in a CMT2 family.
+Several phenotype items carry directness INDIRECT on purpose. The HPO annotation set for MONDO:0013884 lists thenar and peroneal atrophy, pes cavus and the reflex findings, but the primary literature for this ultra-rare disorder does not state each of them in a quotable sentence. Rather than attach a quote from a BSCL2 dHMN-V series — which the deep-research report offered and which would have been a different gene&#39;s patients — the evidence here is the closest true statement about REEP1 disease, graded indirect, with the gap named in each explanation.
+`Accumulation of Shaping-Competent REEP1` uses modifier GAIN_OF_FUNCTION rather than INCREASED deliberately. The claim is qualitative: the protein has escaped its normal regulatory control by the ubiquitin-proteasome system, not merely risen above its usual level. Per the guidance in CLAUDE.md that trades ontology grounding for expressivity, this is the intended use of the unbound value.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Distal Hereditary Motor Neuronopathy Type 5B (REEP1)</strong> · 2026-08-31T17:28:34Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Distal_Hereditary_Motor_Neuronopathy_Type_5B/2026-08-31T172834Z-claude-code-11366d.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of dHMN5B (MONDO:0013884), the REEP1-associated distal hereditary motor neuronopathy. One openscientist deep-research report was generated and preflighted with &#34;just preflight-dr ... MONDO:0013884&#34;, which PASSed with REEP1 as the dominant gene mention and matching OMIM 614751. The report surfaced the 2026 mechanistic study PMID:41268727, which was fetched and its quoted sentences verified against the cache before use.
+
+The mechanism is a toxic gain of function, which is the opposite of the loss-of-function mechanism by which the same gene causes SPG31, and the entry is built around that contrast. Pathograph: REEP1 exon 5 skipping variant, impaired HUWE1-dependent REEP1 degradation, accumulation of shaping-competent REEP1, endoplasmic reticulum fragmentation in spinal motor neurons, spinal motor neuron axonal degeneration, distal motor amyotrophy with upper-limb predominance. The accumulating protein retains membrane-curvature activity in liposome assays, so the lesion is excess of a functional protein rather than absence of it.
+
+Two mouse models are curated as a matched pair. The exon-5 knock-in RECAPITULATES the spinal motor neuron lesion; the Reep1 knockout is recorded as FAILS_TO_RECAPITULATE because it loses cortical rather than spinal motor neurons and therefore models SPG31, not this disease. That negative link is included deliberately, since the knockout is the model a curator would reach for first when looking for &#34;a REEP1 mouse&#34;, and inferences drawn from it about dHMN5B would be reversed.
+
+The accumulation node uses modifier GAIN_OF_FUNCTION rather than INCREASED because the claim is qualitative - the protein has escaped ubiquitin-proteasome control - which is the trade of ontology grounding for expressivity that CLAUDE.md describes.
+
+Several phenotype items carry directness INDIRECT on purpose. The HPO annotation set for this disease lists thenar and peroneal atrophy, pes cavus and the reflex findings, but the primary literature for this ultra-rare disorder does not state each in a quotable sentence. The deep-research report offered an electrophysiology quote drawn from a BSCL2 dHMN-V series; that was not used, because quoting a different gene&#39;s patients to support this disease&#39;s phenotype is Named Entity Confusion reached through the phenotype rather than the gene. The closest true statement about REEP1 disease is cited instead, graded indirect, with the gap named in each explanation.
+
+Reference titles were initially taken from the deep-research report&#39;s paraphrases and were wrong for four PMIDs; the reference validator caught every one, and all reference_title values were rewritten from the cached records.
+
+Validated with just validate for schema and references, 40 of 40 snippets verified against cached references, plus just validate-terms, just check-entity-refs and just check-duplicate-keys, all passing.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

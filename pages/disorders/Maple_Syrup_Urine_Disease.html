@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4237,6 +4309,7 @@
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"In the classic form of MSUD256, BCKDH enzyme only has 2–5% normal activity."</div>
@@ -4294,6 +4367,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4357,6 +4431,7 @@
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"In addition to the classic form, there are intermediate78 (15–25% BCKDH activity), intermittent (asymptomatic until 10–16 months or later) and thiamine-responsive910 MSUD diseases."</div>
@@ -4414,6 +4489,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4535,6 +4611,7 @@ This subtype is caused by variation in BCKDHA (hgnc:986). hgnc:986 is a gene fro
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4619,6 +4696,7 @@ This subtype is caused by variation in BCKDHB (hgnc:987). hgnc:987 is a gene fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4709,6 +4787,7 @@ This subtype is caused by variation in DBT (hgnc:2698). hgnc:2698 is a gene from
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4730,6 +4809,7 @@ This subtype is caused by variation in DBT (hgnc:2698). hgnc:2698 is a gene from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4777,6 +4857,7 @@ This subtype is caused by variation in DBT (hgnc:2698). hgnc:2698 is a gene from
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-branched-chain-alpha-ketoacid-dehydrogenase-complex-deficiency" data-dismech-node="Branched-Chain Alpha-Ketoacid Dehydrogenase Complex Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Branched-Chain Alpha-Ketoacid Dehydrogenase Complex Deficiency</div>
+
 
                 <div class="item-desc">Mutations in genes encoding subunits of the branched-chain alpha-ketoacid dehydrogenase complex (BCKDH) cause deficient catabolism of branched-chain amino acids (leucine, isoleucine, valine). The BCKDH complex catalyzes the first irreversible step in BCAA catabolism within the mitochondrial matrix. Pathogenic variants in BCKDHA (E1-alpha), BCKDHB (E1-beta), and DBT (E2) account for most cases; deficiency in the shared E3 subunit (DLD) produces an MSUD phenotype with broader mitochondrial dysfunction. BCKDH activity is regulated by phosphorylation via BCKDK (kinase, inactivating) and PPM1K (phosphatase, activating).
 </div>
@@ -5285,6 +5366,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5306,6 +5388,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5331,6 +5414,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-systemic-bcaa-and-bcka-accumulation" data-dismech-node="Systemic BCAA and BCKA Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Systemic BCAA and BCKA Accumulation</div>
+
 
                 <div class="item-desc">BCKDH deficiency causes systemic accumulation of leucine, isoleucine, valine and their corresponding branched-chain ketoacids: alpha-ketoisocaproic acid (KIC) from leucine, alpha-ketoisovaleric acid (KIV) from valine, and alpha-keto-beta-methylvaleric acid (KMV) from isoleucine. The pathognomonic marker alloisoleucine also accumulates. Leucine and BCAA concentrations in blood range from approximately 1 to 5 mM in MSUD patients compared to 90-250 micromol/L in unaffected subjects.
 </div>
@@ -5527,6 +5611,7 @@ This pathophysiological event involves decreased branched-chain amino acid catab
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5548,6 +5633,7 @@ This pathophysiological event involves decreased branched-chain amino acid catab
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5573,6 +5659,7 @@ This pathophysiological event involves decreased branched-chain amino acid catab
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-blood-brain-barrier-transport-competition" data-dismech-node="Blood-Brain Barrier Transport Competition" data-dismech-type="pathophysiology">
                 <div class="item-name">Blood-Brain Barrier Transport Competition</div>
+
 
                 <div class="item-desc">Elevated plasma leucine competes for transport across the blood-brain barrier via the L-type amino acid transporter (LAT1), which is shared by other large neutral amino acids (LNAAs). This competition limits entry of essential amino acids including tyrosine, tryptophan, phenylalanine, methionine, and threonine into the brain, depleting their availability for neurotransmitter synthesis and protein metabolism.
 </div>
@@ -5720,6 +5807,7 @@ This pathophysiological event occurs in blood-brain barrier, annotated with bloo
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5742,6 +5830,7 @@ This pathophysiological event occurs in blood-brain barrier, annotated with bloo
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-brain-neurotransmitter-depletion" data-dismech-node="Brain Neurotransmitter Depletion" data-dismech-type="pathophysiology">
                 <div class="item-name">Brain Neurotransmitter Depletion</div>
+
 
                 <div class="item-desc">Leucine and KIC entry into the brain via LAT1 and monocarboxylate transporters drives reversed branched-chain aminotransferase flux, consuming alpha-ketoglutarate and depleting glutamate. This cascade reduces glutamate, glutamine, GABA, and N-acetylaspartate (NAA) concentrations in brain tissue. Depleted glutamate and GABA impair both excitatory and inhibitory neurotransmission, while low NAA reflects compromised neuronal integrity and energy metabolism.
 </div>
@@ -5927,6 +6016,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5949,6 +6039,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-leucine-and-ketoacid-neurotoxicity" data-dismech-node="Leucine and Ketoacid Neurotoxicity" data-dismech-type="pathophysiology">
                 <div class="item-name">Leucine and Ketoacid Neurotoxicity</div>
+
 
                 <div class="item-desc">Elevated leucine and its metabolite alpha-ketoisocaproic acid (KIC) are particularly neurotoxic. KIC inhibits key mitochondrial enzymes including alpha-ketoglutarate dehydrogenase and pyruvate dehydrogenase, disrupting brain energy metabolism. At disease-relevant concentrations, KIC impairs mitochondrial respiration and cellular energy charge in neural cells.
 </div>
@@ -6179,6 +6270,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6200,6 +6292,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6225,6 +6318,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cerebral-energy-failure-and-oxidative-stress" data-dismech-node="Cerebral Energy Failure and Oxidative Stress" data-dismech-type="pathophysiology">
                 <div class="item-name">Cerebral Energy Failure and Oxidative Stress</div>
+
 
                 <div class="item-desc">KIC-mediated inhibition of mitochondrial dehydrogenases and electron transport chain function leads to cerebral energy failure with reduced ATP and N-acetylaspartate. Concurrently, reactive oxygen and nitrogen species accumulate, further damaging mitochondrial enzymes including lipoate-containing E2/E3 modules. This combination of energy depletion and oxidative stress results in cerebral edema with diffuse gray matter swelling affecting the cerebral cortex, basal ganglia, hippocampus, and brainstem.
 </div>
@@ -6511,6 +6605,7 @@ This pathophysiological event occurs in brainstem (UBERON:0002298). UBERON:00022
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6533,6 +6628,7 @@ This pathophysiological event occurs in brainstem (UBERON:0002298). UBERON:00022
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neural-cell-death-via-apoptosis-and-autophagy" data-dismech-node="Neural Cell Death via Apoptosis and Autophagy" data-dismech-type="pathophysiology">
                 <div class="item-name">Neural Cell Death via Apoptosis and Autophagy</div>
+
 
                 <div class="item-desc">Sustained exposure to elevated BCAAs and BCKAs triggers both apoptotic and autophagic cell death programs in neural tissue. KIC induces apoptosis in glial and neuronal cells through a cytochrome c-independent pathway, without canonical mitochondrial membrane depolarization. Chronic BCAA exposure also increases autophagy markers across brain regions including cerebral cortex, hippocampus, and brainstem, consistent with stress-induced autophagic programs that can progress to cell death.
 </div>
@@ -6744,6 +6840,7 @@ This pathophysiological event involves autophagosome (GO:0005776). GO:0005776 is
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6765,6 +6862,7 @@ This pathophysiological event involves autophagosome (GO:0005776). GO:0005776 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6792,6 +6890,7 @@ This pathophysiological event involves autophagosome (GO:0005776). GO:0005776 is
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6814,6 +6913,7 @@ This pathophysiological event involves autophagosome (GO:0005776). GO:0005776 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-skeletal-muscle-dysfunction" data-dismech-node="Skeletal Muscle Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Skeletal Muscle Dysfunction</div>
+
 
                 <div class="item-desc">Skeletal muscle is a major site of BCAA transamination via mitochondrial branched-chain aminotransferase (BCAT2) and accumulates toxic ketoacids. KIC disrupts mitochondrial metabolism in myocytes, causing reduced TCA cycle flux and ATP depletion. MSUD patients and mouse models display skeletal muscle fiber abnormalities including reduced fiber diameter and muscle atrophy.
 </div>
@@ -6982,6 +7082,7 @@ This pathophysiological event occurs in skeletal muscle tissue (UBERON:0001134).
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7003,6 +7104,7 @@ This pathophysiological event occurs in skeletal muscle tissue (UBERON:0001134).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7122,6 +7224,9 @@ This clinical feature is Feeding difficulties in infancy (HP:0008872). HP:000887
                     </div>
 
 
+
+
+
                     <div class="item-desc">Often first symptom in neonatal period</div>
 
 
@@ -7141,6 +7246,7 @@ This clinical feature is Feeding difficulties in infancy (HP:0008872). HP:000887
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7192,6 +7298,9 @@ This clinical feature is Vomiting (HP:0002013). HP:0002013 is a phenotype from t
                     </div>
 
 
+
+
+
                     <div class="item-desc">Common during metabolic decompensation</div>
 
 
@@ -7211,6 +7320,7 @@ This clinical feature is Vomiting (HP:0002013). HP:0002013 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7271,6 +7381,9 @@ This clinical feature is Abnormal urinary odor (HP:0012088). HP:0012088 is a phe
                     </div>
 
 
+
+
+
                     <div class="item-desc">Characteristic sweet maple syrup odor in urine, sweat, and earwax due to sotolone from accumulated ketoacids</div>
 
 
@@ -7290,6 +7403,7 @@ This clinical feature is Abnormal urinary odor (HP:0012088). HP:0012088 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7352,6 +7466,9 @@ This clinical feature is Elevated circulating branched chain amino acid concentr
                     </div>
 
 
+
+
+
                     <div class="item-desc">Pathognomonic finding; includes elevated leucine, isoleucine, valine, and alloisoleucine</div>
 
 
@@ -7371,6 +7488,7 @@ This clinical feature is Elevated circulating branched chain amino acid concentr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7422,6 +7540,9 @@ This clinical feature is Metabolic acidosis (HP:0001942). HP:0001942 is a phenot
                     </div>
 
 
+
+
+
                     <div class="item-desc">Occurs during acute metabolic crises from BCKA accumulation</div>
 
 
@@ -7441,6 +7562,7 @@ This clinical feature is Metabolic acidosis (HP:0001942). HP:0001942 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7494,6 +7616,9 @@ This clinical feature is Cerebral edema (HP:0002181). HP:0002181 is a phenotype 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Occurs during acute metabolic crises; diffuse gray matter swelling affecting cortex, basal ganglia, hippocampus, and brainstem</div>
 
 
@@ -7513,6 +7638,7 @@ This clinical feature is Cerebral edema (HP:0002181). HP:0002181 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7575,6 +7701,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Alternating with hypertonia during crises</div>
 
 
@@ -7594,6 +7723,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7656,6 +7786,9 @@ This clinical feature is Lethargy (HP:0001254). HP:0001254 is a phenotype from t
                     </div>
 
 
+
+
+
                     <div class="item-desc">Progressive in acute metabolic crises</div>
 
 
@@ -7675,6 +7808,7 @@ This clinical feature is Lethargy (HP:0001254). HP:0001254 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7730,6 +7864,9 @@ This clinical feature is Acute encephalopathy (HP:0006846). HP:0006846 is a phen
                     </div>
 
 
+
+
+
                     <div class="item-desc">Acute metabolic encephalopathy during crises, presents in neonates</div>
 
 
@@ -7749,6 +7886,7 @@ This clinical feature is Acute encephalopathy (HP:0006846). HP:0006846 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7803,6 +7941,9 @@ This clinical feature is Seizures, annotated with Seizure (HP:0001250). HP:00012
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7817,6 +7958,7 @@ This clinical feature is Seizures, annotated with Seizure (HP:0001250). HP:00012
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7870,6 +8012,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                     </div>
 
 
+
+
+
                     <div class="item-desc">If treatment delayed or metabolic control poor; liver transplantation may arrest but not reverse brain damage</div>
 
 
@@ -7892,6 +8037,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"One-third of our patients were mentally impaired (IQ ≤ 70) before transplantation, with no statistically significant change 1 year later."</div>
@@ -7911,6 +8057,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7962,6 +8109,9 @@ This clinical feature is Coma (HP:0001259). HP:0001259 is a phenotype from the H
                     </div>
 
 
+
+
+
                     <div class="item-desc">Can occur during severe metabolic crises</div>
 
 
@@ -7981,6 +8131,7 @@ This clinical feature is Coma (HP:0001259). HP:0001259 is a phenotype from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8032,6 +8183,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Occurs with delayed treatment or poor metabolic control</div>
 
 
@@ -8051,6 +8205,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8100,6 +8255,9 @@ This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Chronic neuropsychiatric complication of classical MSUD; cumulative lifetime incidence reported at 54% among patients on dietary therapy and higher after liver transplantation</div>
 
 
@@ -8119,6 +8277,7 @@ This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8170,6 +8329,9 @@ This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from
                     </div>
 
 
+
+
+
                     <div class="item-desc">Mood disorder reported as a chronic neuropsychiatric complication of classical MSUD; neonatal encephalopathy is a predictor of later mood disorders</div>
 
 
@@ -8189,6 +8351,7 @@ This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8240,6 +8403,9 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
                     </div>
 
 
+
+
+
                     <div class="item-desc">Anxiety disorder reported as a chronic neuropsychiatric complication of classical MSUD</div>
 
 
@@ -8259,6 +8425,7 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8321,6 +8488,9 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
                     </div>
 
 
+
+
+
                     <div class="item-desc">Common in neonatal period and with poor metabolic control</div>
 
 
@@ -8340,6 +8510,7 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8438,6 +8609,9 @@ This disease-associated gene is BCKDHA (hgnc:986). hgnc:986 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8452,6 +8626,7 @@ This disease-associated gene is BCKDHA (hgnc:986). hgnc:986 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8474,6 +8649,7 @@ This disease-associated gene is BCKDHA (hgnc:986). hgnc:986 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8531,6 +8707,9 @@ This disease-associated gene is BCKDHB (hgnc:987). hgnc:987 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8545,6 +8724,7 @@ This disease-associated gene is BCKDHB (hgnc:987). hgnc:987 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8567,6 +8747,7 @@ This disease-associated gene is BCKDHB (hgnc:987). hgnc:987 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8624,6 +8805,9 @@ This disease-associated gene is DBT (hgnc:2698). hgnc:2698 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8638,6 +8822,7 @@ This disease-associated gene is DBT (hgnc:2698). hgnc:2698 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8660,6 +8845,7 @@ This disease-associated gene is DBT (hgnc:2698). hgnc:2698 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8717,6 +8903,9 @@ This disease-associated gene is DLD (hgnc:2898). hgnc:2898 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8731,6 +8920,7 @@ This disease-associated gene is DLD (hgnc:2898). hgnc:2898 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8786,6 +8976,9 @@ This disease-associated gene is BCKDK (hgnc:16902). hgnc:16902 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8800,6 +8993,7 @@ This disease-associated gene is BCKDK (hgnc:16902). hgnc:16902 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8857,6 +9051,9 @@ This disease-associated gene is PPM1K (hgnc:25415). hgnc:25415 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8871,6 +9068,7 @@ This disease-associated gene is PPM1K (hgnc:25415). hgnc:25415 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8954,6 +9152,31 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Lifelong dietary restriction of leucine, isoleucine, and valine intake, mainstay of treatment.</div>
 
 
@@ -8984,6 +9207,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9027,6 +9251,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9089,6 +9314,31 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">BCAA-free amino acid supplements to provide protein needs while restricting toxic amino acids.</div>
 
 
@@ -9119,6 +9369,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9162,6 +9413,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9224,6 +9476,20 @@ This treatment is nutritional supplementation, annotated with Nutritional Suppor
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">High-dose thiamine for thiamine-responsive variant patients who have specific mutations affecting cofactor binding.</div>
 
 
@@ -9254,6 +9520,7 @@ This treatment is nutritional supplementation, annotated with Nutritional Suppor
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9297,6 +9564,7 @@ This treatment is nutritional supplementation, annotated with Nutritional Suppor
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9358,6 +9626,20 @@ This treatment is Liver Transplantation (NCIT:C15271). NCIT:C15271 is a clinical
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Curative treatment providing sufficient BCKD enzyme activity from donor hepatocytes, allowing unrestricted protein diet.</div>
 
 
@@ -9388,6 +9670,7 @@ This treatment is Liver Transplantation (NCIT:C15271). NCIT:C15271 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9434,6 +9717,7 @@ This treatment is Liver Transplantation (NCIT:C15271). NCIT:C15271 is a clinical
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Patient and graft survival were 100% at 4.5 ± 2.2 years of follow-up. Liver function was normal in all patients. Branched-chain amino acid levels were corrected within hours after surgery and remained stable, with leucine tolerance increasing more than 10-fold."</div>
@@ -9453,6 +9737,7 @@ This treatment is Liver Transplantation (NCIT:C15271). NCIT:C15271 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9514,6 +9799,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">IV amino acid solution without branched-chain amino acids for acute crisis management when enteral feeding is not possible.</div>
 
 
@@ -9544,6 +9843,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9587,6 +9887,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9648,6 +9949,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">IV glucose, insulin, and lipids to promote anabolism and reduce protein catabolism during metabolic crises.</div>
 
 
@@ -9678,6 +9993,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9721,6 +10037,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9806,6 +10123,20 @@ This treatment uses sodium phenylbutyrate (CHEBI:75316). CHEBI:75316 is a therap
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">BCKDK inhibitor that increases BCKDH enzyme activity by preventing phosphorylation, may benefit subset of patients with residual enzyme activity.</div>
 
 
@@ -9839,6 +10170,7 @@ This treatment uses sodium phenylbutyrate (CHEBI:75316). CHEBI:75316 is a therap
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9860,6 +10192,7 @@ This treatment uses sodium phenylbutyrate (CHEBI:75316). CHEBI:75316 is a therap
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9903,6 +10236,7 @@ This treatment uses sodium phenylbutyrate (CHEBI:75316). CHEBI:75316 is a therap
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9987,6 +10321,20 @@ This treatment uses metformin (CHEBI:6801). CHEBI:6801 is a therapeutic agent fr
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Potential adjunctive therapy that reduces KIC production by downregulating mitochondrial BCAT; shown to improve metabolic homeostasis in preclinical models.</div>
 
 
@@ -10017,6 +10365,7 @@ This treatment uses metformin (CHEBI:6801). CHEBI:6801 is a therapeutic agent fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10060,6 +10409,7 @@ This treatment uses metformin (CHEBI:6801). CHEBI:6801 is a therapeutic agent fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10122,6 +10472,31 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Gene therapy</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Liver-directed AAV8 gene therapy delivering BCKDHA has rescued lethal MSUD phenotype in Bckdha-knockout mice. Ubiquitous promoter fully rescues the disease; liver-specific expression provides partial but sustained rescue, highlighting both hepatic and extrahepatic requirements for complete correction.</div>
 
 
@@ -10152,6 +10527,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10198,6 +10574,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10222,6 +10599,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10243,6 +10621,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10307,6 +10686,31 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Gene therapy</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Liver-directed AAV8 gene therapy for MSUD is advancing toward clinical trials. The MSUD Age-matched Standard Treatment Cohort (MATCH) is a prospective natural history study of 11 infants with classic MSUD designed to serve as regulatory-grade external controls for single-arm gene therapy trials. The study applies FDA and ICH E9(R1) guidelines with prespecified eligibility criteria, fixed visit cadence, and adjudicated outcomes. Primary outcome measures include proportional intact protein equivalent (PIPE), crisis management days (CMDs), and blood alloisoleucine concentration. Monte Carlo simulations demonstrate ≥90% power to detect clinically meaningful improvements: 64% reduction in CMDs (from 8.4% to 3.0%), 57% increase in PIPE (from 12.3% to 19.3%), and 36% reduction in alloisoleucine (from 183 to 117 μM).
 </div>
 
@@ -10338,6 +10742,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10384,6 +10789,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10405,6 +10811,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10493,6 +10900,7 @@ This environmental factor is dietary protein exposure, annotated with exposure t
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"The primary treatment of MSUD in patients is via the dietary restriction of BCAA1718. Since leucine, valine and isoleucine are essential amino acids, dietary compliance can therefore be challenging."</div>
@@ -10542,6 +10950,7 @@ This environmental factor is dietary protein exposure, annotated with exposure t
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10563,6 +10972,7 @@ This environmental factor is dietary protein exposure, annotated with exposure t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10620,6 +11030,7 @@ This environmental factor is dietary protein exposure, annotated with exposure t
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Maple syrup urine disease (MSUD) is an inherited disorder of branched chain amino acid metabolism presenting with neonatal encephalopathy, episodic metabolic decompensation, and chronic amino acid imbalances."</div>
@@ -10666,6 +11077,7 @@ This environmental factor is dietary protein exposure, annotated with exposure t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10720,6 +11132,7 @@ This environmental factor is dietary protein exposure, annotated with exposure t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10807,6 +11220,7 @@ This environmental factor is dietary protein exposure, annotated with exposure t
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10866,6 +11280,7 @@ This environmental factor is dietary protein exposure, annotated with exposure t
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10905,6 +11320,7 @@ This environmental factor is dietary protein exposure, annotated with exposure t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10979,6 +11395,7 @@ This environmental factor is dietary protein exposure, annotated with exposure t
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11018,6 +11435,7 @@ This environmental factor is dietary protein exposure, annotated with exposure t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11092,6 +11510,7 @@ This environmental factor is dietary protein exposure, annotated with exposure t
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11131,6 +11550,7 @@ This environmental factor is dietary protein exposure, annotated with exposure t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11205,6 +11625,7 @@ This environmental factor is dietary protein exposure, annotated with exposure t
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11244,6 +11665,7 @@ This environmental factor is dietary protein exposure, annotated with exposure t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11318,6 +11740,7 @@ This environmental factor is dietary protein exposure, annotated with exposure t
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -11377,6 +11800,7 @@ This environmental factor is dietary protein exposure, annotated with exposure t
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -11416,6 +11840,7 @@ This environmental factor is dietary protein exposure, annotated with exposure t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11490,6 +11915,7 @@ This environmental factor is dietary protein exposure, annotated with exposure t
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -11529,6 +11955,7 @@ This environmental factor is dietary protein exposure, annotated with exposure t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11603,6 +12030,7 @@ This environmental factor is dietary protein exposure, annotated with exposure t
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -11642,6 +12070,7 @@ This environmental factor is dietary protein exposure, annotated with exposure t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11725,6 +12154,7 @@ This environmental factor is dietary protein exposure, annotated with exposure t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11746,6 +12176,7 @@ This environmental factor is dietary protein exposure, annotated with exposure t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11807,6 +12238,7 @@ This environmental factor is dietary protein exposure, annotated with exposure t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11828,6 +12260,7 @@ This environmental factor is dietary protein exposure, annotated with exposure t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14382,6 +14815,19 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Ground MSUD molecular subtypes</strong> · 2026-08-09T02:24:34Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Maple_Syrup_Urine_Disease/2026-08-09T022434Z-codex-a51b8c.yaml">View source</a></p>
+                        <p class="research-review-text">Audited the BCKDHA, BCKDHB, and DBT WP-002 rows as molecular subtypes of the existing MONDO:0009563 MSUD entry because the three MONDO child entities share the parent BCKDH-complex mechanism and clinical pathograph. Grounded Type IA, Type IB, and Type II to MONDO:0023691, MONDO:0023692, and MONDO:0023693, linked HGNC genes and autosomal-recessive inheritance, and added definitive ClinGen support where assertion scope permits. Preserved and reviewed the existing Falcon deep-research artifact. Its automated identity preflight was indeterminate because MONDO exposes no causal gene for the parent, so the entity match was manually reconciled against the report genes, the local MONDO child audit, ClinGen records, and existing IEMbase curation note. Targeted schema, term, reference, compliance, and structured-source checks were run. Residual WP-002 package rows remain for separate increments.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

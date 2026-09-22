@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4316,6 +4388,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4375,6 +4448,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4440,6 +4514,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4499,6 +4574,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4595,6 +4671,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4676,6 +4753,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4697,6 +4775,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4757,6 +4836,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4841,6 +4921,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4862,6 +4943,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4899,6 +4981,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-exposure-to-avian-proteins" data-dismech-node="Exposure to Avian Proteins" data-dismech-type="pathophysiology">
                 <div class="item-name">Exposure to Avian Proteins</div>
+
 
                 <div class="item-desc">Repeated inhalation of avian proteins from bird droppings, feathers, or serum triggers bird-related hypersensitivity pneumonitis.</div>
 
@@ -4989,6 +5072,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5010,6 +5094,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5037,6 +5122,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5059,6 +5145,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-expansion-of-resident-monocytes-and-interstitial-macrophages" data-dismech-node="Expansion of Resident Monocytes and Interstitial Macrophages" data-dismech-type="pathophysiology">
                 <div class="item-name">Expansion of Resident Monocytes and Interstitial Macrophages</div>
+
 
                 <div class="item-desc">Bird antigen exposure is associated with increased resident monocytes, interstitial macrophages, and type 2 dendritic cells in the lung.</div>
 
@@ -5227,6 +5314,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5249,6 +5337,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduction-of-inflammatory-monocytes-and-alveolar-macrophages" data-dismech-node="Reduction of Inflammatory Monocytes and Alveolar Macrophages" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduction of Inflammatory Monocytes and Alveolar Macrophages</div>
+
 
                 <div class="item-desc">Bird antigen exposure is associated with reduced inflammatory monocytes, alveolar macrophages, and tolerogenic dendritic cells in the lung.</div>
 
@@ -5447,6 +5536,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5469,6 +5559,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-th1-th2-to-th2-th17-cytokine-shift" data-dismech-node="Th1/Th2 to Th2/Th17 Cytokine Shift" data-dismech-type="pathophysiology">
                 <div class="item-name">Th1/Th2 to Th2/Th17 Cytokine Shift</div>
+
 
                 <div class="item-desc">Early disease shows a mixed Th1/Th2 response, while progression shifts toward a Th2/Th17 mixed response.</div>
 
@@ -5611,6 +5702,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5633,6 +5725,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-inflammatory-alveolar-and-interstitial-lung-injury" data-dismech-node="Inflammatory Alveolar and Interstitial Lung Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Inflammatory Alveolar and Interstitial Lung Injury</div>
+
 
                 <div class="item-desc">Avian-antigen-driven immune responses produce mononuclear alveolitis and interstitial/small-airway inflammation, impairing gas exchange and causing acute and chronic respiratory symptoms.</div>
 
@@ -5836,6 +5929,7 @@ This pathophysiological event occurs in lung connective tissue (UBERON:0000114).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5857,6 +5951,7 @@ This pathophysiological event occurs in lung connective tissue (UBERON:0000114).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5882,6 +5977,7 @@ This pathophysiological event occurs in lung connective tissue (UBERON:0000114).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bird-antigen-driven-humoral-response" data-dismech-node="Bird Antigen-Driven Humoral Response" data-dismech-type="pathophysiology">
                 <div class="item-name">Bird Antigen-Driven Humoral Response</div>
+
 
                 <div class="item-desc">Bird antigen exposure triggers B cell activation and elevated serum IgG/IgA to avian proteins in bird-related hypersensitivity pneumonitis.</div>
 
@@ -6054,6 +6150,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6076,6 +6173,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-classical-monocyte-enrichment" data-dismech-node="Classical Monocyte Enrichment" data-dismech-type="pathophysiology">
                 <div class="item-name">Classical Monocyte Enrichment</div>
+
 
                 <div class="item-desc">Fibrotic-HP cohorts not stratified by inciting antigen show elevated classical monocytes enriched for CCL3hi/CCL4hi and S100Ahi states. This is shared fibrotic-HP evidence, not a bird-specific result.</div>
 
@@ -6218,6 +6316,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6240,6 +6339,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-monocyte-to-spp1hi-macrophage-differentiation" data-dismech-node="Monocyte-to-SPP1hi Macrophage Differentiation" data-dismech-type="pathophysiology">
                 <div class="item-name">Monocyte-to-SPP1hi Macrophage Differentiation</div>
+
 
                 <div class="item-desc">In non-antigen-stratified fibrotic HP, S100Ahi classical monocytes differentiate toward SPP1hi lung macrophages associated with fibrosis; the branch is extrapolated to fibrotic BFL.</div>
 
@@ -6378,6 +6478,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6400,6 +6501,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cytotoxic-t-cell-program-with-profibrotic-signaling" data-dismech-node="Cytotoxic T Cell Program with Profibrotic Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Cytotoxic T Cell Program with Profibrotic Signaling</div>
+
 
                 <div class="item-desc">Non-antigen-stratified fibrotic HP features GZMhi cytotoxic T cells with transcriptional programs implicating TGFβ, TNFα, and NFκB pathways; this branch is shared-context evidence for fibrotic BFL.</div>
 
@@ -6542,6 +6644,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6564,6 +6667,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mmp14-high-macrophage-profibrotic-activity" data-dismech-node="MMP14-High Macrophage Profibrotic Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">MMP14-High Macrophage Profibrotic Activity</div>
+
 
                 <div class="item-desc">In a non-avian Saccharopolyspora rectivirgula-antigen HP model, MMP14-high M2-like macrophages promote fibroblast-to-myofibroblast transition. This informs a shared HP-fibrosis mechanism but is an extrapolation to BFL.</div>
 
@@ -6706,6 +6810,7 @@ This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERO
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6728,6 +6833,7 @@ This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tlr2-and-nf-b-regulation-of-mmp14-and-exosome-secretion" data-dismech-node="TLR2 and NF-κB Regulation of MMP14 and Exosome Secretion" data-dismech-type="pathophysiology">
                 <div class="item-name">TLR2 and NF-κB Regulation of MMP14 and Exosome Secretion</div>
+
 
                 <div class="item-desc">In the non-avian SR-antigen HP model, TLR2 and NF-κB signaling regulate macrophage MMP14 expression and exosome secretion; applicability to BFL is not yet directly established.</div>
 
@@ -6815,6 +6921,7 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6874,6 +6981,7 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6918,6 +7026,7 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7027,6 +7136,9 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7041,6 +7153,7 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7106,6 +7219,9 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7120,6 +7236,7 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7147,6 +7264,7 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7168,6 +7286,7 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7224,6 +7343,9 @@ This clinical feature is Cough (HP:0012735). HP:0012735 is a phenotype from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7238,6 +7360,7 @@ This clinical feature is Cough (HP:0012735). HP:0012735 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7262,6 +7385,7 @@ This clinical feature is Cough (HP:0012735). HP:0012735 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7316,6 +7440,9 @@ This clinical feature is Pulmonary fibrosis (HP:0002206). HP:0002206 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -7330,6 +7457,7 @@ This clinical feature is Pulmonary fibrosis (HP:0002206). HP:0002206 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7357,6 +7485,7 @@ This clinical feature is Pulmonary fibrosis (HP:0002206). HP:0002206 is a phenot
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7378,6 +7507,7 @@ This clinical feature is Pulmonary fibrosis (HP:0002206). HP:0002206 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7434,6 +7564,9 @@ This clinical feature is Hypoxemia (HP:0012418). HP:0012418 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7448,6 +7581,7 @@ This clinical feature is Hypoxemia (HP:0012418). HP:0012418 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7511,6 +7645,9 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7525,6 +7662,7 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7640,6 +7778,7 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7702,6 +7841,7 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7781,6 +7921,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Identify and remove the inciting avian source. Depending on the exposure, this can require removing birds, avoiding feather/down products, remediating contaminated material, and preventing indirect occupational or household exposure. Benefit is clearest in nonfibrotic HP; established fibrosis may continue to progress.</div>
 
 
@@ -7809,6 +7963,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7894,6 +8049,7 @@ This treatment targets Cough (HP:0012735). HP:0012735 is a phenotype from the Hu
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7918,6 +8074,7 @@ This treatment targets Cough (HP:0012735). HP:0012735 is a phenotype from the Hu
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7939,6 +8096,7 @@ This treatment targets Cough (HP:0012735). HP:0012735 is a phenotype from the Hu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8027,6 +8185,20 @@ This treatment uses prednisone (CHEBI:8382). CHEBI:8382 is a therapeutic agent f
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Systemic glucocorticoids such as prednisone are used for clinically significant inflammatory/nonfibrotic HP. Observational evidence does not establish a survival benefit, and the same cohort found no therapeutic effect in fibrotic HP.</div>
 
 
@@ -8055,6 +8227,7 @@ This treatment uses prednisone (CHEBI:8382). CHEBI:8382 is a therapeutic agent f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8140,6 +8313,7 @@ This treatment targets Cough (HP:0012735). HP:0012735 is a phenotype from the Hu
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8161,6 +8335,7 @@ This treatment targets Cough (HP:0012735). HP:0012735 is a phenotype from the Hu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8266,6 +8441,20 @@ This treatment uses azathioprine (CHEBI:2948). CHEBI:2948 is a therapeutic agent
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Mycophenolate mofetil or azathioprine may be used as steroid-sparing immunosuppression in chronic HP. Retrospective data found improved DLCO but no significant FVC improvement; prospective validation is lacking.</div>
 
 
@@ -8294,6 +8483,7 @@ This treatment uses azathioprine (CHEBI:2948). CHEBI:2948 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8359,6 +8549,7 @@ This treatment targets Dyspnea (HP:0002094). HP:0002094 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8447,6 +8638,20 @@ This treatment uses nintedanib (CHEBI:85164). CHEBI:85164 is a therapeutic agent
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Nintedanib reduces FVC decline across progressive fibrosing ILDs. The INBUILD analysis included chronic HP, but it was not powered to prove benefit within the HP subgroup and did not stratify bird-related disease.</div>
 
 
@@ -8490,6 +8695,7 @@ This treatment targets Pulmonary fibrosis (HP:0002206). HP:0002206 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8578,6 +8784,20 @@ This treatment uses pirfenidone (CHEBI:32016). CHEBI:32016 is a therapeutic agen
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">A small randomized trial in progressive fibrotic HP was interrupted by the COVID-19 pandemic and underpowered for its primary FVC endpoint. Pirfenidone improved a secondary progression-free-survival endpoint but remains investigational for this indication.</div>
 
 
@@ -8624,6 +8844,7 @@ This treatment targets Pulmonary fibrosis (HP:0002206). HP:0002206 is a phenotyp
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8645,6 +8866,7 @@ This treatment targets Pulmonary fibrosis (HP:0002206). HP:0002206 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8733,6 +8955,7 @@ This environmental factor is exposure to animal waste material (ECTO:7000098). E
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8757,6 +8980,7 @@ This environmental factor is exposure to animal waste material (ECTO:7000098). E
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8778,6 +9002,7 @@ This environmental factor is exposure to animal waste material (ECTO:7000098). E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8831,6 +9056,7 @@ This environmental factor is exposure to animal waste material (ECTO:7000098). E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8899,6 +9125,7 @@ This environmental factor is exposure to animal waste material (ECTO:7000098). E
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8923,6 +9150,7 @@ This environmental factor is exposure to animal waste material (ECTO:7000098). E
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8944,6 +9172,7 @@ This environmental factor is exposure to animal waste material (ECTO:7000098). E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9046,6 +9275,7 @@ This environmental factor is exposure to animal waste material (ECTO:7000098). E
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9067,6 +9297,7 @@ This environmental factor is exposure to animal waste material (ECTO:7000098). E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9157,6 +9388,7 @@ This environmental factor is exposure to animal waste material (ECTO:7000098). E
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9178,6 +9410,7 @@ This environmental factor is exposure to animal waste material (ECTO:7000098). E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9268,6 +9501,7 @@ This environmental factor is exposure to animal waste material (ECTO:7000098). E
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9289,6 +9523,7 @@ This environmental factor is exposure to animal waste material (ECTO:7000098). E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9379,6 +9614,7 @@ This environmental factor is exposure to animal waste material (ECTO:7000098). E
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9400,6 +9636,7 @@ This environmental factor is exposure to animal waste material (ECTO:7000098). E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9490,6 +9727,7 @@ This environmental factor is exposure to animal waste material (ECTO:7000098). E
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9514,6 +9752,7 @@ This environmental factor is exposure to animal waste material (ECTO:7000098). E
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9535,6 +9774,7 @@ This environmental factor is exposure to animal waste material (ECTO:7000098). E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9627,6 +9867,7 @@ This environmental factor is exposure to animal waste material (ECTO:7000098). E
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9648,6 +9889,7 @@ This environmental factor is exposure to animal waste material (ECTO:7000098). E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9716,6 +9958,7 @@ This environmental factor is exposure to animal waste material (ECTO:7000098). E
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9766,6 +10009,7 @@ This environmental factor is exposure to animal waste material (ECTO:7000098). E
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9813,6 +10057,7 @@ This environmental factor is exposure to animal waste material (ECTO:7000098). E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9883,6 +10128,7 @@ This environmental factor is exposure to animal waste material (ECTO:7000098). E
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9929,6 +10175,7 @@ This environmental factor is exposure to animal waste material (ECTO:7000098). E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10030,6 +10277,7 @@ This environmental factor is exposure to animal waste material (ECTO:7000098). E
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10104,6 +10352,7 @@ This environmental factor is exposure to animal waste material (ECTO:7000098). E
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10175,6 +10424,7 @@ This environmental factor is exposure to animal waste material (ECTO:7000098). E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10296,6 +10546,7 @@ This dataset samples lung tissue, annotated with lung (UBERON:0002048). UBERON:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10427,6 +10678,7 @@ This dataset samples bronchoalveolar lavage, annotated with Bronchoalveolar Lava
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10531,6 +10783,7 @@ This clinical trial targets Pulmonary fibrosis (HP:0002206). HP:0002206 is a phe
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10620,6 +10873,7 @@ This clinical trial targets Cough (HP:0012735). HP:0012735 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10715,6 +10969,7 @@ This clinical trial targets Dyspnea (HP:0002094). HP:0002094 is a phenotype from
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10799,6 +11054,7 @@ This clinical trial targets Dyspnea (HP:0002094). HP:0002094 is a phenotype from
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10864,6 +11120,7 @@ This clinical trial targets Dyspnea (HP:0002094). HP:0002094 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13364,6 +13621,8 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

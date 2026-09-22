@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4282,6 +4354,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4377,6 +4450,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4398,6 +4472,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4475,6 +4550,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4532,6 +4608,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4609,6 +4686,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4643,6 +4721,13 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-phf6-dependent-transcriptional-dysregulation" data-dismech-node="PHF6-dependent transcriptional dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">PHF6-dependent transcriptional dysregulation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">PHF6 is a chromatin-associated transcriptional regulator. Pathogenic PHF6 variation disrupts broad transcriptional programs, including programs involved in chromatin regulation, axon development, neuronal development, and cortical neurogenesis. The causal gene-disease relationship is definitive, while the precise molecular consequence differs across variant classes and sex contexts.</div>
 
@@ -4813,6 +4898,7 @@ This pathophysiological event involves abnormal regulation of transcription by R
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4834,6 +4920,7 @@ This pathophysiological event involves abnormal regulation of transcription by R
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4859,6 +4946,13 @@ This pathophysiological event involves abnormal regulation of transcription by R
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ephrin-receptor-transcriptional-dysregulation" data-dismech-node="Ephrin receptor transcriptional dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Ephrin receptor transcriptional dysregulation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">PHF6 binds regulatory regions near Ephrin receptor genes and promotes their expression in developing mouse cortex. BFLS patient-variant mice and conditional Phf6-knockout mice show impaired Ephrin receptor regulation. This is a strong preclinical pathway, but direct confirmation in human prenatal neural tissue is unavailable.</div>
 
@@ -5040,6 +5134,7 @@ This pathophysiological event involves abnormal ephrin receptor signaling pathwa
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5062,6 +5157,13 @@ This pathophysiological event involves abnormal ephrin receptor signaling pathwa
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-embryonic-neural-stem-cell-regulation" data-dismech-node="Altered embryonic neural stem-cell regulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered embryonic neural stem-cell regulation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">PHF6 loss or BFLS patient variants alter neural precursor self-renewal and progenitor output. Two recent mouse-model studies agree that precursor regulation is abnormal but report opposite directions for self-renewal, making the directional mechanism unresolved.</div>
 
@@ -5221,6 +5323,7 @@ This pathophysiological event involves abnormal neural precursor cell proliferat
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5242,6 +5345,7 @@ This pathophysiological event involves abnormal neural precursor cell proliferat
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5267,6 +5371,13 @@ This pathophysiological event involves abnormal neural precursor cell proliferat
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-abnormal-neuronal-morphogenesis" data-dismech-node="Abnormal neuronal morphogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Abnormal neuronal morphogenesis</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">CRISPR-mediated PHF6 knockout in human neuron-like cells perturbs proliferation, neurite extension, and migration. These observations provide direct cellular evidence, but the transformed-cell differentiation model does not reproduce human prenatal cortical development.</div>
 
@@ -5426,6 +5537,7 @@ This pathophysiological event involves abnormal axon development (GO:0061564). G
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5448,6 +5560,13 @@ This pathophysiological event involves abnormal axon development (GO:0061564). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-human-neurodevelopmental-and-neurologic-manifestations" data-dismech-node="Human neurodevelopmental and neurologic manifestations" data-dismech-type="pathophysiology">
                 <div class="item-name">Human neurodevelopmental and neurologic manifestations</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Neurodevelopmental and neurologic manifestations are an established clinical consequence cluster of pathogenic PHF6 variation. This node records the human genotype-phenotype relationship without asserting that one preclinical cellular pathway explains every manifestation.</div>
 
@@ -5565,6 +5684,7 @@ This pathophysiological event involves abnormal axon development (GO:0061564). G
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5587,6 +5707,13 @@ This pathophysiological event involves abnormal axon development (GO:0061564). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-human-endocrine-and-growth-manifestations" data-dismech-node="Human endocrine and growth manifestations" data-dismech-type="pathophysiology">
                 <div class="item-name">Human endocrine and growth manifestations</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Truncal obesity, hypogonadism or small external genitalia, pubertal abnormalities, and gynecomastia are established clinical components of PHF6-related BFLS, although their tissue-specific molecular mechanisms are not established.</div>
 
@@ -5672,6 +5799,7 @@ This pathophysiological event involves abnormal axon development (GO:0061564). G
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5694,6 +5822,13 @@ This pathophysiological event involves abnormal axon development (GO:0061564). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-human-craniofacial-ectodermal-and-congenital-manifestations" data-dismech-node="Human craniofacial, ectodermal, and congenital manifestations" data-dismech-type="pathophysiology">
                 <div class="item-name">Human craniofacial, ectodermal, and congenital manifestations</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Characteristic facial and digital morphology occurs in both sexes. Affected females with de novo PHF6 variants often have additional ectodermal, pigmentary, dental, retinal, and cortical features. This clinical cluster is established even though its tissue-specific molecular pathway is unknown.</div>
 
@@ -5835,6 +5970,7 @@ This pathophysiological event involves abnormal axon development (GO:0061564). G
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5880,7 +6016,7 @@ This pathophysiological event involves abnormal axon development (GO:0061564). G
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal neuronal morphogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CRISPR-mediated PHF6 knockout in human neuron-like cells perturbs proliferation, neurite extension, and migration. These observations provide direct cellular evidence, but the transformed-cell differentiation model does not reproduce human prenatal cortical development.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"neuron migration\", \"axon development\"]}}, {\"id\": \"Altered embryonic neural stem-cell regulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PHF6 loss or BFLS patient variants alter neural precursor self-renewal and progenitor output. Two recent mouse-model studies agree that precursor regulation is abnormal but report opposite directions for self-renewal, making the directional mechanism unresolved.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neural stem cell\"], \"biological_processes\": [\"stem cell population maintenance\", \"neural precursor cell proliferation\"]}}, {\"id\": \"Broad foot\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Broad feet are characteristic digital findings.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001769\"}}, {\"id\": \"Coarse facial features\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Facial features coarsen with age, with a prominent brow and bulbous nose.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000280\"}}, {\"id\": \"Cortical brain anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Malformations of cortical development occur particularly in affected females.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002538\"}}, {\"id\": \"Cryptorchidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Undescended testes are part of the male genital phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000028\"}}, {\"id\": \"Delayed speech and language development\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Speech is commonly delayed or limited.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000750\"}}, {\"id\": \"Dental anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dental abnormalities are especially common in affected females.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000164\"}}, {\"id\": \"Ephrin receptor transcriptional dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PHF6 binds regulatory regions near Ephrin receptor genes and promotes their expression in developing mouse cortex. BFLS patient-variant mice and conditional Phf6-knockout mice show impaired Ephrin receptor regulation. This is a strong preclinical pathway, but direct confirmation in human prenatal neural tissue is unavailable.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"ephrin receptor signaling pathway\"], \"genes\": [\"EPHA4\", \"EPHA7\"], \"gene_terms\": [{\"label\": \"EPHA4\", \"id\": \"hgnc:3388\", \"modifier\": \"DECREASED\"}, {\"label\": \"EPHA7\", \"id\": \"hgnc:3390\", \"modifier\": \"DECREASED\"}]}}, {\"id\": \"Feeding difficulties in infancy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Feeding difficulty is a common early-life manifestation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0008872\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed motor milestones are a core early manifestation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Gynecomastia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gynecomastia is particularly reported in older affected males.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000771\"}}, {\"id\": \"Hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Conductive hearing loss and mild sensorineural hearing loss have both been reported.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000365\"}}, {\"id\": \"Human craniofacial, ectodermal, and congenital manifestations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Characteristic facial and digital morphology occurs in both sexes. Affected females with de novo PHF6 variants often have additional ectodermal, pigmentary, dental, retinal, and cortical features. This clinical cluster is established even though its tissue-specific molecular pathway is unknown.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Human endocrine and growth manifestations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Truncal obesity, hypogonadism or small external genitalia, pubertal abnormalities, and gynecomastia are established clinical components of PHF6-related BFLS, although their tissue-specific molecular mechanisms are not established.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Human neurodevelopmental and neurologic manifestations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neurodevelopmental and neurologic manifestations are an established clinical consequence cluster of pathogenic PHF6 variation. This node records the human genotype-phenotype relationship without asserting that one preclinical cellular pathway explains every manifestation.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hypogonadism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypogonadism or small external genitalia occurs in affected males and females; ascertainment depends on age and pubertal status.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000135\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia is a characteristic infantile feature.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability is a defining feature and ranges from mild to severe in reported affected individuals.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Keloid scarring\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypertrophic or keloid scarring is a reported complication.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0010562\"}}, {\"id\": \"Large earlobe\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Large fleshy earlobes are part of the characteristic facial phenotype.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0009748\"}}, {\"id\": \"Linear skin hyperpigmentation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Blaschko-linear or streaky hyperpigmentation is a distinctive finding in affected females with de novo PHF6 variants.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000953\"}}, {\"id\": \"PHF6\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"PHF6\"], \"gene_terms\": [{\"label\": \"PHF6\", \"id\": \"hgnc:18145\"}], \"association\": \"Pathogenic PHF6 variants\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"PHF6-dependent transcriptional dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PHF6 is a chromatin-associated transcriptional regulator. Pathogenic PHF6 variation disrupts broad transcriptional programs, including programs involved in chromatin regulation, axon development, neuronal development, and cortical neurogenesis. The causal gene-disease relationship is definitive, while the precise molecular consequence differs across variant classes and sex contexts.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"regulation of transcription by RNA polymerase II\"], \"genes\": [\"PHF6\"], \"gene_terms\": [{\"label\": \"PHF6\", \"id\": \"hgnc:18145\", \"modifier\": \"ABNORMAL\"}]}}, {\"id\": \"Peripheral neuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Peripheral neuropathy is an occasional neurologic complication.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0009830\"}}, {\"id\": \"Retinal anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Retinal and optic-nerve abnormalities are especially reported in affected females.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000479\"}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures occur in a minority of affected males and females.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced height is variable and more characteristic of affected males.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004322\"}}, {\"id\": \"Short toe\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Short toes are characteristic digital findings.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001831\"}}, {\"id\": \"Skin assessment and supportive care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Skin care should address hypertrophic or keloid scarring, painful or recurrent digital fibromas, pigmentary changes, and wound-related concerns according to individual findings.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Sparse hair\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sparse, fine, or slow-growing hair occurs in affected males and females.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008070\"}}, {\"id\": \"Talipes\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Talipes is a reported congenital limb anomaly.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001883\"}}, {\"id\": \"Tapered finger\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Short tapering fingers are characteristic in affected males and females.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001182\"}}, {\"id\": \"Truncal obesity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Truncal obesity is a classic manifestation that often becomes more apparent from late childhood.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001956\"}}, {\"id\": \"Umbilical hernia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Umbilical hernia is a reported congenital complication.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001537\"}}], \"edges\": [{\"source\": \"PHF6-dependent transcriptional dysregulation\", \"target\": \"Ephrin receptor transcriptional dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mouse cortical binding, expression, knockdown, and rescue experiments identify Ephrin receptors as direct PHF6 transcriptional targets.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"PHF6-dependent transcriptional dysregulation\", \"target\": \"Abnormal neuronal morphogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PHF6 knockout directly impairs proliferation, neurite outgrowth, and migration in a differentiated human neuron-like cell model.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"PHF6-dependent transcriptional dysregulation\", \"target\": \"Human neurodevelopmental and neurologic manifestations\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pathogenic PHF6 variants cause the human neurodevelopmental syndrome, but several developmental intermediates between broad transcriptional dysregulation and each clinical manifestation remain unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"PHF6-dependent transcriptional dysregulation\", \"target\": \"Human endocrine and growth manifestations\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PHF6-related disease is associated with truncal obesity and gonadal and pubertal abnormalities, but the organ-level causal intermediates are not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"PHF6-dependent transcriptional dysregulation\", \"target\": \"Human craniofacial, ectodermal, and congenital manifestations\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The craniofacial, digital, skin, dental, retinal, and congenital findings form a reproducible PHF6-related phenotype cluster, although their tissue-specific developmental mechanisms are not yet resolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Ephrin receptor transcriptional dysregulation\", \"target\": \"Altered embryonic neural stem-cell regulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"EphA-family knockdown phenocopies abnormal neural stem-cell self-renewal, and forced EphA4 or EphA7 expression rescues the mutant-cell phenotype in the mouse system.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Altered embryonic neural stem-cell regulation\", \"target\": \"Human neurodevelopmental and neurologic manifestations\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted prenatal precursor regulation is a plausible contributor to human BFLS neurodevelopment, but translation from the conflicting mouse cellular phenotypes to specific human manifestations is incomplete.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Abnormal neuronal morphogenesis\", \"target\": \"Human neurodevelopmental and neurologic manifestations\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal neuronal growth and migration plausibly contribute to cognitive and cortical findings, but the cell model does not directly demonstrate individual human clinical outcomes.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Human neurodevelopmental and neurologic manifestations\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intellectual disability is the defining cognitive manifestation of PHF6-related BFLS.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Human neurodevelopmental and neurologic manifestations\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Delayed motor development is a universal early manifestation in the reported cohort.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Human neurodevelopmental and neurologic manifestations\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypotonia is a common early neurologic manifestation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Human neurodevelopmental and neurologic manifestations\", \"target\": \"Feeding difficulties in infancy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Feeding difficulty is a frequent infantile manifestation with multifactorial developmental causes.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Human neurodevelopmental and neurologic manifestations\", \"target\": \"Delayed speech and language development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Delayed or limited speech is a common neurodevelopmental manifestation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Human neurodevelopmental and neurologic manifestations\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Seizures occur in a minority of affected males and females.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Human neurodevelopmental and neurologic manifestations\", \"target\": \"Cortical brain anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Structural cortical abnormalities are particularly reported in affected females.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Human neurodevelopmental and neurologic manifestations\", \"target\": \"Peripheral neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Peripheral neuropathy is an occasional neurologic complication.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Human neurodevelopmental and neurologic manifestations\", \"target\": \"Hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Conductive and sensorineural hearing impairment have both been reported.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Human endocrine and growth manifestations\", \"target\": \"Truncal obesity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Truncal obesity is a classic and usually age-emergent BFLS manifestation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Human endocrine and growth manifestations\", \"target\": \"Hypogonadism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gonadal or external-genital underdevelopment occurs in both affected males and females.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Human endocrine and growth manifestations\", \"target\": \"Gynecomastia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gynecomastia is concentrated in older affected males.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Human endocrine and growth manifestations\", \"target\": \"Short stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Short stature is variable and more characteristic of affected males.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Human endocrine and growth manifestations\", \"target\": \"Cryptorchidism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Undescended testes are part of the male genital phenotype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Human craniofacial, ectodermal, and congenital manifestations\", \"target\": \"Large earlobe\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Large fleshy earlobes are a characteristic craniofacial finding.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Human craniofacial, ectodermal, and congenital manifestations\", \"target\": \"Coarse facial features\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Facial coarsening develops with age and is a characteristic BFLS finding.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Human craniofacial, ectodermal, and congenital manifestations\", \"target\": \"Linear skin hyperpigmentation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Blaschko-linear hyperpigmentation is especially characteristic of affected females.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Human craniofacial, ectodermal, and congenital manifestations\", \"target\": \"Dental anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dental anomalies are particularly common in affected females.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Human craniofacial, ectodermal, and congenital manifestations\", \"target\": \"Retinal anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Retinal and optic-nerve abnormalities are especially reported in affected females.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Human craniofacial, ectodermal, and congenital manifestations\", \"target\": \"Keloid scarring\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypertrophic or keloid scarring is a reported skin complication.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Human craniofacial, ectodermal, and congenital manifestations\", \"target\": \"Umbilical hernia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Umbilical hernia is a reported congenital complication.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Human craniofacial, ectodermal, and congenital manifestations\", \"target\": \"Talipes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Talipes is a reported congenital limb anomaly.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Human craniofacial, ectodermal, and congenital manifestations\", \"target\": \"Sparse hair\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sparse or slow-growing hair is part of the ectodermal phenotype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Human craniofacial, ectodermal, and congenital manifestations\", \"target\": \"Tapered finger\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Short tapering fingers are characteristic in affected males and females.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Human craniofacial, ectodermal, and congenital manifestations\", \"target\": \"Broad foot\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Broad feet are characteristic digital findings.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Human craniofacial, ectodermal, and congenital manifestations\", \"target\": \"Short toe\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Short toes are characteristic digital findings.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Skin assessment and supportive care\", \"target\": \"Keloid scarring\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Skin assessment and supportive care\", \"target\": \"Linear skin hyperpigmentation\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"PHF6\", \"target\": \"PHF6-dependent transcriptional dysregulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal neuronal morphogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CRISPR-mediated PHF6 knockout in human neuron-like cells perturbs proliferation, neurite extension, and migration. These observations provide direct cellular evidence, but the transformed-cell differentiation model does not reproduce human prenatal cortical development.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"neuron migration\", \"axon development\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Altered embryonic neural stem-cell regulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PHF6 loss or BFLS patient variants alter neural precursor self-renewal and progenitor output. Two recent mouse-model studies agree that precursor regulation is abnormal but report opposite directions for self-renewal, making the directional mechanism unresolved.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neural stem cell\"], \"biological_processes\": [\"stem cell population maintenance\", \"neural precursor cell proliferation\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Broad foot\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Broad feet are characteristic digital findings.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001769\"}}, {\"id\": \"Coarse facial features\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Facial features coarsen with age, with a prominent brow and bulbous nose.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000280\"}}, {\"id\": \"Cortical brain anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Malformations of cortical development occur particularly in affected females.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002538\"}}, {\"id\": \"Cryptorchidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Undescended testes are part of the male genital phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000028\"}}, {\"id\": \"Delayed speech and language development\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Speech is commonly delayed or limited.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000750\"}}, {\"id\": \"Dental anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dental abnormalities are especially common in affected females.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000164\"}}, {\"id\": \"Ephrin receptor transcriptional dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PHF6 binds regulatory regions near Ephrin receptor genes and promotes their expression in developing mouse cortex. BFLS patient-variant mice and conditional Phf6-knockout mice show impaired Ephrin receptor regulation. This is a strong preclinical pathway, but direct confirmation in human prenatal neural tissue is unavailable.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"ephrin receptor signaling pathway\"], \"genes\": [\"EPHA4\", \"EPHA7\"], \"gene_terms\": [{\"label\": \"EPHA4\", \"id\": \"hgnc:3388\", \"modifier\": \"DECREASED\"}, {\"label\": \"EPHA7\", \"id\": \"hgnc:3390\", \"modifier\": \"DECREASED\"}], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Feeding difficulties in infancy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Feeding difficulty is a common early-life manifestation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0008872\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed motor milestones are a core early manifestation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Gynecomastia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gynecomastia is particularly reported in older affected males.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000771\"}}, {\"id\": \"Hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Conductive hearing loss and mild sensorineural hearing loss have both been reported.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000365\"}}, {\"id\": \"Human craniofacial, ectodermal, and congenital manifestations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Characteristic facial and digital morphology occurs in both sexes. Affected females with de novo PHF6 variants often have additional ectodermal, pigmentary, dental, retinal, and cortical features. This clinical cluster is established even though its tissue-specific molecular pathway is unknown.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Human endocrine and growth manifestations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Truncal obesity, hypogonadism or small external genitalia, pubertal abnormalities, and gynecomastia are established clinical components of PHF6-related BFLS, although their tissue-specific molecular mechanisms are not established.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Human neurodevelopmental and neurologic manifestations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neurodevelopmental and neurologic manifestations are an established clinical consequence cluster of pathogenic PHF6 variation. This node records the human genotype-phenotype relationship without asserting that one preclinical cellular pathway explains every manifestation.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Hypogonadism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypogonadism or small external genitalia occurs in affected males and females; ascertainment depends on age and pubertal status.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000135\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia is a characteristic infantile feature.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability is a defining feature and ranges from mild to severe in reported affected individuals.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Keloid scarring\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypertrophic or keloid scarring is a reported complication.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0010562\"}}, {\"id\": \"Large earlobe\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Large fleshy earlobes are part of the characteristic facial phenotype.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0009748\"}}, {\"id\": \"Linear skin hyperpigmentation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Blaschko-linear or streaky hyperpigmentation is a distinctive finding in affected females with de novo PHF6 variants.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000953\"}}, {\"id\": \"PHF6\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"PHF6\"], \"gene_terms\": [{\"label\": \"PHF6\", \"id\": \"hgnc:18145\"}], \"association\": \"Pathogenic PHF6 variants\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"PHF6-dependent transcriptional dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PHF6 is a chromatin-associated transcriptional regulator. Pathogenic PHF6 variation disrupts broad transcriptional programs, including programs involved in chromatin regulation, axon development, neuronal development, and cortical neurogenesis. The causal gene-disease relationship is definitive, while the precise molecular consequence differs across variant classes and sex contexts.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"regulation of transcription by RNA polymerase II\"], \"genes\": [\"PHF6\"], \"gene_terms\": [{\"label\": \"PHF6\", \"id\": \"hgnc:18145\", \"modifier\": \"ABNORMAL\"}], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Peripheral neuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Peripheral neuropathy is an occasional neurologic complication.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0009830\"}}, {\"id\": \"Retinal anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Retinal and optic-nerve abnormalities are especially reported in affected females.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000479\"}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures occur in a minority of affected males and females.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced height is variable and more characteristic of affected males.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004322\"}}, {\"id\": \"Short toe\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Short toes are characteristic digital findings.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001831\"}}, {\"id\": \"Skin assessment and supportive care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Skin care should address hypertrophic or keloid scarring, painful or recurrent digital fibromas, pigmentary changes, and wound-related concerns according to individual findings.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Sparse hair\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sparse, fine, or slow-growing hair occurs in affected males and females.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008070\"}}, {\"id\": \"Talipes\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Talipes is a reported congenital limb anomaly.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001883\"}}, {\"id\": \"Tapered finger\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Short tapering fingers are characteristic in affected males and females.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001182\"}}, {\"id\": \"Truncal obesity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Truncal obesity is a classic manifestation that often becomes more apparent from late childhood.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001956\"}}, {\"id\": \"Umbilical hernia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Umbilical hernia is a reported congenital complication.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001537\"}}], \"edges\": [{\"source\": \"PHF6-dependent transcriptional dysregulation\", \"target\": \"Ephrin receptor transcriptional dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mouse cortical binding, expression, knockdown, and rescue experiments identify Ephrin receptors as direct PHF6 transcriptional targets.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"PHF6-dependent transcriptional dysregulation\", \"target\": \"Abnormal neuronal morphogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PHF6 knockout directly impairs proliferation, neurite outgrowth, and migration in a differentiated human neuron-like cell model.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"PHF6-dependent transcriptional dysregulation\", \"target\": \"Human neurodevelopmental and neurologic manifestations\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pathogenic PHF6 variants cause the human neurodevelopmental syndrome, but several developmental intermediates between broad transcriptional dysregulation and each clinical manifestation remain unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"PHF6-dependent transcriptional dysregulation\", \"target\": \"Human endocrine and growth manifestations\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PHF6-related disease is associated with truncal obesity and gonadal and pubertal abnormalities, but the organ-level causal intermediates are not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"PHF6-dependent transcriptional dysregulation\", \"target\": \"Human craniofacial, ectodermal, and congenital manifestations\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The craniofacial, digital, skin, dental, retinal, and congenital findings form a reproducible PHF6-related phenotype cluster, although their tissue-specific developmental mechanisms are not yet resolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Ephrin receptor transcriptional dysregulation\", \"target\": \"Altered embryonic neural stem-cell regulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"EphA-family knockdown phenocopies abnormal neural stem-cell self-renewal, and forced EphA4 or EphA7 expression rescues the mutant-cell phenotype in the mouse system.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Altered embryonic neural stem-cell regulation\", \"target\": \"Human neurodevelopmental and neurologic manifestations\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted prenatal precursor regulation is a plausible contributor to human BFLS neurodevelopment, but translation from the conflicting mouse cellular phenotypes to specific human manifestations is incomplete.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Abnormal neuronal morphogenesis\", \"target\": \"Human neurodevelopmental and neurologic manifestations\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal neuronal growth and migration plausibly contribute to cognitive and cortical findings, but the cell model does not directly demonstrate individual human clinical outcomes.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Human neurodevelopmental and neurologic manifestations\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intellectual disability is the defining cognitive manifestation of PHF6-related BFLS.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Human neurodevelopmental and neurologic manifestations\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Delayed motor development is a universal early manifestation in the reported cohort.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Human neurodevelopmental and neurologic manifestations\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypotonia is a common early neurologic manifestation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Human neurodevelopmental and neurologic manifestations\", \"target\": \"Feeding difficulties in infancy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Feeding difficulty is a frequent infantile manifestation with multifactorial developmental causes.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Human neurodevelopmental and neurologic manifestations\", \"target\": \"Delayed speech and language development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Delayed or limited speech is a common neurodevelopmental manifestation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Human neurodevelopmental and neurologic manifestations\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Seizures occur in a minority of affected males and females.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Human neurodevelopmental and neurologic manifestations\", \"target\": \"Cortical brain anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Structural cortical abnormalities are particularly reported in affected females.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Human neurodevelopmental and neurologic manifestations\", \"target\": \"Peripheral neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Peripheral neuropathy is an occasional neurologic complication.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Human neurodevelopmental and neurologic manifestations\", \"target\": \"Hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Conductive and sensorineural hearing impairment have both been reported.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Human endocrine and growth manifestations\", \"target\": \"Truncal obesity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Truncal obesity is a classic and usually age-emergent BFLS manifestation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Human endocrine and growth manifestations\", \"target\": \"Hypogonadism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gonadal or external-genital underdevelopment occurs in both affected males and females.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Human endocrine and growth manifestations\", \"target\": \"Gynecomastia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gynecomastia is concentrated in older affected males.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Human endocrine and growth manifestations\", \"target\": \"Short stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Short stature is variable and more characteristic of affected males.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Human endocrine and growth manifestations\", \"target\": \"Cryptorchidism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Undescended testes are part of the male genital phenotype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Human craniofacial, ectodermal, and congenital manifestations\", \"target\": \"Large earlobe\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Large fleshy earlobes are a characteristic craniofacial finding.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Human craniofacial, ectodermal, and congenital manifestations\", \"target\": \"Coarse facial features\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Facial coarsening develops with age and is a characteristic BFLS finding.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Human craniofacial, ectodermal, and congenital manifestations\", \"target\": \"Linear skin hyperpigmentation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Blaschko-linear hyperpigmentation is especially characteristic of affected females.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Human craniofacial, ectodermal, and congenital manifestations\", \"target\": \"Dental anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dental anomalies are particularly common in affected females.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Human craniofacial, ectodermal, and congenital manifestations\", \"target\": \"Retinal anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Retinal and optic-nerve abnormalities are especially reported in affected females.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Human craniofacial, ectodermal, and congenital manifestations\", \"target\": \"Keloid scarring\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypertrophic or keloid scarring is a reported skin complication.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Human craniofacial, ectodermal, and congenital manifestations\", \"target\": \"Umbilical hernia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Umbilical hernia is a reported congenital complication.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Human craniofacial, ectodermal, and congenital manifestations\", \"target\": \"Talipes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Talipes is a reported congenital limb anomaly.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Human craniofacial, ectodermal, and congenital manifestations\", \"target\": \"Sparse hair\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sparse or slow-growing hair is part of the ectodermal phenotype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Human craniofacial, ectodermal, and congenital manifestations\", \"target\": \"Tapered finger\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Short tapering fingers are characteristic in affected males and females.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Human craniofacial, ectodermal, and congenital manifestations\", \"target\": \"Broad foot\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Broad feet are characteristic digital findings.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Human craniofacial, ectodermal, and congenital manifestations\", \"target\": \"Short toe\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Short toes are characteristic digital findings.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Skin assessment and supportive care\", \"target\": \"Keloid scarring\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Skin assessment and supportive care\", \"target\": \"Linear skin hyperpigmentation\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"PHF6\", \"target\": \"PHF6-dependent transcriptional dysregulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5901,25 +6037,27 @@ This pathophysiological event involves abnormal axon development (GO:0061564). G
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Breast<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Ear<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Ear<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Endocrine<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Genitourinary<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Eye<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Head and Neck<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Genitourinary<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Integument<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Head and Neck<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Musculoskeletal<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Integument<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Nervous System<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Limbs<span class="pill-count">(4)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Growth<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Musculoskeletal<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-11">Other<span class="pill-count">(8)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-11">Nervous System<span class="pill-count">(6)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-12">Growth<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5960,6 +6098,9 @@ This clinical feature is Gynecomastia (HP:0000771). HP:0000771 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5974,6 +6115,7 @@ This clinical feature is Gynecomastia (HP:0000771). HP:0000771 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6006,7 +6148,7 @@ This clinical feature is Gynecomastia (HP:0000771). HP:0000771 is a phenotype fr
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Digestive
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-feeding-difficulties-in-infancy" data-dismech-node="Feeding difficulties in infancy" data-dismech-type="phenotype">
@@ -6039,6 +6181,9 @@ This clinical feature is Feeding difficulties in infancy (HP:0008872). HP:000887
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6053,6 +6198,7 @@ This clinical feature is Feeding difficulties in infancy (HP:0008872). HP:000887
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6079,14 +6225,160 @@ This clinical feature is Feeding difficulties in infancy (HP:0008872). HP:000887
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-umbilical-hernia" data-dismech-node="Umbilical hernia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Umbilical hernia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001537" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001537</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Umbilical hernia (HP:0001537). HP:0001537 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1038/s41431-023-01447-0" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1038/s41431-023-01447-0" target="_blank">DOI:10.1038/s41431-023-01447-0</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Complications observed in our series included keloid scarring, digital fibromas, absent vaginal orifice, neuropathy, umbilical hernias, and talipes."</div>
+
+
+                <div class="evidence-explanation">The cohort directly reports umbilical hernias.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Ear
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-large-earlobe" data-dismech-node="Large earlobe" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Large earlobe
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009748" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0009748</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Large earlobe (HP:0009748). HP:0009748 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="url:https://api.orphadata.com/rd-phenotypes/orphacodes/127" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://api.orphadata.com/rd-phenotypes/orphacodes/127" target="_blank">url:https://api.orphadata.com/rd-phenotypes/orphacodes/127</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"&#34;HPOId&#34;: &#34;HP:0009748&#34;, &#34;HPOTerm&#34;: &#34;Large earlobe&#34; }, &#34;HPOFrequency&#34;: &#34;Very frequent (99-80%)&#34;"</div>
+
+
+                <div class="evidence-explanation">Orphadata classifies large earlobes as very frequent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-hearing-impairment" data-dismech-node="Hearing impairment" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6104,15 +6396,18 @@ This clinical feature is Feeding difficulties in infancy (HP:0008872). HP:000887
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000365</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000365</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6132,6 +6427,7 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6156,6 +6452,7 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6207,15 +6504,18 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000135" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000135</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000135" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000135</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypogonadism (HP:0000135). HP:0000135 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6235,6 +6535,7 @@ This clinical feature is Hypogonadism (HP:0000135). HP:0000135 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6259,6 +6560,7 @@ This clinical feature is Hypogonadism (HP:0000135). HP:0000135 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6290,13 +6592,13 @@ This clinical feature is Hypogonadism (HP:0000135). HP:0000135 is a phenotype fr
             <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Genitourinary
+                    Eye
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-cryptorchidism" data-dismech-node="Cryptorchidism" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-retinal-anomalies" data-dismech-node="Retinal anomalies" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Cryptorchidism
+                        Retinal anomalies
 
 
 
@@ -6305,18 +6607,23 @@ This clinical feature is Hypogonadism (HP:0000135). HP:0000135 is a phenotype fr
 
                     <span class="phenotype-id">
 
+                        <span class="phenotype-term-label">Abnormal retinal morphology</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000028" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000028</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000479" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000479</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Retinal anomalies, annotated with Abnormal retinal morphology (HP:0000479). HP:0000479 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6336,6 +6643,88 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The phenotype of affected females with de novo variants overlapped with the males but included linear skin hyperpigmentation and a higher frequency of dental, retinal and cortical brain anomalies."</div>
+
+
+                <div class="evidence-explanation">This directly supports retinal abnormalities in affected females.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-6">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Genitourinary
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cryptorchidism" data-dismech-node="Cryptorchidism" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Cryptorchidism
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000028" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000028</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1038/s41431-023-01447-0" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1038/s41431-023-01447-0" target="_blank">DOI:10.1038/s41431-023-01447-0</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6364,7 +6753,7 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-6">
+            <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
@@ -6387,15 +6776,18 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000280" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000280</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000280" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000280</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Coarse facial features (HP:0000280). HP:0000280 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6415,6 +6807,7 @@ This clinical feature is Coarse facial features (HP:0000280). HP:0000280 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6457,15 +6850,18 @@ This clinical feature is Coarse facial features (HP:0000280). HP:0000280 is a ph
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000164" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000164</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000164" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000164</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dental anomalies, annotated with Abnormality of the dentition (HP:0000164). HP:0000164 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6485,6 +6881,7 @@ This clinical feature is Dental anomalies, annotated with Abnormality of the den
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6513,7 +6910,7 @@ This clinical feature is Dental anomalies, annotated with Abnormality of the den
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-7">
+            <details class="phenotype-category-group" id="pheno-cat-8">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Integument
@@ -6536,15 +6933,18 @@ This clinical feature is Dental anomalies, annotated with Abnormality of the den
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000953" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000953</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000953" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000953</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Linear skin hyperpigmentation, annotated with Hyperpigmentation of the skin (HP:0000953). HP:0000953 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6564,6 +6964,7 @@ This clinical feature is Linear skin hyperpigmentation, annotated with Hyperpigm
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6604,15 +7005,18 @@ This clinical feature is Linear skin hyperpigmentation, annotated with Hyperpigm
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010562" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0010562</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010562" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0010562</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Keloid scarring, annotated with Keloids (HP:0010562). HP:0010562 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6632,6 +7036,7 @@ This clinical feature is Keloid scarring, annotated with Keloids (HP:0010562). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6672,15 +7077,18 @@ This clinical feature is Keloid scarring, annotated with Keloids (HP:0010562). H
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008070" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0008070</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008070" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0008070</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Sparse hair (HP:0008070). HP:0008070 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6700,6 +7108,7 @@ This clinical feature is Sparse hair (HP:0008070). HP:0008070 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6728,923 +7137,12 @@ This clinical feature is Sparse hair (HP:0008070). HP:0008070 is a phenotype fro
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-8">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Musculoskeletal
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hypotonia" data-dismech-node="Hypotonia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hypotonia
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001252</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="url:https://api.orphadata.com/rd-phenotypes/orphacodes/127" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/url:https://api.orphadata.com/rd-phenotypes/orphacodes/127" target="_blank">url:https://api.orphadata.com/rd-phenotypes/orphacodes/127</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"&#34;HPOId&#34;: &#34;HP:0001252&#34;, &#34;HPOTerm&#34;: &#34;Hypotonia&#34; }, &#34;HPOFrequency&#34;: &#34;Very frequent (99-80%)&#34;"</div>
-
-
-                <div class="evidence-explanation">Orphadata classifies hypotonia as very frequent.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
             <details class="phenotype-category-group" id="pheno-cat-9">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Nervous System
-                    <span class="cat-count">5</span>
+                    Limbs
+                    <span class="cat-count">4</span>
                 </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-intellectual-disability" data-dismech-node="Intellectual disability" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Intellectual disability
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001249</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="DOI:10.1038/s41431-023-01447-0" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/DOI:10.1038/s41431-023-01447-0" target="_blank">DOI:10.1038/s41431-023-01447-0</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Intellectual disability varied in severity from mild to severe."</div>
-
-
-                <div class="evidence-explanation">The human cohort directly supports the core phenotype and its variable severity.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-global-developmental-delay" data-dismech-node="Global developmental delay" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Global developmental delay
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001263</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="DOI:10.1038/s41431-023-01447-0" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/DOI:10.1038/s41431-023-01447-0" target="_blank">DOI:10.1038/s41431-023-01447-0</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"All the individuals had delayed motor milestones."</div>
-
-
-                <div class="evidence-explanation">All 19 cohort participants had motor developmental delay.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-delayed-speech-and-language-development" data-dismech-node="Delayed speech and language development" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Delayed speech and language development
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000750</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Delayed speech and language development (HP:0000750). HP:0000750 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="DOI:10.1038/s41431-023-01447-0" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/DOI:10.1038/s41431-023-01447-0" target="_blank">DOI:10.1038/s41431-023-01447-0</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Limited or delayed speech was common (18/19)."</div>
-
-
-                <div class="evidence-explanation">The cohort places delayed or limited speech in the very-frequent band.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-peripheral-neuropathy" data-dismech-node="Peripheral neuropathy" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Peripheral neuropathy
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0009830</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="DOI:10.1038/s41431-023-01447-0" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/DOI:10.1038/s41431-023-01447-0" target="_blank">DOI:10.1038/s41431-023-01447-0</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Complications observed in our series included keloid scarring, digital fibromas, absent vaginal orifice, neuropathy, umbilical hernias, and talipes."</div>
-
-
-                <div class="evidence-explanation">The cohort reports neuropathy, mapped here to the HPO peripheral-neuropathy term.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="url:https://api.orphadata.com/rd-phenotypes/orphacodes/127" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/url:https://api.orphadata.com/rd-phenotypes/orphacodes/127" target="_blank">url:https://api.orphadata.com/rd-phenotypes/orphacodes/127</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"&#34;HPOId&#34;: &#34;HP:0009830&#34;, &#34;HPOTerm&#34;: &#34;Peripheral neuropathy&#34; }, &#34;HPOFrequency&#34;: &#34;Occasional (29-5%)&#34;"</div>
-
-
-                <div class="evidence-explanation">Orphadata classifies peripheral neuropathy as occasional.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-seizure" data-dismech-node="Seizure" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Seizure
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001250</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="DOI:10.1038/s41431-023-01447-0" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/DOI:10.1038/s41431-023-01447-0" target="_blank">DOI:10.1038/s41431-023-01447-0</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Two males and one female had a history of seizures."</div>
-
-
-                <div class="evidence-explanation">Direct human evidence supports seizures in both sexes.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="url:https://api.orphadata.com/rd-phenotypes/orphacodes/127" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/url:https://api.orphadata.com/rd-phenotypes/orphacodes/127" target="_blank">url:https://api.orphadata.com/rd-phenotypes/orphacodes/127</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"&#34;HPOId&#34;: &#34;HP:0001250&#34;, &#34;HPOTerm&#34;: &#34;Seizure&#34; }, &#34;HPOFrequency&#34;: &#34;Occasional (29-5%)&#34;"</div>
-
-
-                <div class="evidence-explanation">Orphadata classifies seizures as occasional.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-10">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Growth
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-truncal-obesity" data-dismech-node="Truncal obesity" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Truncal obesity
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001956" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001956</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Truncal obesity (HP:0001956). HP:0001956 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="DOI:10.1038/s41431-023-01447-0" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/DOI:10.1038/s41431-023-01447-0" target="_blank">DOI:10.1038/s41431-023-01447-0</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Many individuals were described as obese, had truncal obesity, or a BMI &gt; 2 standard deviations (SD) above mean for age (9/10 males, 6/7 females)."</div>
-
-
-                <div class="evidence-explanation">Fifteen of seventeen evaluable cohort participants met an obesity description or threshold.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-short-stature" data-dismech-node="Short stature" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Short stature
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0004322</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="DOI:10.1038/s41431-023-01447-0" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/DOI:10.1038/s41431-023-01447-0" target="_blank">DOI:10.1038/s41431-023-01447-0</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Short stature was common. Height was below average in 9/10 males"</div>
-
-
-                <div class="evidence-explanation">The cohort directly documents reduced height among affected males.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-11">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">8</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-large-earlobe" data-dismech-node="Large earlobe" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Large earlobe
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0009748" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0009748</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Large earlobe (HP:0009748). HP:0009748 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="url:https://api.orphadata.com/rd-phenotypes/orphacodes/127" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/url:https://api.orphadata.com/rd-phenotypes/orphacodes/127" target="_blank">url:https://api.orphadata.com/rd-phenotypes/orphacodes/127</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"&#34;HPOId&#34;: &#34;HP:0009748&#34;, &#34;HPOTerm&#34;: &#34;Large earlobe&#34; }, &#34;HPOFrequency&#34;: &#34;Very frequent (99-80%)&#34;"</div>
-
-
-                <div class="evidence-explanation">Orphadata classifies large earlobes as very frequent.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-retinal-anomalies" data-dismech-node="Retinal anomalies" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Retinal anomalies
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Abnormal retinal morphology</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000479" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000479</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Retinal anomalies, annotated with Abnormal retinal morphology (HP:0000479). HP:0000479 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="DOI:10.1038/s41431-023-01447-0" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/DOI:10.1038/s41431-023-01447-0" target="_blank">DOI:10.1038/s41431-023-01447-0</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The phenotype of affected females with de novo variants overlapped with the males but included linear skin hyperpigmentation and a higher frequency of dental, retinal and cortical brain anomalies."</div>
-
-
-                <div class="evidence-explanation">This directly supports retinal abnormalities in affected females.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-cortical-brain-anomalies" data-dismech-node="Cortical brain anomalies" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Cortical brain anomalies
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Abnormal cerebral cortex morphology</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002538" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0002538</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Cortical brain anomalies, annotated with Abnormal cerebral cortex morphology (HP:0002538). HP:0002538 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="DOI:10.1038/s41431-023-01447-0" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/DOI:10.1038/s41431-023-01447-0" target="_blank">DOI:10.1038/s41431-023-01447-0</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The phenotype of affected females with de novo variants overlapped with the males but included linear skin hyperpigmentation and a higher frequency of dental, retinal and cortical brain anomalies."</div>
-
-
-                <div class="evidence-explanation">This directly supports cortical abnormalities in affected females.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-umbilical-hernia" data-dismech-node="Umbilical hernia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Umbilical hernia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001537" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001537</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Umbilical hernia (HP:0001537). HP:0001537 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="DOI:10.1038/s41431-023-01447-0" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/DOI:10.1038/s41431-023-01447-0" target="_blank">DOI:10.1038/s41431-023-01447-0</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Complications observed in our series included keloid scarring, digital fibromas, absent vaginal orifice, neuropathy, umbilical hernias, and talipes."</div>
-
-
-                <div class="evidence-explanation">The cohort directly reports umbilical hernias.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-talipes" data-dismech-node="Talipes" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -7660,15 +7158,18 @@ This clinical feature is Umbilical hernia (HP:0001537). HP:0001537 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001883" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001883</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001883" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001883</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Talipes (HP:0001883). HP:0001883 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7688,6 +7189,7 @@ This clinical feature is Talipes (HP:0001883). HP:0001883 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7730,15 +7232,18 @@ This clinical feature is Talipes (HP:0001883). HP:0001883 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001182" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001182</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001182" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001182</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Tapered finger (HP:0001182). HP:0001182 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7758,6 +7263,7 @@ This clinical feature is Tapered finger (HP:0001182). HP:0001182 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7800,15 +7306,18 @@ This clinical feature is Tapered finger (HP:0001182). HP:0001182 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001769" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0001769</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001769" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001769</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Broad foot (HP:0001769). HP:0001769 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7828,6 +7337,7 @@ This clinical feature is Broad foot (HP:0001769). HP:0001769 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7870,15 +7380,18 @@ This clinical feature is Broad foot (HP:0001769). HP:0001769 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001831" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0001831</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001831" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001831</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Short toe (HP:0001831). HP:0001831 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7901,6 +7414,7 @@ This clinical feature is Short toe (HP:0001831). HP:0001831 is a phenotype from 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7909,6 +7423,747 @@ This clinical feature is Short toe (HP:0001831). HP:0001831 is a phenotype from 
 
 
                 <div class="evidence-explanation">Orphadata classifies short toes as very frequent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-10">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Musculoskeletal
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypotonia" data-dismech-node="Hypotonia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hypotonia
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001252</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="url:https://api.orphadata.com/rd-phenotypes/orphacodes/127" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://api.orphadata.com/rd-phenotypes/orphacodes/127" target="_blank">url:https://api.orphadata.com/rd-phenotypes/orphacodes/127</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"&#34;HPOId&#34;: &#34;HP:0001252&#34;, &#34;HPOTerm&#34;: &#34;Hypotonia&#34; }, &#34;HPOFrequency&#34;: &#34;Very frequent (99-80%)&#34;"</div>
+
+
+                <div class="evidence-explanation">Orphadata classifies hypotonia as very frequent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-11">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Nervous System
+                    <span class="cat-count">6</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-intellectual-disability" data-dismech-node="Intellectual disability" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Intellectual disability
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001249</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1038/s41431-023-01447-0" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1038/s41431-023-01447-0" target="_blank">DOI:10.1038/s41431-023-01447-0</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Intellectual disability varied in severity from mild to severe."</div>
+
+
+                <div class="evidence-explanation">The human cohort directly supports the core phenotype and its variable severity.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-global-developmental-delay" data-dismech-node="Global developmental delay" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Global developmental delay
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001263</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1038/s41431-023-01447-0" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1038/s41431-023-01447-0" target="_blank">DOI:10.1038/s41431-023-01447-0</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"All the individuals had delayed motor milestones."</div>
+
+
+                <div class="evidence-explanation">All 19 cohort participants had motor developmental delay.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-delayed-speech-and-language-development" data-dismech-node="Delayed speech and language development" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Delayed speech and language development
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000750</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Delayed speech and language development (HP:0000750). HP:0000750 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1038/s41431-023-01447-0" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1038/s41431-023-01447-0" target="_blank">DOI:10.1038/s41431-023-01447-0</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Limited or delayed speech was common (18/19)."</div>
+
+
+                <div class="evidence-explanation">The cohort places delayed or limited speech in the very-frequent band.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cortical-brain-anomalies" data-dismech-node="Cortical brain anomalies" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Cortical brain anomalies
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal cerebral cortex morphology</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002538" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0002538</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cortical brain anomalies, annotated with Abnormal cerebral cortex morphology (HP:0002538). HP:0002538 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1038/s41431-023-01447-0" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1038/s41431-023-01447-0" target="_blank">DOI:10.1038/s41431-023-01447-0</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The phenotype of affected females with de novo variants overlapped with the males but included linear skin hyperpigmentation and a higher frequency of dental, retinal and cortical brain anomalies."</div>
+
+
+                <div class="evidence-explanation">This directly supports cortical abnormalities in affected females.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-peripheral-neuropathy" data-dismech-node="Peripheral neuropathy" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Peripheral neuropathy
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0009830</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1038/s41431-023-01447-0" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1038/s41431-023-01447-0" target="_blank">DOI:10.1038/s41431-023-01447-0</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Complications observed in our series included keloid scarring, digital fibromas, absent vaginal orifice, neuropathy, umbilical hernias, and talipes."</div>
+
+
+                <div class="evidence-explanation">The cohort reports neuropathy, mapped here to the HPO peripheral-neuropathy term.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="url:https://api.orphadata.com/rd-phenotypes/orphacodes/127" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://api.orphadata.com/rd-phenotypes/orphacodes/127" target="_blank">url:https://api.orphadata.com/rd-phenotypes/orphacodes/127</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"&#34;HPOId&#34;: &#34;HP:0009830&#34;, &#34;HPOTerm&#34;: &#34;Peripheral neuropathy&#34; }, &#34;HPOFrequency&#34;: &#34;Occasional (29-5%)&#34;"</div>
+
+
+                <div class="evidence-explanation">Orphadata classifies peripheral neuropathy as occasional.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-seizure" data-dismech-node="Seizure" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Seizure
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001250</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1038/s41431-023-01447-0" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1038/s41431-023-01447-0" target="_blank">DOI:10.1038/s41431-023-01447-0</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Two males and one female had a history of seizures."</div>
+
+
+                <div class="evidence-explanation">Direct human evidence supports seizures in both sexes.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="url:https://api.orphadata.com/rd-phenotypes/orphacodes/127" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://api.orphadata.com/rd-phenotypes/orphacodes/127" target="_blank">url:https://api.orphadata.com/rd-phenotypes/orphacodes/127</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"&#34;HPOId&#34;: &#34;HP:0001250&#34;, &#34;HPOTerm&#34;: &#34;Seizure&#34; }, &#34;HPOFrequency&#34;: &#34;Occasional (29-5%)&#34;"</div>
+
+
+                <div class="evidence-explanation">Orphadata classifies seizures as occasional.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-12">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Growth
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-truncal-obesity" data-dismech-node="Truncal obesity" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Truncal obesity
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001956" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0001956</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Truncal obesity (HP:0001956). HP:0001956 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1038/s41431-023-01447-0" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1038/s41431-023-01447-0" target="_blank">DOI:10.1038/s41431-023-01447-0</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Many individuals were described as obese, had truncal obesity, or a BMI &gt; 2 standard deviations (SD) above mean for age (9/10 males, 6/7 females)."</div>
+
+
+                <div class="evidence-explanation">Fifteen of seventeen evaluable cohort participants met an obesity description or threshold.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-short-stature" data-dismech-node="Short stature" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Short stature
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0004322</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1038/s41431-023-01447-0" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1038/s41431-023-01447-0" target="_blank">DOI:10.1038/s41431-023-01447-0</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Short stature was common. Height was below average in 9/10 males"</div>
+
+
+                <div class="evidence-explanation">The cohort directly documents reduced height among affected males.</div>
 
 
 
@@ -7998,6 +8253,9 @@ This disease-associated gene is PHF6 (hgnc:18145). hgnc:18145 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8012,6 +8270,7 @@ This disease-associated gene is PHF6 (hgnc:18145). hgnc:18145 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8036,6 +8295,7 @@ This disease-associated gene is PHF6 (hgnc:18145). hgnc:18145 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8121,6 +8381,20 @@ This treatment is clinical assessment, annotated with Clinical Evaluation (NCIT:
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Longitudinal developmental, neurologic, communication, behavioral, and educational assessment should guide individualized supportive therapies.</div>
 
 
@@ -8142,6 +8416,7 @@ This treatment is clinical assessment, annotated with Clinical Evaluation (NCIT:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8208,6 +8483,20 @@ This treatment is clinical assessment, annotated with Clinical Evaluation (NCIT:
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Age-appropriate endocrinology assessment should evaluate growth, obesity, gonadal development, pubertal progression, and related endocrine concerns.</div>
 
 
@@ -8229,6 +8518,7 @@ This treatment is clinical assessment, annotated with Clinical Evaluation (NCIT:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8295,6 +8585,20 @@ This treatment is eye examination (NCIT:C38060). NCIT:C38060 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Baseline and follow-up eye examinations should be individualized to detect refractive errors, strabismus, nystagmus, retinal disease, and optic-nerve abnormalities.</div>
 
 
@@ -8316,6 +8620,7 @@ This treatment is eye examination (NCIT:C38060). NCIT:C38060 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8382,6 +8687,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Skin care should address hypertrophic or keloid scarring, painful or recurrent digital fibromas, pigmentary changes, and wound-related concerns according to individual findings.</div>
 
 
@@ -8442,6 +8761,7 @@ This treatment targets Linear skin hyperpigmentation, annotated with Hyperpigmen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8552,6 +8872,7 @@ This treatment targets Linear skin hyperpigmentation, annotated with Hyperpigmen
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8641,6 +8962,7 @@ This treatment targets Linear skin hyperpigmentation, annotated with Hyperpigmen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8662,6 +8984,7 @@ This treatment targets Linear skin hyperpigmentation, annotated with Hyperpigmen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8732,6 +9055,7 @@ This treatment targets Linear skin hyperpigmentation, annotated with Hyperpigmen
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8753,6 +9077,7 @@ This treatment targets Linear skin hyperpigmentation, annotated with Hyperpigmen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8808,6 +9133,7 @@ This treatment targets Linear skin hyperpigmentation, annotated with Hyperpigmen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8860,6 +9186,7 @@ This treatment targets Linear skin hyperpigmentation, annotated with Hyperpigmen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8881,6 +9208,7 @@ This treatment targets Linear skin hyperpigmentation, annotated with Hyperpigmen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8954,6 +9282,7 @@ This treatment targets Linear skin hyperpigmentation, annotated with Hyperpigmen
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9017,6 +9346,7 @@ This treatment targets Linear skin hyperpigmentation, annotated with Hyperpigmen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9108,6 +9438,7 @@ This treatment targets Linear skin hyperpigmentation, annotated with Hyperpigmen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9182,6 +9513,7 @@ This treatment targets Linear skin hyperpigmentation, annotated with Hyperpigmen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9253,6 +9585,7 @@ This treatment targets Linear skin hyperpigmentation, annotated with Hyperpigmen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9391,6 +9724,7 @@ This dataset samples neural stem cell (CL:0000047). CL:0000047 is a sample type 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11384,6 +11718,8 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

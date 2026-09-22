@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3761,6 +3826,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -4045,6 +4117,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bulbar-lower-motor-neuron-degeneration" data-dismech-node="Bulbar Lower Motor Neuron Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Bulbar Lower Motor Neuron Degeneration</div>
 
+
                 <div class="item-desc">Progressive degeneration of the lower motor neurons in the bulbar motor nuclei of the medulla (notably the hypoglossal nucleus supplying the tongue, and the nucleus ambiguus supplying pharyngeal and laryngeal muscles) denervates the muscles of speech and swallowing. This produces tongue wasting and fasciculations, flaccid dysarthria, dysphagia, and dysphonia. Electromyographic involvement of the genioglossus is a marker of bulbar lower-motor-neuron dysfunction and predicts progression to severe dysphagia and dysarthria.
 </div>
 
@@ -4191,6 +4264,7 @@ This pathophysiological event occurs in hypoglossal nucleus (UBERON:0002871). UB
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4213,6 +4287,7 @@ This pathophysiological event occurs in hypoglossal nucleus (UBERON:0002871). UB
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4239,6 +4314,7 @@ This pathophysiological event occurs in hypoglossal nucleus (UBERON:0002871). UB
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-corticobulbar-upper-motor-neuron-involvement-and-pseudobulbar-affect" data-dismech-node="Corticobulbar (Upper Motor Neuron) Involvement and Pseudobulbar Affect" data-dismech-type="pathophysiology">
                 <div class="item-name">Corticobulbar (Upper Motor Neuron) Involvement and Pseudobulbar Affect</div>
+
 
                 <div class="item-desc">Degeneration of upper motor neurons projecting through the corticobulbar tracts to the bulbar nuclei produces upper-motor-neuron bulbar signs: spastic dysarthria, a brisk jaw jerk and exaggerated gag, and pseudobulbar affect (pathological laughter and crying, or emotional lability) reflecting loss of cortical control over brainstem affective motor circuits. The combination of upper- and lower-motor-neuron bulbar signs distinguishes PBP from purely lower-motor-neuron bulbar syndromes.
 </div>
@@ -4312,6 +4388,7 @@ This pathophysiological event involves upper motor neuron (CL:0008048). CL:00080
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4335,6 +4412,7 @@ This pathophysiological event involves upper motor neuron (CL:0008048). CL:00080
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tdp-43-proteinopathy" data-dismech-node="TDP-43 Proteinopathy" data-dismech-type="pathophysiology">
                 <div class="item-name">TDP-43 Proteinopathy</div>
+
 
                 <div class="item-desc">Like ALS, progressive bulbar palsy is associated with TDP-43 proteinopathy: cytoplasmic mislocalization and aggregation of TAR DNA-binding protein 43 (TDP-43) forming neuronal cytoplasmic inclusions (skein-like and globular) in degenerating motor neurons of the brainstem and anterior horn. Both nuclear loss-of-function and cytoplasmic gain-of-function consequences of TDP-43 mislocalization drive motor neuron injury.
 </div>
@@ -4446,6 +4524,7 @@ This pathophysiological event involves increased inclusion body assembly (GO:007
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4469,6 +4548,7 @@ This pathophysiological event involves increased inclusion body assembly (GO:007
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bulbar-onset-variant-within-the-als-spectrum" data-dismech-node="Bulbar-Onset Variant Within the ALS Spectrum" data-dismech-type="pathophysiology">
                 <div class="item-name">Bulbar-Onset Variant Within the ALS Spectrum</div>
+
 
                 <div class="item-desc">Progressive bulbar palsy is regarded as a regional, bulbar-onset variant of motor neuron disease whose underlying pathological process is largely identical to amyotrophic lateral sclerosis, differing chiefly in the anatomical site initially affected. Disease typically spreads from the bulbar region to contiguous body regions, and most patients progress to generalized ALS with combined upper and lower motor neuron involvement.
 </div>
@@ -4557,6 +4637,7 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4580,6 +4661,7 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aspiration-and-respiratory-compromise" data-dismech-node="Aspiration and Respiratory Compromise" data-dismech-type="pathophysiology">
                 <div class="item-name">Aspiration and Respiratory Compromise</div>
+
 
                 <div class="item-desc">Bulbar muscle weakness impairs swallowing, cough, and airway protection. Combined dysphagia and weak cough lead to retained secretions, aspiration, and recurrent respiratory tract infections, and bulbar-predominant disease compromises secretion clearance and airway management, contributing to the shorter survival seen in bulbar-onset disease.
 </div>
@@ -4653,6 +4735,7 @@ This pathophysiological event involves lower motor neuron (CL:0008039). CL:00080
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4675,6 +4758,7 @@ This pathophysiological event involves lower motor neuron (CL:0008039). CL:00080
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4745,11 +4829,11 @@ This pathophysiological event involves lower motor neuron (CL:0008039). CL:00080
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Head and Neck<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Head and Neck<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Voice<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4808,6 +4892,9 @@ This clinical feature is Dysphagia (HP:0002015), qualified as course progressive
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4822,6 +4909,7 @@ This clinical feature is Dysphagia (HP:0002015), qualified as course progressive
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4854,275 +4942,8 @@ This clinical feature is Dysphagia (HP:0002015), qualified as course progressive
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">3</span>
                 </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-drooling-sialorrhea" data-dismech-node="Drooling / Sialorrhea" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Drooling / Sialorrhea
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002307" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0002307</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Drooling (HP:0002307). HP:0002307 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:37816542" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37816542" target="_blank">PMID:37816542</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Salivary secretion management includes the use of anticholinergics, botulinum toxin, and radiation therapy"</div>
-
-
-                <div class="evidence-explanation">Sialorrhea from bulbar dysfunction requires salivary secretion management with anticholinergics, botulinum toxin, or radiation therapy.
-</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Nervous System
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-dysarthria" data-dismech-node="Dysarthria" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Dysarthria
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001260</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Dysarthria (HP:0001260), qualified as course progressive. HP:0001260 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Course: PROGRESSIVE</span>
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:34454268" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34454268" target="_blank">PMID:34454268</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"shorter time to moderate dysphagia (p = 0.0001) and to severe dysarthria"</div>
-
-
-                <div class="evidence-explanation">Bulbar lower-motor-neuron involvement produces progressive dysarthria.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">5</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-lower-motor-neuron-degeneration" data-dismech-node="Lower motor neuron degeneration" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Lower motor neuron degeneration
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Abnormal lower motor neuron morphology</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002366" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0002366</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal lower motor neuron morphology (HP:0002366). HP:0002366 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:41517538" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41517538" target="_blank">PMID:41517538</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Motor neuron disease (MND) represents a broad and heterogeneous group of disorders involving the upper or lower motor neurons, represented mainly by amyotrophic lateral sclerosis (ALS), primary lateral sclerosis (PLS), progressive muscular atrophy (PMA) and progressive bulbar palsy (PBP)."</div>
-
-
-                <div class="evidence-explanation">Names progressive bulbar palsy as one of the motor neuron diseases, defined by involvement of the upper or lower motor neurons.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:41517538" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41517538" target="_blank">PMID:41517538</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Primary motor neuronopathies are characterized by progressive degenerative loss of anterior horn cell motoneurons (lower motor neurons) or loss of giant pyramidal Betz cells (upper motor neurons)."</div>
-
-
-                <div class="evidence-explanation">States the lesion shared by the primary motor neuronopathies: loss of anterior horn cell motoneurons (lower motor neurons) or of Betz cells (upper motor neurons).</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-tongue-atrophy" data-dismech-node="Tongue Atrophy" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -5138,15 +4959,18 @@ This clinical feature is Abnormal lower motor neuron morphology (HP:0002366). HP
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012473" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0012473</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012473" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0012473</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Tongue atrophy (HP:0012473). HP:0012473 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5166,6 +4990,7 @@ This clinical feature is Tongue atrophy (HP:0012473). HP:0012473 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5206,15 +5031,18 @@ This clinical feature is Tongue atrophy (HP:0012473). HP:0012473 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001308" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001308</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001308" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001308</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Tongue fasciculations (HP:0001308). HP:0001308 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5237,6 +5065,7 @@ This clinical feature is Tongue fasciculations (HP:0001308). HP:0001308 is a phe
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5246,6 +5075,277 @@ This clinical feature is Tongue fasciculations (HP:0001308). HP:0001308 is a phe
 
                 <div class="evidence-explanation">A progressive bulbar palsy case report directly documents fasciculations of the tongue musculature from hypoglossal lower-motor-neuron involvement.
 </div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-drooling-sialorrhea" data-dismech-node="Drooling / Sialorrhea" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Drooling / Sialorrhea
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002307" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0002307</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Drooling (HP:0002307). HP:0002307 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37816542" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37816542" target="_blank">PMID:37816542</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Salivary secretion management includes the use of anticholinergics, botulinum toxin, and radiation therapy"</div>
+
+
+                <div class="evidence-explanation">Sialorrhea from bulbar dysfunction requires salivary secretion management with anticholinergics, botulinum toxin, or radiation therapy.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Nervous System
+                    <span class="cat-count">3</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-lower-motor-neuron-degeneration" data-dismech-node="Lower motor neuron degeneration" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Lower motor neuron degeneration
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal lower motor neuron morphology</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002366" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0002366</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal lower motor neuron morphology (HP:0002366). HP:0002366 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41517538" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41517538" target="_blank">PMID:41517538</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Motor neuron disease (MND) represents a broad and heterogeneous group of disorders involving the upper or lower motor neurons, represented mainly by amyotrophic lateral sclerosis (ALS), primary lateral sclerosis (PLS), progressive muscular atrophy (PMA) and progressive bulbar palsy (PBP)."</div>
+
+
+                <div class="evidence-explanation">Names progressive bulbar palsy as one of the motor neuron diseases, defined by involvement of the upper or lower motor neurons.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41517538" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41517538" target="_blank">PMID:41517538</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Primary motor neuronopathies are characterized by progressive degenerative loss of anterior horn cell motoneurons (lower motor neurons) or loss of giant pyramidal Betz cells (upper motor neurons)."</div>
+
+
+                <div class="evidence-explanation">States the lesion shared by the primary motor neuronopathies: loss of anterior horn cell motoneurons (lower motor neurons) or of Betz cells (upper motor neurons).</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dysarthria" data-dismech-node="Dysarthria" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Dysarthria
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001260</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dysarthria (HP:0001260), qualified as course progressive. HP:0001260 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Course: PROGRESSIVE</span>
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34454268" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34454268" target="_blank">PMID:34454268</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"shorter time to moderate dysphagia (p = 0.0001) and to severe dysarthria"</div>
+
+
+                <div class="evidence-explanation">Bulbar lower-motor-neuron involvement produces progressive dysarthria.</div>
 
 
 
@@ -5289,6 +5389,9 @@ This clinical feature is Pseudobulbar affect (HP:0002193). HP:0002193 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5303,6 +5406,7 @@ This clinical feature is Pseudobulbar affect (HP:0002193). HP:0002193 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5330,6 +5434,15 @@ This clinical feature is Pseudobulbar affect (HP:0002193). HP:0002193 is a pheno
 
                 </div>
 
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Voice
+                    <span class="cat-count">1</span>
+                </summary>
+
                 <div class="item-box phenotype-box anchor-target" id="phenotype-dysphonia" data-dismech-node="Dysphonia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Dysphonia
@@ -5353,6 +5466,9 @@ This clinical feature is Dysphonia (HP:0001618). HP:0001618 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5452,6 +5568,31 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Disease-modifying glutamate-modulating agent approved to slow progression across the ALS/motor neuron disease spectrum, including bulbar-onset disease.
 </div>
 
@@ -5474,6 +5615,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5539,6 +5681,31 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Enteral feeding tube placed to maintain nutrition and reduce aspiration risk when bulbar dysphagia compromises safe oral intake.
 </div>
 
@@ -5561,6 +5728,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5626,6 +5794,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Respiratory support for declining respiratory function and secretion-related compromise associated with bulbar and respiratory muscle weakness.
 </div>
 
@@ -5648,6 +5830,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5713,6 +5896,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Management of excess saliva with anticholinergics, salivary-gland botulinum toxin injection, or salivary-gland radiation therapy.
 </div>
 
@@ -5735,6 +5932,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5799,6 +5997,31 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Combination therapy used to treat pseudobulbar affect (pathological laughter and crying) in ALS-spectrum disease.
 </div>
 
@@ -5821,6 +6044,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5950,6 +6174,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6023,6 +6248,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 

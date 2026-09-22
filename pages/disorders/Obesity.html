@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3761,6 +3826,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3802,6 +3874,8 @@
                     </a>
                 </span>
 
+
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 17</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Obesity"
@@ -3940,7 +4014,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">5</div>
+                <div class="stat-value">9</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -3968,11 +4042,19 @@
             <a class="stat-link" href="#discussions">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💬</div>
-                <div class="stat-value">1</div>
+                <div class="stat-value">2</div>
                 <div class="stat-label">Gaps</div>
             </div>
             </a>
 
+
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">⬡</div>
+                <div class="stat-value">17</div>
+                <div class="stat-label">Pathograph</div>
+            </div>
+            </a>
 
 
             <a class="stat-link" href="#genetic">
@@ -3988,7 +4070,7 @@
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
-                <div class="stat-value">6</div>
+                <div class="stat-value">8</div>
                 <div class="stat-label">Medical Actions</div>
             </div>
             </a>
@@ -4004,6 +4086,14 @@
             </div>
             </a>
 
+
+            <a class="stat-link" href="#trials">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🔬</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Trials</div>
+            </div>
+            </a>
 
 
 
@@ -4054,7 +4144,41 @@
 
                 <div class="mapping-item">
                     <div class="mapping-title">
+                        <a href="../comorbidities/com_Obesity__Gastroesophageal_Reflux_Disease.html">Obesity &lt;-&gt; Gastroesophageal Reflux Disease</a>
+                    </div>
+                    <div class="tag-list">
+
+                        <span class="tag tag-parent">Disease A</span>
+
+
+                        <span class="tag tag-classification">A_BEFORE_B</span>
+
+
+                        <span class="tag tag-mechanistic">CANDIDATE</span>
+
+                    </div>
+                </div>
+
+                <div class="mapping-item">
+                    <div class="mapping-title">
                         <a href="../comorbidities/com_Obesity__Heart_Failure.html">Obesity &lt;-&gt; Heart Failure</a>
+                    </div>
+                    <div class="tag-list">
+
+                        <span class="tag tag-parent">Disease A</span>
+
+
+                        <span class="tag tag-classification">A_BEFORE_B</span>
+
+
+                        <span class="tag tag-mechanistic">CANDIDATE</span>
+
+                    </div>
+                </div>
+
+                <div class="mapping-item">
+                    <div class="mapping-title">
+                        <a href="../comorbidities/com_Obesity__Obstructive_Sleep_Apnea.html">Obesity &lt;-&gt; Obstructive Sleep Apnea</a>
                     </div>
                     <div class="tag-list">
 
@@ -4146,6 +4270,7 @@
 
 
 
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -4167,6 +4292,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4199,7 +4325,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">?</div>
                 <h2 class="card-title">Discussions and Knowledge Gaps</h2>
-                <span class="card-count">1</span>
+                <span class="card-count">2</span>
             </div>
 
             <div class="item-box discussion-box anchor-target" id="obesity_pgsxc_reverse_causation">
@@ -4360,6 +4486,170 @@
 
             </div>
 
+            <div class="item-box discussion-box anchor-target" id="akkermansia_baseline_abundance_responder">
+                <div class="item-name">Does baseline fecal Akkermansia muciniphila abundance decide who benefits from A. muciniphila supplementation, and if so, is the mechanism headroom for improvement or something about the resident community?</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-discussion-kind">KNOWLEDGE GAP</span>
+
+
+                    <span class="tag tag-discussion-status">OPEN</span>
+
+
+                    <span class="entity-ref-chip">akkermansia_baseline_abundance_responder</span>
+
+                </div>
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Attached to</div>
+                    <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#treatment-pasteurized-akkermansia-muciniphila-muct-supplementation">treatments#Pasteurized Akkermansia muciniphila MucT Supplementation</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-depletion-of-mucosal-symbiont-akkermansia-muciniphila">pathophysiology#Depletion of Mucosal Symbiont Akkermansia muciniphila</a>
+
+
+
+                    </div>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 10px;">Two independent trials of different preparations point the same way. In the weight-maintenance trial (PMID:42120725) participants stratified below the median fecal A. muciniphila level after weight loss regained less weight and improved more in insulin sensitivity, blood pressure and fecal energy content than those above it, with no such split in the placebo arm; that analysis was exploratory and post hoc. In a separate trial of live AKK-WST01 in overweight/obese type 2 diabetes (PMID:39879980), benefit and colonization were likewise confined to the low-baseline group. If this holds prospectively it makes baseline abundance a pre-treatment stratifier rather than an incidental covariate, and it would change how a maintenance trial is powered and who is enrolled. The competing readings are not distinguished by the current data: greater room for improvement in depleted individuals, versus a resident community in high-abundance individuals that resists an added preparation. Note the mechanism cannot simply be colonization for the pasteurized product, which is non-viable.</div>
+
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Proposed experiments</div>
+                    <div class="experiment-list">
+
+
+    <div class="experiment-card">
+        <div class="experiment-header">
+            <div>
+                <div class="experiment-title">Prospectively stratified maintenance trial by baseline fecal A. muciniphila</div>
+
+            </div>
+
+            <div class="experiment-id">akkermansia_baseline_stratified_rct</div>
+
+        </div>
+
+        <div class="item-desc" style="margin-top: 8px;">Randomize weight-loss-maintenance participants to pasteurized MucT or placebo within strata defined prospectively by quantitative fecal A. muciniphila measured before randomization, powered on the stratum-by-treatment interaction rather than on the marginal effect, with fecal energy excretion measured against total daily fecal output.</div>
+
+
+
+
+
+
+
+        <div class="experiment-section">
+            <div class="experiment-section-title">Decision criterion</div>
+            <div class="experiment-decision">Baseline abundance is a genuine response modifier if the stratum-by-treatment interaction on weight regain is significant in a prospectively powered design; it is an artifact of the post hoc median split otherwise.</div>
+        </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+                    </div>
+                </div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42120725" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42120725" target="_blank">PMID:42120725</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Initial Akkermansia spp. abundance was associated with cardiometabolic response to MucT."</div>
+
+
+                <div class="evidence-explanation">States the baseline-abundance dependence that this gap is about.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39879980" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39879980" target="_blank">PMID:39879980</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"AKK-WST01 supplementation showed high colonization efficiency and significant reductions in body weight, fat mass, and HbA1c, which were not found in the placebo group."</div>
+
+
+                <div class="evidence-explanation">Independent trial of a live preparation showing the same restriction of benefit to participants with low baseline abundance.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
         </div>
 
 
@@ -4369,11 +4659,12 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">5</span>
+                <span class="card-count">9</span>
             </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-energy-imbalance" data-dismech-node="Energy Imbalance" data-dismech-type="pathophysiology">
                 <div class="item-name">Energy Imbalance</div>
+
 
                 <div class="item-desc">Chronic positive energy balance from excess caloric intake relative to expenditure leads to fat accumulation. Multiple regulatory systems (leptin, ghrelin, insulin) fail to restore balance.
 </div>
@@ -4447,6 +4738,7 @@ This pathophysiological event involves Energy Homeostasis (GO:0097009). GO:00970
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Leptin is a mediator of long-term regulation of energy balance, suppressing food intake and thereby inducing weight loss. Ghrelin on the other hand is a fast-acting hormone, seemingly playing a role in meal initiation."</div>
@@ -4466,6 +4758,7 @@ This pathophysiological event involves Energy Homeostasis (GO:0097009). GO:00970
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4489,6 +4782,7 @@ This pathophysiological event involves Energy Homeostasis (GO:0097009). GO:00970
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-adipose-tissue-dysfunction" data-dismech-node="Adipose Tissue Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Adipose Tissue Dysfunction</div>
+
 
                 <div class="item-desc">Expanded adipose tissue becomes dysfunctional with increased inflammation, altered adipokine secretion, and impaired metabolic function. Adipocyte hypertrophy leads to hypoxia and macrophage infiltration.
 </div>
@@ -4626,6 +4920,7 @@ This pathophysiological event involves Adipokine Secretion, annotated with regul
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Under various physiological or pathological conditions, adipose tissue shifts cellular composition, lipid storage, and organelle dynamics to respond to the stress; this remodeling is called &#34;adipose tissue plasticity&#34;."</div>
@@ -4645,6 +4940,7 @@ This pathophysiological event involves Adipokine Secretion, annotated with regul
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4670,6 +4966,7 @@ This pathophysiological event involves Adipokine Secretion, annotated with regul
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"These data suggest that macrophages in WAT play an active role in morbid obesity and that macrophage-related inflammatory activities may contribute to the pathogenesis of obesity-induced insulin resistance."</div>
@@ -4690,6 +4987,7 @@ This pathophysiological event involves Adipokine Secretion, annotated with regul
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-low-grade-inflammation" data-dismech-node="Chronic Low-Grade Inflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic Low-Grade Inflammation</div>
+
 
                 <div class="item-desc">Systemic inflammation from adipose tissue contributes to insulin resistance, cardiovascular disease, and other complications. Elevated CRP, IL-6, and TNF-alpha levels.
 </div>
@@ -4763,6 +5061,7 @@ This pathophysiological event involves Inflammatory Response (GO:0006954). GO:00
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Increasing evidence from human population studies and animal research has established correlative as well as causative links between chronic inflammation and insulin resistance."</div>
@@ -4782,6 +5081,7 @@ This pathophysiological event involves Inflammatory Response (GO:0006954). GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4807,6 +5107,7 @@ This pathophysiological event involves Inflammatory Response (GO:0006954). GO:00
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Particularly chronic inflammation in adipose tissue seems to play an important role in the development of obesity-related insulin resistance."</div>
@@ -4827,6 +5128,7 @@ This pathophysiological event involves Inflammatory Response (GO:0006954). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypothalamic-dysregulation" data-dismech-node="Hypothalamic Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypothalamic Dysregulation</div>
+
 
                 <div class="item-desc">Central appetite regulation becomes impaired with leptin resistance and altered reward signaling, perpetuating overeating despite adequate energy stores. Hypothalamic neuroinflammation involves microglial and astrocyte activation that impairs melanocortin signaling.
 </div>
@@ -4964,6 +5266,7 @@ This pathophysiological event involves Feeding Behavior (GO:0007631). GO:0007631
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Leptin acts through its receptor LepRb, expressed mainly in the hypothalamus, and induces a negative energy balance by potent inhibition of feeding and activation of energy expenditure."</div>
@@ -4983,6 +5286,7 @@ This pathophysiological event involves Feeding Behavior (GO:0007631). GO:0007631
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5006,6 +5310,7 @@ This pathophysiological event involves Feeding Behavior (GO:0007631). GO:0007631
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-adipocyte-mitochondrial-dysfunction" data-dismech-node="Adipocyte Mitochondrial Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Adipocyte Mitochondrial Dysfunction</div>
+
 
                 <div class="item-desc">Obesity causes mitochondrial fragmentation in white adipocytes through RalA-mediated activation of the fission protein DRP1 (DNM1L). This leads to reduced oxidative capacity and contributes to weight gain and insulin resistance. Mitochondrial dynamics shift toward excessive fission.
 </div>
@@ -5143,6 +5448,7 @@ This pathophysiological event involves Fatty Acid Oxidation (GO:0019395). GO:001
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Here we show that high-fat diet (HFD) feeding causes mitochondrial fragmentation in inguinal white adipocytes from male mice, leading to reduced oxidative capacity by a process dependent on the small GTPase RalA."</div>
@@ -5162,6 +5468,7 @@ This pathophysiological event involves Fatty Acid Oxidation (GO:0019395). GO:001
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5187,12 +5494,630 @@ This pathophysiological event involves Fatty Acid Oxidation (GO:0019395). GO:001
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Adipose tissue expression of the human homolog of Drp1, DNM1L, is positively correlated with obesity and insulin resistance."</div>
 
 
                 <div class="evidence-explanation">Provides human evidence linking DNM1L expression to obesity and insulin resistance.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-depletion-of-mucosal-symbiont-akkermansia-muciniphila" data-dismech-node="Depletion of Mucosal Symbiont Akkermansia muciniphila" data-dismech-type="pathophysiology">
+                <div class="item-name">Depletion of Mucosal Symbiont Akkermansia muciniphila</div>
+
+
+                <div class="item-desc">Akkermansia muciniphila is a mucin-degrading symbiont of the colonic mucus layer that uses host-derived mucus as its primary carbon and nitrogen source, placing it directly at the host-microbe interface. Its relative abundance is reduced in obesity, type 2 diabetes and metabolic syndrome and correlates inversely with body weight in rodents and humans. Loss of this population removes a signal that supports mucus-layer thickness and epithelial barrier integrity, and is the state that A. muciniphila-directed interventions are designed to compensate for.
+</div>
+
+
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        mucus-layer maintenance at the colonic epithelium
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0030277" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0030277</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased mucus-layer maintenance at the colonic epithelium, annotated with maintenance of gastrointestinal epithelium (GO:0030277). GO:0030277 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Intestinal Barrier Dysfunction and Metabolic Endotoxemia</span>
+
+	                            <span class="crosslink-desc">Fewer mucus-resident Akkermansia is associated with a thinner mucus layer and a more permeable epithelium in rodent models of diet-induced obesity.
+</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23671105" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23671105" target="_blank">PMID:23671105</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This study demonstrated that the abundance of A. muciniphila decreased in obese and type 2 diabetic mice."</div>
+
+
+                <div class="evidence-explanation">Direct measurement showing the symbiont is depleted in obese and diabetic animals.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31263284" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31263284" target="_blank">PMID:31263284</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In humans, studies have provided evidence for a negative correlation between Akkermansia muciniphila abundance and overweight, obesity, untreated type 2 diabetes mellitus or hypertension"</div>
+
+
+                <div class="evidence-explanation">States the human cohort evidence for depletion in obesity. The quoted sentence is this trial report&#39;s summary of prior human studies rather than its own measurement, hence quote_role BACKGROUND; the correlation is also cross-sectional, so it bears on the depletion claim only indirectly.
+</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32167023" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32167023" target="_blank">PMID:32167023</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The abundance of A. muciniphila is severely reduced in several pathological conditions (i.e., obesity, type 2 diabetes, inflammatory bowel diseases, and appendicitis)."</div>
+
+
+                <div class="evidence-explanation">Restates the human disease-state depletion across conditions. Quoted from the introduction of a mouse study, so the paper is MODEL_ORGANISM work but the sentence reports the human clinical picture.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-intestinal-barrier-dysfunction-and-metabolic-endotoxemia" data-dismech-node="Intestinal Barrier Dysfunction and Metabolic Endotoxemia" data-dismech-type="pathophysiology">
+                <div class="item-name">Intestinal Barrier Dysfunction and Metabolic Endotoxemia</div>
+
+
+                <div class="item-desc">Thinning of the colonic mucus layer and loss of epithelial barrier integrity allow bacterial lipopolysaccharide to reach the systemic circulation, producing the low-grade endotoxemia that couples the gut to adipose inflammation and insulin resistance. A. muciniphila supports barrier function at least partly through its abundant outer-membrane protein Amuc_1100, a Toll-like receptor 2 ligand that survives pasteurization.
+</div>
+
+
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        lipopolysaccharide-mediated signaling pathway
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0031663" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0031663</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased lipopolysaccharide-mediated signaling pathway (GO:0031663). GO:0031663 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Chronic Low-Grade Inflammation</span>
+
+	                            <span class="crosslink-desc">Circulating lipopolysaccharide engages innate immune receptors and sustains the systemic inflammatory tone already established in expanded adipose tissue.
+</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23671105" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23671105" target="_blank">PMID:23671105</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"we demonstrated that A. muciniphila treatment reversed high-fat diet-induced metabolic disorders, including fat-mass gain, metabolic endotoxemia, adipose tissue inflammation, and insulin resistance"</div>
+
+
+                <div class="evidence-explanation">The barrier/endotoxemia step is inferred from the therapeutic result: restoring the symbiont reverses metabolic endotoxemia and adipose inflammation in mice. Graded INDIRECT because the claim follows from the response to treatment rather than from a measurement of the untreated mechanism.
+</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27892954" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27892954" target="_blank">PMID:27892954</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We demonstrated that Amuc_1100, a specific protein isolated from the outer membrane of A. muciniphila, interacts with Toll-like receptor 2, is stable at temperatures used for pasteurization, improves the gut barrier and partly recapitulates the beneficial effects of the bacterium."</div>
+
+
+                <div class="evidence-explanation">Identifies the molecular route from the symbiont to barrier function, and the thermostability that makes a pasteurized preparation plausible.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-efficient-intestinal-energy-harvest" data-dismech-node="Efficient Intestinal Energy Harvest" data-dismech-type="pathophysiology">
+                <div class="item-name">Efficient Intestinal Energy Harvest</div>
+
+
+                <div class="item-desc">The share of ingested energy that is absorbed rather than excreted in feces is a determinant of energy balance that sits upstream of adipose expansion. In diet-induced obese mice, pasteurized A. muciniphila lowers food energy efficiency and raises fecal energy excretion, apparently through reduced carbohydrate absorption and faster intestinal epithelial turnover, implying that the untreated state retains a correspondingly larger fraction of ingested energy.
+</div>
+
+
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        intestinal absorption
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0050892" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0050892</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased intestinal absorption (GO:0050892). GO:0050892 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Energy Imbalance</span>
+
+	                            <span class="crosslink-desc">Energy retained rather than excreted adds to the positive balance that drives fat accumulation.
+</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32167023" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32167023" target="_blank">PMID:32167023</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"we observed that treatment with pasteurized A. muciniphila increased energy excretion in the feces"</div>
+
+
+                <div class="evidence-explanation">The absorption step is inferred from its modification: treatment shifts energy from absorption to excretion, so the untreated state absorbs more.
+</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32167023" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32167023" target="_blank">PMID:32167023</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"we demonstrated that this effect was not due to the modulation of intestinal lipid absorption or chylomicron synthesis but likely involved a reduction of carbohydrates absorption and enhanced intestinal epithelial turnover"</div>
+
+
+                <div class="evidence-explanation">Localizes the effect to carbohydrate absorption and epithelial turnover rather than to lipid handling.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-post-weight-loss-weight-regain" data-dismech-node="Post-Weight-Loss Weight Regain" data-dismech-type="pathophysiology">
+                <div class="item-name">Post-Weight-Loss Weight Regain</div>
+
+
+                <div class="item-desc">After energy restriction the body defends its previous mass through a coordinated set of responses: resting energy expenditure falls disproportionately to fat-free mass, anorexigenic signals fall while orexigenic signals rise, and shrinking adipocytes generate extracellular-matrix stress and immune activation in subcutaneous adipose tissue. Adipose tissue additionally retains a transcriptional and epigenetic memory of the prior obese state that primes it for accelerated regain. This node, rather than weight loss itself, is what maintenance therapy targets.
+</div>
+
+
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        defense of pre-diet body mass
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0097009" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0097009</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves defense of pre-diet body mass, annotated with energy homeostasis (GO:0097009). GO:0097009 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Increased Body Mass Index</span>
+
+	                            <span class="crosslink-desc">Regain restores the adiposity phenotype that the weight-loss phase reduced.
+</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30655624" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30655624" target="_blank">PMID:30655624</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"we show that weight loss-induced variations in cellular stress, extracellular matrix remodelling, inflammatory responses, adipokine secretion and lipolysis seem to be associated with the amount of weight that is regained after successful weight loss"</div>
+
+
+                <div class="evidence-explanation">Synthesis of the human adipose-tissue responses associated with how much weight is regained. It is a review&#39;s synthesis of work it did not perform, hence quote_role REVIEW_SYNTHESIS.
+</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39558077" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39558077" target="_blank">PMID:39558077</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Mice carrying this obesogenic memory show accelerated rebound weight gain"</div>
+
+
+                <div class="evidence-explanation">Shows the adipose memory is not merely correlative: animals carrying it regain weight faster. The corresponding human data in the same study are transcriptional rather than an observed regain rate.
+</div>
 
 
 
@@ -5212,6 +6137,29 @@ This pathophysiological event involves Fatty Acid Oxidation (GO:0019395). GO:001
 
 
         <!-- Causal Graph (Pathograph) -->
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
+                <h2 class="card-title">Pathograph</h2>
+            </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
+
+            <div class="pathograph-container" id="pathograph">
+                <div class="pathograph-legend" id="pathograph-legend"></div>
+                <svg id="pathograph-svg" role="img">
+                    <title>Pathograph: causal mechanism network for Obesity</title>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
+                </svg>
+                <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
+            </div>
+            <script>
+            (function() {
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Bariatric Surgery\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Roux-en-Y gastric bypass, sleeve gastrectomy for severe obesity.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Chronic Low-Grade Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Systemic inflammation from adipose tissue contributes to insulin resistance, cardiovascular disease, and other complications. Elevated CRP, IL-6, and TNF-alpha levels.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Inflammatory Response\"]}}, {\"id\": \"Depletion of Mucosal Symbiont Akkermansia muciniphila\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Akkermansia muciniphila is a mucin-degrading symbiont of the colonic mucus layer that uses host-derived mucus as its primary carbon and nitrogen source, placing it directly at the host-microbe interface. Its relative abundance is reduced in obesity, type 2 diabetes and metabolic syndrome and correlates inversely with body weight in rodents and humans. Loss of this population removes a signal that supports mucus-layer thickness and epithelial barrier integrity, and is the state that A. muciniphila-directed interventions are designed to compensate for.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"mucus-layer maintenance at the colonic epithelium\"]}}, {\"id\": \"Efficient Intestinal Energy Harvest\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The share of ingested energy that is absorbed rather than excreted in feces is a determinant of energy balance that sits upstream of adipose expansion. In diet-induced obese mice, pasteurized A. muciniphila lowers food energy efficiency and raises fecal energy excretion, apparently through reduced carbohydrate absorption and faster intestinal epithelial turnover, implying that the untreated state retains a correspondingly larger fraction of ingested energy.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"intestinal absorption\"]}}, {\"id\": \"Energy Imbalance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic positive energy balance from excess caloric intake relative to expenditure leads to fat accumulation. Multiple regulatory systems (leptin, ghrelin, insulin) fail to restore balance.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Energy Homeostasis\"]}}, {\"id\": \"GLP-1 Receptor Agonists\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Semaglutide, liraglutide provide substantial weight loss through central appetite suppression and metabolic effects.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"semaglutide\", \"liraglutide\"]}}, {\"id\": \"GLP-1/GIP Dual Agonists\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Tirzepatide offers enhanced weight loss of 15-25% through dual incretin receptor activation.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"tirzepatide\"]}}, {\"id\": \"High-Calorie Diet\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hypothalamic Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Central appetite regulation becomes impaired with leptin resistance and altered reward signaling, perpetuating overeating despite adequate energy stores. Hypothalamic neuroinflammation involves microglial and astrocyte activation that impairs melanocortin signaling.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Hypothalamus Cell\", \"Microglial Cell\"], \"biological_processes\": [\"Feeding Behavior\"]}}, {\"id\": \"Increased Body Mass Index\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001513\"}}, {\"id\": \"Intestinal Barrier Dysfunction and Metabolic Endotoxemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Thinning of the colonic mucus layer and loss of epithelial barrier integrity allow bacterial lipopolysaccharide to reach the systemic circulation, producing the low-grade endotoxemia that couples the gut to adipose inflammation and insulin resistance. A. muciniphila supports barrier function at least partly through its abundant outer-membrane protein Amuc_1100, a Toll-like receptor 2 ligand that survives pasteurization.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"lipopolysaccharide-mediated signaling pathway\"]}}, {\"id\": \"Lifestyle Modification\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dietary changes and increased physical activity as foundation of treatment.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Naltrexone-Bupropion\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Fixed-dose sustained-release naltrexone plus bupropion, developed to act on two complementary central pathways: bupropion stimulates hypothalamic POMC neurons, and naltrexone blocks the opioid-mediated autoinhibitory feedback that otherwise limits that stimulation. Approved for chronic weight management and strongly recommended in the joint TOS/OMA/OAC guidance already cited elsewhere in this entry.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"naltrexone\", \"bupropion\"]}}, {\"id\": \"Obesogenic Environment\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Orlistat\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Lipase inhibitor reducing fat absorption.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"orlistat\"]}}, {\"id\": \"Pasteurized Akkermansia muciniphila MucT Supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Daily oral capsules of pasteurized Akkermansia muciniphila MucT (heat-treated 30 minutes at 70 C; 3 x 10^10 inactivated cells per capsule) taken during the weight maintenance phase that follows a low-energy diet. Heat inactivation removes the oxygen sensitivity and manufacturing constraints of the live organism while preserving the thermostable outer-membrane protein Amuc_1100, and in rodents it increased rather than abolished the metabolic benefit. The indication tested is maintenance of weight already lost, not weight loss itself.\\n\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Post-Weight-Loss Weight Regain\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"After energy restriction the body defends its previous mass through a coordinated set of responses: resting energy expenditure falls disproportionately to fat-free mass, anorexigenic signals fall while orexigenic signals rise, and shrinking adipocytes generate extracellular-matrix stress and immune activation in subcutaneous adipose tissue. Adipose tissue additionally retains a transcriptional and epigenetic memory of the prior obese state that primes it for accelerated regain. This node, rather than weight loss itself, is what maintenance therapy targets.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"defense of pre-diet body mass\"]}}], \"edges\": [{\"source\": \"Depletion of Mucosal Symbiont Akkermansia muciniphila\", \"target\": \"Intestinal Barrier Dysfunction and Metabolic Endotoxemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fewer mucus-resident Akkermansia is associated with a thinner mucus layer and a more permeable epithelium in rodent models of diet-induced obesity.\\n\"}, {\"source\": \"Intestinal Barrier Dysfunction and Metabolic Endotoxemia\", \"target\": \"Chronic Low-Grade Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Circulating lipopolysaccharide engages innate immune receptors and sustains the systemic inflammatory tone already established in expanded adipose tissue.\\n\"}, {\"source\": \"Efficient Intestinal Energy Harvest\", \"target\": \"Energy Imbalance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Energy retained rather than excreted adds to the positive balance that drives fat accumulation.\\n\"}, {\"source\": \"Post-Weight-Loss Weight Regain\", \"target\": \"Increased Body Mass Index\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Regain restores the adiposity phenotype that the weight-loss phase reduced.\\n\"}, {\"source\": \"High-Calorie Diet\", \"target\": \"Energy Imbalance\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Ultra-processed diets drive excess energy intake and weight gain even when calories presented, energy density and macronutrients are matched.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Obesogenic Environment\", \"target\": \"Increased Body Mass Index\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Density of and proximity to unhealthy food outlets raises fast-food consumption and body mass index.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Lifestyle Modification\", \"target\": \"Energy Imbalance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"GLP-1 Receptor Agonists\", \"target\": \"Hypothalamic Dysregulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"GLP-1 Receptor Agonists\", \"target\": \"Energy Imbalance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"GLP-1 Receptor Agonists\", \"target\": \"Post-Weight-Loss Weight Regain\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"GLP-1/GIP Dual Agonists\", \"target\": \"Energy Imbalance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"GLP-1/GIP Dual Agonists\", \"target\": \"Post-Weight-Loss Weight Regain\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Bariatric Surgery\", \"target\": \"Hypothalamic Dysregulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Bariatric Surgery\", \"target\": \"Energy Imbalance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Orlistat\", \"target\": \"Efficient Intestinal Energy Harvest\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Orlistat\", \"target\": \"Post-Weight-Loss Weight Regain\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Naltrexone-Bupropion\", \"target\": \"Hypothalamic Dysregulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Pasteurized Akkermansia muciniphila MucT Supplementation\", \"target\": \"Post-Weight-Loss Weight Regain\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Pasteurized Akkermansia muciniphila MucT Supplementation\", \"target\": \"Efficient Intestinal Energy Harvest\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Pasteurized Akkermansia muciniphila MucT Supplementation\", \"target\": \"Intestinal Barrier Dysfunction and Metabolic Endotoxemia\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                renderPathograph("pathograph", graphData);
+            })();
+            </script>
+        </div>
 
 
         <!-- Phenotypes -->
@@ -5263,15 +6211,18 @@ This pathophysiological event involves Fatty Acid Oxidation (GO:0019395). GO:001
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000822</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000822</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5291,6 +6242,7 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5342,15 +6294,18 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000855" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000855</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000855" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000855</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Insulin Resistance (HP:0000855). HP:0000855 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5373,6 +6328,7 @@ This clinical feature is Insulin Resistance (HP:0000855). HP:0000855 is a phenot
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Insulin resistance arises from the inability of insulin to act normally in regulating nutrient metabolism in peripheral tissues."</div>
@@ -5392,6 +6348,7 @@ This clinical feature is Insulin Resistance (HP:0000855). HP:0000855 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5434,15 +6391,18 @@ This clinical feature is Insulin Resistance (HP:0000855). HP:0000855 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003077" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0003077</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003077" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0003077</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dyslipidemia, annotated with Hyperlipidemia (HP:0003077). HP:0003077 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5479,15 +6439,18 @@ This clinical feature is Dyslipidemia, annotated with Hyperlipidemia (HP:0003077
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010535" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0010535</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010535" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0010535</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Sleep Apnea (HP:0010535). HP:0010535 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5526,15 +6489,18 @@ This clinical feature is Sleep Apnea (HP:0010535). HP:0010535 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002829</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002829</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Weight-bearing joint stress</div>
@@ -5556,6 +6522,7 @@ This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5598,15 +6565,18 @@ This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0012378</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0012378</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5645,15 +6615,18 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001513</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001513</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">BMI greater than or equal to 30 kg/m2</div>
@@ -5724,10 +6697,10 @@ This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from th
                         Gene: FTO
 
 
-    <a href="https://bioregistry.io/hgnc:24678" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-19">hgnc:24678</a>
+    <a href="https://bioregistry.io/hgnc:24678" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-23">hgnc:24678</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is FTO (hgnc:24678). hgnc:24678 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -5735,6 +6708,9 @@ This disease-associated gene is FTO (hgnc:24678). hgnc:24678 is a gene from the 
 
 
                 </div>
+
+
+
 
 
 
@@ -5753,6 +6729,7 @@ This disease-associated gene is FTO (hgnc:24678). hgnc:24678 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5795,10 +6772,10 @@ This disease-associated gene is FTO (hgnc:24678). hgnc:24678 is a gene from the 
                         Gene: MC4R
 
 
-    <a href="https://bioregistry.io/hgnc:6932" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-20">hgnc:6932</a>
+    <a href="https://bioregistry.io/hgnc:6932" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-24">hgnc:6932</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is MC4R (hgnc:6932). hgnc:6932 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -5806,6 +6783,9 @@ This disease-associated gene is MC4R (hgnc:6932). hgnc:6932 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -5832,10 +6812,10 @@ This disease-associated gene is MC4R (hgnc:6932). hgnc:6932 is a gene from the H
                         Gene: LEP
 
 
-    <a href="https://bioregistry.io/hgnc:6553" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-21">hgnc:6553</a>
+    <a href="https://bioregistry.io/hgnc:6553" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-25">hgnc:6553</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is LEP (hgnc:6553). hgnc:6553 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -5843,6 +6823,9 @@ This disease-associated gene is LEP (hgnc:6553). hgnc:6553 is a gene from the HU
 
 
                 </div>
+
+
+
 
 
 
@@ -5861,6 +6844,7 @@ This disease-associated gene is LEP (hgnc:6553). hgnc:6553 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5903,10 +6887,10 @@ This disease-associated gene is LEP (hgnc:6553). hgnc:6553 is a gene from the HU
                         Gene: LEPR
 
 
-    <a href="https://bioregistry.io/hgnc:6554" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-22">hgnc:6554</a>
+    <a href="https://bioregistry.io/hgnc:6554" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-26">hgnc:6554</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is LEPR (hgnc:6554). hgnc:6554 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -5914,6 +6898,9 @@ This disease-associated gene is LEPR (hgnc:6554). hgnc:6554 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -5940,10 +6927,10 @@ This disease-associated gene is LEPR (hgnc:6554). hgnc:6554 is a gene from the H
                         Gene: POMC
 
 
-    <a href="https://bioregistry.io/hgnc:9201" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-23">hgnc:9201</a>
+    <a href="https://bioregistry.io/hgnc:9201" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-27">hgnc:9201</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is POMC (hgnc:9201). hgnc:9201 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -5951,6 +6938,9 @@ This disease-associated gene is POMC (hgnc:9201). hgnc:9201 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -5974,7 +6964,7 @@ This disease-associated gene is POMC (hgnc:9201). hgnc:9201 is a gene from the H
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Medical Actions</h2>
-                <span class="card-count">6</span>
+                <span class="card-count">8</span>
             </div>
 
             <div class="item-box treatment-box anchor-target" id="treatment-lifestyle-modification" data-dismech-node="Lifestyle Modification" data-dismech-type="treatment">
@@ -5985,7 +6975,7 @@ This disease-associated gene is POMC (hgnc:9201). hgnc:9201 is a gene from the H
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-24">Lifestyle Therapy<span class="pill-tip" role="tooltip" id="pill-tip-24">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-28">Lifestyle Therapy<span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Lifestyle Therapy (NCIT:C15900). NCIT:C15900 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6017,8 +7007,52 @@ This treatment is Lifestyle Therapy (NCIT:C15900). NCIT:C15900 is a clinical int
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Dietary changes and increased physical activity as foundation of treatment.</div>
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            INHIBITS
+                        </span>
+                        <strong style="color: #5b21b6;">Energy Imbalance</strong>
+
+                        <span style="color: #7c3aed;"> &mdash; Reducing energy intake and raising expenditure acts directly on the energy balance node. The link is definitional rather than empirical, so it carries no evidence of its own; the treatment&#39;s efficacy evidence is on the treatment itself.
+</span>
+
+
+
+
+                    </div>
+
+                </div>
 
 
 
@@ -6038,6 +7072,7 @@ This treatment is Lifestyle Therapy (NCIT:C15900). NCIT:C15900 is a clinical int
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6069,7 +7104,7 @@ This treatment is Lifestyle Therapy (NCIT:C15900). NCIT:C15900 is a clinical int
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-25">targeted therapy<span class="pill-tip" role="tooltip" id="pill-tip-25">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-29">targeted therapy<span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6100,10 +7135,235 @@ This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical inte
 
 
 
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+
+
+
+                    <span class="tag tag-treatment">
+                        semaglutide
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_167574" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-30">CHEBI:167574</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses semaglutide (CHEBI:167574). CHEBI:167574 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+
+
+
+                    <span class="tag tag-treatment">
+                        liraglutide
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_71193" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-31">CHEBI:71193</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses liraglutide (CHEBI:71193). CHEBI:71193 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Peptide</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
 
 
                 <div class="item-desc">Semaglutide, liraglutide provide substantial weight loss through central appetite suppression and metabolic effects.</div>
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            MODULATES
+                        </span>
+                        <strong style="color: #5b21b6;">Hypothalamic Dysregulation</strong>
+
+                        <span style="color: #7c3aed;"> &mdash; GLP-1 receptor agonism acts on central appetite and food-reward circuits, restoring the satiety signalling that leptin resistance has blunted.
+</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28266779" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28266779" target="_blank">PMID:28266779</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Semaglutide was associated with less hunger and food cravings, better control of eating and a lower preference for high-fat foods."</div>
+
+
+                <div class="evidence-explanation">Mechanism-of-action crossover trial measuring the appetite and food-reward changes this node describes.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            INHIBITS
+                        </span>
+                        <strong style="color: #5b21b6;">Energy Imbalance</strong>
+
+                        <span style="color: #7c3aed;"> &mdash; The appetite effect converts into a measured reduction in ad libitum energy intake, which is what moves the energy balance node.
+</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28266779" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28266779" target="_blank">PMID:28266779</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"ad libitum energy intake was substantially lower with semaglutide vs placebo with a corresponding loss of body weight observed with semaglutide"</div>
+
+
+                <div class="evidence-explanation">Directly measures energy intake, the quantity the Energy Imbalance node is about.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            INHIBITS
+                        </span>
+                        <strong style="color: #5b21b6;">Post-Weight-Loss Weight Regain</strong>
+
+                        <span style="color: #7c3aed;"> &mdash; Suppression of regain is contingent on continued dosing: in the STEP 1 off-treatment extension participants regained two-thirds of their lost weight within a year of stopping, and cardiometabolic gains reverted with it. The drug holds the regain node down rather than resolving it.
+</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35441470" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35441470" target="_blank">PMID:35441470</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"participants regained two-thirds of their prior weight loss, with similar changes in cardiometabolic variables"</div>
+
+
+                <div class="evidence-explanation">That regain resumes on withdrawal establishes that the treatment had been acting on this node. Graded INDIRECT because the suppression is inferred from what happens when the drug is stopped.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
 
 
@@ -6123,6 +7383,7 @@ This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6147,6 +7408,7 @@ This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6178,7 +7440,7 @@ This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical inte
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-26">targeted therapy<span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">targeted therapy<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6209,10 +7471,129 @@ This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical inte
 
 
 
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+
+
+
+                    <span class="tag tag-treatment">
+                        tirzepatide
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_194186" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-33">CHEBI:194186</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses tirzepatide (CHEBI:194186). CHEBI:194186 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Peptide</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
 
 
                 <div class="item-desc">Tirzepatide offers enhanced weight loss of 15-25% through dual incretin receptor activation.</div>
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            INHIBITS
+                        </span>
+                        <strong style="color: #5b21b6;">Energy Imbalance</strong>
+
+                        <span style="color: #7c3aed;"> &mdash; Dual GIP/GLP-1 receptor agonism reduces energy intake and produces sustained weight reduction. No tirzepatide-specific energy-intake measurement is cited here, so the link carries no evidence of its own.
+</span>
+
+
+
+
+                    </div>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            INHIBITS
+                        </span>
+                        <strong style="color: #5b21b6;">Post-Weight-Loss Weight Regain</strong>
+
+                        <span style="color: #7c3aed;"> &mdash; SURMOUNT-4 is a randomized withdrawal design and so measures this node directly: after a 36-week lead-in, participants switched to placebo regained weight while those continuing treatment did not.
+</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38078870" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38078870" target="_blank">PMID:38078870</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In participants with obesity or overweight, withdrawing tirzepatide led to substantial regain of lost weight, whereas continued treatment maintained and augmented initial weight reduction."</div>
+
+
+                <div class="evidence-explanation">A randomized withdrawal trial whose endpoint is weight-loss maintenance, which is this node.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
 
 
@@ -6232,6 +7613,7 @@ This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6256,6 +7638,7 @@ This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6287,7 +7670,7 @@ This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical inte
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-27">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6320,8 +7703,103 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Roux-en-Y gastric bypass, sleeve gastrectomy for severe obesity.</div>
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            MODULATES
+                        </span>
+                        <strong style="color: #5b21b6;">Hypothalamic Dysregulation</strong>
+
+                        <span style="color: #7c3aed;"> &mdash; Rerouting the gut alters the entero-hypothalamic endocrine axis: postprandial PYY and GLP-1 rise after Roux-en-Y gastric bypass but not after gastric banding producing equivalent weight loss, so the effect is anatomical rather than a consequence of having lost weight.
+</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16371744" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16371744" target="_blank">PMID:16371744</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Compared with lean and obese controls, patients following Roux-en-Y gastric bypass (RYGB) had increased postprandial plasma PYY and GLP-1 favoring enhanced satiety."</div>
+
+
+                <div class="evidence-explanation">Measures the gut-hormone change that acts on central satiety signalling.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            INHIBITS
+                        </span>
+                        <strong style="color: #5b21b6;">Energy Imbalance</strong>
+
+                        <span style="color: #7c3aed;"> &mdash; Restriction plus the anorectic hormone profile lowers energy intake. Carried as a description rather than evidence because the cited trials measure weight and risk factors, not energy intake.
+</span>
+
+
+
+
+                    </div>
+
+                </div>
 
 
 
@@ -6341,6 +7819,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6372,7 +7851,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-28">behavioral counseling<span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">behavioral counseling<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is behavioral counseling (NCIT:C181743). NCIT:C181743 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6405,12 +7884,75 @@ This treatment is behavioral counseling (NCIT:C181743). NCIT:C181743 is a clinic
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Cognitive behavioral therapy for eating behaviors.</div>
 
 
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38285378" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38285378" target="_blank">PMID:38285378</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Our results indicated that CBT and BT are effective interventions for weight loss, and that successful weight loss requires more aggressive interventions such as BT or CBT than MC and UC."</div>
+
+
+                <div class="evidence-explanation">Network meta-analysis of randomized trials placing CBT and behavioral therapy above usual and minimal care for weight loss. REVIEW_SYNTHESIS because the pooled estimate synthesizes trials the authors did not run.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
             </div>
@@ -6423,7 +7965,7 @@ This treatment is behavioral counseling (NCIT:C181743). NCIT:C181743 is a clinic
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-29">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6464,11 +8006,11 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_94686" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-30">CHEBI:94686</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_94686" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-37">CHEBI:94686</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses orlistat (CHEBI:94686). CHEBI:94686 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
@@ -6477,8 +8019,144 @@ This treatment uses orlistat (CHEBI:94686). CHEBI:94686 is a therapeutic agent f
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Lipase inhibitor reducing fat absorption.</div>
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            INHIBITS
+                        </span>
+                        <strong style="color: #5b21b6;">Efficient Intestinal Energy Harvest</strong>
+
+                        <span style="color: #7c3aed;"> &mdash; Gastrointestinal lipase inhibition blocks hydrolysis of dietary triglyceride, so ingested fat leaves in the stool instead of being absorbed. Orlistat and pasteurized A. muciniphila MucT both act on this node by unrelated routes: one blocks a digestive enzyme, the other is reported to reduce carbohydrate absorption and raise epithelial turnover.
+</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39783852" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39783852" target="_blank">PMID:39783852</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"MR-O and Conv-O similarly increased fecal fat percentage from 3.8% to 13.5%, confirming pharmacodynamic equivalence."</div>
+
+
+                <div class="evidence-explanation">Human pharmacodynamic measurement of the shift from absorption to fecal excretion that defines this node.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            INHIBITS
+                        </span>
+                        <strong style="color: #5b21b6;">Post-Weight-Loss Weight Regain</strong>
+
+                        <span style="color: #7c3aed;"> &mdash; The European Multicentre trial&#39;s second year is a maintenance phase, in which continuing orlistat halved the regain seen after switching to placebo.
+</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:9683204" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9683204" target="_blank">PMID:9683204</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"During year 2, patients who continued with orlistat regained, on average, half as much weight as those patients switched to placebo"</div>
+
+
+                <div class="evidence-explanation">Second-year maintenance result, measuring regain directly.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
 
 
@@ -6501,6 +8179,7 @@ This treatment uses orlistat (CHEBI:94686). CHEBI:94686 is a therapeutic agent f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6514,6 +8193,573 @@ This treatment uses orlistat (CHEBI:94686). CHEBI:94686 is a therapeutic agent f
 
             </div>
 
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box treatment-box anchor-target" id="treatment-naltrexone-bupropion" data-dismech-node="Naltrexone-Bupropion" data-dismech-type="treatment">
+                <div class="item-name">
+                    Naltrexone-Bupropion
+                </div>
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    </div>
+
+
+
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+
+
+
+                    <span class="tag tag-treatment">
+                        naltrexone
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_7465" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-39">CHEBI:7465</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses naltrexone (CHEBI:7465). CHEBI:7465 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+
+
+
+                    <span class="tag tag-treatment">
+                        bupropion
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_3219" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-40">CHEBI:3219</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses bupropion (CHEBI:3219). CHEBI:3219 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
+                <div class="item-desc">Fixed-dose sustained-release naltrexone plus bupropion, developed to act on two complementary central pathways: bupropion stimulates hypothalamic POMC neurons, and naltrexone blocks the opioid-mediated autoinhibitory feedback that otherwise limits that stimulation. Approved for chronic weight management and strongly recommended in the joint TOS/OMA/OAC guidance already cited elsewhere in this entry.
+</div>
+
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            MODULATES
+                        </span>
+                        <strong style="color: #5b21b6;">Hypothalamic Dysregulation</strong>
+
+                        <span style="color: #7c3aed;"> &mdash; Both components act on central circuits regulating body weight rather than on peripheral energy handling, which is what places this treatment on the hypothalamic node.
+</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20673995" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20673995" target="_blank">PMID:20673995</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Combination treatment with sustained-release naltrexone and bupropion was developed to produce complementary actions in CNS pathways regulating bodyweight."</div>
+
+
+                <div class="evidence-explanation">States the central mechanism the combination was designed around. It is the trial&#39;s framing of prior pharmacology rather than a result of the trial, so it is graded BACKGROUND and OTHER, and bears on the node only indirectly.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20673995" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20673995" target="_blank">PMID:20673995</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"84 (16%) participants assigned to placebo had a decrease in bodyweight of 5% or more compared with 226 (48%) assigned to naltrexone 32 mg plus bupropion"</div>
+
+
+                <div class="evidence-explanation">COR-I co-primary endpoint, the proportion achieving at least 5% weight loss.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41782434" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41782434" target="_blank">PMID:41782434</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Strong recommendations were made for bupropion-naltrexone, semaglutide, tirzepatide, and setmelanotide, with moderate-certainty evidence."</div>
+
+
+                <div class="evidence-explanation">The joint TOS/OMA/OAC guidance makes a strong recommendation for bupropion-naltrexone for adults with obesity.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box treatment-box anchor-target" id="treatment-pasteurized-akkermansia-muciniphila-muct-supplementation" data-dismech-node="Pasteurized Akkermansia muciniphila MucT Supplementation" data-dismech-type="treatment">
+                <div class="item-name">
+                    Pasteurized Akkermansia muciniphila MucT Supplementation
+                </div>
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">pasteurized Akkermansia muciniphila MucT supplementation<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is pasteurized Akkermansia muciniphila MucT supplementation, annotated with Nutritional Support (NCIT:C15433), qualified as dietary supplement pasteurized Akkermansia muciniphila MucT. NCIT:C15433 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Nutritional Support</span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15433" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15433">NCIT:C15433</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
+                <div class="item-desc">Daily oral capsules of pasteurized Akkermansia muciniphila MucT (heat-treated 30 minutes at 70 C; 3 x 10^10 inactivated cells per capsule) taken during the weight maintenance phase that follows a low-energy diet. Heat inactivation removes the oxygen sensitivity and manufacturing constraints of the live organism while preserving the thermostable outer-membrane protein Amuc_1100, and in rodents it increased rather than abolished the metabolic benefit. The indication tested is maintenance of weight already lost, not weight loss itself.
+</div>
+
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            INHIBITS
+                        </span>
+                        <strong style="color: #5b21b6;">Post-Weight-Loss Weight Regain</strong>
+
+                        <span style="color: #7c3aed;"> &mdash; The registered primary outcome. Over 24 weeks of ad libitum healthy diet after an 8-week low-energy diet, the supplemented group regained less weight than placebo and ended with greater net weight loss from baseline.
+</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42120725" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42120725" target="_blank">PMID:42120725</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Here we show that MucT led to lower body weight regain versus placebo at the end of the weight maintenance period (MucT: 1.2 ± 0.7 kg, placebo: 3.2 ± 0.4 kg, P = 0.012)."</div>
+
+
+                <div class="evidence-explanation">Primary outcome of the randomized trial, stating the effect on the targeted mechanism.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            INHIBITS
+                        </span>
+                        <strong style="color: #5b21b6;">Efficient Intestinal Energy Harvest</strong>
+
+                        <span style="color: #7c3aed;"> &mdash; Proposed mechanism: a shift of ingested energy from absorption to fecal excretion. Established in diet-induced obese mice; in the human trial the increase in fecal energy content did not reach significance, and only the within-group inverse association with weight change supported it.
+</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32167023" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32167023" target="_blank">PMID:32167023</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We confirmed that daily oral administration of pasteurized A. muciniphila alleviated diet-induced obesity and decreased food energy efficiency."</div>
+
+
+                <div class="evidence-explanation">Shows the treatment acts on how efficiently ingested energy is retained.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            RESTORES
+                        </span>
+                        <strong style="color: #5b21b6;">Intestinal Barrier Dysfunction and Metabolic Endotoxemia</strong>
+
+                        <span style="color: #7c3aed;"> &mdash; Proposed mechanism: the thermostable outer-membrane protein Amuc_1100 signals through TLR2 and improves gut barrier function, which is the route by which a non-viable preparation can act on host metabolism without colonizing.
+</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27892954" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27892954" target="_blank">PMID:27892954</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We demonstrated that Amuc_1100, a specific protein isolated from the outer membrane of A. muciniphila, interacts with Toll-like receptor 2, is stable at temperatures used for pasteurization, improves the gut barrier and partly recapitulates the beneficial effects of the bacterium."</div>
+
+
+                <div class="evidence-explanation">Establishes the barrier-directed mechanism and that it survives pasteurization.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (4 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42120725" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42120725" target="_blank">PMID:42120725</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Additionally, the MucT group had a greater net weight loss from baseline to end of maintenance than the placebo group (3.1 ± 0.7 kg, P = 0.009)."</div>
+
+
+                <div class="evidence-explanation">Net weight loss from baseline to the end of maintenance, the secondary anthropometric outcome.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42120725" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42120725" target="_blank">PMID:42120725</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"No serious adverse events related to the treatment were observed."</div>
+
+
+                <div class="evidence-explanation">Safety outcome of the 24-week maintenance trial.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31263284" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31263284" target="_blank">PMID:31263284</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Compared to placebo, pasteurized A. muciniphila improved insulin sensitivity"</div>
+
+
+                <div class="evidence-explanation">The earlier proof-of-concept human trial in metabolic syndrome, which found the metabolic signal without a significant weight effect on an unchanged ad libitum diet.
+</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
 
         </div>
     </details>
@@ -6546,11 +8792,11 @@ This treatment uses orlistat (CHEBI:94686). CHEBI:94686 is a therapeutic agent f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/XCO_0000013" target="_blank" class="curie-chip curie-chip-xco" aria-describedby="pill-tip-31">XCO:0000013</a>
+    <a href="http://purl.obolibrary.org/obo/XCO_0000013" target="_blank" class="curie-chip curie-chip-xco" aria-describedby="pill-tip-42">XCO:0000013</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Experimental Conditions Ontology (XCO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Experimental Conditions Ontology (XCO)
 Relation: this environmental factor is this exposure
 This environmental factor is increased high-calorie dietary pattern, annotated with diet (XCO:0000013). XCO:0000013 is an exposure from the Experimental Conditions Ontology.</span>
                     </span>
@@ -6586,6 +8832,7 @@ This environmental factor is increased high-calorie dietary pattern, annotated w
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6605,6 +8852,63 @@ This environmental factor is increased high-calorie dietary pattern, annotated w
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Energy Imbalance</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Ultra-processed diets drive excess energy intake and weight gain even when calories presented, energy density and macronutrients are matched.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31105044" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31105044" target="_blank">PMID:31105044</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"participants gaining 0.9 ± 0.3 kg (p = 0.009) during the ultra-processed diet and losing 0.9 ± 0.3 kg (p = 0.007) during the unprocessed diet"</div>
+
+
+                <div class="evidence-explanation">Inpatient randomised crossover trial in which the excess intake and weight gain are attributable to food processing itself rather than nutrient composition. This is direct experimental support for the energy-imbalance node.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-sedentary-lifestyle" data-dismech-node="Sedentary Lifestyle" data-dismech-type="environmental">
@@ -6620,11 +8924,11 @@ This environmental factor is increased high-calorie dietary pattern, annotated w
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_6000004" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-32">ECTO:6000004</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_6000004" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-43">ECTO:6000004</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
 Relation: this environmental factor is this exposure
 This environmental factor is sedentary lifestyle, annotated with exposure to sedentary lifestyle (ECTO:6000004). ECTO:6000004 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
@@ -6660,6 +8964,7 @@ This environmental factor is sedentary lifestyle, annotated with exposure to sed
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6681,6 +8986,7 @@ This environmental factor is sedentary lifestyle, annotated with exposure to sed
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6735,6 +9041,7 @@ This environmental factor is sedentary lifestyle, annotated with exposure to sed
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6754,6 +9061,63 @@ This environmental factor is sedentary lifestyle, annotated with exposure to sed
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Increased Body Mass Index</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Density of and proximity to unhealthy food outlets raises fast-food consumption and body mass index.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35290815" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35290815" target="_blank">PMID:35290815</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the number of and distance to unhealthy food outlets increased the likelihood of fast-food consumption and higher BMI for children of any SES"</div>
+
+
+                <div class="evidence-explanation">Systematic review restricted to causal-inference studies. The environment acts through consumption and the energy-imbalance node rather than on body mass directly, and the BMI effect is established for children of any socioeconomic status but among adults only for selected groups.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-sleep-deprivation" data-dismech-node="Sleep Deprivation" data-dismech-type="environmental">
@@ -6769,11 +9133,11 @@ This environmental factor is sedentary lifestyle, annotated with exposure to sed
 
 
 
-    <a href="http://purl.obolibrary.org/obo/XCO_0001069" target="_blank" class="curie-chip curie-chip-xco" aria-describedby="pill-tip-33">XCO:0001069</a>
+    <a href="http://purl.obolibrary.org/obo/XCO_0001069" target="_blank" class="curie-chip curie-chip-xco" aria-describedby="pill-tip-44">XCO:0001069</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Experimental Conditions Ontology (XCO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Experimental Conditions Ontology (XCO)
 Relation: this environmental factor is this exposure
 This environmental factor is sleep deprivation, annotated with sleep restriction (XCO:0001069). XCO:0001069 is an exposure from the Experimental Conditions Ontology.</span>
                     </span>
@@ -6806,6 +9170,7 @@ This environmental factor is sleep deprivation, annotated with sleep restriction
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6843,11 +9208,11 @@ This environmental factor is sleep deprivation, annotated with sleep restriction
 
 
 
-    <a href="http://purl.obolibrary.org/obo/XCO_0001265" target="_blank" class="curie-chip curie-chip-xco" aria-describedby="pill-tip-34">XCO:0001265</a>
+    <a href="http://purl.obolibrary.org/obo/XCO_0001265" target="_blank" class="curie-chip curie-chip-xco" aria-describedby="pill-tip-45">XCO:0001265</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Experimental Conditions Ontology (XCO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Experimental Conditions Ontology (XCO)
 Relation: this environmental factor is this exposure
 This environmental factor is psychological stress, annotated with stress (XCO:0001265). XCO:0001265 is an exposure from the Experimental Conditions Ontology.</span>
                     </span>
@@ -6880,6 +9245,7 @@ This environmental factor is psychological stress, annotated with stress (XCO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7061,11 +9427,11 @@ This environmental factor is psychological stress, annotated with stress (XCO:00
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001988" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-35">UBERON:0001988</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001988" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-46">UBERON:0001988</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Uberon multi-species anatomy ontology (UBERON)
 Relation: this dataset samples this sample type
 This dataset samples fecal sample, annotated with feces (UBERON:0001988). UBERON:0001988 is a sample type from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -7136,11 +9502,11 @@ This dataset samples fecal sample, annotated with feces (UBERON:0001988). UBERON
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001988" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-36">UBERON:0001988</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001988" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-47">UBERON:0001988</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Uberon multi-species anatomy ontology (UBERON)
 Relation: this dataset samples this sample type
 This dataset samples fecal sample, annotated with feces (UBERON:0001988). UBERON:0001988 is a sample type from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -7213,11 +9579,11 @@ This dataset samples fecal sample, annotated with feces (UBERON:0001988). UBERON
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001988" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-37">UBERON:0001988</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001988" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-48">UBERON:0001988</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Uberon multi-species anatomy ontology (UBERON)
 Relation: this dataset samples this sample type
 This dataset samples fecal sample, annotated with feces (UBERON:0001988). UBERON:0001988 is a sample type from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -7278,11 +9644,11 @@ This dataset samples fecal sample, annotated with feces (UBERON:0001988). UBERON
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001988" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-38">UBERON:0001988</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001988" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-49">UBERON:0001988</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Uberon multi-species anatomy ontology (UBERON)
 Relation: this dataset samples this sample type
 This dataset samples fecal sample, annotated with feces (UBERON:0001988). UBERON:0001988 is a sample type from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -7316,6 +9682,136 @@ This dataset samples fecal sample, annotated with feces (UBERON:0001988). UBERON
 
 
         <!-- Clinical Trials -->
+
+        <div class="card" id="trials">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #a855f7;">🔬</div>
+                <h2 class="card-title">Clinical Trials</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct05417360">
+                <div class="item-name">
+                    NCT05417360
+
+                    <span class="tag tag-phase">NOT_APPLICABLE</span>
+
+
+                    <span class="tag tag-status">COMPLETED</span>
+
+                </div>
+
+                <div class="item-desc">Double-blind, placebo-controlled randomized trial at Maastricht University (n = 90 enrolled, 84 randomized, 80 completed). Participants first lost at least 8% of body weight on an 8-week low-energy diet, then took daily pasteurized A. muciniphila MucT or matched placebo for 24 weeks of ad libitum healthy diet. The primary outcome was change in body weight during the maintenance period.
+</div>
+
+
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
+
+
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Obesity
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0001513</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Obesity (HP:0001513). HP:0001513 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Insulin Resistance
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000855" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0000855</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Insulin Resistance (HP:0000855). HP:0000855 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="clinicaltrials:NCT05417360" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://clinicaltrials.gov/study/NCT05417360" target="_blank">clinicaltrials:NCT05417360</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"investigators hypothesize that pasteurized A. muciniphila will be superior to placebo intervention in maintaining body weight after a phase of weight loss (low caloric diet) in adult participants with overweight or obesity."</div>
+
+
+                <div class="evidence-explanation">Registered hypothesis and population of the trial reported in PMID:42120725.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42120725" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42120725" target="_blank">PMID:42120725</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"adults with overweight/obesity (n = 90) underwent an 8-week low-energy diet for ≥8% weight loss, followed by a 24-week healthy ad libitum diet with daily supplementation of pasteurized A. muciniphila MucT or placebo"</div>
+
+
+                <div class="evidence-explanation">Design and population of the trial as reported in the primary publication.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
 
 
         <!-- Experimental Models -->
@@ -7508,6 +10004,192 @@ pathophysiology:
     supports: SUPPORT
     snippet: &#34;Adipose tissue expression of the human homolog of Drp1, DNM1L, is positively correlated with obesity and insulin resistance.&#34;
     explanation: Provides human evidence linking DNM1L expression to obesity and insulin resistance.
+- name: Depletion of Mucosal Symbiont Akkermansia muciniphila
+  description: &gt;
+    Akkermansia muciniphila is a mucin-degrading symbiont of the colonic mucus
+    layer that uses host-derived mucus as its primary carbon and nitrogen source,
+    placing it directly at the host-microbe interface. Its relative abundance is
+    reduced in obesity, type 2 diabetes and metabolic syndrome and correlates
+    inversely with body weight in rodents and humans. Loss of this population
+    removes a signal that supports mucus-layer thickness and epithelial barrier
+    integrity, and is the state that A. muciniphila-directed interventions are
+    designed to compensate for.
+  biological_processes:
+  - preferred_term: mucus-layer maintenance at the colonic epithelium
+    modifier: DECREASED
+    term:
+      id: GO:0030277
+      label: maintenance of gastrointestinal epithelium
+  notes: &gt;
+    The taxon (Akkermansia muciniphila, phylum Verrucomicrobiota; 1-5% of the
+    healthy adult fecal microbiome) is deliberately not bound in cell_types, which
+    is CL-only and covers host cells. Depletion is consistently reported but the
+    direction of causation in humans is not settled: the cohort associations are
+    cross-sectional, and the causal evidence that restoring the organism improves
+    metabolism is from rodents.
+  downstream:
+  - target: Intestinal Barrier Dysfunction and Metabolic Endotoxemia
+    description: &gt;
+      Fewer mucus-resident Akkermansia is associated with a thinner mucus layer
+      and a more permeable epithelium in rodent models of diet-induced obesity.
+  evidence:
+  - reference: PMID:23671105
+    reference_title: &#34;Cross-talk between Akkermansia muciniphila and intestinal epithelium controls diet-induced obesity.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    quote_role: PRIMARY_RESULT
+    snippet: &#34;This study demonstrated that the abundance of A. muciniphila decreased in obese and type 2 diabetic mice.&#34;
+    explanation: Direct measurement showing the symbiont is depleted in obese and diabetic animals.
+  - reference: PMID:31263284
+    reference_title: &#34;Supplementation with Akkermansia muciniphila in overweight and obese human volunteers: a proof-of-concept exploratory study.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: BACKGROUND
+    directness: INDIRECT
+    snippet: &#34;In humans, studies have provided evidence for a negative correlation between Akkermansia muciniphila abundance and overweight, obesity, untreated type 2 diabetes mellitus or hypertension&#34;
+    explanation: &gt;
+      States the human cohort evidence for depletion in obesity. The quoted sentence
+      is this trial report&#39;s summary of prior human studies rather than its own
+      measurement, hence quote_role BACKGROUND; the correlation is also
+      cross-sectional, so it bears on the depletion claim only indirectly.
+  - reference: PMID:32167023
+    reference_title: &#34;Pasteurized Akkermansia muciniphila increases whole-body energy expenditure and fecal energy excretion in diet-induced obese mice.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: BACKGROUND
+    snippet: &#34;The abundance of A. muciniphila is severely reduced in several pathological conditions (i.e., obesity, type 2 diabetes, inflammatory bowel diseases, and appendicitis).&#34;
+    explanation: &gt;
+      Restates the human disease-state depletion across conditions. Quoted from the
+      introduction of a mouse study, so the paper is MODEL_ORGANISM work but the
+      sentence reports the human clinical picture.
+- name: Intestinal Barrier Dysfunction and Metabolic Endotoxemia
+  biological_scale: TISSUE
+  description: &gt;
+    Thinning of the colonic mucus layer and loss of epithelial barrier integrity
+    allow bacterial lipopolysaccharide to reach the systemic circulation, producing
+    the low-grade endotoxemia that couples the gut to adipose inflammation and
+    insulin resistance. A. muciniphila supports barrier function at least partly
+    through its abundant outer-membrane protein Amuc_1100, a Toll-like receptor 2
+    ligand that survives pasteurization.
+  biological_processes:
+  - preferred_term: lipopolysaccharide-mediated signaling pathway
+    modifier: INCREASED
+    term:
+      id: GO:0031663
+      label: lipopolysaccharide-mediated signaling pathway
+  downstream:
+  - target: Chronic Low-Grade Inflammation
+    description: &gt;
+      Circulating lipopolysaccharide engages innate immune receptors and sustains
+      the systemic inflammatory tone already established in expanded adipose tissue.
+  evidence:
+  - reference: PMID:23671105
+    reference_title: &#34;Cross-talk between Akkermansia muciniphila and intestinal epithelium controls diet-induced obesity.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    directness: INDIRECT
+    snippet: &#34;we demonstrated that A. muciniphila treatment reversed high-fat diet-induced metabolic disorders, including fat-mass gain, metabolic endotoxemia, adipose tissue inflammation, and insulin resistance&#34;
+    explanation: &gt;
+      The barrier/endotoxemia step is inferred from the therapeutic result: restoring
+      the symbiont reverses metabolic endotoxemia and adipose inflammation in mice.
+      Graded INDIRECT because the claim follows from the response to treatment rather
+      than from a measurement of the untreated mechanism.
+  - reference: PMID:27892954
+    reference_title: &#34;A purified membrane protein from Akkermansia muciniphila or the pasteurized bacterium improves metabolism in obese and diabetic mice.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    quote_role: PRIMARY_RESULT
+    snippet: &#34;We demonstrated that Amuc_1100, a specific protein isolated from the outer membrane of A. muciniphila, interacts with Toll-like receptor 2, is stable at temperatures used for pasteurization, improves the gut barrier and partly recapitulates the beneficial effects of the bacterium.&#34;
+    explanation: &gt;
+      Identifies the molecular route from the symbiont to barrier function, and the
+      thermostability that makes a pasteurized preparation plausible.
+- name: Efficient Intestinal Energy Harvest
+  biological_scale: ORGANISM
+  description: &gt;
+    The share of ingested energy that is absorbed rather than excreted in feces is a
+    determinant of energy balance that sits upstream of adipose expansion. In
+    diet-induced obese mice, pasteurized A. muciniphila lowers food energy efficiency
+    and raises fecal energy excretion, apparently through reduced carbohydrate
+    absorption and faster intestinal epithelial turnover, implying that the untreated
+    state retains a correspondingly larger fraction of ingested energy.
+  biological_processes:
+  - preferred_term: intestinal absorption
+    modifier: INCREASED
+    term:
+      id: GO:0050892
+      label: intestinal absorption
+  notes: &gt;
+    The human evidence for this node is weaker than the rodent evidence. In the
+    weight-maintenance trial (PMID:42120725) the rise in fecal energy content under
+    pasteurized MucT did not reach significance, and total daily fecal output was not
+    measured; only the within-group inverse association between change in fecal energy
+    and change in body weight pointed this way.
+  downstream:
+  - target: Energy Imbalance
+    description: &gt;
+      Energy retained rather than excreted adds to the positive balance that drives
+      fat accumulation.
+  evidence:
+  - reference: PMID:32167023
+    reference_title: &#34;Pasteurized Akkermansia muciniphila increases whole-body energy expenditure and fecal energy excretion in diet-induced obese mice.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    directness: INDIRECT
+    snippet: &#34;we observed that treatment with pasteurized A. muciniphila increased energy excretion in the feces&#34;
+    explanation: &gt;
+      The absorption step is inferred from its modification: treatment shifts energy
+      from absorption to excretion, so the untreated state absorbs more.
+  - reference: PMID:32167023
+    reference_title: &#34;Pasteurized Akkermansia muciniphila increases whole-body energy expenditure and fecal energy excretion in diet-induced obese mice.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    quote_role: PRIMARY_RESULT
+    snippet: &#34;we demonstrated that this effect was not due to the modulation of intestinal lipid absorption or chylomicron synthesis but likely involved a reduction of carbohydrates absorption and enhanced intestinal epithelial turnover&#34;
+    explanation: &gt;
+      Localizes the effect to carbohydrate absorption and epithelial turnover rather
+      than to lipid handling.
+- name: Post-Weight-Loss Weight Regain
+  biological_scale: ORGANISM
+  description: &gt;
+    After energy restriction the body defends its previous mass through a coordinated
+    set of responses: resting energy expenditure falls disproportionately to fat-free
+    mass, anorexigenic signals fall while orexigenic signals rise, and shrinking
+    adipocytes generate extracellular-matrix stress and immune activation in
+    subcutaneous adipose tissue. Adipose tissue additionally retains a transcriptional
+    and epigenetic memory of the prior obese state that primes it for accelerated
+    regain. This node, rather than weight loss itself, is what maintenance therapy
+    targets.
+  biological_processes:
+  - preferred_term: defense of pre-diet body mass
+    term:
+      id: GO:0097009
+      label: energy homeostasis
+  downstream:
+  - target: Increased Body Mass Index
+    description: &gt;
+      Regain restores the adiposity phenotype that the weight-loss phase reduced.
+  evidence:
+  - reference: PMID:30655624
+    reference_title: &#34;Mechanisms of weight regain after weight loss - the role of adipose tissue.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &#34;we show that weight loss-induced variations in cellular stress, extracellular matrix remodelling, inflammatory responses, adipokine secretion and lipolysis seem to be associated with the amount of weight that is regained after successful weight loss&#34;
+    explanation: &gt;
+      Synthesis of the human adipose-tissue responses associated with how much weight
+      is regained. It is a review&#39;s synthesis of work it did not perform, hence
+      quote_role REVIEW_SYNTHESIS.
+  - reference: PMID:39558077
+    reference_title: &#34;Adipose tissue retains an epigenetic memory of obesity after weight loss.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    quote_role: PRIMARY_RESULT
+    snippet: &#34;Mice carrying this obesogenic memory show accelerated rebound weight gain&#34;
+    explanation: &gt;
+      Shows the adipose memory is not merely correlative: animals carrying it regain
+      weight faster. The corresponding human data in the same study are
+      transcriptional rather than an observed regain rate.
+
 mechanistic_hypotheses:
 - hypothesis_group_id: pgs_context_amplification
   hypothesis_label: Amplification of polygenic obesity risk in adverse contexts
@@ -7727,6 +10409,19 @@ environmental:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;participants gaining 0.9 ± 0.3 kg (p = 0.009) during the ultra-processed diet and losing 0.9 ± 0.3 kg (p = 0.007) during the unprocessed diet&#34;
     explanation: &#34;Inpatient randomized crossover trial with diets matched for presented calories, energy density, macronutrients, sugar, sodium and fibre -- so the 508 kcal/day excess intake and the weight change are attributable to processing itself rather than to nutrient composition. This is the strongest available design for the annotation claim.&#34;
+  influences_mechanisms:
+  - target: Energy Imbalance
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: Ultra-processed diets drive excess energy intake and weight gain even when calories presented, energy density and macronutrients are matched.
+    evidence:
+    - reference: PMID:31105044
+      reference_title: &#34;Ultra-Processed Diets Cause Excess Calorie Intake and Weight Gain: An Inpatient Randomized Controlled Trial of Ad Libitum Food Intake.&#34;
+      supports: SUPPORT
+      directness: DIRECT
+      evidence_source: HUMAN_CLINICAL
+      snippet: participants gaining 0.9 ± 0.3 kg (p = 0.009) during the ultra-processed diet and losing 0.9 ± 0.3 kg (p = 0.007) during the unprocessed diet
+      explanation: Inpatient randomised crossover trial in which the excess intake and weight gain are attributable to food processing itself rather than nutrient composition. This is direct experimental support for the energy-imbalance node.
 - name: Sedentary Lifestyle
   exposure_term:
     preferred_term: sedentary lifestyle
@@ -7758,6 +10453,19 @@ environmental:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;the number of and distance to unhealthy food outlets increased the likelihood of fast-food consumption and higher BMI for children of any SES&#34;
     explanation: &#34;Systematic review restricted to causal-inference studies. PARTIAL on two counts: the BMI effect is established for children of any socioeconomic status but among adults only for selected groups (females, black and Hispanic residents of low and medium density areas), and the marketing component of this annotation is not covered.&#34;
+  influences_mechanisms:
+  - target: Increased Body Mass Index
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: Density of and proximity to unhealthy food outlets raises fast-food consumption and body mass index.
+    evidence:
+    - reference: PMID:35290815
+      reference_title: &#34;The impact of the consumer and neighbourhood food environment on dietary intake and obesity-related outcomes: A systematic review of causal impact studies.&#34;
+      supports: SUPPORT
+      directness: INDIRECT
+      evidence_source: HUMAN_CLINICAL
+      snippet: the number of and distance to unhealthy food outlets increased the likelihood of fast-food consumption and higher BMI for children of any SES
+      explanation: Systematic review restricted to causal-inference studies. The environment acts through consumption and the energy-imbalance node rather than on body mass directly, and the BMI effect is established for children of any socioeconomic status but among adults only for selected groups.
 - name: Sleep Deprivation
   exposure_term:
     preferred_term: sleep deprivation
@@ -7788,12 +10496,21 @@ environmental:
     explanation: &#34;States the emotional-eating route this annotation names, and gives the mechanism: stressors bias cognition toward emotional activity and degraded executive function, favouring habitual over deliberate food choice. OTHER because the quoted sentence is a review&#39;s mechanistic synthesis rather than a measurement.&#34;
 treatments:
 - name: Lifestyle Modification
+  therapeutic_modality: BEHAVIORAL
   description: Dietary changes and increased physical activity as foundation of treatment.
   treatment_term:
     preferred_term: Lifestyle Therapy
     term:
       id: NCIT:C15900
       label: Lifestyle Therapy
+  target_mechanisms:
+  - target: Energy Imbalance
+    treatment_effect: INHIBITS
+    description: &gt;
+      Reducing energy intake and raising expenditure acts directly on the energy
+      balance node. The link is definitional rather than empirical, so it carries
+      no evidence of its own; the treatment&#39;s efficacy evidence is on the
+      treatment itself.
   evidence:
   - reference: PMID:25182101
     reference_title: &#34;Comparison of weight loss among named diet programs in overweight and obese adults: a meta-analysis.&#34;
@@ -7802,12 +10519,68 @@ treatments:
     snippet: &#34;Significant weight loss was observed with any low-carbohydrate or low-fat diet.&#34;
     explanation: Meta-analysis of randomized trials showing dietary lifestyle modification produces significant weight loss in overweight and obese adults.
 - name: GLP-1 Receptor Agonists
+  therapeutic_modality: PEPTIDE
   description: Semaglutide, liraglutide provide substantial weight loss through central appetite suppression and metabolic effects.
   treatment_term:
     preferred_term: targeted therapy
     term:
       id: NCIT:C93352
       label: Targeted Therapy
+    therapeutic_agent:
+    - preferred_term: semaglutide
+      term:
+        id: CHEBI:167574
+        label: semaglutide
+    - preferred_term: liraglutide
+      term:
+        id: CHEBI:71193
+        label: liraglutide
+  target_mechanisms:
+  - target: Hypothalamic Dysregulation
+    treatment_effect: MODULATES
+    description: &gt;
+      GLP-1 receptor agonism acts on central appetite and food-reward circuits,
+      restoring the satiety signalling that leptin resistance has blunted.
+    evidence:
+    - reference: PMID:28266779
+      reference_title: &#34;Effects of once-weekly semaglutide on appetite, energy intake, control of eating, food preference and body weight in subjects with obesity.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      quote_role: PRIMARY_RESULT
+      snippet: &#34;Semaglutide was associated with less hunger and food cravings, better control of eating and a lower preference for high-fat foods.&#34;
+      explanation: Mechanism-of-action crossover trial measuring the appetite and food-reward changes this node describes.
+  - target: Energy Imbalance
+    treatment_effect: INHIBITS
+    description: &gt;
+      The appetite effect converts into a measured reduction in ad libitum energy
+      intake, which is what moves the energy balance node.
+    evidence:
+    - reference: PMID:28266779
+      reference_title: &#34;Effects of once-weekly semaglutide on appetite, energy intake, control of eating, food preference and body weight in subjects with obesity.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      quote_role: PRIMARY_RESULT
+      snippet: &#34;ad libitum energy intake was substantially lower with semaglutide vs placebo with a corresponding loss of body weight observed with semaglutide&#34;
+      explanation: Directly measures energy intake, the quantity the Energy Imbalance node is about.
+  - target: Post-Weight-Loss Weight Regain
+    treatment_effect: INHIBITS
+    description: &gt;
+      Suppression of regain is contingent on continued dosing: in the STEP 1
+      off-treatment extension participants regained two-thirds of their lost weight
+      within a year of stopping, and cardiometabolic gains reverted with it. The
+      drug holds the regain node down rather than resolving it.
+    evidence:
+    - reference: PMID:35441470
+      reference_title: &#34;Weight regain and cardiometabolic effects after withdrawal of semaglutide: The STEP 1 trial extension.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      quote_role: PRIMARY_RESULT
+      directness: INDIRECT
+      snippet: &#34;participants regained two-thirds of their prior weight loss, with similar changes in cardiometabolic variables&#34;
+      explanation: &gt;
+        That regain resumes on withdrawal establishes that the treatment had been
+        acting on this node. Graded INDIRECT because the suppression is inferred
+        from what happens when the drug is stopped.
   evidence:
   - reference: PMID:33567185
     reference_title: &#34;Once-Weekly Semaglutide in Adults with Overweight or Obesity.&#34;
@@ -7822,12 +10595,40 @@ treatments:
     snippet: &#34;Strong recommendations were made for bupropion-naltrexone, semaglutide, tirzepatide, and setmelanotide, with moderate-certainty evidence.&#34;
     explanation: The joint TOS/OMA/OAC pharmacological-management guidance makes a strong recommendation for semaglutide (a GLP-1 receptor agonist) for adults with obesity.
 - name: GLP-1/GIP Dual Agonists
+  therapeutic_modality: PEPTIDE
   description: Tirzepatide offers enhanced weight loss of 15-25% through dual incretin receptor activation.
   treatment_term:
     preferred_term: targeted therapy
     term:
       id: NCIT:C93352
       label: Targeted Therapy
+    therapeutic_agent:
+    - preferred_term: tirzepatide
+      term:
+        id: CHEBI:194186
+        label: tirzepatide
+  target_mechanisms:
+  - target: Energy Imbalance
+    treatment_effect: INHIBITS
+    description: &gt;
+      Dual GIP/GLP-1 receptor agonism reduces energy intake and produces sustained
+      weight reduction. No tirzepatide-specific energy-intake measurement is cited
+      here, so the link carries no evidence of its own.
+  - target: Post-Weight-Loss Weight Regain
+    treatment_effect: INHIBITS
+    description: &gt;
+      SURMOUNT-4 is a randomized withdrawal design and so measures this node
+      directly: after a 36-week lead-in, participants switched to placebo regained
+      weight while those continuing treatment did not.
+    evidence:
+    - reference: PMID:38078870
+      reference_title: &#34;Continued Treatment With Tirzepatide for Maintenance of Weight Reduction in Adults With Obesity: The SURMOUNT-4 Randomized Clinical Trial.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      quote_role: PRIMARY_RESULT
+      directness: DIRECT
+      snippet: &#34;In participants with obesity or overweight, withdrawing tirzepatide led to substantial regain of lost weight, whereas continued treatment maintained and augmented initial weight reduction.&#34;
+      explanation: A randomized withdrawal trial whose endpoint is weight-loss maintenance, which is this node.
   evidence:
   - reference: PMID:35658024
     reference_title: &#34;Tirzepatide Once Weekly for the Treatment of Obesity.&#34;
@@ -7849,6 +10650,28 @@ treatments:
     term:
       id: NCIT:C15329
       label: Surgical Procedure
+  target_mechanisms:
+  - target: Hypothalamic Dysregulation
+    treatment_effect: MODULATES
+    description: &gt;
+      Rerouting the gut alters the entero-hypothalamic endocrine axis: postprandial
+      PYY and GLP-1 rise after Roux-en-Y gastric bypass but not after gastric
+      banding producing equivalent weight loss, so the effect is anatomical rather
+      than a consequence of having lost weight.
+    evidence:
+    - reference: PMID:16371744
+      reference_title: &#34;Gut hormone profiles following bariatric surgery favor an anorectic state, facilitate weight loss, and improve metabolic parameters.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      quote_role: PRIMARY_RESULT
+      snippet: &#34;Compared with lean and obese controls, patients following Roux-en-Y gastric bypass (RYGB) had increased postprandial plasma PYY and GLP-1 favoring enhanced satiety.&#34;
+      explanation: Measures the gut-hormone change that acts on central satiety signalling.
+  - target: Energy Imbalance
+    treatment_effect: INHIBITS
+    description: &gt;
+      Restriction plus the anorectic hormone profile lowers energy intake. Carried
+      as a description rather than evidence because the cited trials measure weight
+      and risk factors, not energy intake.
   evidence:
   - reference: PMID:15616203
     reference_title: &#34;Lifestyle, diabetes, and cardiovascular risk factors 10 years after bariatric surgery.&#34;
@@ -7864,7 +10687,23 @@ treatments:
     term:
       id: NCIT:C181743
       label: Behavioral Counseling
+  notes: &gt;
+    Deliberately carries no target_mechanisms. The schema reserves those links for
+    therapeutic actions and excludes counseling and informational interventions,
+    and this entry is bound to a counseling action term.
+  evidence:
+  - reference: PMID:38285378
+    reference_title: &#34;Comparative Effectiveness of Cognitive Behavioral Therapy and Behavioral Therapy in Obesity: A Systematic Review and Network Meta-Analysis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &#34;Our results indicated that CBT and BT are effective interventions for weight loss, and that successful weight loss requires more aggressive interventions such as BT or CBT than MC and UC.&#34;
+    explanation: &gt;
+      Network meta-analysis of randomized trials placing CBT and behavioral therapy
+      above usual and minimal care for weight loss. REVIEW_SYNTHESIS because the
+      pooled estimate synthesizes trials the authors did not run.
 - name: Orlistat
+  therapeutic_modality: SMALL_MOLECULE
   description: Lipase inhibitor reducing fat absorption.
   treatment_term:
     preferred_term: Pharmacotherapy
@@ -7876,6 +10715,38 @@ treatments:
       term:
         id: CHEBI:94686
         label: orlistat
+  target_mechanisms:
+  - target: Efficient Intestinal Energy Harvest
+    treatment_effect: INHIBITS
+    description: &gt;
+      Gastrointestinal lipase inhibition blocks hydrolysis of dietary triglyceride,
+      so ingested fat leaves in the stool instead of being absorbed. Orlistat and
+      pasteurized A. muciniphila MucT both act on this node by unrelated routes:
+      one blocks a digestive enzyme, the other is reported to reduce carbohydrate
+      absorption and raise epithelial turnover.
+    evidence:
+    - reference: PMID:39783852
+      reference_title: &#34;A Comparative Analysis of the Pharmacodynamic and Pharmacokinetic Properties of 2 Controlled-Release Formulations Versus a Marketed Orlistat Product.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      quote_role: PRIMARY_RESULT
+      directness: DIRECT
+      snippet: &#34;MR-O and Conv-O similarly increased fecal fat percentage from 3.8% to 13.5%, confirming pharmacodynamic equivalence.&#34;
+      explanation: Human pharmacodynamic measurement of the shift from absorption to fecal excretion that defines this node.
+  - target: Post-Weight-Loss Weight Regain
+    treatment_effect: INHIBITS
+    description: &gt;
+      The European Multicentre trial&#39;s second year is a maintenance phase, in which
+      continuing orlistat halved the regain seen after switching to placebo.
+    evidence:
+    - reference: PMID:9683204
+      reference_title: &#34;Randomised placebo-controlled trial of orlistat for weight loss and prevention of weight regain in obese patients. European Multicentre Orlistat Study Group.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      quote_role: PRIMARY_RESULT
+      directness: DIRECT
+      snippet: &#34;During year 2, patients who continued with orlistat regained, on average, half as much weight as those patients switched to placebo&#34;
+      explanation: Second-year maintenance result, measuring regain directly.
   evidence:
   - reference: PMID:9683204
     reference_title: &#34;Randomised placebo-controlled trial of orlistat for weight loss and prevention of weight regain in obese patients. European Multicentre Orlistat Study Group.&#34;
@@ -7883,6 +10754,214 @@ treatments:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Orlistat taken with an appropriate diet promotes clinically significant weight loss and reduces weight regain in obese patients over a 2-year period.&#34;
     explanation: European Multicentre Orlistat randomized trial demonstrating the lipase inhibitor orlistat produces clinically significant weight loss in obese patients.
+- name: Naltrexone-Bupropion
+  therapeutic_modality: SMALL_MOLECULE
+  description: &gt;
+    Fixed-dose sustained-release naltrexone plus bupropion, developed to act on two
+    complementary central pathways: bupropion stimulates hypothalamic POMC neurons,
+    and naltrexone blocks the opioid-mediated autoinhibitory feedback that otherwise
+    limits that stimulation. Approved for chronic weight management and strongly
+    recommended in the joint TOS/OMA/OAC guidance already cited elsewhere in this
+    entry.
+  treatment_term:
+    preferred_term: Pharmacotherapy
+    term:
+      id: NCIT:C15986
+      label: Pharmacotherapy
+    therapeutic_agent:
+    - preferred_term: naltrexone
+      term:
+        id: CHEBI:7465
+        label: naltrexone
+    - preferred_term: bupropion
+      term:
+        id: CHEBI:3219
+        label: bupropion
+  notes: &gt;
+    Added because this entry already quotes a guideline strongly recommending
+    bupropion-naltrexone while curating only two of the four drugs that sentence
+    names. Setmelanotide, the fourth, is curated in
+    Obesity_Due_to_MC4R_Pathway_Disruption, where its indication sits. The
+    POMC/opioid-feedback mechanism in the description is the development rationale
+    reported by the COR-I authors, not something that trial measured.
+  target_mechanisms:
+  - target: Hypothalamic Dysregulation
+    treatment_effect: MODULATES
+    description: &gt;
+      Both components act on central circuits regulating body weight rather than on
+      peripheral energy handling, which is what places this treatment on the
+      hypothalamic node.
+    evidence:
+    - reference: PMID:20673995
+      reference_title: &#34;Effect of naltrexone plus bupropion on weight loss in overweight and obese adults (COR-I): a multicentre, randomised, double-blind, placebo-controlled, phase 3 trial.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      quote_role: BACKGROUND
+      directness: INDIRECT
+      snippet: &#34;Combination treatment with sustained-release naltrexone and bupropion was developed to produce complementary actions in CNS pathways regulating bodyweight.&#34;
+      explanation: &gt;
+        States the central mechanism the combination was designed around. It is the
+        trial&#39;s framing of prior pharmacology rather than a result of the trial, so
+        it is graded BACKGROUND and OTHER, and bears on the node only indirectly.
+  evidence:
+  - reference: PMID:20673995
+    reference_title: &#34;Effect of naltrexone plus bupropion on weight loss in overweight and obese adults (COR-I): a multicentre, randomised, double-blind, placebo-controlled, phase 3 trial.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: PRIMARY_RESULT
+    snippet: &#34;84 (16%) participants assigned to placebo had a decrease in bodyweight of 5% or more compared with 226 (48%) assigned to naltrexone 32 mg plus bupropion&#34;
+    explanation: COR-I co-primary endpoint, the proportion achieving at least 5% weight loss.
+  - reference: PMID:41782434
+    reference_title: &#34;Joint TOS/OMA/OAC Expert Guidance Statement on the Pharmacological Management of United States Adults With Overweight or Obesity Using the GRADE Approach.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;Strong recommendations were made for bupropion-naltrexone, semaglutide, tirzepatide, and setmelanotide, with moderate-certainty evidence.&#34;
+    explanation: The joint TOS/OMA/OAC guidance makes a strong recommendation for bupropion-naltrexone for adults with obesity.
+- name: Pasteurized Akkermansia muciniphila MucT Supplementation
+  therapeutic_modality: OTHER
+  description: &gt;
+    Daily oral capsules of pasteurized Akkermansia muciniphila MucT (heat-treated 30
+    minutes at 70 C; 3 x 10^10 inactivated cells per capsule) taken during the weight
+    maintenance phase that follows a low-energy diet. Heat inactivation removes the
+    oxygen sensitivity and manufacturing constraints of the live organism while
+    preserving the thermostable outer-membrane protein Amuc_1100, and in rodents it
+    increased rather than abolished the metabolic benefit. The indication tested is
+    maintenance of weight already lost, not weight loss itself.
+  treatment_term:
+    preferred_term: pasteurized Akkermansia muciniphila MucT supplementation
+    term:
+      id: NCIT:C15433
+      label: Nutritional Support
+    qualifiers:
+    - predicate:
+        preferred_term: dietary supplement
+        term:
+          id: NCIT:C1505
+          label: Dietary Supplement
+      value:
+        preferred_term: pasteurized Akkermansia muciniphila MucT
+        term:
+          id: NCIT:C200541
+          label: Akkermansia muciniphila Probiotic
+  notes: &gt;
+    The agent term NCIT:C200541 is carried as a qualifier rather than in
+    therapeutic_agent because it sits under Dietary Supplement (NCIT:C1505) and is not
+    reachable from NCIT:C1909 (Pharmacologic Substance), the root of the
+    ChemicalEntityTerm enum that binds therapeutic_agent. Two limits on the claim:
+    pasteurized cells are non-viable and do not colonize, so the effect is
+    host-directed rather than a restoration of the endogenous Akkermansia population,
+    and the trial found no between-group difference in fecal microbiota composition;
+    and no arm received a MucT strain lacking Amuc_1100, so specificity to that
+    protein is not established in humans.
+  target_mechanisms:
+  - target: Post-Weight-Loss Weight Regain
+    treatment_effect: INHIBITS
+    description: &gt;
+      The registered primary outcome. Over 24 weeks of ad libitum healthy diet after
+      an 8-week low-energy diet, the supplemented group regained less weight than
+      placebo and ended with greater net weight loss from baseline.
+    evidence:
+    - reference: PMID:42120725
+      reference_title: &#34;Pasteurized Akkermansia muciniphila Muc(T) for weight loss maintenance in people with overweight and obesity: a controlled randomized trial.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      quote_role: PRIMARY_RESULT
+      directness: DIRECT
+      snippet: &#34;Here we show that MucT led to lower body weight regain versus placebo at the end of the weight maintenance period (MucT: 1.2 ± 0.7 kg, placebo: 3.2 ± 0.4 kg, P = 0.012).&#34;
+      explanation: Primary outcome of the randomized trial, stating the effect on the targeted mechanism.
+  - target: Efficient Intestinal Energy Harvest
+    treatment_effect: INHIBITS
+    description: &gt;
+      Proposed mechanism: a shift of ingested energy from absorption to fecal
+      excretion. Established in diet-induced obese mice; in the human trial the
+      increase in fecal energy content did not reach significance, and only the
+      within-group inverse association with weight change supported it.
+    evidence:
+    - reference: PMID:32167023
+      reference_title: &#34;Pasteurized Akkermansia muciniphila increases whole-body energy expenditure and fecal energy excretion in diet-induced obese mice.&#34;
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      quote_role: PRIMARY_RESULT
+      snippet: &#34;We confirmed that daily oral administration of pasteurized A. muciniphila alleviated diet-induced obesity and decreased food energy efficiency.&#34;
+      explanation: Shows the treatment acts on how efficiently ingested energy is retained.
+  - target: Intestinal Barrier Dysfunction and Metabolic Endotoxemia
+    treatment_effect: RESTORES
+    description: &gt;
+      Proposed mechanism: the thermostable outer-membrane protein Amuc_1100 signals
+      through TLR2 and improves gut barrier function, which is the route by which a
+      non-viable preparation can act on host metabolism without colonizing.
+    evidence:
+    - reference: PMID:27892954
+      reference_title: &#34;A purified membrane protein from Akkermansia muciniphila or the pasteurized bacterium improves metabolism in obese and diabetic mice.&#34;
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      quote_role: PRIMARY_RESULT
+      snippet: &#34;We demonstrated that Amuc_1100, a specific protein isolated from the outer membrane of A. muciniphila, interacts with Toll-like receptor 2, is stable at temperatures used for pasteurization, improves the gut barrier and partly recapitulates the beneficial effects of the bacterium.&#34;
+      explanation: Establishes the barrier-directed mechanism and that it survives pasteurization.
+  evidence:
+  - reference: PMID:42120725
+    reference_title: &#34;Pasteurized Akkermansia muciniphila Muc(T) for weight loss maintenance in people with overweight and obesity: a controlled randomized trial.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: PRIMARY_RESULT
+    snippet: &#34;Additionally, the MucT group had a greater net weight loss from baseline to end of maintenance than the placebo group (3.1 ± 0.7 kg, P = 0.009).&#34;
+    explanation: Net weight loss from baseline to the end of maintenance, the secondary anthropometric outcome.
+  - reference: PMID:42120725
+    reference_title: &#34;Pasteurized Akkermansia muciniphila Muc(T) for weight loss maintenance in people with overweight and obesity: a controlled randomized trial.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: PRIMARY_RESULT
+    snippet: &#34;No serious adverse events related to the treatment were observed.&#34;
+    explanation: Safety outcome of the 24-week maintenance trial.
+  - reference: PMID:31263284
+    reference_title: &#34;Supplementation with Akkermansia muciniphila in overweight and obese human volunteers: a proof-of-concept exploratory study.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: PRIMARY_RESULT
+    snippet: &#34;Compared to placebo, pasteurized A. muciniphila improved insulin sensitivity&#34;
+    explanation: &gt;
+      The earlier proof-of-concept human trial in metabolic syndrome, which found the
+      metabolic signal without a significant weight effect on an unchanged ad libitum diet.
+  - reference: PMID:31263284
+    reference_title: &#34;Supplementation with Akkermansia muciniphila in overweight and obese human volunteers: a proof-of-concept exploratory study.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: PRIMARY_RESULT
+    snippet: &#34;we demonstrated that daily oral supplementation of 1010 A. muciniphila bacteria either live or pasteurized for three months was safe and well tolerated&#34;
+    explanation: First-in-human safety and tolerability of the supplementation route used here.
+clinical_trials:
+- name: NCT05417360
+  phase: NOT_APPLICABLE
+  status: COMPLETED
+  description: &gt;
+    Double-blind, placebo-controlled randomized trial at Maastricht University
+    (n = 90 enrolled, 84 randomized, 80 completed). Participants first lost at least
+    8% of body weight on an 8-week low-energy diet, then took daily pasteurized
+    A. muciniphila MucT or matched placebo for 24 weeks of ad libitum healthy diet.
+    The primary outcome was change in body weight during the maintenance period.
+  target_phenotypes:
+  - preferred_term: Obesity
+    term:
+      id: HP:0001513
+      label: Obesity
+  - preferred_term: Insulin Resistance
+    term:
+      id: HP:0000855
+      label: Insulin resistance
+  evidence:
+  - reference: clinicaltrials:NCT05417360
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;investigators hypothesize that pasteurized A. muciniphila will be superior to placebo intervention in maintaining body weight after a phase of weight loss (low caloric diet) in adult participants with overweight or obesity.&#34;
+    explanation: Registered hypothesis and population of the trial reported in PMID:42120725.
+  - reference: PMID:42120725
+    reference_title: &#34;Pasteurized Akkermansia muciniphila Muc(T) for weight loss maintenance in people with overweight and obesity: a controlled randomized trial.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: PRIMARY_RESULT
+    snippet: &#34;adults with overweight/obesity (n = 90) underwent an 8-week low-energy diet for ≥8% weight loss, followed by a 24-week healthy ad libitum diet with daily supplementation of pasteurized A. muciniphila MucT or placebo&#34;
+    explanation: Design and population of the trial as reported in the primary publication.
+
 discussions:
 - discussion_id: obesity_pgsxc_reverse_causation
   prompt: &gt;-
@@ -7933,6 +11012,62 @@ discussions:
     decision_criterion: &gt;-
       Amplification is supported if the PGS×context deviation from additivity
       persists when only pre-onset exposure windows and incident cases are used.
+- discussion_id: akkermansia_baseline_abundance_responder
+  prompt: &gt;-
+    Does baseline fecal Akkermansia muciniphila abundance decide who benefits from
+    A. muciniphila supplementation, and if so, is the mechanism headroom for
+    improvement or something about the resident community?
+  kind: KNOWLEDGE_GAP
+  status: OPEN
+  attaches_to:
+  - treatments#Pasteurized Akkermansia muciniphila MucT Supplementation
+  - pathophysiology#Depletion of Mucosal Symbiont Akkermansia muciniphila
+  rationale: &gt;-
+    Two independent trials of different preparations point the same way. In the
+    weight-maintenance trial (PMID:42120725) participants stratified below the median
+    fecal A. muciniphila level after weight loss regained less weight and improved
+    more in insulin sensitivity, blood pressure and fecal energy content than those
+    above it, with no such split in the placebo arm; that analysis was exploratory and
+    post hoc. In a separate trial of live AKK-WST01 in overweight/obese type 2
+    diabetes (PMID:39879980), benefit and colonization were likewise confined to the
+    low-baseline group. If this holds prospectively it makes baseline abundance a
+    pre-treatment stratifier rather than an incidental covariate, and it would change
+    how a maintenance trial is powered and who is enrolled. The competing readings are
+    not distinguished by the current data: greater room for improvement in depleted
+    individuals, versus a resident community in high-abundance individuals that
+    resists an added preparation. Note the mechanism cannot simply be colonization for
+    the pasteurized product, which is non-viable.
+  evidence:
+  - reference: PMID:42120725
+    reference_title: &#34;Pasteurized Akkermansia muciniphila Muc(T) for weight loss maintenance in people with overweight and obesity: a controlled randomized trial.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: PRIMARY_RESULT
+    snippet: &#34;Initial Akkermansia spp. abundance was associated with cardiometabolic response to MucT.&#34;
+    explanation: States the baseline-abundance dependence that this gap is about.
+  - reference: PMID:39879980
+    reference_title: &#34;Akkermansia muciniphila supplementation in patients with overweight/obese type 2 diabetes: Efficacy depends on its baseline levels in the gut.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: PRIMARY_RESULT
+    snippet: &#34;AKK-WST01 supplementation showed high colonization efficiency and significant reductions in body weight, fat mass, and HbA1c, which were not found in the placebo group.&#34;
+    explanation: &gt;
+      Independent trial of a live preparation showing the same restriction of benefit
+      to participants with low baseline abundance.
+  proposed_experiments:
+  - experiment_id: akkermansia_baseline_stratified_rct
+    name: Prospectively stratified maintenance trial by baseline fecal A. muciniphila
+    description: &gt;-
+      Randomize weight-loss-maintenance participants to pasteurized MucT or placebo
+      within strata defined prospectively by quantitative fecal A. muciniphila
+      measured before randomization, powered on the stratum-by-treatment interaction
+      rather than on the marginal effect, with fecal energy excretion measured against
+      total daily fecal output.
+    decision_criterion: &gt;-
+      Baseline abundance is a genuine response modifier if the stratum-by-treatment
+      interaction on weight regain is significant in a prospectively powered design;
+      it is an artifact of the post hoc median split otherwise.
+
 datasets:
 # Obesity Gut Microbiome Studies
 - accession: bioproject:PRJNA290729
@@ -8192,6 +11327,8 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -8420,7 +11557,7 @@ Obesity emerges from sustained positive energy balance acting on genetically and
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Obesity", "mondoId": "MONDO:0011122", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Obesity", "yamlRevision": "661f47eedc90"};
+        const OS_CONFIG = {"diseaseName": "Obesity", "mondoId": "MONDO:0011122", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Obesity", "yamlRevision": "204d0b9cb0b3"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

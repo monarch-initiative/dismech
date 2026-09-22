@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4091,6 +4163,7 @@ The feature that makes this disease unusual is a genotype-phenotype inversion. I
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4192,6 +4265,7 @@ This is not an academic gap. It determines what a therapy would have to do: degr
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4278,6 +4352,7 @@ This is not an academic gap. It determines what a therapy would have to do: degr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-eri1-exoribonuclease-activity" data-dismech-node="Loss of ERI1 Exoribonuclease Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of ERI1 Exoribonuclease Activity</div>
+
 
                 <div class="item-desc">Missense variants abolish the 3&#39;-to-5&#39; exoribonuclease activity of ERI1. The activity is lost while the protein is not, which is the distinction the genotype-phenotype inversion turns on.</div>
 
@@ -4416,6 +4491,7 @@ This pathophysiological event involves decreased 3&#39;-5&#39; exoribonuclease a
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4438,6 +4514,7 @@ This pathophysiological event involves decreased 3&#39;-5&#39; exoribonuclease a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-5-8s-rrna-3-trimming" data-dismech-node="Defective 5.8S rRNA 3&#39; Trimming" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective 5.8S rRNA 3&#39; Trimming</div>
+
 
                 <div class="item-desc">The 5.8S ribosomal RNA 3&#39; end is not trimmed, so ribosome biogenesis proceeds from an immature precursor. This is one of two parallel consequences of the lost activity and is curated separately from the histone arm because the two are independent substrates, not one process.</div>
 
@@ -4527,6 +4604,7 @@ This pathophysiological event involves decreased rRNA processing (GO:0006364). G
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4548,6 +4626,7 @@ This pathophysiological event involves decreased rRNA processing (GO:0006364). G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4573,6 +4652,7 @@ This pathophysiological event involves decreased rRNA processing (GO:0006364). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-histone-mrna-degradation" data-dismech-node="Impaired Histone mRNA Degradation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Histone mRNA Degradation</div>
+
 
                 <div class="item-desc">Replication-dependent histone mRNAs are not degraded on schedule, so histone supply is uncoupled from the cell cycle.
 This arm is curated as its own node rather than folded into the rRNA one because the entry&#39;s tissue-restriction knowledge gap proposes chondrocyte histone supply as one candidate explanation, and a hypothesis needs a node to attach to. Both arms are housekeeping functions present in every dividing cell, which is what makes the skeletal restriction of the phenotype the open question rather than an incidental detail.</div>
@@ -4663,6 +4743,7 @@ This pathophysiological event involves decreased histone mRNA catabolic process 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4685,6 +4766,7 @@ This pathophysiological event involves decreased histone mRNA catabolic process 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-chondrogenesis" data-dismech-node="Impaired Chondrogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Chondrogenesis</div>
+
 
                 <div class="item-desc">Patient-derived iPSCs fail to undergo chondrogenesis in vitro, with downregulation of the genes that regulate skeletal patterning. This is the step that makes the entry a mechanism rather than a gene-to-phenotype assertion: it is where a general RNA-metabolic defect becomes a cartilage-specific one.</div>
 
@@ -4808,6 +4890,7 @@ This pathophysiological event involves decreased chondrocyte differentiation (GO
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4830,6 +4913,7 @@ This pathophysiological event involves decreased chondrocyte differentiation (GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-spondyloepimetaphyseal-skeletal-dysplasia" data-dismech-node="Spondyloepimetaphyseal Skeletal Dysplasia" data-dismech-type="pathophysiology">
                 <div class="item-name">Spondyloepimetaphyseal Skeletal Dysplasia</div>
+
 
                 <div class="item-desc">The clinical syndrome: severe short stature with platyspondyly, scoliosis, and epiphyseal and metaphyseal involvement, together with facial dysmorphism and digital anomalies.</div>
 
@@ -4937,6 +5021,7 @@ This pathophysiological event involves decreased chondrocyte differentiation (GO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4958,6 +5043,7 @@ This pathophysiological event involves decreased chondrocyte differentiation (GO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5072,6 +5158,9 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5086,6 +5175,7 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5149,6 +5239,9 @@ This clinical feature is Metaphyseal dysplasia (HP:0100255). HP:0100255 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5163,6 +5256,7 @@ This clinical feature is Metaphyseal dysplasia (HP:0100255). HP:0100255 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5215,6 +5309,9 @@ This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5229,6 +5326,7 @@ This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5292,6 +5390,9 @@ This clinical feature is Platyspondyly (HP:0000926). HP:0000926 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5306,6 +5407,7 @@ This clinical feature is Platyspondyly (HP:0000926). HP:0000926 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5360,6 +5462,9 @@ This clinical feature is Epiphyseal dysplasia (HP:0002656). HP:0002656 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5374,6 +5479,7 @@ This clinical feature is Epiphyseal dysplasia (HP:0002656). HP:0002656 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5426,6 +5532,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5440,6 +5549,7 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5521,6 +5631,9 @@ This clinical feature is Short stature (HP:0004322), qualified as severity sever
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5535,6 +5648,7 @@ This clinical feature is Short stature (HP:0004322), qualified as severity sever
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5633,6 +5747,9 @@ This disease-associated gene is ERI1 (hgnc:23994). hgnc:23994 is a gene from the
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive inheritance</span>
@@ -5655,6 +5772,7 @@ This disease-associated gene is ERI1 (hgnc:23994). hgnc:23994 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5788,6 +5906,7 @@ This disease-associated gene is ERI1 (hgnc:23994). hgnc:23994 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5927,6 +6046,7 @@ This disease-associated gene is ERI1 (hgnc:23994). hgnc:23994 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6579,6 +6699,29 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Evidence-base caveat. The disease was defined in 2023 in a cohort of eight affected individuals from seven unrelated families, five of whom had the skeletal phenotype. There is no larger series. No phenotype in this entry carries a frequency value, because five patients give no usable denominator - the absence is the reason, not an oversight.
+Scope, and it is the substantive call. MONDO:0958006 is the missense-driven skeletal disease. Biallelic null ERI1 genotypes produce a different and milder phenotype - mild intellectual disability with digital anomalies - which is a separate OMIM entity and is deliberately not curated here. Treating the two as one disease with variable expressivity would erase the finding that defines both: within the same recessive gene, missense alleles are more severe than null alleles.
+Reference-selection caveat, recorded because it nearly went wrong. The deep-research report committed alongside cites six references but scores only two as on topic. One of the off-topic four, PMID:41549465, is a case series of Dyggve-Melchior-Clausen syndrome - a different recessive spondyloepimetaphyseal dysplasia. Quoting it here would have been Named Entity Confusion that passed snippet validation cleanly, because the quote would be exact and the paper real. This entry cites only the two on-topic primaries.
+Survival, and why it is here rather than in a phenotype record. The reported range is wide and clinically consequential: deaths in infancy and early childhood in three of the families, against survival into adulthood in the founding family. It is the single most important thing to tell a family at diagnosis, and it is recorded here in prose because the cached abstract does not state it. Manufacturing an evidence item for a figure the source does not carry is the failure mode this project&#39;s rules exist to prevent, so it stays in notes until a quotable source is added.
+A term the entry does not use, recorded so it is not re-suggested. The deep-research report proposes HP:0003417 for &#34;irregular vertebral endplates&#34;. HP:0003417 is Coronal cleft vertebrae, a different radiographic finding. The report&#39;s own term-validation pass scored it as verified, which it is - the term exists - so validation confirmed the identifier while the label attached to it was wrong.
+No treatments section. Management is supportive and orthopaedic, and no disease-modifying therapy exists; neither cited reference states a management protocol that can be quoted exactly, so the section is absent rather than asserted from an uncitable source.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: SEMD Guo-Campeau type (ERI1)</strong> · 2026-08-28T18:42:00Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Spondyloepimetaphyseal_Dysplasia_Guo-Campeau_Type/2026-08-28T184200Z-claude-code-83479e.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation from an OpenScientist deep-research report. The report scored 6 of 6 references resolved with zero confabulation and 14 of 14 quotes valid, but only 2 of 6 on topic - and that ratio was load-bearing rather than cosmetic. One of the off-topic four, PMID:41549465, is a case series of Dyggve-Melchior-Clausen syndrome, a different recessive spondyloepimetaphyseal dysplasia. Quoting it would have been Named Entity Confusion that passed snippet validation cleanly, because the quote would have been exact and the paper real. Only the two on-topic primaries are cited and the near-miss is recorded in the entry notes. Gene identifier verified independently against HGNC before use: ERI1 is hgnc:23994 and the report was correct this time, which matters because the SPG81 report in the same batch gave a wrong identifier for its causal gene. Verification is now reflexive rather than triggered by suspicion. The scope call is the substantive one. MONDO:0958006 is the missense-driven skeletal disease; biallelic null ERI1 genotypes produce a separate milder entity with mild intellectual disability and digital anomalies, which is deliberately not curated here. Collapsing them into one variably expressive disease would erase the finding that defines both - within one recessive gene, missense alleles are more severe than null alleles. Pathograph runs from the abolished exoribonuclease activity through the two RNA-metabolic consequences to impaired chondrogenesis in patient iPSCs and then the skeletal syndrome. The animal model is entered as FAILS_TO_RECAPITULATE with LOW fidelity, and its limitations argue that the failure is informative: a knockout removes the protein while the disease needs a missense allele keeping a catalytically dead protein in place, so under a dominant-negative or neomorphic mechanism the knockout cannot reproduce it in principle. The practical consequence recorded there is that no existing animal model can test a therapy. Two knowledge gaps: the missense-versus-null mechanism, with its therapeutic consequences spelled out, and the tissue-restriction question of why loss of a ubiquitous RNA activity produces a skeletal phenotype. Four phenotypes are graded PARTIAL because the cached abstract names the diagnosis rather than each radiographic sign; that is stated in each explanation rather than the grade being inflated to SUPPORT. No frequencies: five skeletal-phenotype patients give no denominator. Validation: just validate passes, 15 of 15 snippets verified, entity refs and duplicate keys clean, reachability audit shows one root, no dangling targets and every phenotype reached.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

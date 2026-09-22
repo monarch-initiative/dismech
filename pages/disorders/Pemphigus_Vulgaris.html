@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4169,6 +4241,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-anti-desmoglein-autoantibodies" data-dismech-node="Anti-Desmoglein Autoantibodies" data-dismech-type="pathophysiology">
                 <div class="item-name">Anti-Desmoglein Autoantibodies</div>
 
+
                 <div class="item-desc">IgG autoantibodies against desmoglein 3 (mucosal-dominant) and desmoglein 1 (mucocutaneous) directly cause loss of keratinocyte adhesion. Antibody binding triggers intracellular signaling leading to desmosome disassembly.</div>
 
 
@@ -4274,6 +4347,7 @@ This pathophysiological event involves Immunoglobulin Production (GO:0002377). G
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4298,6 +4372,7 @@ This pathophysiological event involves Immunoglobulin Production (GO:0002377). G
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"The most notable biomarkers trends include elevations in IL-4, IL-6, IL-17A, anti-Dsg1/3 autoantibodies, and a reduction in Treg cells and FOXP3."</div>
@@ -4318,6 +4393,7 @@ This pathophysiological event involves Immunoglobulin Production (GO:0002377). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-acantholysis-and-blister-formation" data-dismech-node="Acantholysis and Blister Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Acantholysis and Blister Formation</div>
+
 
                 <div class="item-desc">Loss of desmosomal adhesion causes keratinocytes to detach from each other (acantholysis). Suprabasal clefting occurs as basal keratinocytes remain attached to the basement membrane while upper layers separate.</div>
 
@@ -4390,6 +4466,7 @@ This pathophysiological event involves Cell Adhesion (GO:0007155). GO:0007155 is
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Antibody (Ab) binding interferes with the adhesive function of these molecules, leading to detachment and subsequently blister formation."</div>
@@ -4409,6 +4486,7 @@ This pathophysiological event involves Cell Adhesion (GO:0007155). GO:0007155 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4432,6 +4510,7 @@ This pathophysiological event involves Cell Adhesion (GO:0007155). GO:0007155 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-desmoglein-compensation-and-lesion-distribution" data-dismech-node="Desmoglein Compensation and Lesion Distribution" data-dismech-type="pathophysiology">
                 <div class="item-name">Desmoglein Compensation and Lesion Distribution</div>
+
 
                 <div class="item-desc">The anatomic distribution of desmoglein 1 (superficial epidermis) versus desmoglein 3 (mucosa and deeper epidermal layers) explains the clinical phenotype under the desmoglein compensation theory: mucosal-dominant PV (anti-Dsg3 only) produces mucosal erosions, whereas mucocutaneous PV (anti-Dsg3 plus anti-Dsg1) additionally produces cutaneous blistering.</div>
 
@@ -4538,6 +4617,7 @@ This pathophysiological event involves Cell Adhesion (GO:0007155). GO:0007155 is
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Dsg1 is mainly expressed on the surface of the epidermis, while Dsg3 accumulates predominantly in the mucous membranes and deeper epidermal layers"</div>
@@ -4557,6 +4637,7 @@ This pathophysiological event involves Cell Adhesion (GO:0007155). GO:0007155 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4580,6 +4661,7 @@ This pathophysiological event involves Cell Adhesion (GO:0007155). GO:0007155 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-signaling-mediated-cytoskeletal-changes" data-dismech-node="Signaling-Mediated Cytoskeletal Changes" data-dismech-type="pathophysiology">
                 <div class="item-name">Signaling-Mediated Cytoskeletal Changes</div>
+
 
                 <div class="item-desc">Anti-desmoglein antibodies activate p38 MAPK and other signaling pathways, causing keratin filament retraction and further weakening of cell-cell adhesion independent of direct steric hindrance.</div>
 
@@ -4652,6 +4734,7 @@ This pathophysiological event involves Signal Transduction (GO:0007165). GO:0007
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4673,6 +4756,7 @@ This pathophysiological event involves Signal Transduction (GO:0007165). GO:0007
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4698,6 +4782,7 @@ This pathophysiological event involves Signal Transduction (GO:0007165). GO:0007
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-immune-dysregulation-and-th2-th17-skewing" data-dismech-node="Immune Dysregulation and Th2/Th17 Skewing" data-dismech-type="pathophysiology">
                 <div class="item-name">Immune Dysregulation and Th2/Th17 Skewing</div>
+
 
                 <div class="item-desc">Pemphigus vulgaris is characterized by a shift toward Th2 and Th17 cytokine profiles with elevated IL-4, IL-6, and IL-17A, along with a marked reduction in regulatory T cells (Tregs). This imbalance promotes autoreactive B cell activation and pathogenic autoantibody production.</div>
 
@@ -4800,6 +4885,7 @@ This pathophysiological event involves Cytokine Production (GO:0001816). GO:0001
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"All patients with PV and PF showed significantly (p &lt; 0.000) elevated levels of T(H)2 cytokines (IL-10 and IL-4) as compared with healthy controls. However, the mean concentration of T(H)1 cytokines (IL-2 and IFN-gamma) was significantly decreased in patients as compared to healthy individuals."</div>
@@ -4822,6 +4908,7 @@ This pathophysiological event involves Cytokine Production (GO:0001816). GO:0001
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"The proportion of Treg cells in all PV patients was severely reduced, approximately ten times less than controls. These observations were further confirmed by both diminished gene and protein expression of Foxp3 in the CD4(+)CD25(+) T cell population in PV patients."</div>
@@ -4841,6 +4928,7 @@ This pathophysiological event involves Cytokine Production (GO:0001816). GO:0001
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4887,19 +4975,17 @@ This pathophysiological event involves Cytokine Production (GO:0001816). GO:0001
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Immune<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Immune<span class="pill-count">(5)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Integument<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Integument<span class="pill-count">(6)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Nervous System<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Constitutional<span class="pill-count">(1)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Growth<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Other<span class="pill-count">(7)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4937,6 +5023,9 @@ This clinical feature is Urticaria (HP:0001025). HP:0001025 is a phenotype from 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Urticarial lesions may precede or accompany blister formation in some patients. Frequency band omitted because the source is internally inconsistent: the same Orphanet record (ORPHA:704) annotates HP:0001025 Urticaria as very frequent (99-80%) while annotating the closely related HP:0030351 Urticarial plaque as very rare (&lt;4-1%) - see the separate Urticarial plaque entry in this file. The two cannot both be correct, and urticaria at 80-99% is not corroborated by primary PV literature. Both Orphanet rows are retained as provenance; reconcile against a primary source before reinstating a band.</div>
 
 
@@ -4956,6 +5045,7 @@ This clinical feature is Urticaria (HP:0001025). HP:0001025 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5016,6 +5106,9 @@ This clinical feature is Feeding Difficulties (HP:0011968). HP:0011968 is a phen
                     </div>
 
 
+
+
+
                     <div class="item-desc">Painful oral and esophageal erosions limit food intake</div>
 
 
@@ -5035,6 +5128,7 @@ This clinical feature is Feeding Difficulties (HP:0011968). HP:0011968 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5086,6 +5180,9 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Esophageal involvement with painful swallowing</div>
 
 
@@ -5108,6 +5205,7 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"leading to severe complaints including pain, dysphagia, and fetor"</div>
@@ -5127,6 +5225,7 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5176,6 +5275,9 @@ This clinical feature is Feeding Difficulties in Infancy (HP:0008872). HP:000887
                     </div>
 
 
+
+
+
                     <div class="item-desc">Applies only to neonatal pemphigus arising from transplacental transfer of maternal anti-desmoglein antibodies, where oral erosions in affected neonates impair feeding. Frequency band omitted: Orphanet annotates this as very frequent (99-80%), but PV is overwhelmingly a disease of adults and an unscoped disease-level band of 80-99% misrepresents the entry. Reinstate only against a neonatal-pemphigus cohort, ideally scoped to a dedicated subtype.</div>
 
 
@@ -5195,6 +5297,7 @@ This clinical feature is Feeding Difficulties in Infancy (HP:0008872). HP:000887
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5225,7 +5328,7 @@ This clinical feature is Feeding Difficulties in Infancy (HP:0008872). HP:000887
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-oral-mucosal-erosions" data-dismech-node="Oral Mucosal Erosions" data-dismech-type="phenotype">
@@ -5257,6 +5360,9 @@ This clinical feature is Erosion of Oral Mucosa (HP:0031446). HP:0031446 is a ph
                     </div>
 
 
+
+
+
                     <div class="item-desc">Often the first manifestation; buccal mucosa most commonly affected</div>
 
 
@@ -5276,6 +5382,7 @@ This clinical feature is Erosion of Oral Mucosa (HP:0031446). HP:0031446 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5301,6 +5408,7 @@ This clinical feature is Erosion of Oral Mucosa (HP:0031446). HP:0031446 is a ph
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"The oral mucosa is frequently affected in these diseases, in particular, in mucous membrane pemphigoid, pemphigus vulgaris"</div>
@@ -5320,6 +5428,7 @@ This clinical feature is Erosion of Oral Mucosa (HP:0031446). HP:0031446 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5344,13 +5453,207 @@ This clinical feature is Erosion of Oral Mucosa (HP:0031446). HP:0031446 is a ph
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-oral-mucosal-blisters" data-dismech-node="Oral Mucosal Blisters" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Oral Mucosal Blisters
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0200097" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0200097</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Oral Mucosal Blisters (HP:0200097). HP:0200097 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Fragile blisters that rapidly rupture leaving erosions</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:704" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:704" target="_blank">ORPHA:704</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0200097 | Oral mucosal blisters | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet reports oral mucosal blisters as very frequent in pemphigus vulgaris.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:704" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:704" target="_blank">ORPHA:704</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"A rare autoimmune bullous skin diseases characterized by painful, flaccid blisters and erosions of the oral mucosa, predominantly involving the buccal area"</div>
+
+
+                <div class="evidence-explanation">Orphanet definition describes painful, flaccid blisters of the oral mucosa as the characterizing feature.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-alopecia-of-scalp" data-dismech-node="Alopecia of Scalp" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Alopecia of Scalp
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002293" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002293</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Alopecia of Scalp (HP:0002293). HP:0002293 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Non-scarring alopecia from acantholysis in hair follicle outer root sheath; hair regrowth typically occurs with treatment</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:704" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:704" target="_blank">ORPHA:704</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0002293 | Alopecia of scalp | Occasional (29-5%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet reports scalp alopecia as occasional in pemphigus vulgaris.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22122058" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22122058" target="_blank">PMID:22122058</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Acantholysis between outer root sheath keratinocytes extending from the infundibulum to suprabalbar level was evident in anagen hair follicles of affected lesions."</div>
+
+
+                <div class="evidence-explanation">Study demonstrates that PV alopecia results from autoantibody-mediated acantholysis in hair follicle outer root sheath keratinocytes.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
             <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Immune
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">5</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-infections" data-dismech-node="Recurrent Infections" data-dismech-type="phenotype">
@@ -5369,15 +5672,18 @@ This clinical feature is Erosion of Oral Mucosa (HP:0031446). HP:0031446 is a ph
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002719" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002719</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002719" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002719</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Recurrent Infections (HP:0002719). HP:0002719 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Secondary infections of eroded skin; historically a major cause of mortality. Immunosuppressive treatment further increases infection risk.</div>
@@ -5402,6 +5708,7 @@ This clinical feature is Recurrent Infections (HP:0002719). HP:0002719 is a phen
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"HP:0002719 | Recurrent infections | Very frequent (99-80%)"</div>
@@ -5421,6 +5728,7 @@ This clinical feature is Recurrent Infections (HP:0002719). HP:0002719 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5459,15 +5767,18 @@ This clinical feature is Recurrent Infections (HP:0002719). HP:0002719 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100838" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0100838</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100838" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0100838</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Recurrent Cutaneous Abscess Formation (HP:0100838). HP:0100838 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Secondary bacterial infection of eroded skin surfaces. Frequency band omitted: Orphanet records this as very frequent (99-80%), which is not corroborated by primary PV literature and is implausibly high for discrete recurrent abscesses as opposed to general secondary infection of erosions (curated separately as Recurrent Infections).</div>
@@ -5492,12 +5803,230 @@ This clinical feature is Recurrent Cutaneous Abscess Formation (HP:0100838). HP:
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"HP:0100838 | Recurrent cutaneous abscess formation | Very frequent (99-80%)"</div>
 
 
                 <div class="evidence-explanation">Orphanet reports recurrent cutaneous abscess formation as very frequent in pemphigus vulgaris.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-anti-desmoglein-3-antibody-positivity" data-dismech-node="Anti-Desmoglein-3 Antibody Positivity" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Anti-Desmoglein-3 Antibody Positivity
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_4000014" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:4000014</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anti-Desmoglein-3 Antibody Positivity (HP:4000014). HP:4000014 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Primary pathogenic autoantibody; present in virtually all active PV. Band set to VERY_FREQUENT (99-80%) on the strength of the anti-Dsg3 ELISA sensitivity of 97% cited below, in preference to the Orphanet FREQUENT (79-30%) annotation, which is inconsistent with that measured sensitivity.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:704" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:704" target="_blank">ORPHA:704</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"HP:4000014 | Anti-desmoglein-3 antibody positivity | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet annotates anti-desmoglein-3 antibody positivity as frequent (79-30%). Recorded as PARTIAL because this band understates the 97% ELISA sensitivity reported in the meta-analysis cited below; retained as provenance for the discrepancy.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10878487" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10878487" target="_blank">PMID:10878487</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Auto-Ab against the desmosomal adhesion molecule, desmoglein 3 (Dsg3), are critical in the pathogenesis of this disease"</div>
+
+
+                <div class="evidence-explanation">Anti-Dsg3 autoantibodies are the defining pathogenic autoantibody in pemphigus vulgaris.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34630689" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34630689" target="_blank">PMID:34630689</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"anti-Dsg3 ELISA demonstrated a sensitivity of 97% and specificity of 98% in PV"</div>
+
+
+                <div class="evidence-explanation">In a meta-analysis of 13 studies (1,058 patients), anti-Dsg3 ELISA was 97% sensitive and 98% specific for PV, establishing serologic anti-Dsg3 positivity as a highly accurate diagnostic marker.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-anti-desmoglein-1-antibody-positivity" data-dismech-node="Anti-Desmoglein-1 Antibody Positivity" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Anti-Desmoglein-1 Antibody Positivity
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_4000013" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:4000013</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anti-Desmoglein-1 Antibody Positivity (HP:4000013). HP:4000013 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Present in mucocutaneous disease; correlates with skin involvement</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:704" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:704" target="_blank">ORPHA:704</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"HP:4000013 | Anti-desmoglein-1 antibody positivity | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet reports anti-desmoglein-1 antibody positivity as a frequent finding in pemphigus vulgaris, particularly in mucocutaneous disease.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39075718" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39075718" target="_blank">PMID:39075718</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"The most notable biomarkers trends include elevations in IL-4, IL-6, IL-17A, anti-Dsg1/3 autoantibodies"</div>
+
+
+                <div class="evidence-explanation">Systematic review confirms anti-Dsg1 autoantibodies as a key biomarker in pemphigus vulgaris.</div>
 
 
 
@@ -5529,15 +6058,18 @@ This clinical feature is Recurrent Cutaneous Abscess Formation (HP:0100838). HP:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002960" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002960</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002960" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002960</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Autoimmunity (HP:0002960). HP:0002960 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Disease is fundamentally autoimmune in nature</div>
@@ -5559,6 +6091,7 @@ This clinical feature is Autoimmunity (HP:0002960). HP:0002960 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5589,7 +6122,7 @@ This clinical feature is Autoimmunity (HP:0002960). HP:0002960 is a phenotype fr
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Integument
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">6</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-skin-blisters" data-dismech-node="Skin Blisters" data-dismech-type="phenotype">
@@ -5610,15 +6143,18 @@ This clinical feature is Autoimmunity (HP:0002960). HP:0002960 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008066" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0008066</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008066" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0008066</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal Blistering of the Skin (HP:0008066). HP:0008066 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Flaccid blisters that rupture easily leaving erosions</div>
@@ -5643,6 +6179,7 @@ This clinical feature is Abnormal Blistering of the Skin (HP:0008066). HP:000806
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"HP:0008066 | Abnormal blistering of the skin | Frequent (79-30%)"</div>
@@ -5662,6 +6199,7 @@ This clinical feature is Abnormal Blistering of the Skin (HP:0008066). HP:000806
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5702,15 +6240,18 @@ This clinical feature is Abnormal Blistering of the Skin (HP:0008066). HP:000806
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0200041" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0200041</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0200041" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0200041</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Skin Erosion (HP:0200041). HP:0200041 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Positive Nikolsky sign; erosions are often more prominent than intact blisters. HP:0200041 is not directly listed in ORPHA:704 phenotype table; frequency derived from clinical knowledge of skin involvement in PV.</div>
@@ -5732,6 +6273,7 @@ This clinical feature is Skin Erosion (HP:0200041). HP:0200041 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5770,15 +6312,18 @@ This clinical feature is Skin Erosion (HP:0200041). HP:0200041 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000987" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000987</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000987" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000987</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Atypical Scarring of Skin (HP:0000987). HP:0000987 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency band deliberately omitted. Orphanet records atypical scarring as very frequent (99-80%), but pemphigus vulgaris is an intraepidermal (suprabasal) blistering disease that characteristically heals WITHOUT scarring - absence of scarring is a standard discriminator from subepidermal bullous diseases such as mucous membrane pemphigoid and epidermolysis bullosa acquisita. What is common after PV erosions is post-inflammatory hyperpigmentation, which the earlier note conflated with scarring. The Orphanet row is retained below as provenance for the discrepancy; do not reinstate the band without a primary source.</div>
@@ -5803,12 +6348,304 @@ This clinical feature is Atypical Scarring of Skin (HP:0000987). HP:0000987 is a
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"HP:0000987 | Atypical scarring of skin | Very frequent (99-80%)"</div>
 
 
                 <div class="evidence-explanation">Orphanet asserts atypical scarring as very frequent in pemphigus vulgaris. Recorded as PARTIAL because this conflicts with the established non-scarring healing pattern of intraepidermal PV blisters; the annotation most likely captures post-inflammatory pigment change rather than true scarring.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-acantholysis" data-dismech-node="Acantholysis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Acantholysis
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100792" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0100792</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Acantholysis (HP:0100792). HP:0100792 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Loss of keratinocyte adhesion; hallmark histopathological feature</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:704" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:704" target="_blank">ORPHA:704</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0100792 | Acantholysis | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet reports acantholysis as very frequent in pemphigus vulgaris.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33208597" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33208597" target="_blank">PMID:33208597</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Acantholytic cells were present in 142 cases (95%)."</div>
+
+
+                <div class="evidence-explanation">Large histopathological study confirms acantholysis in 95% of PV biopsies.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-suprabasal-cleavage" data-dismech-node="Suprabasal Cleavage" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Suprabasal Cleavage
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0034194" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0034194</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Suprabasal Cleavage (HP:0034194). HP:0034194 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Characteristic histopathological pattern distinguishing PV from pemphigus foliaceus</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:704" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:704" target="_blank">ORPHA:704</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0034194 | Suprabasal cleavage | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet reports suprabasal cleavage as a frequent histopathological finding in pemphigus vulgaris.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33208597" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33208597" target="_blank">PMID:33208597</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Vesicles were seen in 149 cases (88%), the level of which was suprabasal in 91(61%) and both suprabasal and intraepidermal in 50 cases (33.5%)."</div>
+
+
+                <div class="evidence-explanation">Suprabasal clefting observed in 61% of biopsies as the primary pattern.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34630689" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34630689" target="_blank">PMID:34630689</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"attached to the dermal-epidermal basement membrane looking like a &#39;row of tombstones&#39;"</div>
+
+
+                <div class="evidence-explanation">Suprabasal acantholysis leaves a single row of basal keratinocytes attached to the basement membrane, the characteristic PV &#34;row of tombstones&#34; histopathology.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-urticarial-plaque" data-dismech-node="Urticarial plaque" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Urticarial plaque
+
+                        <span class="phenotype-freq">VERY_RARE</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030351" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0030351</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Urticarial plaque (HP:0030351). HP:0030351 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:704" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:704" target="_blank">ORPHA:704</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0030351 | Urticarial plaque | Very rare (&lt;4-1%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records urticarial plaque as a very rare (&lt;5%) phenotype of pemphigus vulgaris.</div>
 
 
 
@@ -5849,15 +6686,18 @@ This clinical feature is Atypical Scarring of Skin (HP:0000987). HP:0000987 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000716</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000716</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Related to chronic disease burden, impact on appearance, social stigmatization, and treatment side effects</div>
@@ -5882,6 +6722,7 @@ This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"HP:0000716 | Depression | Frequent (79-30%)"</div>
@@ -5901,6 +6742,7 @@ This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5941,15 +6783,18 @@ This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000739" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000739</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000739" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000739</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Associated with chronic disease course and impact on quality of life</div>
@@ -5974,6 +6819,7 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"HP:0000739 | Anxiety | Frequent (79-30%)"</div>
@@ -5993,6 +6839,7 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6042,15 +6889,18 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012531" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0012531</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012531" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0012531</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pain (HP:0012531). HP:0012531 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Significant pain from mucosal erosions; impacts quality of life</div>
@@ -6072,6 +6922,7 @@ This clinical feature is Pain (HP:0012531). HP:0012531 is a phenotype from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6121,15 +6972,18 @@ This clinical feature is Pain (HP:0012531). HP:0012531 is a phenotype from the H
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001824</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001824</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Weight Loss (HP:0001824). HP:0001824 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Due to painful oral erosions impairing food intake</div>
@@ -6154,687 +7008,13 @@ This clinical feature is Weight Loss (HP:0001824). HP:0001824 is a phenotype fro
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"HP:0001824 | Weight loss | Very frequent (99-80%)"</div>
 
 
                 <div class="evidence-explanation">Orphanet reports weight loss as very frequent, likely secondary to painful oral involvement limiting food intake.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-9">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">7</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-oral-mucosal-blisters" data-dismech-node="Oral Mucosal Blisters" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Oral Mucosal Blisters
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0200097" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0200097</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Oral Mucosal Blisters (HP:0200097). HP:0200097 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Fragile blisters that rapidly rupture leaving erosions</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:704" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:704" target="_blank">ORPHA:704</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0200097 | Oral mucosal blisters | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet reports oral mucosal blisters as very frequent in pemphigus vulgaris.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:704" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:704" target="_blank">ORPHA:704</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                </div>
-
-                <div class="evidence-snippet">"A rare autoimmune bullous skin diseases characterized by painful, flaccid blisters and erosions of the oral mucosa, predominantly involving the buccal area"</div>
-
-
-                <div class="evidence-explanation">Orphanet definition describes painful, flaccid blisters of the oral mucosa as the characterizing feature.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-acantholysis" data-dismech-node="Acantholysis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Acantholysis
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100792" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0100792</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Acantholysis (HP:0100792). HP:0100792 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Loss of keratinocyte adhesion; hallmark histopathological feature</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:704" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:704" target="_blank">ORPHA:704</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0100792 | Acantholysis | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet reports acantholysis as very frequent in pemphigus vulgaris.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33208597" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33208597" target="_blank">PMID:33208597</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                </div>
-
-                <div class="evidence-snippet">"Acantholytic cells were present in 142 cases (95%)."</div>
-
-
-                <div class="evidence-explanation">Large histopathological study confirms acantholysis in 95% of PV biopsies.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-suprabasal-cleavage" data-dismech-node="Suprabasal Cleavage" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Suprabasal Cleavage
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0034194" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0034194</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Suprabasal Cleavage (HP:0034194). HP:0034194 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Characteristic histopathological pattern distinguishing PV from pemphigus foliaceus</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (3 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:704" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:704" target="_blank">ORPHA:704</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0034194 | Suprabasal cleavage | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet reports suprabasal cleavage as a frequent histopathological finding in pemphigus vulgaris.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33208597" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33208597" target="_blank">PMID:33208597</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                </div>
-
-                <div class="evidence-snippet">"Vesicles were seen in 149 cases (88%), the level of which was suprabasal in 91(61%) and both suprabasal and intraepidermal in 50 cases (33.5%)."</div>
-
-
-                <div class="evidence-explanation">Suprabasal clefting observed in 61% of biopsies as the primary pattern.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:34630689" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34630689" target="_blank">PMID:34630689</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                </div>
-
-                <div class="evidence-snippet">"attached to the dermal-epidermal basement membrane looking like a &#39;row of tombstones&#39;"</div>
-
-
-                <div class="evidence-explanation">Suprabasal acantholysis leaves a single row of basal keratinocytes attached to the basement membrane, the characteristic PV &#34;row of tombstones&#34; histopathology.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-alopecia-of-scalp" data-dismech-node="Alopecia of Scalp" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Alopecia of Scalp
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002293" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0002293</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Alopecia of Scalp (HP:0002293). HP:0002293 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Non-scarring alopecia from acantholysis in hair follicle outer root sheath; hair regrowth typically occurs with treatment</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:704" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:704" target="_blank">ORPHA:704</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0002293 | Alopecia of scalp | Occasional (29-5%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet reports scalp alopecia as occasional in pemphigus vulgaris.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:22122058" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22122058" target="_blank">PMID:22122058</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                </div>
-
-                <div class="evidence-snippet">"Acantholysis between outer root sheath keratinocytes extending from the infundibulum to suprabalbar level was evident in anagen hair follicles of affected lesions."</div>
-
-
-                <div class="evidence-explanation">Study demonstrates that PV alopecia results from autoantibody-mediated acantholysis in hair follicle outer root sheath keratinocytes.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-anti-desmoglein-3-antibody-positivity" data-dismech-node="Anti-Desmoglein-3 Antibody Positivity" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Anti-Desmoglein-3 Antibody Positivity
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_4000014" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:4000014</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Anti-Desmoglein-3 Antibody Positivity (HP:4000014). HP:4000014 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Primary pathogenic autoantibody; present in virtually all active PV. Band set to VERY_FREQUENT (99-80%) on the strength of the anti-Dsg3 ELISA sensitivity of 97% cited below, in preference to the Orphanet FREQUENT (79-30%) annotation, which is inconsistent with that measured sensitivity.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (3 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:704" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:704" target="_blank">ORPHA:704</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                </div>
-
-                <div class="evidence-snippet">"HP:4000014 | Anti-desmoglein-3 antibody positivity | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet annotates anti-desmoglein-3 antibody positivity as frequent (79-30%). Recorded as PARTIAL because this band understates the 97% ELISA sensitivity reported in the meta-analysis cited below; retained as provenance for the discrepancy.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:10878487" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10878487" target="_blank">PMID:10878487</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                </div>
-
-                <div class="evidence-snippet">"Auto-Ab against the desmosomal adhesion molecule, desmoglein 3 (Dsg3), are critical in the pathogenesis of this disease"</div>
-
-
-                <div class="evidence-explanation">Anti-Dsg3 autoantibodies are the defining pathogenic autoantibody in pemphigus vulgaris.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:34630689" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34630689" target="_blank">PMID:34630689</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                </div>
-
-                <div class="evidence-snippet">"anti-Dsg3 ELISA demonstrated a sensitivity of 97% and specificity of 98% in PV"</div>
-
-
-                <div class="evidence-explanation">In a meta-analysis of 13 studies (1,058 patients), anti-Dsg3 ELISA was 97% sensitive and 98% specific for PV, establishing serologic anti-Dsg3 positivity as a highly accurate diagnostic marker.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-anti-desmoglein-1-antibody-positivity" data-dismech-node="Anti-Desmoglein-1 Antibody Positivity" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Anti-Desmoglein-1 Antibody Positivity
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_4000013" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:4000013</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Anti-Desmoglein-1 Antibody Positivity (HP:4000013). HP:4000013 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Present in mucocutaneous disease; correlates with skin involvement</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:704" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:704" target="_blank">ORPHA:704</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                </div>
-
-                <div class="evidence-snippet">"HP:4000013 | Anti-desmoglein-1 antibody positivity | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet reports anti-desmoglein-1 antibody positivity as a frequent finding in pemphigus vulgaris, particularly in mucocutaneous disease.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:39075718" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39075718" target="_blank">PMID:39075718</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                </div>
-
-                <div class="evidence-snippet">"The most notable biomarkers trends include elevations in IL-4, IL-6, IL-17A, anti-Dsg1/3 autoantibodies"</div>
-
-
-                <div class="evidence-explanation">Systematic review confirms anti-Dsg1 autoantibodies as a key biomarker in pemphigus vulgaris.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-urticarial-plaque" data-dismech-node="Urticarial plaque" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Urticarial plaque
-
-                        <span class="phenotype-freq">VERY_RARE</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030351" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0030351</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Urticarial plaque (HP:0030351). HP:0030351 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:704" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:704" target="_blank">ORPHA:704</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0030351 | Urticarial plaque | Very rare (&lt;4-1%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records urticarial plaque as a very rare (&lt;5%) phenotype of pemphigus vulgaris.</div>
 
 
 
@@ -6900,6 +7080,9 @@ This clinical feature is Urticarial plaque (HP:0030351). HP:0030351 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6914,6 +7097,7 @@ This clinical feature is Urticarial plaque (HP:0030351). HP:0030351 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6936,6 +7120,7 @@ This clinical feature is Urticarial plaque (HP:0030351). HP:0030351 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6971,6 +7156,9 @@ This clinical feature is Urticarial plaque (HP:0030351). HP:0030351 is a phenoty
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-hla-dqb1-0503" data-dismech-node="HLA-DQB1*0503" data-dismech-type="genetic">
@@ -6980,6 +7168,9 @@ This clinical feature is Urticarial plaque (HP:0030351). HP:0030351 is a phenoty
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Risk Factor)</span>
 
                 </div>
+
+
+
 
 
 
@@ -6998,6 +7189,7 @@ This clinical feature is Urticarial plaque (HP:0030351). HP:0030351 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7100,6 +7292,31 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Monoclonal antibody</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">First-line treatment in combination with low-dose short-term prednisone. The RITUX 3 trial demonstrated superiority over prednisone alone.</div>
 
 
@@ -7124,6 +7341,7 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"At month 24, 41 (89%) of 46 patients assigned to rituximab plus short-term prednisone were in complete remission off-therapy versus 15 (34%) of 44 assigned to prednisone alone"</div>
@@ -7143,6 +7361,7 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7226,6 +7445,20 @@ This treatment uses prednisone (CHEBI:8382). CHEBI:8382 is a therapeutic agent f
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Systemic corticosteroids for induction of remission. Now typically used at lower doses and shorter duration when combined with rituximab.</div>
 
 
@@ -7250,6 +7483,7 @@ This treatment uses prednisone (CHEBI:8382). CHEBI:8382 is a therapeutic agent f
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"prednisone alone, 1·0 or 1·5 mg/kg per day tapered over 12 or 18 months"</div>
@@ -7269,6 +7503,7 @@ This treatment uses prednisone (CHEBI:8382). CHEBI:8382 is a therapeutic agent f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7352,6 +7587,20 @@ This treatment uses azathioprine (CHEBI:2948). CHEBI:2948 is a therapeutic agent
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Steroid-sparing immunosuppressive maintenance agent.</div>
 
 
@@ -7373,6 +7622,7 @@ This treatment uses azathioprine (CHEBI:2948). CHEBI:2948 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7456,6 +7706,20 @@ This treatment uses mycophenolate mofetil (CHEBI:8764). CHEBI:8764 is a therapeu
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Alternative steroid-sparing immunosuppressive agent.</div>
 
 
@@ -7477,6 +7741,7 @@ This treatment uses mycophenolate mofetil (CHEBI:8764). CHEBI:8764 is a therapeu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7607,6 +7872,7 @@ This treatment uses mycophenolate mofetil (CHEBI:8764). CHEBI:8764 is a therapeu
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"only two countries, Iran (18.87%) and South Korea (11.43%), accounted for approximately a third of the reported PV cases"</div>
@@ -7626,6 +7892,7 @@ This treatment uses mycophenolate mofetil (CHEBI:8764). CHEBI:8764 is a therapeu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8892,6 +9159,8 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

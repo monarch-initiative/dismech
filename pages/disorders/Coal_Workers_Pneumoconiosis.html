@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4264,6 +4336,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4326,6 +4399,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4347,6 +4421,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4412,6 +4487,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4433,6 +4509,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4719,6 +4796,7 @@ Two things make this a mismatch rather than a plain gap. The node binds CL:00020
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-respirable-coal-mine-dust-deposition-and-retention" data-dismech-node="Respirable Coal Mine Dust Deposition and Retention" data-dismech-type="pathophysiology">
                 <div class="item-name">Respirable Coal Mine Dust Deposition and Retention</div>
 
+
                 <div class="item-desc">Respirable coal mine dust — a heterogeneous mixture of carbonaceous coal particles, crystalline silica, and other silicate minerals — is small enough to escape upper-airway defences and deposit in the terminal bronchioles and alveoli, beyond the reach of mucociliary clearance. Cumulative retained dust burden, not any single exposure, is the driving quantity.</div>
 
 
@@ -4813,6 +4891,7 @@ This pathophysiological event occurs in pulmonary alveolus, annotated with alveo
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4834,6 +4913,7 @@ This pathophysiological event occurs in pulmonary alveolus, annotated with alveo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4859,6 +4939,7 @@ This pathophysiological event occurs in pulmonary alveolus, annotated with alveo
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-silica-enriched-dust-burden" data-dismech-node="Silica-Enriched Dust Burden" data-dismech-type="pathophysiology">
                 <div class="item-name">Silica-Enriched Dust Burden</div>
+
 
                 <div class="item-desc">The crystalline silica and silicate fraction of the retained dust, which in contemporary thin-seam mining is markedly higher than historically because accessing thin coal seams requires cutting silica-bearing rock strata. Silica is far more cytotoxic and fibrogenic per particle than carbonaceous coal, so a silica-enriched burden shifts the disease toward the accelerated and silica-type severe forms rather than merely producing more of the same lesion.</div>
 
@@ -4916,6 +4997,7 @@ This pathophysiological event occurs in pulmonary alveolus, annotated with alveo
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4937,6 +5019,7 @@ This pathophysiological event occurs in pulmonary alveolus, annotated with alveo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4964,6 +5047,7 @@ This pathophysiological event occurs in pulmonary alveolus, annotated with alveo
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4986,6 +5070,7 @@ This pathophysiological event occurs in pulmonary alveolus, annotated with alveo
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-alveolar-macrophage-phagocytosis-of-retained-dust" data-dismech-node="Alveolar Macrophage Phagocytosis of Retained Dust" data-dismech-type="pathophysiology">
                 <div class="item-name">Alveolar Macrophage Phagocytosis of Retained Dust</div>
+
 
                 <div class="item-desc">Alveolar macrophages recognize and internalize the deposited particles in an attempt to clear them. Coal and silica particles are poorly biodegradable, so the macrophage cannot resolve the load and instead becomes the persistently activated cell around which the lesion is built.</div>
 
@@ -5115,6 +5200,7 @@ This pathophysiological event involves increased phagocytosis (GO:0006909). GO:0
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5136,6 +5222,7 @@ This pathophysiological event involves increased phagocytosis (GO:0006909). GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5161,6 +5248,7 @@ This pathophysiological event involves increased phagocytosis (GO:0006909). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reactive-oxygen-species-generation-and-oxidative-injury" data-dismech-node="Reactive Oxygen Species Generation and Oxidative Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Reactive Oxygen Species Generation and Oxidative Injury</div>
+
 
                 <div class="item-desc">Dust-laden macrophages and the reactive particle surfaces generate reactive oxygen species that overwhelm local antioxidant defences. Reactive oxygen species are the shared upstream signal feeding both the inflammasome branch and the epithelial injury branch of the cascade.</div>
 
@@ -5296,6 +5384,7 @@ This pathophysiological event involves increased reactive oxygen species metabol
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5317,6 +5406,7 @@ This pathophysiological event involves increased reactive oxygen species metabol
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5344,6 +5434,7 @@ This pathophysiological event involves increased reactive oxygen species metabol
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5366,6 +5457,7 @@ This pathophysiological event involves increased reactive oxygen species metabol
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-macrophage-mitochondrial-dysfunction-and-defective-mitophagy" data-dismech-node="Macrophage Mitochondrial Dysfunction and Defective Mitophagy" data-dismech-type="pathophysiology">
                 <div class="item-name">Macrophage Mitochondrial Dysfunction and Defective Mitophagy</div>
+
 
                 <div class="item-desc">Coal-silica dust collapses mitochondrial membrane potential and impairs oxidative phosphorylation in macrophages, while suppressing PINK1/Parkin signalling so the damaged mitochondria are not cleared. The failure of mitochondrial quality control amplifies the oxidant load and feeds both macrophage death and the inflammatory output, rather than being a passive consequence of them.</div>
 
@@ -5515,6 +5607,7 @@ This pathophysiological event involves decreased mitophagy (GO:0000423). GO:0000
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5536,6 +5629,7 @@ This pathophysiological event involves decreased mitophagy (GO:0000423). GO:0000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5561,6 +5655,7 @@ This pathophysiological event involves decreased mitophagy (GO:0000423). GO:0000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dust-laden-macrophage-death" data-dismech-node="Dust-Laden Macrophage Death" data-dismech-type="pathophysiology">
                 <div class="item-name">Dust-Laden Macrophage Death</div>
+
 
                 <div class="item-desc">Poorly biodegradable particles — the silica fraction especially — are cytotoxic to the macrophages that ingested them, and pro-apoptotic signalling rises in the alveolar compartment after coal dust exposure. Particles freed by dying cells are available for re-uptake by newly recruited macrophages, a loop that keeps the lesion building without further inhaled dust. How much of the early injury this cell death actually accounts for is contested; see the refuting evidence below.</div>
 
@@ -5686,6 +5781,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5707,6 +5803,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -5732,6 +5829,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-alveolar-and-small-airway-tissue-injury" data-dismech-node="Alveolar and Small-Airway Tissue Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Alveolar and Small-Airway Tissue Injury</div>
+
 
                 <div class="item-desc">The cumulative tissue-level result of retained dust, macrophage death and oxidant exposure: structural and functional damage concentrated in the alveoli and the small conducting airways, which is where the dust sits and where the reparative program is then triggered.</div>
 
@@ -5862,6 +5960,7 @@ This pathophysiological event occurs in respiratory bronchiole (UBERON:0002188).
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5883,6 +5982,7 @@ This pathophysiological event occurs in respiratory bronchiole (UBERON:0002188).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5908,6 +6008,7 @@ This pathophysiological event occurs in respiratory bronchiole (UBERON:0002188).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nf-kappab-and-nlrp3-inflammasome-activation" data-dismech-node="NF-kappaB and NLRP3 Inflammasome Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">NF-kappaB and NLRP3 Inflammasome Activation</div>
+
 
                 <div class="item-desc">Reactive oxygen species and retained particles activate NF-kappaB signalling and assembly of the NLRP3 inflammasome in macrophages and epithelial cells, activating caspase-1 and releasing mature IL-1beta and IL-18. This converts a particle-handling problem into a sustained cytokine signal.</div>
 
@@ -6065,6 +6166,7 @@ This pathophysiological event involves increased positive regulation of canonica
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6086,6 +6188,7 @@ This pathophysiological event involves increased positive regulation of canonica
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6111,6 +6214,7 @@ This pathophysiological event involves increased positive regulation of canonica
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sustained-inflammatory-cell-recruitment-and-amplification" data-dismech-node="Sustained Inflammatory Cell Recruitment and Amplification" data-dismech-type="pathophysiology">
                 <div class="item-name">Sustained Inflammatory Cell Recruitment and Amplification</div>
+
 
                 <div class="item-desc">IL-1beta, IL-18, TNF-alpha and chemokines recruit neutrophils and further macrophages to the peribronchiolar region. Because the retained dust is never cleared, the recruitment does not resolve, and the small airways carry the signature chronic inflammatory change of coal miners&#39; lungs.</div>
 
@@ -6325,6 +6429,7 @@ This pathophysiological event occurs in respiratory bronchiole (UBERON:0002188).
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6346,6 +6451,7 @@ This pathophysiological event occurs in respiratory bronchiole (UBERON:0002188).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6371,6 +6477,7 @@ This pathophysiological event occurs in respiratory bronchiole (UBERON:0002188).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-alveolar-epithelial-injury-and-epithelial-mesenchymal-transition" data-dismech-node="Alveolar Epithelial Injury and Epithelial-Mesenchymal Transition" data-dismech-type="pathophysiology">
                 <div class="item-name">Alveolar Epithelial Injury and Epithelial-Mesenchymal Transition</div>
+
 
                 <div class="item-desc">Injured alveolar epithelial cells undergo epithelial-mesenchymal transition, losing epithelial identity and acquiring a mesenchymal, matrix-producing phenotype. This is a second route into the fibroblast pool, parallel to activation of resident fibroblasts by the inflammatory milieu.</div>
 
@@ -6494,6 +6601,7 @@ This pathophysiological event involves increased epithelial to mesenchymal trans
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6515,6 +6623,7 @@ This pathophysiological event involves increased epithelial to mesenchymal trans
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6540,6 +6649,7 @@ This pathophysiological event involves increased epithelial to mesenchymal trans
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fibroblast-activation-and-myofibroblast-differentiation" data-dismech-node="Fibroblast Activation and Myofibroblast Differentiation" data-dismech-type="pathophysiology">
                 <div class="item-name">Fibroblast Activation and Myofibroblast Differentiation</div>
+
 
                 <div class="item-desc">Resident lung fibroblasts, together with cells arriving via epithelial-mesenchymal transition, differentiate into alpha-smooth-muscle-actin positive myofibroblasts under TGF-beta and inflammatory cytokine signalling. This is the central effector step: from here the lesion is matrix, not inflammation.</div>
 
@@ -6713,6 +6823,7 @@ This pathophysiological event involves increased transforming growth factor beta
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6734,6 +6845,7 @@ This pathophysiological event involves increased transforming growth factor beta
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6759,6 +6871,7 @@ This pathophysiological event involves increased transforming growth factor beta
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-peribronchiolar-collagen-deposition-and-coal-macule-formation" data-dismech-node="Peribronchiolar Collagen Deposition and Coal Macule Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Peribronchiolar Collagen Deposition and Coal Macule Formation</div>
+
 
                 <div class="item-desc">Myofibroblasts deposit collagen and reticulin around the dust-laden macrophage collection at the respiratory bronchiole, producing the coal macule — the histopathologic hallmark lesion of CWP. Macules aggregate into micronodules and nodules that become visible as small rounded opacities on chest radiography, defining simple CWP.</div>
 
@@ -6915,6 +7028,7 @@ This pathophysiological event occurs in respiratory bronchiole (UBERON:0002188).
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6937,6 +7051,7 @@ This pathophysiological event occurs in respiratory bronchiole (UBERON:0002188).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-focal-centrilobular-emphysema" data-dismech-node="Focal Centrilobular Emphysema" data-dismech-type="pathophysiology">
                 <div class="item-name">Focal Centrilobular Emphysema</div>
+
 
                 <div class="item-desc">Destruction of alveolar walls immediately around the coal macule produces focal centrilobular emphysema. This is the obstructive component of coal mine dust lung disease and runs alongside the restrictive fibrotic component rather than replacing it, which is why advanced disease is characteristically a mixed defect.</div>
 
@@ -6994,6 +7109,7 @@ This pathophysiological event occurs in respiratory bronchiole (UBERON:0002188).
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7020,6 +7136,7 @@ This pathophysiological event occurs in respiratory bronchiole (UBERON:0002188).
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7041,6 +7158,7 @@ This pathophysiological event occurs in respiratory bronchiole (UBERON:0002188).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7066,6 +7184,7 @@ This pathophysiological event occurs in respiratory bronchiole (UBERON:0002188).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nodule-coalescence-into-progressive-massive-fibrosis" data-dismech-node="Nodule Coalescence into Progressive Massive Fibrosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Nodule Coalescence into Progressive Massive Fibrosis</div>
+
 
                 <div class="item-desc">Nodular lesions coalesce into conglomerate fibrotic masses one centimetre or larger, destroying regional lung architecture. PMF is the disabling complicated form and is characteristically self-sustaining: it can continue to progress after dust exposure has ended. The silica-enriched dust burden of contemporary mining shifts the histologic type of these masses toward silica-type PMF.</div>
 
@@ -7164,6 +7283,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7185,6 +7305,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7212,6 +7333,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7236,6 +7358,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-gas-exchange-and-mixed-ventilatory-defect" data-dismech-node="Impaired Gas Exchange and Mixed Ventilatory Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Gas Exchange and Mixed Ventilatory Defect</div>
+
 
                 <div class="item-desc">Fibrotic mass lesions restrict lung expansion while focal emphysema and small airway disease obstruct airflow, producing the mixed restrictive-obstructive physiology and ventilation-perfusion mismatch of advanced CWP. Progressive hypoxemia follows, and chronic hypoxic vasoconstriction with vascular destruction raises pulmonary artery pressure toward cor pulmonale.</div>
 
@@ -7311,6 +7434,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7332,6 +7456,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7394,6 +7519,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7415,6 +7541,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7462,6 +7589,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7526,11 +7654,9 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Respiratory<span class="pill-count">(4)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Respiratory<span class="pill-count">(8)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -7540,7 +7666,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-elevated-pulmonary-artery-pressure" data-dismech-node="Elevated pulmonary artery pressure" data-dismech-type="phenotype">
@@ -7566,6 +7692,9 @@ This clinical feature is Elevated pulmonary artery pressure (HP:0004890). HP:000
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7595,6 +7724,7 @@ This clinical feature is Elevated pulmonary artery pressure (HP:0004890). HP:000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7618,18 +7748,9 @@ This clinical feature is Elevated pulmonary artery pressure (HP:0004890). HP:000
 
                 </div>
 
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Respiratory
-                    <span class="cat-count">4</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-pulmonary-fibrosis" data-dismech-node="Pulmonary fibrosis" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cor-pulmonale" data-dismech-node="Cor pulmonale" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Pulmonary fibrosis
+                        Cor pulmonale
 
 
 
@@ -7641,267 +7762,18 @@ This clinical feature is Elevated pulmonary artery pressure (HP:0004890). HP:000
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002206" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002206</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001648" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001648</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Pulmonary fibrosis (HP:0002206). HP:0002206 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Cor pulmonale (HP:0001648). HP:0001648 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
 
 
 
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:27626436" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27626436" target="_blank">PMID:27626436</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"pneumoconiosis (CWP) is a lethal fibrotic lung disease caused by inhalation and deposition of inorganic coal mine dust in the lung"</div>
-
-
-                <div class="evidence-explanation">Characterizes CWP as a fibrotic lung disease, the substrate of this phenotype.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-chronic-cough" data-dismech-node="Chronic cough" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Chronic cough
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0034315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0034315</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Chronic cough (HP:0034315). HP:0034315 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:26024344" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26024344" target="_blank">PMID:26024344</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"There is increasing evidence supporting an important association of abnormalities in the small peripheral airways with the development of respiratory symptoms"</div>
-
-
-                <div class="evidence-explanation">Links the small-airway pathology of CWP to respiratory symptoms, the mechanistic basis for cough in this disease.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:35831008" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35831008" target="_blank">PMID:35831008</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"as the disease manifests, patients exhibit symptoms of coughing, sneezing, increased sputum production, breathlessness and breathing difficulties"</div>
-
-
-                <div class="evidence-explanation">Names cough and increased sputum production directly among the symptoms of manifest CWP, which the mechanistic quote above does not.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-restrictive-ventilatory-defect" data-dismech-node="Restrictive ventilatory defect" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Restrictive ventilatory defect
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002091" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0002091</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Restrictive ventilatory defect (HP:0002091). HP:0002091 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:11952275" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11952275" target="_blank">PMID:11952275</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The major pattern of impairment for miners with PMF was obstructive, but there was an increasing trend for restrictive impairment for higher radiological categories."</div>
-
-
-                <div class="evidence-explanation">Distinguishes the restrictive from the obstructive pattern and ties the restrictive component to advancing radiographic category, which the biomarker correlation cited elsewhere cannot do.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:35032040" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35032040" target="_blank">PMID:35032040</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Lung function abnormalities were seen in 9.0% with primarily restrictive patterns."</div>
-
-
-                <div class="evidence-explanation">Surveillance spirometry showing the restrictive pattern predominating in a screened miner population.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hypoxemia" data-dismech-node="Hypoxemia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hypoxemia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012418" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0012418</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hypoxemia (HP:0012418). HP:0012418 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
 
 
 
@@ -7923,15 +7795,18 @@ This clinical feature is Hypoxemia (HP:0012418). HP:0012418 is a phenotype from 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"CWP group was noted to have higher mean pulmonary artery pressures, LAS, need for prolonged intubation and extracorporeal membrane oxygenation (ECMO) at 72 h"</div>
+                <div class="evidence-snippet">"CWP group was noted to have higher mean pulmonary artery pressures"</div>
 
 
-                <div class="evidence-explanation">Documents severe gas-exchange failure in end-stage CWP, to the point of requiring extracorporeal support around transplantation.</div>
+                <div class="evidence-explanation">Indirect: the paper measures the pulmonary hypertension that causes cor pulmonale rather than right ventricular failure itself, so the cor pulmonale claim follows by the standard inference from sustained elevated pulmonary artery pressure and is not asserted by the quote.</div>
 
 
 
@@ -7949,11 +7824,11 @@ This clinical feature is Hypoxemia (HP:0012418). HP:0012418 is a phenotype from 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-3">
+            <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">5</span>
+                    Respiratory
+                    <span class="cat-count">8</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-pulmonary-nodule" data-dismech-node="Pulmonary nodule" data-dismech-type="phenotype">
@@ -7970,15 +7845,18 @@ This clinical feature is Hypoxemia (HP:0012418). HP:0012418 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033608" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0033608</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0033608" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0033608</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pulmonary nodule (HP:0033608). HP:0033608 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7998,6 +7876,7 @@ This clinical feature is Pulmonary nodule (HP:0033608). HP:0033608 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8025,6 +7904,7 @@ This clinical feature is Pulmonary nodule (HP:0033608). HP:0033608 is a phenotyp
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8033,6 +7913,78 @@ This clinical feature is Pulmonary nodule (HP:0033608). HP:0033608 is a phenotyp
 
 
                 <div class="evidence-explanation">Ties the radiographic nodule to the coal macule and nodule specifically, the lesion this phenotype names.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pulmonary-fibrosis" data-dismech-node="Pulmonary fibrosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Pulmonary fibrosis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002206" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0002206</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pulmonary fibrosis (HP:0002206). HP:0002206 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27626436" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27626436" target="_blank">PMID:27626436</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"pneumoconiosis (CWP) is a lethal fibrotic lung disease caused by inhalation and deposition of inorganic coal mine dust in the lung"</div>
+
+
+                <div class="evidence-explanation">Characterizes CWP as a fibrotic lung disease, the substrate of this phenotype.</div>
 
 
 
@@ -8064,15 +8016,18 @@ This clinical feature is Pulmonary nodule (HP:0033608). HP:0033608 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002875" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0002875</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002875" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0002875</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Exertional dyspnea (HP:0002875). HP:0002875 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8092,6 +8047,7 @@ This clinical feature is Exertional dyspnea (HP:0002875). HP:0002875 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8119,6 +8075,7 @@ This clinical feature is Exertional dyspnea (HP:0002875). HP:0002875 is a phenot
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8127,6 +8084,103 @@ This clinical feature is Exertional dyspnea (HP:0002875). HP:0002875 is a phenot
 
 
                 <div class="evidence-explanation">Sources the progression of breathlessness specifically in the complicated form, matching this phenotype&#39;s description.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-chronic-cough" data-dismech-node="Chronic cough" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Chronic cough
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0034315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0034315</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chronic cough (HP:0034315). HP:0034315 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26024344" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26024344" target="_blank">PMID:26024344</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"There is increasing evidence supporting an important association of abnormalities in the small peripheral airways with the development of respiratory symptoms"</div>
+
+
+                <div class="evidence-explanation">Links the small-airway pathology of CWP to respiratory symptoms, the mechanistic basis for cough in this disease.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35831008" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35831008" target="_blank">PMID:35831008</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"as the disease manifests, patients exhibit symptoms of coughing, sneezing, increased sputum production, breathlessness and breathing difficulties"</div>
+
+
+                <div class="evidence-explanation">Names cough and increased sputum production directly among the symptoms of manifest CWP, which the mechanistic quote above does not.</div>
 
 
 
@@ -8158,15 +8212,18 @@ This clinical feature is Exertional dyspnea (HP:0002875). HP:0002875 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0032966" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0032966</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0032966" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0032966</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Focal centrilobular emphysema, annotated with Centrilobular emphysema (HP:0032966). HP:0032966 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8186,6 +8243,7 @@ This clinical feature is Focal centrilobular emphysema, annotated with Centrilob
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8215,6 +8273,7 @@ This clinical feature is Focal centrilobular emphysema, annotated with Centrilob
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8223,6 +8282,103 @@ This clinical feature is Focal centrilobular emphysema, annotated with Centrilob
 
 
                 <div class="evidence-explanation">Indirect: establishes dust-attributable non-malignant respiratory disease independent of smoking, from which the dust rather than smoking origin of the emphysema follows. It reports mortality, not morphology.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-restrictive-ventilatory-defect" data-dismech-node="Restrictive ventilatory defect" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Restrictive ventilatory defect
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002091" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0002091</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Restrictive ventilatory defect (HP:0002091). HP:0002091 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11952275" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11952275" target="_blank">PMID:11952275</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The major pattern of impairment for miners with PMF was obstructive, but there was an increasing trend for restrictive impairment for higher radiological categories."</div>
+
+
+                <div class="evidence-explanation">Distinguishes the restrictive from the obstructive pattern and ties the restrictive component to advancing radiographic category, which the biomarker correlation cited elsewhere cannot do.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35032040" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35032040" target="_blank">PMID:35032040</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Lung function abnormalities were seen in 9.0% with primarily restrictive patterns."</div>
+
+
+                <div class="evidence-explanation">Surveillance spirometry showing the restrictive pattern predominating in a screened miner population.</div>
 
 
 
@@ -8266,6 +8422,9 @@ This clinical feature is Airway obstruction (HP:0006536). HP:0006536 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8280,6 +8439,7 @@ This clinical feature is Airway obstruction (HP:0006536). HP:0006536 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8306,9 +8466,9 @@ This clinical feature is Airway obstruction (HP:0006536). HP:0006536 is a phenot
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-cor-pulmonale" data-dismech-node="Cor pulmonale" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypoxemia" data-dismech-node="Hypoxemia" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Cor pulmonale
+                        Hypoxemia
 
 
 
@@ -8320,15 +8480,18 @@ This clinical feature is Airway obstruction (HP:0006536). HP:0006536 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001648" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0001648</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012418" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0012418</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cor pulmonale (HP:0001648). HP:0001648 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Hypoxemia (HP:0012418). HP:0012418 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8350,17 +8513,16 @@ This clinical feature is Cor pulmonale (HP:0001648). HP:0001648 is a phenotype f
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"CWP group was noted to have higher mean pulmonary artery pressures"</div>
+                <div class="evidence-snippet">"CWP group was noted to have higher mean pulmonary artery pressures, LAS, need for prolonged intubation and extracorporeal membrane oxygenation (ECMO) at 72 h"</div>
 
 
-                <div class="evidence-explanation">Indirect: the paper measures the pulmonary hypertension that causes cor pulmonale rather than right ventricular failure itself, so the cor pulmonale claim follows by the standard inference from sustained elevated pulmonary artery pressure and is not asserted by the quote.</div>
+                <div class="evidence-explanation">Documents severe gas-exchange failure in end-stage CWP, to the point of requiring extracorporeal support around transplantation.</div>
 
 
 
@@ -8452,6 +8614,9 @@ This disease-associated gene is TNF (hgnc:11892). hgnc:11892 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8466,6 +8631,7 @@ This disease-associated gene is TNF (hgnc:11892). hgnc:11892 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8490,6 +8656,7 @@ This disease-associated gene is TNF (hgnc:11892). hgnc:11892 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8551,6 +8718,9 @@ This disease-associated gene is TGFB1 (hgnc:11766). hgnc:11766 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8565,6 +8735,7 @@ This disease-associated gene is TGFB1 (hgnc:11766). hgnc:11766 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8589,6 +8760,7 @@ This disease-associated gene is TGFB1 (hgnc:11766). hgnc:11766 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8650,6 +8822,9 @@ This disease-associated gene is H19 (hgnc:4713). hgnc:4713 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8664,6 +8839,7 @@ This disease-associated gene is H19 (hgnc:4713). hgnc:4713 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8747,6 +8923,31 @@ This treatment is occupational exposure cessation, annotated with Therapeutic Pr
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Removal from further dust exposure — through the Part 90 transfer right, engineering controls, or leaving the work — is the only intervention that changes the disease trajectory in early CWP. It halts accrual of new dust burden; it does not clear retained dust, and it does not reliably stop PMF, which can progress after exposure ends.</div>
 
 
@@ -8789,6 +8990,7 @@ This treatment is occupational exposure cessation, annotated with Therapeutic Pr
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8810,6 +9012,7 @@ This treatment is occupational exposure cessation, annotated with Therapeutic Pr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8873,6 +9076,31 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Vaccination against influenza and pneumococcus, prompt treatment of respiratory infection, mycobacterial surveillance given impaired local lung defences, and smoking cessation. Standard of care and the backbone of management at every stage, since no disease-modifying drug exists.</div>
 
 
@@ -8894,6 +9122,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8957,6 +9186,31 @@ This treatment is Pulmonary Rehabilitation (NCIT:C157966). NCIT:C157966 is a cli
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Structured exercise and education to maintain functional capacity and activities of daily living in miners with established functional impairment.</div>
 
 
@@ -8999,6 +9253,7 @@ This treatment is Pulmonary Rehabilitation (NCIT:C157966). NCIT:C157966 is a cli
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9061,6 +9316,31 @@ This treatment is Oxygen Therapy (NCIT:C94624). NCIT:C94624 is a clinical interv
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Supplemental oxygen for chronic hypoxemia in advanced disease, and to mitigate the hypoxic pulmonary vasoconstriction that drives pulmonary hypertension and cor pulmonale.</div>
 
 
@@ -9103,6 +9383,7 @@ This treatment is Oxygen Therapy (NCIT:C94624). NCIT:C94624 is a clinical interv
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9165,6 +9446,31 @@ This treatment is Organ Transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">The only definitive intervention for end-stage CWP with progressive respiratory failure. Post-transplant graft and patient survival in CWP recipients are comparable to other indications, so the disease is not itself a contraindication, though CWP candidates arrive with higher pulmonary artery pressures and higher allocation scores and have a more demanding perioperative course.</div>
 
 
@@ -9207,6 +9513,7 @@ This treatment is Organ Transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9231,6 +9538,7 @@ This treatment is Organ Transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9252,6 +9560,7 @@ This treatment is Organ Transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9337,6 +9646,31 @@ This treatment uses pirfenidone (CHEBI:32016). CHEBI:32016 is a therapeutic agen
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Pirfenidone, an antifibrotic established in idiopathic pulmonary fibrosis, has been trialled in CWP with pulmonary fibrosis on the reasoning that the fibroblast-activation step is shared. Investigational, not standard of care — no antifibrotic is approved for CWP. Nintedanib is discussed in the same context in the literature but is not listed as a therapeutic_agent here because no CWP trial or study was found to cite for it.</div>
 
 
@@ -9376,6 +9710,7 @@ This treatment uses pirfenidone (CHEBI:32016). CHEBI:32016 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9523,6 +9858,7 @@ This environmental factor is exposure to respirable coal mine dust, annotated wi
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9547,6 +9883,7 @@ This environmental factor is exposure to respirable coal mine dust, annotated wi
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9568,6 +9905,7 @@ This environmental factor is exposure to respirable coal mine dust, annotated wi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9624,6 +9962,7 @@ This environmental factor is exposure to respirable coal mine dust, annotated wi
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9670,6 +10009,7 @@ This environmental factor is exposure to respirable coal mine dust, annotated wi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9750,6 +10090,7 @@ This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9801,6 +10142,7 @@ This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9822,6 +10164,7 @@ This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9912,6 +10255,7 @@ This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9951,6 +10295,7 @@ This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10025,6 +10370,7 @@ This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10064,6 +10410,7 @@ This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10138,6 +10485,7 @@ This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10177,6 +10525,7 @@ This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10251,6 +10600,7 @@ This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10290,6 +10640,7 @@ This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10394,6 +10745,7 @@ This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10418,6 +10770,7 @@ This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10439,6 +10792,7 @@ This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10558,6 +10912,7 @@ This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10622,6 +10977,7 @@ This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10701,6 +11057,7 @@ This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10759,6 +11116,7 @@ This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10814,6 +11172,7 @@ This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10923,6 +11282,7 @@ This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10944,6 +11304,7 @@ This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11034,6 +11395,7 @@ This clinical trial targets Pulmonary fibrosis (HP:0002206). HP:0002206 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11177,6 +11539,7 @@ This clinical trial targets Pulmonary fibrosis (HP:0002206). HP:0002206 is a phe
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -11233,6 +11596,7 @@ This clinical trial targets Pulmonary fibrosis (HP:0002206). HP:0002206 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11295,6 +11659,7 @@ This clinical trial targets Pulmonary fibrosis (HP:0002206). HP:0002206 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11432,6 +11797,7 @@ This clinical trial targets Pulmonary fibrosis (HP:0002206). HP:0002206 is a phe
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -11491,6 +11857,7 @@ This clinical trial targets Pulmonary fibrosis (HP:0002206). HP:0002206 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13826,6 +14193,101 @@ animal_models:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Coal Workers Pneumoconiosis</strong> · 2026-09-03T02:53:25Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Coal_Workers_Pneumoconiosis/2026-09-03T025325Z-claude-code-05abb6.yaml">View source</a></p>
+                        <p class="research-review-text">Created kb/disorders/Coal_Workers_Pneumoconiosis.yaml de novo (MONDO:0006654, canonical
+label &#34;anthracosis&#34;; &#34;coal workers&#39; pneumoconiosis&#34; is an exact MONDO synonym).
+
+Duplicate preflight: git grep over origin/main kb/ for MONDO:0006654, &#34;coal worker&#34;,
+&#34;anthracosis&#34;, &#34;coal dust&#34; returned only Chronic_Obstructive_Pulmonary_Disease (a coal-dust
+mention, not a CWP entry); stubs/ had no match; GitHub PR and issue searches across all
+states returned zero. No claim issue existed.
+
+Deep research: claude_code provider only, via `just research-disorder claude_code
+Coal_Workers_Pneumoconiosis`. Run took 254s over 20 turns and 18 web searches, cost
+~$1.22, 57 citations. The report carried no reference_validation or term_validation
+frontmatter block, so both were retro-fitted with `just validate-research-reference` and
+`just validate-research-terms`.
+
+Reference validation on the report: 31/31 resolved, 0 unresolved, 0 off topic. Nothing was
+excluded on validation grounds.
+
+Term validation on the report found 2 terms named as a different term and 4 worth a second
+look. Independent OAK checks found MORE wrong bindings than the validator flagged, because
+the validator only checked 14 of 36 names. Every suggested HPO term was re-derived from OAK
+rather than copied. Wrong report suggestions, all rejected:
+  HP:0002105 report &#34;Restrictive ventilatory defect&#34; -&gt; HP is Hemoptysis (NOT flagged by
+    the validator; caught by direct OAK lookup). Correct term used: HP:0002091.
+  HP:0009777 report &#34;Rheumatoid nodules&#34; -&gt; HP is Absent thumb. Phenotype dropped.
+  HP:0100750 report &#34;Pulmonary nodule&#34; -&gt; HP is Atelectasis. Correct term used: HP:0033608.
+  HP:0031246 report &#34;Chronic cough&#34; -&gt; HP is Nonproductive cough. Correct term used:
+    HP:0034315.
+  HP:0002092 report &#34;Pulmonary hypertension&#34; -&gt; HP is Pulmonary arterial hypertension, a
+    Group 1 entity; CWP causes Group 3 PH. Bound HP:0004890 Elevated pulmonary artery
+    pressure instead.
+  NCIT:C64582 report &#34;Oxygen&#34; -&gt; NCIT is &#34;Hypopharyngeal Cancer pNX TNM Finding v6 and v7&#34;.
+    Bound NCIT:C94624 Oxygen Therapy instead.
+  UBERON:0002185 report &#34;bronchiole&#34; -&gt; UBERON is bronchus; UBERON:0000115 report &#34;lung
+    parenchyma&#34; -&gt; UBERON is lung epithelium. Bound UBERON:0002188 respiratory bronchiole,
+    which is where the coal macule actually forms.
+Every NCIT treatment term was checked for reachability from NCIT:C25218 before use.
+
+Citations: the report cites by URL and PMC id rather than PMID, and its .citations.md
+sidecar contains only the prompt. 21 PMC ids were converted to PMIDs via the PMC ID
+Converter API and cited as PMIDs; PubMed searches added further primary sources (NIOSH
+surveillance, the National Coal Workers&#39; Autopsy Study PMF-typing paper, the 37-year
+mortality cohort, the UNOS transplant analysis).
+
+Content: 4 subtypes (simple, complicated/PMF, rapidly progressive, Caplan syndrome);
+13-node pathophysiology chain wired with `downstream` edges from dust deposition through
+macrophage phagocytosis, ROS, NLRP3/NF-kappaB, inflammatory amplification, EMT and
+fibroblast activation to the coal macule, focal emphysema, PMF and mixed ventilatory
+defect; a separate `Silica-Enriched Dust Burden` node carrying the contemporary
+silica-driven resurgence; 10 phenotypes; 2 environmental entries (coal mine dust with
+exposure_classifications and two influences_mechanisms links, plus smoking as an explicitly
+non-causal modifier); 3 susceptibility genes (TNF, TGFB1, H19); 3 prevalence records; 2
+biomarkers; 6 treatments; 1 clinical trial (NCT04461587).
+
+Five nodes declare conforms_to against fibrotic_response (Tissue Injury, Inflammatory
+Recruitment and Amplification, Mesenchymal Cell Activation, Excessive ECM Deposition,
+Architectural Distortion and Organ Dysfunction), matching the Asbestosis pattern.
+
+Deliberate omissions, recorded so they are not read as oversights:
+  - No `datasets:` block. `just discover-datasets` returned 13 candidates, all GENE_ONLY
+    via TNF/TGFB1/H19 and none about coal dust or pneumoconiosis (Crohn&#39;s disease, macular
+    degeneration, ovarian cancer). A direct GEO search found exactly one plausible series,
+    GSE311671, whose title says &#34;Coal Mine Dust&#34; but whose summary and overall design are a
+    silica suspension murine silicosis model. Including it would have been the Named Entity
+    Confusion failure the dataset-curation guidance warns about, so nothing was added.
+  - No iarc_carcinogen_group on the coal mine dust exposure. Coal mine dust itself has no
+    IARC group this entry is entitled to assert; crystalline silica&#39;s Group 1 listing
+    belongs to the Silicosis exposure. The coal-dust/lung-cancer association is curated as
+    cohort evidence instead.
+  - ILO item 2.1.9 (COPD from coal dust) deliberately not claimed: it names a different
+    disease outcome of the same exposure, curated under COPD.
+  - No GeneReviews baseline. PubMed search for &#34;pneumoconiosis GeneReviews[All Fields]&#34;
+    returned 0 hits, as expected for a purely acquired occupational disease.
+  - Most `downstream` edges carry no edge-level evidence. Edge evidence was added only for
+    the 8 edges where a source makes the causal claim itself; the rest were left uncited
+    rather than reusing a node citation to paper over an unsourced edge.
+
+Validation run: `just validate` and `just validate-disorders` both pass, 72/72 snippets
+verified against the cached references. check-entity-refs, check-causal-targets,
+check-duplicate-keys, check-enum-values, check-qualifier-terms and
+check-qualifier-terms-online all OK. Whole-KB content gates (snippet-length,
+title-snippets, folded-hyphens, snippet-grading, environmental-evidence) report no new
+violations. Compliance 84.7% (Silicosis 79.4%, Chronic Beryllium Disease 79.9%, Asbestosis
+88.6%). Page renders; the derived HTML was not committed.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

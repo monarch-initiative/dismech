@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4206,6 +4278,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4290,6 +4363,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4314,6 +4388,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4335,6 +4410,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4449,6 +4525,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4483,6 +4560,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hgd-molecular-function-deficiency" data-dismech-node="HGD molecular function deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">HGD molecular function deficiency</div>
+
 
                 <div class="item-desc">Biallelic HGD pathogenic variants reduce homogentisate 1,2-dioxygenase activity, blocking the homogentisate step of the tyrosine degradation pathway.
 </div>
@@ -4656,6 +4734,7 @@ This pathophysiological event involves decreased homogentisate 1,2-dioxygenase a
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4677,6 +4756,7 @@ This pathophysiological event involves decreased homogentisate 1,2-dioxygenase a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4704,6 +4784,7 @@ This pathophysiological event involves decreased homogentisate 1,2-dioxygenase a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4726,6 +4807,7 @@ This pathophysiological event involves decreased homogentisate 1,2-dioxygenase a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-homogentisic-acid-accumulation" data-dismech-node="Homogentisic acid accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Homogentisic acid accumulation</div>
+
 
                 <div class="item-desc">The HGD block causes homogentisic acid to accumulate in urine, body fluids, and tissues.
 </div>
@@ -4882,6 +4964,7 @@ This pathophysiological event involves decreased L-tyrosine catabolic process (G
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4903,6 +4986,7 @@ This pathophysiological event involves decreased L-tyrosine catabolic process (G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4930,6 +5014,7 @@ This pathophysiological event involves decreased L-tyrosine catabolic process (G
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4952,6 +5037,7 @@ This pathophysiological event involves decreased L-tyrosine catabolic process (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hga-oxidative-polymerization-and-ochronotic-pigment-formation" data-dismech-node="HGA oxidative polymerization and ochronotic pigment formation" data-dismech-type="pathophysiology">
                 <div class="item-name">HGA oxidative polymerization and ochronotic pigment formation</div>
+
 
                 <div class="item-desc">HGA slowly polymerizes at physiological pH through semiquinone-mediated oxidative coupling, producing heterogeneous, negatively charged pigment polymers with phenolic ether and biphenyl linkages.
 </div>
@@ -5006,6 +5092,7 @@ This pathophysiological event involves decreased L-tyrosine catabolic process (G
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5027,6 +5114,7 @@ This pathophysiological event involves decreased L-tyrosine catabolic process (G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5052,6 +5140,13 @@ This pathophysiological event involves decreased L-tyrosine catabolic process (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-oxidative-stress-in-chondrocytes" data-dismech-node="Oxidative stress in chondrocytes" data-dismech-type="pathophysiology">
                 <div class="item-name">Oxidative stress in chondrocytes</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Chronic HGA exposure drives reactive oxygen species, lipid peroxidation, and mitochondrial superoxide in chondrocytes.
 </div>
@@ -5178,6 +5273,7 @@ This pathophysiological event involves increased response to oxidative stress (G
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5200,6 +5296,13 @@ This pathophysiological event involves increased response to oxidative stress (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-autophagy-lysosomal-dysfunction-in-chondrocytes" data-dismech-node="Autophagy-lysosomal dysfunction in chondrocytes" data-dismech-type="pathophysiology">
                 <div class="item-name">Autophagy-lysosomal dysfunction in chondrocytes</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Prolonged HGA exposure produces persistent p62 accumulation, reduced LC3/LAMP1 colocalization, altered acidic compartments, and lysosomal failure, consistent with disrupted autophagic flux.
 </div>
@@ -5326,6 +5429,7 @@ This pathophysiological event involves dysregulated autophagy (GO:0006914). GO:0
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5348,6 +5452,7 @@ This pathophysiological event involves dysregulated autophagy (GO:0006914). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ochronotic-connective-tissue-degeneration" data-dismech-node="Ochronotic connective tissue degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Ochronotic connective tissue degeneration</div>
+
 
                 <div class="item-desc">Oxidized HGA-derived pigment deposits in collagen-rich connective tissues, especially cartilage. This ochronotic pigmentation is associated with visible tissue discoloration and painful axial and large-joint osteoarthropathy.
 </div>
@@ -5624,6 +5729,7 @@ This pathophysiological event occurs in connective tissue (UBERON:0002384). UBER
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5648,6 +5754,7 @@ This pathophysiological event occurs in connective tissue (UBERON:0002384). UBER
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5669,6 +5776,7 @@ This pathophysiological event occurs in connective tissue (UBERON:0002384). UBER
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5717,7 +5825,7 @@ This pathophysiological event occurs in connective tissue (UBERON:0002384). UBER
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal heart valve morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ochronotic cardiovascular involvement can produce structural heart-valve abnormalities.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001654\"}}, {\"id\": \"Abnormality of skin pigmentation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ochronotic pigment deposition produces visible skin and connective-tissue pigmentation abnormalities.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001000\"}}, {\"id\": \"Abnormality of vision\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Eye involvement in alkaptonuria includes visual abnormalities and ochronotic pigmentation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000504\"}}, {\"id\": \"Aortic valve calcification\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiac valve calcification is a recognized later complication.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004380\"}}, {\"id\": \"Aortic valve stenosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Aortic valve stenosis is a frequent cardiovascular manifestation in Orphanet\u0027s alkaptonuria phenotype table.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001650\"}}, {\"id\": \"Arthralgia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Joint pain is a major manifestation of ochronotic osteoarthropathy.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002829\"}}, {\"id\": \"Arthritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ochronotic arthropathy includes arthritis of axial and peripheral joints.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001369\"}}, {\"id\": \"Autophagy-lysosomal dysfunction in chondrocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Prolonged HGA exposure produces persistent p62 accumulation, reduced LC3/LAMP1 colocalization, altered acidic compartments, and lysosomal failure, consistent with disrupted autophagic flux.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"chondrocyte\"], \"biological_processes\": [\"autophagy\"]}}, {\"id\": \"Back pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Back pain is reported as a frequent axial musculoskeletal manifestation in alkaptonuria.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003418\"}}, {\"id\": \"Biallelic HGD pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Reported pathogenic variants include missense, splice-site, frameshift, nonsense, no-stop, and larger deletion alleles. Residual HGD activity may influence urinary HGA adjusted for protein intake, but genotype does not robustly predict clinical symptoms.\\n\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Cartilage calcification\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cartilage calcification is reported as a very frequent structural manifestation in alkaptonuria.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0100593\"}}, {\"id\": \"Cartilage destruction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cartilage destruction is reported as a frequent structural manifestation in alkaptonuria.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100773\"}}, {\"id\": \"Coronary artery calcification\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Coronary artery calcification is a common cardiovascular complication.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001717\"}}, {\"id\": \"Dark urine\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Urine darkens on standing or exposure to air because HGA oxidizes.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0040319\"}}, {\"id\": \"Elevated urinary homogentisic acid\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Large urinary HGA excretion is the defining biochemical phenotype.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0033704\"}}, {\"id\": \"HGA oxidative polymerization and ochronotic pigment formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HGA slowly polymerizes at physiological pH through semiquinone-mediated oxidative coupling, producing heterogeneous, negatively charged pigment polymers with phenolic ether and biphenyl linkages.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"HGD molecular function deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic HGD pathogenic variants reduce homogentisate 1,2-dioxygenase activity, blocking the homogentisate step of the tyrosine degradation pathway.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"L-tyrosine catabolic process\"], \"molecular_functions\": [\"homogentisate 1,2-dioxygenase activity\"], \"genes\": [\"HGD\"], \"gene_terms\": [{\"label\": \"HGD\", \"id\": \"hgnc:4892\"}]}}, {\"id\": \"HGD variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"HGD\"], \"gene_terms\": [{\"label\": \"HGD\", \"id\": \"hgnc:4892\"}], \"variant_count\": 1}}, {\"id\": \"Hearing abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hearing abnormalities are frequent in the multisystem ochronotic phenotype.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000364\"}}, {\"id\": \"Homogentisic acid accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The HGD block causes homogentisic acid to accumulate in urine, body fluids, and tissues.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"L-tyrosine catabolic process\"]}}, {\"id\": \"Hypothyroidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypothyroidism is an occasional, treatable endocrine manifestation requiring surveillance.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000821\"}}, {\"id\": \"Increased urinary homogentisic acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:44747\", \"term_label\": \"homogentisic acid\", \"readouts\": [{\"target\": \"Homogentisic acid accumulation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated urinary HGA reports the upstream HGD block and systemic HGA accumulation.\"}]}}, {\"id\": \"Intervertebral disk calcification\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intervertebral disk calcification is reported as a very frequent spinal finding in alkaptonuria.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0005645\"}}, {\"id\": \"Irregular hyperpigmentation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Irregular hyperpigmentation is a very frequent pigmentation manifestation in Orphanet\u0027s alkaptonuria phenotype table.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0007400\"}}, {\"id\": \"Joint dislocation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Joint dislocation is reported among very frequent musculoskeletal manifestations in alkaptonuria.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001373\"}}, {\"id\": \"Joint stiffness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Joint stiffness is reported as a very frequent musculoskeletal manifestation in alkaptonuria.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001387\"}}, {\"id\": \"Joint swelling\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Joint swelling is reported as a very frequent musculoskeletal manifestation in alkaptonuria.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001386\"}}, {\"id\": \"Joint-protective activity modification\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Avoiding heavy manual labor, high-impact sports, and other excessive physical stress on the spine and large joints may help limit progression of severe ochronotic arthritis.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Manifestation-directed surgery\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Advanced disease may require knee, hip, or shoulder replacement, removal of renal or prostate stones, or aortic valve replacement for severe stenosis.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Mitral valve calcification\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mitral valve calcification is part of the later cardiac-valve phenotype.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004382\"}}, {\"id\": \"Nephrolithiasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Renal stones can occur as part of multisystem alkaptonuria.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000787\"}}, {\"id\": \"Nitisinone therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Nitisinone inhibits an upstream tyrosine-degradation step to reduce HGA production. In SONIA 2, daily nitisinone markedly reduced urinary HGA and slowed composite clinical progression as measured by cAKUSSI. It increases serum tyrosine and can cause corneal keratopathy; a later arthroplasty analysis did not find a reduction in incident joint replacement.\\n\", \"meta\": {\"evidence_count\": 4, \"therapeutic_agents\": [\"nitisinone\"]}}, {\"id\": \"Ochronosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bluish-black pigmentation of connective tissues is caused by HGA-derived pigment deposition.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0030764\"}}, {\"id\": \"Ochronotic connective tissue degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Oxidized HGA-derived pigment deposits in collagen-rich connective tissues, especially cartilage. This ochronotic pigmentation is associated with visible tissue discoloration and painful axial and large-joint osteoarthropathy.\\n\", \"meta\": {\"evidence_count\": 3, \"locations\": [\"cartilage tissue\", \"connective tissue\"]}}, {\"id\": \"Ochronotic osteoarthritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive ochronotic arthropathy affects the spine and large joints.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002758\"}}, {\"id\": \"Oil-drop brown pigmentation of the corneal limbus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ocular ochronosis can manifest as oil-drop brown pigmentation of the corneal limbus.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:6000027\"}}, {\"id\": \"Oxidative stress in chondrocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic HGA exposure drives reactive oxygen species, lipid peroxidation, and mitochondrial superoxide in chondrocytes.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"chondrocyte\"], \"biological_processes\": [\"response to oxidative stress\"]}}, {\"id\": \"Physical and occupational therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Individualized physical and occupational therapy supports muscle strength, flexibility, mobility, and adaptation to progressive ochronotic arthropathy.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Pigmentation of the sclera\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ochronotic pigment can be visible in the sclera.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0007832\"}}, {\"id\": \"Prostatic calculus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Prostate stones are an occasional genitourinary manifestation of alkaptonuria.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0034882\"}}, {\"id\": \"Prostatitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Prostatitis is a frequent structured Orphanet annotation for alkaptonuria.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000024\"}}, {\"id\": \"Reduced homogentisate 1,2-dioxygenase activity\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"DECREASED\", \"readouts\": [{\"target\": \"HGD molecular function deficiency\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Reduced homogentisate 1,2-dioxygenase activity directly reports HGD molecular function deficiency.\"}]}}, {\"id\": \"Tendon rupture\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Tendon rupture is reported as a frequent manifestation in alkaptonuria.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100550\"}}, {\"id\": \"Thickened Achilles tendon\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Achilles tendon thickening is reported as a frequent tendon manifestation in alkaptonuria.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004690\"}}, {\"id\": \"Thyroid hormone replacement\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Thyroid hormone replacement is used when hypothyroidism occurs in alkaptonuria.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"levothyroxine\"]}}], \"edges\": [{\"source\": \"HGD molecular function deficiency\", \"target\": \"Homogentisic acid accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of HGD activity prevents normal homogentisic acid catabolism.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Homogentisic acid accumulation\", \"target\": \"Elevated urinary homogentisic acid\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excess HGA is excreted in urine and forms the defining urinary phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Homogentisic acid accumulation\", \"target\": \"Increased urinary homogentisic acid\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Urinary HGA measurement is the biochemical diagnostic correlate of systemic HGA accumulation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Homogentisic acid accumulation\", \"target\": \"Nephrolithiasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Urinary tract involvement in alkaptonuria includes renal stones.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"urinary homogentisic acid excess and stone complications\"]}, {\"source\": \"Homogentisic acid accumulation\", \"target\": \"Dark urine\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Urinary HGA oxidizes on standing or air exposure, darkening urine.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Homogentisic acid accumulation\", \"target\": \"HGA oxidative polymerization and ochronotic pigment formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Accumulated HGA undergoes oxidative coupling into ochronotic pigment polymers.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Homogentisic acid accumulation\", \"target\": \"Oxidative stress in chondrocytes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic HGA exposure increases reactive oxygen species and mitochondrial superoxide in chondrocytes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Homogentisic acid accumulation\", \"target\": \"Prostatic calculus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Prostatic calculi are a recognized urinary-tract manifestation of systemic HGA accumulation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Homogentisic acid accumulation\", \"target\": \"Prostatitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Prostatitis is reported in alkaptonuria, although its mechanistic relationship to HGA and prostatic stones is unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Homogentisic acid accumulation\", \"target\": \"Hypothyroidism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypothyroidism is an associated endocrine manifestation; its connection to the HGA pathway is not mechanistically established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"HGA oxidative polymerization and ochronotic pigment formation\", \"target\": \"Ochronotic connective tissue degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"HGA-derived pigment deposits in collagen-rich connective tissues and cartilage.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"ochronotic pigment binding and deposition in connective tissue\"]}, {\"source\": \"Oxidative stress in chondrocytes\", \"target\": \"Autophagy-lysosomal dysfunction in chondrocytes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Prolonged HGA-associated oxidative stress disrupts autophagic flux and lysosomal function.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"chronic HGA exposure and failure of adaptive autophagic flux\"]}, {\"source\": \"Autophagy-lysosomal dysfunction in chondrocytes\", \"target\": \"Ochronotic connective tissue degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Collapse of chondrocyte autophagy-lysosomal homeostasis may contribute to cartilage degeneration.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"chondrocyte degeneration and cartilage damage\"]}, {\"source\": \"Ochronotic connective tissue degeneration\", \"target\": \"Ochronosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"HGA-derived pigment deposition in connective tissue manifests as ochronosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ochronotic connective tissue degeneration\", \"target\": \"Pigmentation of the sclera\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ochronotic pigment can be visible as scleral pigmentation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ochronotic connective tissue degeneration\", \"target\": \"Abnormality of skin pigmentation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ochronotic pigment deposition produces visible skin and connective-tissue pigmentation abnormalities.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ochronotic connective tissue degeneration\", \"target\": \"Irregular hyperpigmentation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ochronotic pigment deposition can manifest as irregular hyperpigmentation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ochronotic connective tissue degeneration\", \"target\": \"Oil-drop brown pigmentation of the corneal limbus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ocular ochronotic pigmentation can involve the corneal limbus.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"ocular connective-tissue pigmentation\"]}, {\"source\": \"Ochronotic connective tissue degeneration\", \"target\": \"Ochronotic osteoarthritis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ochronotic connective-tissue degeneration produces disabling axial and peripheral joint disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ochronotic connective tissue degeneration\", \"target\": \"Arthritis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ochronotic arthropathy includes arthritis of axial and peripheral joints.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ochronotic connective tissue degeneration\", \"target\": \"Arthralgia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pain arises as part of severe ochronotic osteoarthropathy.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"ochronotic osteoarthropathy\"]}, {\"source\": \"Ochronotic connective tissue degeneration\", \"target\": \"Joint stiffness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ochronotic arthropathy and cartilage degeneration produce joint stiffness.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"ochronotic osteoarthropathy\"]}, {\"source\": \"Ochronotic connective tissue degeneration\", \"target\": \"Joint swelling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ochronotic arthropathy can manifest as joint swelling.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"ochronotic osteoarthropathy\"]}, {\"source\": \"Ochronotic connective tissue degeneration\", \"target\": \"Joint dislocation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe ochronotic joint disease can be associated with joint dislocation.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"cartilage degeneration and ochronotic osteoarthropathy\"]}, {\"source\": \"Ochronotic connective tissue degeneration\", \"target\": \"Back pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Axial ochronotic arthropathy involving the spine produces back pain.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"spine ochronotic osteoarthropathy\"]}, {\"source\": \"Ochronotic connective tissue degeneration\", \"target\": \"Intervertebral disk calcification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Spinal connective-tissue degeneration includes intervertebral disk calcification.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"spinal cartilage and disk degeneration\"]}, {\"source\": \"Ochronotic connective tissue degeneration\", \"target\": \"Cartilage calcification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ochronotic cartilage degeneration includes calcification of cartilage.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"cartilage ochronosis\"]}, {\"source\": \"Ochronotic connective tissue degeneration\", \"target\": \"Cartilage destruction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pigment deposition and degeneration can destroy cartilage.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"ochronotic cartilage degeneration\"]}, {\"source\": \"Ochronotic connective tissue degeneration\", \"target\": \"Tendon rupture\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ochronotic involvement of collagen-rich tendon and ligament tissue increases rupture risk.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"ochronotic tendon degeneration\"]}, {\"source\": \"Ochronotic connective tissue degeneration\", \"target\": \"Thickened Achilles tendon\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ochronotic tendon involvement can manifest as Achilles tendon thickening.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"ochronotic tendon degeneration\"]}, {\"source\": \"Ochronotic connective tissue degeneration\", \"target\": \"Hearing abnormality\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ochronotic pigment in ear cartilage can be associated with hearing abnormalities.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"ear cartilage ochronosis\"]}, {\"source\": \"Ochronotic connective tissue degeneration\", \"target\": \"Abnormality of vision\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ocular ochronosis and scleral/corneal pigmentation can contribute to visual abnormalities.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"ocular connective-tissue pigmentation\"]}, {\"source\": \"Ochronotic connective tissue degeneration\", \"target\": \"Aortic valve calcification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ochronotic cardiovascular connective-tissue involvement can produce aortic valve calcification.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"cardiovascular ochronosis and valve calcification\"]}, {\"source\": \"Ochronotic connective tissue degeneration\", \"target\": \"Aortic valve stenosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ochronotic cardiovascular involvement can progress from valve calcification to aortic stenosis.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"aortic valve calcification\"]}, {\"source\": \"Ochronotic connective tissue degeneration\", \"target\": \"Abnormal heart valve morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ochronotic cardiovascular involvement can produce structural heart-valve abnormalities.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"cardiovascular ochronosis and valve calcification\"]}, {\"source\": \"Ochronotic connective tissue degeneration\", \"target\": \"Mitral valve calcification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ochronotic cardiovascular connective-tissue involvement can produce mitral valve calcification.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"cardiovascular ochronosis and valve calcification\"]}, {\"source\": \"Ochronotic connective tissue degeneration\", \"target\": \"Coronary artery calcification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Later cardiovascular complications include coronary artery calcification.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"cardiovascular ochronosis and calcification\"]}, {\"source\": \"Nitisinone therapy\", \"target\": \"Homogentisic acid accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Nitisinone therapy\", \"target\": \"Elevated urinary homogentisic acid\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Nitisinone therapy\", \"target\": \"Ochronosis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Physical and occupational therapy\", \"target\": \"Ochronotic osteoarthritis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Physical and occupational therapy\", \"target\": \"Joint stiffness\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Manifestation-directed surgery\", \"target\": \"Ochronotic osteoarthritis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Manifestation-directed surgery\", \"target\": \"Nephrolithiasis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Manifestation-directed surgery\", \"target\": \"Prostatic calculus\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Manifestation-directed surgery\", \"target\": \"Aortic valve stenosis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Thyroid hormone replacement\", \"target\": \"Hypothyroidism\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Joint-protective activity modification\", \"target\": \"Ochronotic osteoarthritis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Homogentisic acid accumulation\", \"target\": \"Increased urinary homogentisic acid\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated urinary HGA reports the upstream HGD block and systemic HGA accumulation.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"HGD molecular function deficiency\", \"target\": \"Reduced homogentisate 1,2-dioxygenase activity\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Reduced homogentisate 1,2-dioxygenase activity directly reports HGD molecular function deficiency.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"HGD variants\", \"target\": \"HGD molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Biallelic HGD pathogenic variants\", \"target\": \"HGD variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal heart valve morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ochronotic cardiovascular involvement can produce structural heart-valve abnormalities.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001654\"}}, {\"id\": \"Abnormality of skin pigmentation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ochronotic pigment deposition produces visible skin and connective-tissue pigmentation abnormalities.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001000\"}}, {\"id\": \"Abnormality of vision\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Eye involvement in alkaptonuria includes visual abnormalities and ochronotic pigmentation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000504\"}}, {\"id\": \"Aortic valve calcification\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiac valve calcification is a recognized later complication.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004380\"}}, {\"id\": \"Aortic valve stenosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Aortic valve stenosis is a frequent cardiovascular manifestation in Orphanet\u0027s alkaptonuria phenotype table.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001650\"}}, {\"id\": \"Arthralgia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Joint pain is a major manifestation of ochronotic osteoarthropathy.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002829\"}}, {\"id\": \"Arthritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ochronotic arthropathy includes arthritis of axial and peripheral joints.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001369\"}}, {\"id\": \"Autophagy-lysosomal dysfunction in chondrocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Prolonged HGA exposure produces persistent p62 accumulation, reduced LC3/LAMP1 colocalization, altered acidic compartments, and lysosomal failure, consistent with disrupted autophagic flux.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"chondrocyte\"], \"biological_processes\": [\"autophagy\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Back pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Back pain is reported as a frequent axial musculoskeletal manifestation in alkaptonuria.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003418\"}}, {\"id\": \"Biallelic HGD pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Reported pathogenic variants include missense, splice-site, frameshift, nonsense, no-stop, and larger deletion alleles. Residual HGD activity may influence urinary HGA adjusted for protein intake, but genotype does not robustly predict clinical symptoms.\\n\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Cartilage calcification\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cartilage calcification is reported as a very frequent structural manifestation in alkaptonuria.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0100593\"}}, {\"id\": \"Cartilage destruction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cartilage destruction is reported as a frequent structural manifestation in alkaptonuria.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100773\"}}, {\"id\": \"Coronary artery calcification\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Coronary artery calcification is a common cardiovascular complication.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001717\"}}, {\"id\": \"Dark urine\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Urine darkens on standing or exposure to air because HGA oxidizes.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0040319\"}}, {\"id\": \"Elevated urinary homogentisic acid\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Large urinary HGA excretion is the defining biochemical phenotype.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0033704\"}}, {\"id\": \"HGA oxidative polymerization and ochronotic pigment formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HGA slowly polymerizes at physiological pH through semiquinone-mediated oxidative coupling, producing heterogeneous, negatively charged pigment polymers with phenolic ether and biphenyl linkages.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"HGD molecular function deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic HGD pathogenic variants reduce homogentisate 1,2-dioxygenase activity, blocking the homogentisate step of the tyrosine degradation pathway.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"L-tyrosine catabolic process\"], \"molecular_functions\": [\"homogentisate 1,2-dioxygenase activity\"], \"genes\": [\"HGD\"], \"gene_terms\": [{\"label\": \"HGD\", \"id\": \"hgnc:4892\"}]}}, {\"id\": \"HGD variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"HGD\"], \"gene_terms\": [{\"label\": \"HGD\", \"id\": \"hgnc:4892\"}], \"variant_count\": 1}}, {\"id\": \"Hearing abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hearing abnormalities are frequent in the multisystem ochronotic phenotype.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000364\"}}, {\"id\": \"Homogentisic acid accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The HGD block causes homogentisic acid to accumulate in urine, body fluids, and tissues.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"L-tyrosine catabolic process\"]}}, {\"id\": \"Hypothyroidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypothyroidism is an occasional, treatable endocrine manifestation requiring surveillance.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000821\"}}, {\"id\": \"Increased urinary homogentisic acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:44747\", \"term_label\": \"homogentisic acid\", \"readouts\": [{\"target\": \"Homogentisic acid accumulation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated urinary HGA reports the upstream HGD block and systemic HGA accumulation.\"}]}}, {\"id\": \"Intervertebral disk calcification\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intervertebral disk calcification is reported as a very frequent spinal finding in alkaptonuria.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0005645\"}}, {\"id\": \"Irregular hyperpigmentation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Irregular hyperpigmentation is a very frequent pigmentation manifestation in Orphanet\u0027s alkaptonuria phenotype table.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0007400\"}}, {\"id\": \"Joint dislocation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Joint dislocation is reported among very frequent musculoskeletal manifestations in alkaptonuria.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001373\"}}, {\"id\": \"Joint stiffness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Joint stiffness is reported as a very frequent musculoskeletal manifestation in alkaptonuria.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001387\"}}, {\"id\": \"Joint swelling\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Joint swelling is reported as a very frequent musculoskeletal manifestation in alkaptonuria.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001386\"}}, {\"id\": \"Joint-protective activity modification\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Avoiding heavy manual labor, high-impact sports, and other excessive physical stress on the spine and large joints may help limit progression of severe ochronotic arthritis.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Manifestation-directed surgery\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Advanced disease may require knee, hip, or shoulder replacement, removal of renal or prostate stones, or aortic valve replacement for severe stenosis.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Mitral valve calcification\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mitral valve calcification is part of the later cardiac-valve phenotype.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004382\"}}, {\"id\": \"Nephrolithiasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Renal stones can occur as part of multisystem alkaptonuria.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000787\"}}, {\"id\": \"Nitisinone therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Nitisinone inhibits an upstream tyrosine-degradation step to reduce HGA production. In SONIA 2, daily nitisinone markedly reduced urinary HGA and slowed composite clinical progression as measured by cAKUSSI. It increases serum tyrosine and can cause corneal keratopathy; a later arthroplasty analysis did not find a reduction in incident joint replacement.\\n\", \"meta\": {\"evidence_count\": 4, \"therapeutic_agents\": [\"nitisinone\"]}}, {\"id\": \"Ochronosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bluish-black pigmentation of connective tissues is caused by HGA-derived pigment deposition.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0030764\"}}, {\"id\": \"Ochronotic connective tissue degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Oxidized HGA-derived pigment deposits in collagen-rich connective tissues, especially cartilage. This ochronotic pigmentation is associated with visible tissue discoloration and painful axial and large-joint osteoarthropathy.\\n\", \"meta\": {\"evidence_count\": 3, \"locations\": [\"cartilage tissue\", \"connective tissue\"]}}, {\"id\": \"Ochronotic osteoarthritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive ochronotic arthropathy affects the spine and large joints.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002758\"}}, {\"id\": \"Oil-drop brown pigmentation of the corneal limbus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ocular ochronosis can manifest as oil-drop brown pigmentation of the corneal limbus.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:6000027\"}}, {\"id\": \"Oxidative stress in chondrocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic HGA exposure drives reactive oxygen species, lipid peroxidation, and mitochondrial superoxide in chondrocytes.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"chondrocyte\"], \"biological_processes\": [\"response to oxidative stress\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Physical and occupational therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Individualized physical and occupational therapy supports muscle strength, flexibility, mobility, and adaptation to progressive ochronotic arthropathy.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Pigmentation of the sclera\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ochronotic pigment can be visible in the sclera.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0007832\"}}, {\"id\": \"Prostatic calculus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Prostate stones are an occasional genitourinary manifestation of alkaptonuria.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0034882\"}}, {\"id\": \"Prostatitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Prostatitis is a frequent structured Orphanet annotation for alkaptonuria.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000024\"}}, {\"id\": \"Reduced homogentisate 1,2-dioxygenase activity\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"DECREASED\", \"readouts\": [{\"target\": \"HGD molecular function deficiency\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Reduced homogentisate 1,2-dioxygenase activity directly reports HGD molecular function deficiency.\"}]}}, {\"id\": \"Tendon rupture\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Tendon rupture is reported as a frequent manifestation in alkaptonuria.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100550\"}}, {\"id\": \"Thickened Achilles tendon\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Achilles tendon thickening is reported as a frequent tendon manifestation in alkaptonuria.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004690\"}}, {\"id\": \"Thyroid hormone replacement\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Thyroid hormone replacement is used when hypothyroidism occurs in alkaptonuria.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"levothyroxine\"]}}], \"edges\": [{\"source\": \"HGD molecular function deficiency\", \"target\": \"Homogentisic acid accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of HGD activity prevents normal homogentisic acid catabolism.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Homogentisic acid accumulation\", \"target\": \"Elevated urinary homogentisic acid\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excess HGA is excreted in urine and forms the defining urinary phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Homogentisic acid accumulation\", \"target\": \"Increased urinary homogentisic acid\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Urinary HGA measurement is the biochemical diagnostic correlate of systemic HGA accumulation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Homogentisic acid accumulation\", \"target\": \"Nephrolithiasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Urinary tract involvement in alkaptonuria includes renal stones.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"urinary homogentisic acid excess and stone complications\"]}, {\"source\": \"Homogentisic acid accumulation\", \"target\": \"Dark urine\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Urinary HGA oxidizes on standing or air exposure, darkening urine.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Homogentisic acid accumulation\", \"target\": \"HGA oxidative polymerization and ochronotic pigment formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Accumulated HGA undergoes oxidative coupling into ochronotic pigment polymers.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Homogentisic acid accumulation\", \"target\": \"Oxidative stress in chondrocytes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic HGA exposure increases reactive oxygen species and mitochondrial superoxide in chondrocytes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Homogentisic acid accumulation\", \"target\": \"Prostatic calculus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Prostatic calculi are a recognized urinary-tract manifestation of systemic HGA accumulation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Homogentisic acid accumulation\", \"target\": \"Prostatitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Prostatitis is reported in alkaptonuria, although its mechanistic relationship to HGA and prostatic stones is unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Homogentisic acid accumulation\", \"target\": \"Hypothyroidism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypothyroidism is an associated endocrine manifestation; its connection to the HGA pathway is not mechanistically established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"HGA oxidative polymerization and ochronotic pigment formation\", \"target\": \"Ochronotic connective tissue degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"HGA-derived pigment deposits in collagen-rich connective tissues and cartilage.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"ochronotic pigment binding and deposition in connective tissue\"]}, {\"source\": \"Oxidative stress in chondrocytes\", \"target\": \"Autophagy-lysosomal dysfunction in chondrocytes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Prolonged HGA-associated oxidative stress disrupts autophagic flux and lysosomal function.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"chronic HGA exposure and failure of adaptive autophagic flux\"]}, {\"source\": \"Autophagy-lysosomal dysfunction in chondrocytes\", \"target\": \"Ochronotic connective tissue degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Collapse of chondrocyte autophagy-lysosomal homeostasis may contribute to cartilage degeneration.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"chondrocyte degeneration and cartilage damage\"]}, {\"source\": \"Ochronotic connective tissue degeneration\", \"target\": \"Ochronosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"HGA-derived pigment deposition in connective tissue manifests as ochronosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ochronotic connective tissue degeneration\", \"target\": \"Pigmentation of the sclera\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ochronotic pigment can be visible as scleral pigmentation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ochronotic connective tissue degeneration\", \"target\": \"Abnormality of skin pigmentation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ochronotic pigment deposition produces visible skin and connective-tissue pigmentation abnormalities.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ochronotic connective tissue degeneration\", \"target\": \"Irregular hyperpigmentation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ochronotic pigment deposition can manifest as irregular hyperpigmentation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ochronotic connective tissue degeneration\", \"target\": \"Oil-drop brown pigmentation of the corneal limbus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ocular ochronotic pigmentation can involve the corneal limbus.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"ocular connective-tissue pigmentation\"]}, {\"source\": \"Ochronotic connective tissue degeneration\", \"target\": \"Ochronotic osteoarthritis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ochronotic connective-tissue degeneration produces disabling axial and peripheral joint disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ochronotic connective tissue degeneration\", \"target\": \"Arthritis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ochronotic arthropathy includes arthritis of axial and peripheral joints.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ochronotic connective tissue degeneration\", \"target\": \"Arthralgia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pain arises as part of severe ochronotic osteoarthropathy.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"ochronotic osteoarthropathy\"]}, {\"source\": \"Ochronotic connective tissue degeneration\", \"target\": \"Joint stiffness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ochronotic arthropathy and cartilage degeneration produce joint stiffness.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"ochronotic osteoarthropathy\"]}, {\"source\": \"Ochronotic connective tissue degeneration\", \"target\": \"Joint swelling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ochronotic arthropathy can manifest as joint swelling.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"ochronotic osteoarthropathy\"]}, {\"source\": \"Ochronotic connective tissue degeneration\", \"target\": \"Joint dislocation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe ochronotic joint disease can be associated with joint dislocation.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"cartilage degeneration and ochronotic osteoarthropathy\"]}, {\"source\": \"Ochronotic connective tissue degeneration\", \"target\": \"Back pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Axial ochronotic arthropathy involving the spine produces back pain.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"spine ochronotic osteoarthropathy\"]}, {\"source\": \"Ochronotic connective tissue degeneration\", \"target\": \"Intervertebral disk calcification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Spinal connective-tissue degeneration includes intervertebral disk calcification.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"spinal cartilage and disk degeneration\"]}, {\"source\": \"Ochronotic connective tissue degeneration\", \"target\": \"Cartilage calcification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ochronotic cartilage degeneration includes calcification of cartilage.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"cartilage ochronosis\"]}, {\"source\": \"Ochronotic connective tissue degeneration\", \"target\": \"Cartilage destruction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pigment deposition and degeneration can destroy cartilage.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"ochronotic cartilage degeneration\"]}, {\"source\": \"Ochronotic connective tissue degeneration\", \"target\": \"Tendon rupture\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ochronotic involvement of collagen-rich tendon and ligament tissue increases rupture risk.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"ochronotic tendon degeneration\"]}, {\"source\": \"Ochronotic connective tissue degeneration\", \"target\": \"Thickened Achilles tendon\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ochronotic tendon involvement can manifest as Achilles tendon thickening.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"ochronotic tendon degeneration\"]}, {\"source\": \"Ochronotic connective tissue degeneration\", \"target\": \"Hearing abnormality\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ochronotic pigment in ear cartilage can be associated with hearing abnormalities.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"ear cartilage ochronosis\"]}, {\"source\": \"Ochronotic connective tissue degeneration\", \"target\": \"Abnormality of vision\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ocular ochronosis and scleral/corneal pigmentation can contribute to visual abnormalities.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"ocular connective-tissue pigmentation\"]}, {\"source\": \"Ochronotic connective tissue degeneration\", \"target\": \"Aortic valve calcification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ochronotic cardiovascular connective-tissue involvement can produce aortic valve calcification.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"cardiovascular ochronosis and valve calcification\"]}, {\"source\": \"Ochronotic connective tissue degeneration\", \"target\": \"Aortic valve stenosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ochronotic cardiovascular involvement can progress from valve calcification to aortic stenosis.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"aortic valve calcification\"]}, {\"source\": \"Ochronotic connective tissue degeneration\", \"target\": \"Abnormal heart valve morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ochronotic cardiovascular involvement can produce structural heart-valve abnormalities.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"cardiovascular ochronosis and valve calcification\"]}, {\"source\": \"Ochronotic connective tissue degeneration\", \"target\": \"Mitral valve calcification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ochronotic cardiovascular connective-tissue involvement can produce mitral valve calcification.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"cardiovascular ochronosis and valve calcification\"]}, {\"source\": \"Ochronotic connective tissue degeneration\", \"target\": \"Coronary artery calcification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Later cardiovascular complications include coronary artery calcification.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"cardiovascular ochronosis and calcification\"]}, {\"source\": \"Nitisinone therapy\", \"target\": \"Homogentisic acid accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Nitisinone therapy\", \"target\": \"Elevated urinary homogentisic acid\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Nitisinone therapy\", \"target\": \"Ochronosis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Physical and occupational therapy\", \"target\": \"Ochronotic osteoarthritis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Physical and occupational therapy\", \"target\": \"Joint stiffness\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Manifestation-directed surgery\", \"target\": \"Ochronotic osteoarthritis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Manifestation-directed surgery\", \"target\": \"Nephrolithiasis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Manifestation-directed surgery\", \"target\": \"Prostatic calculus\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Manifestation-directed surgery\", \"target\": \"Aortic valve stenosis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Thyroid hormone replacement\", \"target\": \"Hypothyroidism\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Joint-protective activity modification\", \"target\": \"Ochronotic osteoarthritis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Homogentisic acid accumulation\", \"target\": \"Increased urinary homogentisic acid\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated urinary HGA reports the upstream HGD block and systemic HGA accumulation.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"HGD molecular function deficiency\", \"target\": \"Reduced homogentisate 1,2-dioxygenase activity\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Reduced homogentisate 1,2-dioxygenase activity directly reports HGD molecular function deficiency.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"HGD variants\", \"target\": \"HGD molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Biallelic HGD pathogenic variants\", \"target\": \"HGD variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5736,21 +5844,25 @@ This pathophysiological event occurs in connective tissue (UBERON:0002384). UBER
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(5)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Endocrine<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Ear<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Genitourinary<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Endocrine<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Integument<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Eye<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Metabolism<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Genitourinary<span class="pill-count">(5)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Musculoskeletal<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Integument<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Constitutional<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Limbs<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Other<span class="pill-count">(17)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Metabolism<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Musculoskeletal<span class="pill-count">(8)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Constitutional<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5760,8 +5872,307 @@ This pathophysiological event occurs in connective tissue (UBERON:0002384). UBER
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">5</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-aortic-valve-calcification" data-dismech-node="Aortic valve calcification" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Aortic valve calcification
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004380" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0004380</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Aortic valve calcification (HP:0004380). HP:0004380 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:56" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:56" target="_blank">ORPHA:56</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0004380 | Aortic valve calcification | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet reports aortic valve calcification as frequent.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301627" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301627" target="_blank">PMID:20301627</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"pigment in the sclera, ear cartilage, and skin of the hands; aortic or mitral
+valve calcification or regurgitation and occasionally aortic dilatation; renal"</div>
+
+
+                <div class="evidence-explanation">GeneReviews supports cardiac valve calcification as a manifestation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-coronary-artery-calcification" data-dismech-node="Coronary artery calcification" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Coronary artery calcification
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001717" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001717</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Coronary artery calcification (HP:0001717). HP:0001717 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:56" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:56" target="_blank">ORPHA:56</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0001717 | Coronary artery calcification | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet reports coronary artery calcification as very frequent.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301627" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301627" target="_blank">PMID:20301627</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"CT imaging to detect coronary artery calcification."</div>
+
+
+                <div class="evidence-explanation">GeneReviews surveillance guidance supports coronary artery calcification as a recognized manifestation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-mitral-valve-calcification" data-dismech-node="Mitral valve calcification" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Mitral valve calcification
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004382" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0004382</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Mitral valve calcification (HP:0004382). HP:0004382 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:56" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:56" target="_blank">ORPHA:56</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0004382 | Mitral valve calcification | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet reports mitral valve calcification as frequent.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301627" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301627" target="_blank">PMID:20301627</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"pigment in the sclera, ear cartilage, and skin of the hands; aortic or mitral
+valve calcification or regurgitation and occasionally aortic dilatation; renal"</div>
+
+
+                <div class="evidence-explanation">GeneReviews lists aortic or mitral valve calcification among manifestations.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-aortic-valve-stenosis" data-dismech-node="Aortic valve stenosis" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -5779,15 +6190,18 @@ This pathophysiological event occurs in connective tissue (UBERON:0002384). UBER
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001650</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001650</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Aortic valve stenosis (HP:0001650). HP:0001650 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5807,6 +6221,7 @@ This clinical feature is Aortic valve stenosis (HP:0001650). HP:0001650 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5849,15 +6264,18 @@ This clinical feature is Aortic valve stenosis (HP:0001650). HP:0001650 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001654" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001654</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001654" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001654</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal heart valve morphology (HP:0001654). HP:0001654 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5877,6 +6295,7 @@ This clinical feature is Abnormal heart valve morphology (HP:0001654). HP:000165
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5908,6 +6327,89 @@ This clinical feature is Abnormal heart valve morphology (HP:0001654). HP:000165
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Ear
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hearing-abnormality" data-dismech-node="Hearing abnormality" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hearing abnormality
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000364" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000364</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hearing abnormality (HP:0000364). HP:0000364 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:56" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:56" target="_blank">ORPHA:56</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0000364 | Hearing abnormality | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet reports hearing abnormality as very frequent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Endocrine
                     <span class="cat-count">1</span>
                 </summary>
@@ -5928,15 +6430,18 @@ This clinical feature is Abnormal heart valve morphology (HP:0001654). HP:000165
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000821" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000821</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000821" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000821</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5956,6 +6461,7 @@ This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5980,6 +6486,7 @@ This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6008,16 +6515,90 @@ This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-3">
+            <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Genitourinary
-                    <span class="cat-count">2</span>
+                    Eye
+                    <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-dark-urine" data-dismech-node="Dark urine" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormality-of-vision" data-dismech-node="Abnormality of vision" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Dark urine
+                        Abnormality of vision
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000504" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000504</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormality of vision (HP:0000504). HP:0000504 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:56" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:56" target="_blank">ORPHA:56</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0000504 | Abnormality of vision | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet reports abnormality of vision as very frequent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pigmentation-of-the-sclera" data-dismech-node="Pigmentation of the sclera" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Pigmentation of the sclera
 
                         <span class="phenotype-freq">FREQUENT</span>
 
@@ -6031,15 +6612,18 @@ This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0040319" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0040319</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007832" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0007832</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Dark urine (HP:0040319). HP:0040319 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Pigmentation of the sclera (HP:0007832). HP:0007832 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6059,6 +6643,288 @@ This clinical feature is Dark urine (HP:0040319). HP:0040319 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0007832 | Pigmentation of the sclera | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet reports pigmentation of the sclera as frequent.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301627" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301627" target="_blank">PMID:20301627</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"pigment in the sclera, ear cartilage, and skin of the hands;"</div>
+
+
+                <div class="evidence-explanation">GeneReviews supports scleral pigmentation as a manifestation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-oil-drop-brown-pigmentation-of-the-corneal-limbus" data-dismech-node="Oil-drop brown pigmentation of the corneal limbus" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Oil-drop brown pigmentation of the corneal limbus
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_6000027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:6000027</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Oil-drop brown pigmentation of the corneal limbus (HP:6000027). HP:6000027 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:56" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:56" target="_blank">ORPHA:56</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:6000027 | Oil-drop brown pigmentation of the corneal limbus | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet reports oil-drop brown pigmentation of the corneal limbus as frequent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Genitourinary
+                    <span class="cat-count">5</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-elevated-urinary-homogentisic-acid" data-dismech-node="Elevated urinary homogentisic acid" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Elevated urinary homogentisic acid
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033704" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0033704</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Elevated urinary homogentisic acid (HP:0033704). HP:0033704 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:56" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:56" target="_blank">ORPHA:56</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0033704 | Elevated urinary homogentisic acid | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet reports elevated urinary homogentisic acid as very frequent.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301627" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301627" target="_blank">PMID:20301627</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"DIAGNOSIS/TESTING: The biochemical diagnosis of alkaptonuria in a proband is"</div>
+
+
+                <div class="evidence-explanation">GeneReviews identifies urinary HGA as the biochemical diagnostic marker.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dark-urine" data-dismech-node="Dark urine" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Dark urine
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0040319" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0040319</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dark urine (HP:0040319). HP:0040319 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:56" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:56" target="_blank">ORPHA:56</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6083,6 +6949,7 @@ This clinical feature is Dark urine (HP:0040319). HP:0040319 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6125,15 +6992,18 @@ This clinical feature is Dark urine (HP:0040319). HP:0040319 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000787" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000787</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000787" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000787</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Nephrolithiasis (HP:0000787). HP:0000787 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6153,6 +7023,7 @@ This clinical feature is Nephrolithiasis (HP:0000787). HP:0000787 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6180,6 +7051,7 @@ This clinical feature is Nephrolithiasis (HP:0000787). HP:0000787 is a phenotype
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6203,20 +7075,11 @@ This clinical feature is Nephrolithiasis (HP:0000787). HP:0000787 is a phenotype
 
                 </div>
 
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Integument
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormality-of-skin-pigmentation" data-dismech-node="Abnormality of skin pigmentation" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-prostatic-calculus" data-dismech-node="Prostatic calculus" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Abnormality of skin pigmentation
+                        Prostatic calculus
 
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
+                        <span class="phenotype-freq">OCCASIONAL</span>
 
 
 
@@ -6228,15 +7091,117 @@ This clinical feature is Nephrolithiasis (HP:0000787). HP:0000787 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001000" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001000</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0034882" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0034882</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormality of skin pigmentation (HP:0001000). HP:0001000 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Prostatic calculus (HP:0034882). HP:0034882 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:56" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:56" target="_blank">ORPHA:56</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0034882 | Prostatic calculus | Occasional (29-5%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet reports prostatic calculus as occasional.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301627" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301627" target="_blank">PMID:20301627</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"stones; prostate stones; and hypothyroidism."</div>
+
+
+                <div class="evidence-explanation">GeneReviews lists prostate stones among other clinical manifestations.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-prostatitis" data-dismech-node="Prostatitis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Prostatitis
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000024" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000024</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Prostatitis (HP:0000024). HP:0000024 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
 
 
 
@@ -6256,6 +7221,189 @@ This clinical feature is Abnormality of skin pigmentation (HP:0001000). HP:00010
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0000024 | Prostatitis | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet reports prostatitis as frequent; no specific mechanism is asserted.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-6">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Integument
+                    <span class="cat-count">3</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-ochronosis" data-dismech-node="Ochronosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Ochronosis
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030764" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0030764</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ochronosis (HP:0030764). HP:0030764 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:56" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:56" target="_blank">ORPHA:56</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0030764 | Ochronosis | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet reports ochronosis as very frequent.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38453957" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38453957" target="_blank">PMID:38453957</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"debilitating disease whose main features are dark urine, ochronosis (HGA-derived"</div>
+
+
+                <div class="evidence-explanation">Disease primer identifies ochronosis as a main feature.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormality-of-skin-pigmentation" data-dismech-node="Abnormality of skin pigmentation" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Abnormality of skin pigmentation
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001000" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001000</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormality of skin pigmentation (HP:0001000). HP:0001000 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:56" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:56" target="_blank">ORPHA:56</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6282,9 +7430,166 @@ This clinical feature is Abnormality of skin pigmentation (HP:0001000). HP:00010
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-irregular-hyperpigmentation" data-dismech-node="Irregular hyperpigmentation" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Irregular hyperpigmentation
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007400" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0007400</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Irregular hyperpigmentation (HP:0007400). HP:0007400 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:56" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:56" target="_blank">ORPHA:56</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0007400 | Irregular hyperpigmentation | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet reports irregular hyperpigmentation as very frequent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-5">
+            <details class="phenotype-category-group" id="pheno-cat-7">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Limbs
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-thickened-achilles-tendon" data-dismech-node="Thickened Achilles tendon" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Thickened Achilles tendon
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004690" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0004690</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Thickened Achilles tendon (HP:0004690). HP:0004690 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:56" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:56" target="_blank">ORPHA:56</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0004690 | Thickened Achilles tendon | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet reports thickened Achilles tendon as frequent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-8">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
@@ -6307,15 +7612,18 @@ This clinical feature is Abnormality of skin pigmentation (HP:0001000). HP:00010
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001386" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001386</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001386" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001386</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Joint swelling (HP:0001386). HP:0001386 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6335,6 +7643,7 @@ This clinical feature is Joint swelling (HP:0001386). HP:0001386 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6363,11 +7672,11 @@ This clinical feature is Joint swelling (HP:0001386). HP:0001386 is a phenotype 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-6">
+            <details class="phenotype-category-group" id="pheno-cat-9">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
-                    <span class="cat-count">4</span>
+                    <span class="cat-count">8</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-ochronotic-osteoarthritis" data-dismech-node="Ochronotic osteoarthritis" data-dismech-type="phenotype">
@@ -6386,15 +7695,18 @@ This clinical feature is Joint swelling (HP:0001386). HP:0001386 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002758" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002758</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002758" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002758</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Osteoarthritis (HP:0002758). HP:0002758 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6414,6 +7726,7 @@ This clinical feature is Osteoarthritis (HP:0002758). HP:0002758 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6438,6 +7751,7 @@ This clinical feature is Osteoarthritis (HP:0002758). HP:0002758 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6480,15 +7794,18 @@ This clinical feature is Osteoarthritis (HP:0002758). HP:0002758 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001387" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001387</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001387" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001387</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Joint stiffness (HP:0001387). HP:0001387 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6508,6 +7825,7 @@ This clinical feature is Joint stiffness (HP:0001387). HP:0001387 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6550,15 +7868,18 @@ This clinical feature is Joint stiffness (HP:0001387). HP:0001387 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001373" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001373</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001373" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001373</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Joint dislocation (HP:0001373). HP:0001373 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6578,6 +7899,7 @@ This clinical feature is Joint dislocation (HP:0001373). HP:0001373 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6589,446 +7911,6 @@ This clinical feature is Joint dislocation (HP:0001373). HP:0001373 is a phenoty
 
 
                 <div class="evidence-explanation">Orphanet reports joint dislocation as very frequent.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-arthritis" data-dismech-node="Arthritis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Arthritis
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001369" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001369</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Arthritis (HP:0001369). HP:0001369 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:56" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:56" target="_blank">ORPHA:56</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0001369 | Arthritis | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet reports arthritis as very frequent.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-7">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Constitutional
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-arthralgia" data-dismech-node="Arthralgia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Arthralgia
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002829</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:56" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:56" target="_blank">ORPHA:56</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0002829 | Arthralgia | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet reports arthralgia as very frequent.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38453957" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38453957" target="_blank">PMID:38453957</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"painful and severe form of"</div>
-
-
-                <div class="evidence-explanation">Disease primer describes painful osteoarthropathy as a main feature.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-back-pain" data-dismech-node="Back pain" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Back pain
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003418" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0003418</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Back pain (HP:0003418). HP:0003418 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:56" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:56" target="_blank">ORPHA:56</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0003418 | Back pain | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet reports back pain as frequent.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-8">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">17</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-elevated-urinary-homogentisic-acid" data-dismech-node="Elevated urinary homogentisic acid" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Elevated urinary homogentisic acid
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0033704" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0033704</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Elevated urinary homogentisic acid (HP:0033704). HP:0033704 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:56" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:56" target="_blank">ORPHA:56</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0033704 | Elevated urinary homogentisic acid | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet reports elevated urinary homogentisic acid as very frequent.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20301627" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301627" target="_blank">PMID:20301627</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"DIAGNOSIS/TESTING: The biochemical diagnosis of alkaptonuria in a proband is"</div>
-
-
-                <div class="evidence-explanation">GeneReviews identifies urinary HGA as the biochemical diagnostic marker.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-ochronosis" data-dismech-node="Ochronosis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Ochronosis
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030764" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0030764</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Ochronosis (HP:0030764). HP:0030764 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:56" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:56" target="_blank">ORPHA:56</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0030764 | Ochronosis | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet reports ochronosis as very frequent.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38453957" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38453957" target="_blank">PMID:38453957</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"debilitating disease whose main features are dark urine, ochronosis (HGA-derived"</div>
-
-
-                <div class="evidence-explanation">Disease primer identifies ochronosis as a main feature.</div>
 
 
 
@@ -7060,15 +7942,18 @@ This clinical feature is Ochronosis (HP:0030764). HP:0030764 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005645" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0005645</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005645" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0005645</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intervertebral disk calcification (HP:0005645). HP:0005645 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7088,6 +7973,7 @@ This clinical feature is Intervertebral disk calcification (HP:0005645). HP:0005
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7132,15 +8018,18 @@ This clinical feature is Intervertebral disk calcification (HP:0005645). HP:0005
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100593" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0100593</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100593" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0100593</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Calcification of cartilage (HP:0100593). HP:0100593 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7160,6 +8049,7 @@ This clinical feature is Calcification of cartilage (HP:0100593). HP:0100593 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7202,15 +8092,18 @@ This clinical feature is Calcification of cartilage (HP:0100593). HP:0100593 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100773" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0100773</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100773" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0100773</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cartilage destruction (HP:0100773). HP:0100773 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7230,6 +8123,7 @@ This clinical feature is Cartilage destruction (HP:0100773). HP:0100773 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7272,15 +8166,18 @@ This clinical feature is Cartilage destruction (HP:0100773). HP:0100773 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100550" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0100550</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100550" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0100550</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Tendon rupture (HP:0100550). HP:0100550 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7300,6 +8197,7 @@ This clinical feature is Tendon rupture (HP:0100550). HP:0100550 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7327,6 +8225,7 @@ This clinical feature is Tendon rupture (HP:0100550). HP:0100550 is a phenotype 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7350,174 +8249,9 @@ This clinical feature is Tendon rupture (HP:0100550). HP:0100550 is a phenotype 
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-thickened-achilles-tendon" data-dismech-node="Thickened Achilles tendon" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-arthritis" data-dismech-node="Arthritis" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Thickened Achilles tendon
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004690" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0004690</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Thickened Achilles tendon (HP:0004690). HP:0004690 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:56" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:56" target="_blank">ORPHA:56</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0004690 | Thickened Achilles tendon | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet reports thickened Achilles tendon as frequent.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-aortic-valve-calcification" data-dismech-node="Aortic valve calcification" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Aortic valve calcification
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004380" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0004380</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Aortic valve calcification (HP:0004380). HP:0004380 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:56" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:56" target="_blank">ORPHA:56</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0004380 | Aortic valve calcification | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet reports aortic valve calcification as frequent.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20301627" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301627" target="_blank">PMID:20301627</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"pigment in the sclera, ear cartilage, and skin of the hands; aortic or mitral
-valve calcification or regurgitation and occasionally aortic dilatation; renal"</div>
-
-
-                <div class="evidence-explanation">GeneReviews supports cardiac valve calcification as a manifestation.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-coronary-artery-calcification" data-dismech-node="Coronary artery calcification" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Coronary artery calcification
+                        Arthritis
 
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
@@ -7531,508 +8265,101 @@ valve calcification or regurgitation and occasionally aortic dilatation; renal"<
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001717" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001717</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Coronary artery calcification (HP:0001717). HP:0001717 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:56" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:56" target="_blank">ORPHA:56</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0001717 | Coronary artery calcification | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet reports coronary artery calcification as very frequent.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20301627" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301627" target="_blank">PMID:20301627</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"CT imaging to detect coronary artery calcification."</div>
-
-
-                <div class="evidence-explanation">GeneReviews surveillance guidance supports coronary artery calcification as a recognized manifestation.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-mitral-valve-calcification" data-dismech-node="Mitral valve calcification" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Mitral valve calcification
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004382" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0004382</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Mitral valve calcification (HP:0004382). HP:0004382 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:56" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:56" target="_blank">ORPHA:56</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0004382 | Mitral valve calcification | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet reports mitral valve calcification as frequent.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20301627" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301627" target="_blank">PMID:20301627</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"pigment in the sclera, ear cartilage, and skin of the hands; aortic or mitral
-valve calcification or regurgitation and occasionally aortic dilatation; renal"</div>
-
-
-                <div class="evidence-explanation">GeneReviews lists aortic or mitral valve calcification among manifestations.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-prostatic-calculus" data-dismech-node="Prostatic calculus" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Prostatic calculus
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0034882" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0034882</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Prostatic calculus (HP:0034882). HP:0034882 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:56" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:56" target="_blank">ORPHA:56</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0034882 | Prostatic calculus | Occasional (29-5%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet reports prostatic calculus as occasional.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20301627" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301627" target="_blank">PMID:20301627</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"stones; prostate stones; and hypothyroidism."</div>
-
-
-                <div class="evidence-explanation">GeneReviews lists prostate stones among other clinical manifestations.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-prostatitis" data-dismech-node="Prostatitis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Prostatitis
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000024" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0000024</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Prostatitis (HP:0000024). HP:0000024 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:56" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:56" target="_blank">ORPHA:56</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0000024 | Prostatitis | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet reports prostatitis as frequent; no specific mechanism is asserted.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hearing-abnormality" data-dismech-node="Hearing abnormality" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hearing abnormality
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000364" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0000364</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hearing abnormality (HP:0000364). HP:0000364 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:56" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:56" target="_blank">ORPHA:56</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0000364 | Hearing abnormality | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet reports hearing abnormality as very frequent.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormality-of-vision" data-dismech-node="Abnormality of vision" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Abnormality of vision
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000504" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0000504</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Abnormality of vision (HP:0000504). HP:0000504 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:56" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:56" target="_blank">ORPHA:56</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0000504 | Abnormality of vision | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet reports abnormality of vision as very frequent.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-pigmentation-of-the-sclera" data-dismech-node="Pigmentation of the sclera" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Pigmentation of the sclera
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007832" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0007832</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001369" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0001369</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Pigmentation of the sclera (HP:0007832). HP:0007832 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Arthritis (HP:0001369). HP:0001369 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:56" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:56" target="_blank">ORPHA:56</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0001369 | Arthritis | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet reports arthritis as very frequent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-10">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Constitutional
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-arthralgia" data-dismech-node="Arthralgia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Arthralgia
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0002829</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
 
 
 
@@ -8055,23 +8382,24 @@ This clinical feature is Pigmentation of the sclera (HP:0007832). HP:0007832 is 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
-                <div class="evidence-snippet">"HP:0007832 | Pigmentation of the sclera | Frequent (79-30%)"</div>
+                <div class="evidence-snippet">"HP:0002829 | Arthralgia | Very frequent (99-80%)"</div>
 
 
-                <div class="evidence-explanation">Orphanet reports pigmentation of the sclera as frequent.</div>
+                <div class="evidence-explanation">Orphanet reports arthralgia as very frequent.</div>
 
 
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:20301627" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:38453957" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301627" target="_blank">PMID:20301627</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38453957" target="_blank">PMID:38453957</a>
                     </span>
 
 
@@ -8079,14 +8407,15 @@ This clinical feature is Pigmentation of the sclera (HP:0007832). HP:0007832 is 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
-                <div class="evidence-snippet">"pigment in the sclera, ear cartilage, and skin of the hands;"</div>
+                <div class="evidence-snippet">"painful and severe form of"</div>
 
 
-                <div class="evidence-explanation">GeneReviews supports scleral pigmentation as a manifestation.</div>
+                <div class="evidence-explanation">Disease primer describes painful osteoarthropathy as a main feature.</div>
 
 
 
@@ -8102,79 +8431,9 @@ This clinical feature is Pigmentation of the sclera (HP:0007832). HP:0007832 is 
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-irregular-hyperpigmentation" data-dismech-node="Irregular hyperpigmentation" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-back-pain" data-dismech-node="Back pain" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Irregular hyperpigmentation
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007400" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0007400</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Irregular hyperpigmentation (HP:0007400). HP:0007400 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:56" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:56" target="_blank">ORPHA:56</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0007400 | Irregular hyperpigmentation | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet reports irregular hyperpigmentation as very frequent.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-oil-drop-brown-pigmentation-of-the-corneal-limbus" data-dismech-node="Oil-drop brown pigmentation of the corneal limbus" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Oil-drop brown pigmentation of the corneal limbus
+                        Back pain
 
                         <span class="phenotype-freq">FREQUENT</span>
 
@@ -8188,15 +8447,18 @@ This clinical feature is Irregular hyperpigmentation (HP:0007400). HP:0007400 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_6000027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:6000027</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003418" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0003418</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Oil-drop brown pigmentation of the corneal limbus (HP:6000027). HP:6000027 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Back pain (HP:0003418). HP:0003418 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8219,14 +8481,15 @@ This clinical feature is Oil-drop brown pigmentation of the corneal limbus (HP:6
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
-                <div class="evidence-snippet">"HP:6000027 | Oil-drop brown pigmentation of the corneal limbus | Frequent (79-30%)"</div>
+                <div class="evidence-snippet">"HP:0003418 | Back pain | Frequent (79-30%)"</div>
 
 
-                <div class="evidence-explanation">Orphanet reports oil-drop brown pigmentation of the corneal limbus as frequent.</div>
+                <div class="evidence-explanation">Orphanet reports back pain as frequent.</div>
 
 
 
@@ -8310,6 +8573,9 @@ This disease-associated gene is HGD (hgnc:4892). hgnc:4892 is a gene from the HU
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
@@ -8335,6 +8601,7 @@ This disease-associated gene is HGD (hgnc:4892). hgnc:4892 is a gene from the HU
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8356,6 +8623,7 @@ This disease-associated gene is HGD (hgnc:4892). hgnc:4892 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8390,6 +8658,12 @@ This disease-associated gene is HGD (hgnc:4892). hgnc:4892 is a gene from the HU
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Reported pathogenic variants include missense, splice-site, frameshift, nonsense, no-stop, and larger deletion alleles. Residual HGD activity may influence urinary HGA adjusted for protein intake, but genotype does not robustly predict clinical symptoms.
 </div>
 
@@ -8418,6 +8692,7 @@ This disease-associated gene is HGD (hgnc:4892). hgnc:4892 is a gene from the HU
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8442,6 +8717,7 @@ This disease-associated gene is HGD (hgnc:4892). hgnc:4892 is a gene from the HU
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8463,6 +8739,7 @@ This disease-associated gene is HGD (hgnc:4892). hgnc:4892 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8549,6 +8826,7 @@ This disease-associated gene is HGD (hgnc:4892). hgnc:4892 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8647,6 +8925,31 @@ This treatment uses nitisinone (CHEBI:50378). CHEBI:50378 is a therapeutic agent
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Nitisinone inhibits an upstream tyrosine-degradation step to reduce HGA production. In SONIA 2, daily nitisinone markedly reduced urinary HGA and slowed composite clinical progression as measured by cAKUSSI. It increases serum tyrosine and can cause corneal keratopathy; a later arthroplasty analysis did not find a reduction in incident joint replacement.
 </div>
 
@@ -8678,6 +8981,7 @@ This treatment uses nitisinone (CHEBI:50378). CHEBI:50378 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8763,6 +9067,7 @@ This treatment targets Ochronosis (HP:0030764). HP:0030764 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8787,6 +9092,7 @@ This treatment targets Ochronosis (HP:0030764). HP:0030764 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8808,6 +9114,7 @@ This treatment targets Ochronosis (HP:0030764). HP:0030764 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8869,6 +9176,31 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -8938,6 +9270,7 @@ This treatment targets Joint stiffness (HP:0001387). HP:0001387 is a phenotype f
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8994,6 +9327,31 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -9097,6 +9455,7 @@ This treatment targets Aortic valve stenosis (HP:0001650). HP:0001650 is a pheno
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9179,6 +9538,31 @@ This treatment uses levothyroxine, annotated with L-thyroxine (CHEBI:18332). CHE
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Thyroid hormone replacement is used when hypothyroidism occurs in alkaptonuria.</div>
 
 
@@ -9222,6 +9606,7 @@ This treatment targets Hypothyroidism (HP:0000821). HP:0000821 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9286,6 +9671,31 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">A low-protein diet, sometimes supplemented with a low-tyrosine protein substitute, is used to manage nitisinone-induced tyrosinemia and reduce the risk of corneal keratopathy; it is supportive management rather than an HGD-correcting therapy.
 </div>
 
@@ -9311,6 +9721,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9332,6 +9743,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9396,6 +9808,31 @@ This treatment is rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Avoiding heavy manual labor, high-impact sports, and other excessive physical stress on the spine and large joints may help limit progression of severe ochronotic arthritis.
 </div>
 
@@ -9440,6 +9877,7 @@ This treatment targets Osteoarthritis (HP:0002758). HP:0002758 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9532,6 +9970,7 @@ This treatment targets Osteoarthritis (HP:0002758). HP:0002758 is a phenotype fr
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9574,6 +10013,7 @@ This treatment targets Osteoarthritis (HP:0002758). HP:0002758 is a phenotype fr
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9595,6 +10035,7 @@ This treatment targets Osteoarthritis (HP:0002758). HP:0002758 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9672,6 +10113,7 @@ This treatment targets Osteoarthritis (HP:0002758). HP:0002758 is a phenotype fr
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9714,6 +10156,7 @@ This treatment targets Osteoarthritis (HP:0002758). HP:0002758 is a phenotype fr
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9735,6 +10178,7 @@ This treatment targets Osteoarthritis (HP:0002758). HP:0002758 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9842,6 +10286,7 @@ This treatment targets Osteoarthritis (HP:0002758). HP:0002758 is a phenotype fr
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9932,6 +10377,7 @@ This treatment targets Osteoarthritis (HP:0002758). HP:0002758 is a phenotype fr
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9953,6 +10399,7 @@ This treatment targets Osteoarthritis (HP:0002758). HP:0002758 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10046,6 +10493,7 @@ This treatment targets Osteoarthritis (HP:0002758). HP:0002758 is a phenotype fr
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10136,6 +10584,7 @@ This treatment targets Osteoarthritis (HP:0002758). HP:0002758 is a phenotype fr
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10202,6 +10651,7 @@ This treatment targets Osteoarthritis (HP:0002758). HP:0002758 is a phenotype fr
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10226,6 +10676,7 @@ This treatment targets Osteoarthritis (HP:0002758). HP:0002758 is a phenotype fr
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10247,6 +10698,7 @@ This treatment targets Osteoarthritis (HP:0002758). HP:0002758 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10322,6 +10774,7 @@ This treatment targets Osteoarthritis (HP:0002758). HP:0002758 is a phenotype fr
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10343,6 +10796,7 @@ This treatment targets Osteoarthritis (HP:0002758). HP:0002758 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10575,6 +11029,7 @@ This clinical trial targets Ochronosis (HP:0030764). HP:0030764 is a phenotype f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10596,6 +11051,7 @@ This clinical trial targets Ochronosis (HP:0030764). HP:0030764 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10697,6 +11153,7 @@ This clinical trial targets Ochronosis (HP:0030764). HP:0030764 is a phenotype f
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10718,6 +11175,7 @@ This clinical trial targets Ochronosis (HP:0030764). HP:0030764 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12868,6 +13326,8 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

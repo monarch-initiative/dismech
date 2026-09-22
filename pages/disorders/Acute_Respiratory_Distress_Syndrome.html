@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4132,6 +4204,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4193,6 +4266,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4263,6 +4337,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4284,6 +4359,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4349,6 +4425,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4370,6 +4447,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4699,6 +4777,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4790,6 +4869,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4876,6 +4956,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4910,6 +4991,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-direct-pulmonary-or-indirect-systemic-insult" data-dismech-node="Direct Pulmonary or Indirect Systemic Insult" data-dismech-type="pathophysiology">
                 <div class="item-name">Direct Pulmonary or Indirect Systemic Insult</div>
+
 
                 <div class="item-desc">Pneumonia, aspiration, inhalational injury, or lung contusion can directly injure the lung, whereas sepsis, pancreatitis, major trauma, shock, burns, and transfusion can initiate systemic inflammation and endothelial injury. These heterogeneous triggers converge on acute diffuse lung injury.</div>
 
@@ -5023,6 +5105,7 @@ This pathophysiological event occurs in Alveolus of lung (UBERON:0002299). UBERO
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5045,6 +5128,7 @@ This pathophysiological event occurs in Alveolus of lung (UBERON:0002299). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-alveolar-macrophage-and-cytokine-activation" data-dismech-node="Alveolar Macrophage and Cytokine Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Alveolar Macrophage and Cytokine Activation</div>
+
 
                 <div class="item-desc">Alveolar macrophages recognize pathogen- or damage-associated molecular patterns and adopt a proinflammatory program. Cytokines and chemokines, including TNF, IL-1 beta, and CXCL8/IL-8, amplify local inflammation and recruit circulating neutrophils.</div>
 
@@ -5274,6 +5358,7 @@ This pathophysiological event involves increased Inflammatory response (GO:00069
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5296,6 +5381,7 @@ This pathophysiological event involves increased Inflammatory response (GO:00069
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neutrophil-oxidative-and-proteolytic-injury" data-dismech-node="Neutrophil Oxidative and Proteolytic Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Neutrophil Oxidative and Proteolytic Injury</div>
+
 
                 <div class="item-desc">Recruited neutrophils traverse the pulmonary microvascular and epithelial barriers and release reactive oxygen species, proteases, lipid mediators, and extracellular traps. These antimicrobial responses become injurious when diffuse or persistent and contribute to epithelial and endothelial damage.</div>
 
@@ -5477,6 +5563,7 @@ This pathophysiological event involves increased Reactive oxygen species metabol
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5498,6 +5585,7 @@ This pathophysiological event involves increased Reactive oxygen species metabol
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5523,6 +5611,7 @@ This pathophysiological event involves increased Reactive oxygen species metabol
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-immunometabolic-reprogramming-and-mitochondrial-dysfunction" data-dismech-node="Immunometabolic Reprogramming and Mitochondrial Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Immunometabolic Reprogramming and Mitochondrial Dysfunction</div>
+
 
                 <div class="item-desc">Immune and structural lung cells can shift toward glycolysis while mitochondrial oxidative phosphorylation and redox control deteriorate. Lactate, succinate, extracellular ATP, and mitochondrial danger signals may then act as signaling mediators that sustain inflammatory activation and impair energetically demanding barrier repair. This is modeled as an emerging modifier rather than a required step in every patient.</div>
 
@@ -5841,6 +5930,7 @@ This pathophysiological event involves increased Reactive oxygen species metabol
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5862,6 +5952,7 @@ This pathophysiological event involves increased Reactive oxygen species metabol
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5887,6 +5978,7 @@ This pathophysiological event involves increased Reactive oxygen species metabol
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ventilator-induced-lung-injury" data-dismech-node="Ventilator-Induced Lung Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Ventilator-Induced Lung Injury</div>
+
 
                 <div class="item-desc">Positive-pressure ventilation can amplify established ARDS through overdistension, cyclic opening and closing, and patient-ventilator dyssynchrony. Lung-protective tidal volumes and, in selected early severe disease, neuromuscular blockade limit this iatrogenic stretch-injury loop.</div>
 
@@ -6000,6 +6092,7 @@ This pathophysiological event occurs in Alveolus of lung (UBERON:0002299). UBERO
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6022,6 +6115,7 @@ This pathophysiological event occurs in Alveolus of lung (UBERON:0002299). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-alveolar-capillary-barrier-disruption" data-dismech-node="Alveolar-Capillary Barrier Disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">Alveolar-Capillary Barrier Disruption</div>
+
 
                 <div class="item-desc">Injury to pulmonary capillary endothelial cells and pulmonary alveolar type 1 and type 2 cells disrupts intercellular junctions, ion transport, and barrier selectivity. The resulting rise in vascular and epithelial permeability allows protein-rich fluid and inflammatory cells to enter the interstitium and alveolar space.</div>
 
@@ -6296,6 +6390,7 @@ This pathophysiological event occurs in Alveolus of lung (UBERON:0002299). UBERO
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6318,6 +6413,7 @@ This pathophysiological event occurs in Alveolus of lung (UBERON:0002299). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-intra-alveolar-coagulation-and-fibrin-deposition" data-dismech-node="Intra-Alveolar Coagulation and Fibrin Deposition" data-dismech-type="pathophysiology">
                 <div class="item-name">Intra-Alveolar Coagulation and Fibrin Deposition</div>
+
 
                 <div class="item-desc">Loss of epithelial anticoagulant activity and local tissue-factor release promote procoagulant signaling and fibrin deposition within alveoli and near injured endothelium. Persistent fibrin-rich injury can contribute to disordered organization and fibroproliferative remodeling.</div>
 
@@ -6452,6 +6548,7 @@ This pathophysiological event occurs in Alveolus of lung (UBERON:0002299). UBERO
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6474,6 +6571,7 @@ This pathophysiological event occurs in Alveolus of lung (UBERON:0002299). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-protein-rich-alveolar-edema-and-loss-of-aerated-lung" data-dismech-node="Protein-Rich Alveolar Edema and Loss of Aerated Lung" data-dismech-type="pathophysiology">
                 <div class="item-name">Protein-Rich Alveolar Edema and Loss of Aerated Lung</div>
+
 
                 <div class="item-desc">Increased permeability produces noncardiogenic interstitial and alveolar edema. Fluid-filled and gravity-dependent collapsed alveoli reduce the ventilated gas-exchange surface and contribute to low compliance without requiring elevated left-sided filling pressure.</div>
 
@@ -6646,6 +6744,7 @@ This pathophysiological event occurs in Alveolus of lung (UBERON:0002299). UBERO
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6668,6 +6767,7 @@ This pathophysiological event occurs in Alveolus of lung (UBERON:0002299). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-shunt-physiology-and-hypoxemic-respiratory-failure" data-dismech-node="Shunt Physiology and Hypoxemic Respiratory Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Shunt Physiology and Hypoxemic Respiratory Failure</div>
+
 
                 <div class="item-desc">Ventilation-perfusion mismatch and intrapulmonary shunt cause refractory arterial hypoxemia. Increased dead space and reduced respiratory-system compliance increase ventilatory demand and can culminate in acute respiratory failure requiring assisted ventilation.</div>
 
@@ -6800,6 +6900,7 @@ This pathophysiological event involves decreased Respiratory gaseous exchange by
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6822,6 +6923,7 @@ This pathophysiological event involves decreased Respiratory gaseous exchange by
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-resolution-and-alveolar-repair" data-dismech-node="Resolution and Alveolar Repair" data-dismech-type="pathophysiology">
                 <div class="item-name">Resolution and Alveolar Repair</div>
+
 
                 <div class="item-desc">After control of the acute injury, pulmonary alveolar type 2 cell proliferation, macrophage-mediated inflammation resolution, restoration of ion transport, and epithelial-endothelial repair can clear edema and restore gas exchange.</div>
 
@@ -6924,6 +7026,7 @@ This pathophysiological event involves Alveolar macrophage (CL:0000583). CL:0000
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6946,6 +7049,7 @@ This pathophysiological event involves Alveolar macrophage (CL:0000583). CL:0000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fibroproliferative-remodeling-and-fibrosis" data-dismech-node="Fibroproliferative Remodeling and Fibrosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Fibroproliferative Remodeling and Fibrosis</div>
+
 
                 <div class="item-desc">When injury and repair remain dysregulated, fibroproliferative remodeling, traction bronchiectasis, volume loss, and fibrotic structural change can produce persistent respiratory impairment. This is a nonresolving fate in a subset, not an inevitable stage of ARDS.</div>
 
@@ -7005,6 +7109,7 @@ This pathophysiological event occurs in Lung (UBERON:0002048). UBERON:0002048 is
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7061,6 +7166,7 @@ This pathophysiological event occurs in Lung (UBERON:0002048). UBERON:0002048 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7168,6 +7274,9 @@ This clinical feature is Pulmonary edema (HP:0100598). HP:0100598 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7182,6 +7291,7 @@ This clinical feature is Pulmonary edema (HP:0100598). HP:0100598 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7245,6 +7355,9 @@ This clinical feature is Hypoxemia (HP:0012418). HP:0012418 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7259,6 +7372,7 @@ This clinical feature is Hypoxemia (HP:0012418). HP:0012418 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7313,6 +7427,9 @@ This clinical feature is Respiratory failure (HP:0002878). HP:0002878 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7327,6 +7444,7 @@ This clinical feature is Respiratory failure (HP:0002878). HP:0002878 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7383,6 +7501,9 @@ This clinical feature is Pulmonary opacity (HP:0031457). HP:0031457 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7397,6 +7518,7 @@ This clinical feature is Pulmonary opacity (HP:0031457). HP:0031457 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7512,6 +7634,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Identify and treat the precipitating cause while providing oxygenation, hemodynamic support, infection management when indicated, prevention of secondary injury, and organ support. ARDS has no single etiology-specific pharmacologic cure, so supportive strategies are selected by severity and patient context.</div>
 
 
@@ -7555,6 +7691,7 @@ This treatment targets Respiratory failure (HP:0002878). HP:0002878 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7619,6 +7756,20 @@ This treatment is mechanical ventilation (NCIT:C70909). NCIT:C70909 is a clinica
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">For invasively ventilated ARDS, use low tidal volumes based on predicted body weight and limit plateau pressure to reduce ventilator-induced stretch injury. The pivotal trial compared an initial 6 mL/kg predicted body weight and plateau pressure at or below 30 cm H2O with traditional larger volumes.</div>
 
 
@@ -7649,6 +7800,7 @@ This treatment is mechanical ventilation (NCIT:C70909). NCIT:C70909 is a clinica
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7717,6 +7869,7 @@ This treatment targets Respiratory failure (HP:0002878). HP:0002878 is a phenoty
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7778,6 +7931,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Use early, prolonged prone sessions in appropriately selected patients with severe ARDS alongside lung-protective ventilation; the pivotal protocol used sessions of at least 16 hours.</div>
 
 
@@ -7808,6 +7975,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7876,6 +8044,7 @@ This treatment targets Hypoxemia (HP:0012418). HP:0012418 is a phenotype from th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7937,6 +8106,20 @@ This treatment is fluid therapy (NCIT:C116537). NCIT:C116537 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Once shock and tissue hypoperfusion are addressed, a conservative fluid strategy can reduce hydrostatic contribution to lung edema and shorten ventilatory and ICU support. The pivotal trial improved lung function and ventilator-free days but did not significantly reduce 60-day mortality.</div>
 
 
@@ -7967,6 +8150,7 @@ This treatment is fluid therapy (NCIT:C116537). NCIT:C116537 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8032,6 +8216,7 @@ This treatment targets Pulmonary edema (HP:0100598). HP:0100598 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8118,6 +8303,20 @@ This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic a
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Systemic corticosteroids may be considered for ARDS, individualized to etiology, timing, infection risk, and adverse-effect profile. The current ATS recommendation is conditional and does not establish one molecule, dose, or duration for every patient.</div>
 
 
@@ -8148,6 +8347,7 @@ This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8191,6 +8391,7 @@ This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8255,6 +8456,20 @@ This treatment is mechanical ventilation (NCIT:C70909). NCIT:C70909 is a clinica
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">In moderate-to-severe ARDS, higher positive end-expiratory pressure may be used to maintain recruitment as part of lung-protective ventilation, but prolonged lung recruitment maneuvers should be avoided.</div>
 
 
@@ -8298,6 +8513,7 @@ This treatment targets Hypoxemia (HP:0012418). HP:0012418 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8384,6 +8600,20 @@ This treatment uses cisatracurium (CHEBI:140621). CHEBI:140621 is a therapeutic 
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Neuromuscular blockade may be considered early in selected patients with severe ARDS when deep sedation and ventilator synchrony are required. It is not routine treatment for all ARDS because the guideline recommendation is conditional and based on low-certainty evidence.</div>
 
 
@@ -8414,6 +8644,7 @@ This treatment uses cisatracurium (CHEBI:140621). CHEBI:140621 is a therapeutic 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8482,6 +8713,7 @@ This treatment targets Respiratory failure (HP:0002878). HP:0002878 is a phenoty
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8503,6 +8735,7 @@ This treatment targets Respiratory failure (HP:0002878). HP:0002878 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8567,6 +8800,20 @@ This treatment is extracorporeal membrane oxygenation (NCIT:C171507). NCIT:C1715
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">VV-ECMO is rescue organ support for carefully selected patients with severe, refractory ARDS after optimization of conventional lung-protective care. Patient selection, center expertise, reversibility, duration of ventilation, and complication risk are essential because certainty of benefit remains low.</div>
 
 
@@ -8597,6 +8844,7 @@ This treatment is extracorporeal membrane oxygenation (NCIT:C171507). NCIT:C1715
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8662,6 +8910,7 @@ This treatment targets Respiratory failure (HP:0002878). HP:0002878 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8793,6 +9042,7 @@ This environmental factor is inhalation of chlorine gas, annotated with exposure
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8814,6 +9064,7 @@ This environmental factor is inhalation of chlorine gas, annotated with exposure
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8865,6 +9116,7 @@ This environmental factor is inhalation of chlorine gas, annotated with exposure
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8965,6 +9217,7 @@ This environmental factor is inhalation of chlorine gas, annotated with exposure
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9013,6 +9266,7 @@ This environmental factor is inhalation of chlorine gas, annotated with exposure
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9136,6 +9390,7 @@ This environmental factor is inhalation of combustion smoke, annotated with expo
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9184,6 +9439,7 @@ This environmental factor is inhalation of combustion smoke, annotated with expo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9254,6 +9510,7 @@ This environmental factor is inhalation of combustion smoke, annotated with expo
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9302,6 +9559,7 @@ This environmental factor is inhalation of combustion smoke, annotated with expo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9406,6 +9664,7 @@ This environmental factor is inhalation of combustion smoke, annotated with expo
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9427,6 +9686,7 @@ This environmental factor is inhalation of combustion smoke, annotated with expo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9495,6 +9755,7 @@ This environmental factor is inhalation of combustion smoke, annotated with expo
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9545,6 +9806,7 @@ This environmental factor is inhalation of combustion smoke, annotated with expo
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9592,6 +9854,7 @@ This environmental factor is inhalation of combustion smoke, annotated with expo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9847,6 +10110,7 @@ This experimental model uses epithelium of bronchus (UBERON:0002031). UBERON:000
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -9886,6 +10150,7 @@ This experimental model uses epithelium of bronchus (UBERON:0002031). UBERON:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9965,6 +10230,7 @@ This experimental model uses epithelium of bronchus (UBERON:0002031). UBERON:000
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -10004,6 +10270,7 @@ This experimental model uses epithelium of bronchus (UBERON:0002031). UBERON:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10255,6 +10522,7 @@ This experimental model uses alveolus of lung (UBERON:0002299). UBERON:0002299 i
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -10314,6 +10582,7 @@ This experimental model uses alveolus of lung (UBERON:0002299). UBERON:0002299 i
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -10353,6 +10622,7 @@ This experimental model uses alveolus of lung (UBERON:0002299). UBERON:0002299 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10432,6 +10702,7 @@ This experimental model uses alveolus of lung (UBERON:0002299). UBERON:0002299 i
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -10471,6 +10742,7 @@ This experimental model uses alveolus of lung (UBERON:0002299). UBERON:0002299 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12530,6 +12802,34 @@ experimental_models:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create Acute Respiratory Distress Syndrome entry</strong> · 2026-08-08T19:31:23Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Acute_Respiratory_Distress_Syndrome/2026-08-08T193123Z-codex-796b2e.yaml">View source</a></p>
+                        <p class="research-review-text">Created a de novo ARDS entry from Asta deep research and targeted review of
+the issue-nominated narrative review (PMID:42432720), the 2023 global ARDS
+definition, the 2024 ATS management guideline, pivotal supportive-care
+trials, a broad mechanistic review, a pediatric review, and human single-cell
+evidence. Modeled established acute alveolar-capillary injury as the
+canonical mechanism and immunometabolic reprogramming/mitochondrial
+dysfunction as an emerging modifier with an explicit knowledge gap, rather
+than implying that the latter is universal or clinically actionable.
+
+Kept the causal chain at the disorder-entry level: the existing epithelial
+barrier and mitochondrial modules address different biological contexts,
+and one ARDS entry did not establish the recurrence needed for a new shared
+module. Added adult and pediatric subtypes, phased progression, phenotypes,
+diagnostic criteria, investigational biochemical markers, and evidence-
+graded supportive treatments. No dataset accession was added because a
+stable accession could not be verified from the cited human omics report.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

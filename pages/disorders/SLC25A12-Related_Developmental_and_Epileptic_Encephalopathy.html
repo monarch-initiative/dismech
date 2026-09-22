@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4102,6 +4174,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4123,6 +4196,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4275,6 +4349,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4299,6 +4374,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4320,6 +4396,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4451,6 +4528,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4472,6 +4550,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4603,6 +4682,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4627,6 +4707,7 @@
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4648,6 +4729,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4779,6 +4861,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4803,6 +4886,7 @@
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4824,6 +4908,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4861,6 +4946,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-slc25a12-loss-of-function-variant" data-dismech-node="Biallelic SLC25A12 Loss-of-Function Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic SLC25A12 Loss-of-Function Variant</div>
+
 
                 <div class="item-desc">Two pathogenic SLC25A12 alleles are present - reported variants include the homozygous missense c.1058G&gt;A p.Arg353Gln and the compound heterozygous pair c.1295C&gt;T p.A432V with c.1447-2_1447-1delAG. This node records the genomic lesion only.</div>
 
@@ -4991,6 +5077,7 @@ This pathophysiological event involves SLC25A12 (hgnc:10982). hgnc:10982 is a ge
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5012,6 +5099,7 @@ This pathophysiological event involves SLC25A12 (hgnc:10982). hgnc:10982 is a ge
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5037,6 +5125,7 @@ This pathophysiological event involves SLC25A12 (hgnc:10982). hgnc:10982 is a ge
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-agc1-aspartate-glutamate-carrier-activity" data-dismech-node="Reduced AGC1 Aspartate-Glutamate Carrier Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced AGC1 Aspartate-Glutamate Carrier Activity</div>
+
 
                 <div class="item-desc">The carrier&#39;s capacity to exchange mitochondrial aspartate for cytosolic glutamate across the inner mitochondrial membrane is reduced. Variant severity spans a measured range - p.Arg353Gln retains about 15% of wild-type activity while the founding variant abolished activity entirely - so the disorder is not a single all-or-nothing lesion.</div>
 
@@ -5157,6 +5246,7 @@ This pathophysiological event involves mitochondrial inner membrane (GO:0005743)
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5178,6 +5268,7 @@ This pathophysiological event involves mitochondrial inner membrane (GO:0005743)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5203,6 +5294,7 @@ This pathophysiological event involves mitochondrial inner membrane (GO:0005743)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-malate-aspartate-shuttle-failure" data-dismech-node="Malate-Aspartate Shuttle Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Malate-Aspartate Shuttle Failure</div>
+
 
                 <div class="item-desc">The principal neuronal NADH redox shuttle stops working, so cytosolic NADH is no longer reoxidized by transfer of reducing equivalents into mitochondria and the cytosolic NAD+/NADH ratio shifts unfavourably for glucose oxidation.</div>
 
@@ -5294,6 +5386,7 @@ This pathophysiological event involves abnormal cellular respiration (GO:0045333
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5315,6 +5408,7 @@ This pathophysiological event involves abnormal cellular respiration (GO:0045333
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5340,6 +5434,7 @@ This pathophysiological event involves abnormal cellular respiration (GO:0045333
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-activity-dependent-neuronal-respiration" data-dismech-node="Impaired Activity-Dependent Neuronal Respiration" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Activity-Dependent Neuronal Respiration</div>
+
 
                 <div class="item-desc">Baseline and maximal uncoupled respiration fall in AGC1-deficient neurons. The critical feature is the coupling to activity: AGC1 is calcium-regulated, so the normal mechanism by which firing neurons boost their own ATP supply is exactly what is lost. Pyruvate rescues respiration, which is diagnostic of the defect being NAD+/NADH cycling rather than a primary respiratory chain lesion.</div>
 
@@ -5473,6 +5568,7 @@ This pathophysiological event involves decreased cellular respiration (GO:004533
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5494,6 +5590,7 @@ This pathophysiological event involves decreased cellular respiration (GO:004533
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5521,6 +5618,7 @@ This pathophysiological event involves decreased cellular respiration (GO:004533
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5543,6 +5641,7 @@ This pathophysiological event involves decreased cellular respiration (GO:004533
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-depletion-of-neuronal-cytosolic-aspartate" data-dismech-node="Depletion of Neuronal Cytosolic Aspartate" data-dismech-type="pathophysiology">
                 <div class="item-name">Depletion of Neuronal Cytosolic Aspartate</div>
+
 
                 <div class="item-desc">Brain aspartate falls dramatically because mitochondrial aspartate cannot reach the cytosol. This is the biosynthetic arm and is measurable independently of any respiratory parameter.</div>
 
@@ -5638,6 +5737,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5659,6 +5759,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5684,6 +5785,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-n-acetylaspartate-synthesis" data-dismech-node="Reduced N-Acetylaspartate Synthesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced N-Acetylaspartate Synthesis</div>
+
 
                 <div class="item-desc">N-acetylaspartate, the second most abundant metabolite in the CNS, is continuously made from aspartate in neurons. With aspartate depleted, NAA falls steeply - the finding that produces the diminished NAA peak on MR spectroscopy.</div>
 
@@ -5771,6 +5873,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5792,6 +5895,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5817,6 +5921,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-acetyl-group-supply-to-oligodendrocytes" data-dismech-node="Reduced Acetyl-Group Supply to Oligodendrocytes" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Acetyl-Group Supply to Oligodendrocytes</div>
+
 
                 <div class="item-desc">NAA is normally transported from neurons to glial cells, particularly oligodendrocytes, where it is thought to supply acetyl groups for lipid and myelin synthesis. Less NAA means less of that supply. This is a transcellular step, distinct from both the neuronal synthesis upstream and the myelin deficit downstream.</div>
 
@@ -5904,6 +6009,7 @@ This pathophysiological event involves oligodendrocyte (CL:0000128). CL:0000128 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5925,6 +6031,7 @@ This pathophysiological event involves oligodendrocyte (CL:0000128). CL:0000128 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5950,6 +6057,7 @@ This pathophysiological event involves oligodendrocyte (CL:0000128). CL:0000128 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-astroglial-glutamine-synthesis" data-dismech-node="Impaired Astroglial Glutamine Synthesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Astroglial Glutamine Synthesis</div>
+
 
                 <div class="item-desc">Glutamine synthesis in astrocytes is markedly impaired even though AGC1 is expressed in neurons rather than astrocytes. This apparent paradox is the clearest evidence that the disorder is transcellular, and it degrades the glutamate-glutamine cycle on which neurotransmission depends.</div>
 
@@ -6095,6 +6203,7 @@ This pathophysiological event involves abnormal glutamate metabolic process (GO:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6116,6 +6225,7 @@ This pathophysiological event involves abnormal glutamate metabolic process (GO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6141,6 +6251,7 @@ This pathophysiological event involves abnormal glutamate metabolic process (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-global-cerebral-hypomyelination" data-dismech-node="Global Cerebral Hypomyelination" data-dismech-type="pathophysiology">
                 <div class="item-name">Global Cerebral Hypomyelination</div>
+
 
                 <div class="item-desc">Myelination of the cerebral hemispheres is globally deficient. Longitudinal imaging in the oldest reported patient shows early hypomyelination followed by subsequent progression of myelination, a pattern the authors read as a leuko-axonopathy - white matter abnormality secondary to a primary neuronal defect - rather than a primary oligodendrocyte disease.</div>
 
@@ -6266,6 +6377,7 @@ This pathophysiological event involves decreased myelination (GO:0042552). GO:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6287,6 +6399,7 @@ This pathophysiological event involves decreased myelination (GO:0042552). GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6312,6 +6425,7 @@ This pathophysiological event involves decreased myelination (GO:0042552). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nigrostriatal-dopaminergic-dysfunction" data-dismech-node="Nigrostriatal Dopaminergic Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Nigrostriatal Dopaminergic Dysfunction</div>
+
 
                 <div class="item-desc">Aralar deficiency selectively affects nigrostriatal dopaminergic neurons, which show altered dopamine handling in the knockout mouse. This is a circuit-specific vulnerability separate from the diffuse cortical excitability phenotype, and it is the proposed basis for the movement-disorder features.</div>
 
@@ -6404,6 +6518,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6426,6 +6541,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuronal-hyperexcitability-and-seizure-generation" data-dismech-node="Neuronal Hyperexcitability and Seizure Generation" data-dismech-type="pathophysiology">
                 <div class="item-name">Neuronal Hyperexcitability and Seizure Generation</div>
+
 
                 <div class="item-desc">Neurons become hyperexcitable despite the overall energy-deficient state. Several routes converge here - reduced activity-dependent ATP supply and disturbed glutamate-glutamine cycling among them - and the review that assembles them describes the epilepsy as a direct consequence of the neuronal metabolic defect rather than of the glial changes.</div>
 
@@ -6513,6 +6629,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6535,6 +6652,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-infantile-onset-epilepsy" data-dismech-node="Infantile-Onset Epilepsy" data-dismech-type="pathophysiology">
                 <div class="item-name">Infantile-Onset Epilepsy</div>
+
 
                 <div class="item-desc">Seizures begin in infancy. They are pharmacoresistant in many reported children but not universally - medical control has been achieved in several - so refractoriness is a common course rather than part of the definition. The ketogenic diet, which bypasses the glycolytic NADH load the shuttle cannot handle, has produced marked benefit in reported cases.</div>
 
@@ -6588,6 +6706,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6610,6 +6729,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-arrested-psychomotor-development" data-dismech-node="Arrested Psychomotor Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Arrested Psychomotor Development</div>
+
 
                 <div class="item-desc">Psychomotor development arrests, producing profound developmental delay and, in the oldest reported patient, severe intellectual disability with nonambulatory and nonverbal status. Three upstream routes converge here and the published cases do not apportion them.</div>
 
@@ -6648,6 +6768,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6669,6 +6790,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6736,11 +6858,9 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Musculoskeletal<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Musculoskeletal<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Nervous System<span class="pill-count">(7)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Nervous System<span class="pill-count">(8)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6750,7 +6870,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-hypotonia" data-dismech-node="Hypotonia" data-dismech-type="phenotype">
@@ -6783,6 +6903,9 @@ This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6797,6 +6920,7 @@ This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6823,13 +6947,87 @@ This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phe
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-spastic-quadriplegia" data-dismech-node="Spastic Quadriplegia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Spastic Quadriplegia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Spastic tetraplegia</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002510</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Spastic tetraplegia (HP:0002510). HP:0002510 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31403263" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31403263" target="_blank">PMID:31403263</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Clinical presentation is characterized by severe intellectual disability, nonambulatory, nonverbal status, hypotonia, epilepsy, spastic quadriplegia, and a happy disposition."</div>
+
+
+                <div class="evidence-explanation">Documents spastic quadriplegia in the oldest reported individual.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">7</span>
+                    <span class="cat-count">8</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-infantile-onset-seizures" data-dismech-node="Infantile-Onset Seizures" data-dismech-type="phenotype">
@@ -6846,10 +7044,10 @@ This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Seizure (HP:0001250), qualified as infantile onset. HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6889,6 +7087,9 @@ This clinical feature is Seizure (HP:0001250), qualified as infantile onset. HP:
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6903,6 +7104,7 @@ This clinical feature is Seizure (HP:0001250), qualified as infantile onset. HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6927,6 +7129,7 @@ This clinical feature is Seizure (HP:0001250), qualified as infantile onset. HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6967,15 +7170,18 @@ This clinical feature is Seizure (HP:0001250), qualified as infantile onset. HP:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6995,6 +7201,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7035,15 +7242,18 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006808" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0006808</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006808" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0006808</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cerebral hypomyelination (HP:0006808). HP:0006808 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7066,6 +7276,7 @@ This clinical feature is Cerebral hypomyelination (HP:0006808). HP:0006808 is a 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7074,6 +7285,105 @@ This clinical feature is Cerebral hypomyelination (HP:0006808). HP:0006808 is a 
 
 
                 <div class="evidence-explanation">Documents the hypomyelination directly.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-reduced-brain-n-acetylaspartate" data-dismech-node="Reduced Brain N-Acetylaspartate" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Reduced Brain N-Acetylaspartate
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Reduced brain N-acetyl aspartate level by MRS</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012708" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0012708</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Reduced brain N-acetyl aspartate level by MRS (HP:0012708). HP:0012708 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31766059" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31766059" target="_blank">PMID:31766059</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Neuroimaging showed cerebral volume loss and diminished N-acetylaspartate (NAA) peak."</div>
+
+
+                <div class="evidence-explanation">Documents the reduced NAA peak on neuroimaging.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24515575" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24515575" target="_blank">PMID:24515575</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"abnormal myelination, fluctuating basal ganglia changes, cerebral atrophy, and reduced N-acetylaspartate (NAA)"</div>
+
+
+                <div class="evidence-explanation">Independent documentation of reduced NAA.</div>
 
 
 
@@ -7103,15 +7413,18 @@ This clinical feature is Cerebral hypomyelination (HP:0006808). HP:0006808 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002059" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002059</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002059" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002059</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cerebral atrophy (HP:0002059). HP:0002059 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7131,6 +7444,7 @@ This clinical feature is Cerebral atrophy (HP:0002059). HP:0002059 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7155,6 +7469,7 @@ This clinical feature is Cerebral atrophy (HP:0002059). HP:0002059 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7197,15 +7512,18 @@ This clinical feature is Cerebral atrophy (HP:0002059). HP:0002059 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002134" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002134</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002134" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002134</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal basal ganglia morphology (HP:0002134). HP:0002134 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7225,6 +7543,7 @@ This clinical feature is Abnormal basal ganglia morphology (HP:0002134). HP:0002
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7265,15 +7584,18 @@ This clinical feature is Abnormal basal ganglia morphology (HP:0002134). HP:0002
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001344" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001344</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001344" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001344</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Absent speech (HP:0001344). HP:0001344 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7293,6 +7615,7 @@ This clinical feature is Absent speech (HP:0001344). HP:0001344 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7333,10 +7656,10 @@ This clinical feature is Absent speech (HP:0001344). HP:0001344 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001249</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intellectual disability (HP:0001249), qualified as severity severe. HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7365,6 +7688,9 @@ This clinical feature is Intellectual disability (HP:0001249), qualified as seve
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7379,6 +7705,7 @@ This clinical feature is Intellectual disability (HP:0001249), qualified as seve
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7390,179 +7717,6 @@ This clinical feature is Intellectual disability (HP:0001249), qualified as seve
 
 
                 <div class="evidence-explanation">Documents the severity qualifier directly.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-reduced-brain-n-acetylaspartate" data-dismech-node="Reduced Brain N-Acetylaspartate" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Reduced Brain N-Acetylaspartate
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Reduced brain N-acetyl aspartate level by MRS</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012708" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0012708</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Reduced brain N-acetyl aspartate level by MRS (HP:0012708). HP:0012708 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31766059" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31766059" target="_blank">PMID:31766059</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Neuroimaging showed cerebral volume loss and diminished N-acetylaspartate (NAA) peak."</div>
-
-
-                <div class="evidence-explanation">Documents the reduced NAA peak on neuroimaging.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:24515575" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24515575" target="_blank">PMID:24515575</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"abnormal myelination, fluctuating basal ganglia changes, cerebral atrophy, and reduced N-acetylaspartate (NAA)"</div>
-
-
-                <div class="evidence-explanation">Independent documentation of reduced NAA.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-spastic-quadriplegia" data-dismech-node="Spastic Quadriplegia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Spastic Quadriplegia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Spastic tetraplegia</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002510</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Spastic tetraplegia (HP:0002510). HP:0002510 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31403263" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31403263" target="_blank">PMID:31403263</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Clinical presentation is characterized by severe intellectual disability, nonambulatory, nonverbal status, hypotonia, epilepsy, spastic quadriplegia, and a happy disposition."</div>
-
-
-                <div class="evidence-explanation">Documents spastic quadriplegia in the oldest reported individual.</div>
 
 
 
@@ -7654,6 +7808,9 @@ This disease-associated gene is SLC25A12 (hgnc:10982). hgnc:10982 is a gene from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7668,6 +7825,7 @@ This disease-associated gene is SLC25A12 (hgnc:10982). hgnc:10982 is a gene from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7695,6 +7853,7 @@ This disease-associated gene is SLC25A12 (hgnc:10982). hgnc:10982 is a gene from
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7716,6 +7875,7 @@ This disease-associated gene is SLC25A12 (hgnc:10982). hgnc:10982 is a gene from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7798,6 +7958,31 @@ This treatment is Dietary Intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Seizure frequency abated drastically following initiation of the ketogenic diet in a reported case. The rationale is mechanistically apt: ketone bodies are metabolized without generating the cytosolic NADH load that the failed malate-aspartate shuttle cannot clear, so the diet routes around the specific defect rather than merely suppressing excitability. The response should not be read as uniform: the published clinical evidence is a small number of individual reports, and no series establishes what fraction of patients benefit or by how much.</div>
 
 
@@ -7831,6 +8016,7 @@ This treatment is Dietary Intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7852,6 +8038,7 @@ This treatment is Dietary Intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7902,6 +8089,7 @@ This treatment is Dietary Intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7942,6 +8130,7 @@ This treatment is Dietary Intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8005,6 +8194,31 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Response is heterogeneous rather than uniformly refractory. Several reported children had pharmacoresistant seizures, but seizures were successfully treated or reduced in frequency with medication in three previously reported patients, and the oldest described individual was seizure-free off medication for several years before recurrence at about twelve. Describing this disorder as refractory without qualification overstates the published record.</div>
 
 
@@ -8029,6 +8243,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8050,6 +8265,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -8113,6 +8329,31 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Autosomal recessive counseling with a 25% recurrence risk per pregnancy for carrier parents.</div>
 
 
@@ -8134,6 +8375,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8244,6 +8486,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8265,6 +8508,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8355,6 +8599,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8439,6 +8684,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8510,6 +8756,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8674,6 +8921,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8713,6 +8961,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8767,6 +9016,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10120,6 +10370,25 @@ datasets: []
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Review round 2: refractoriness consistency and evidence_source splits</strong> · 2026-08-19T16:21:27Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/SLC25A12-Related_Developmental_and_Epileptic_Encephalopathy/2026-08-19T162127Z-claude-code-d52e02.yaml">View source</a></p>
+                        <p class="research-review-text">Second review round on PR #8952. Item A: the softened refractoriness claim had been applied to the phenotype entry and the anti-seizure-medication treatment but not to the pathophysiology node, which still read &#39;typically refractory to conventional anti-seizure medication&#39; and was named &#39;Refractory Infantile-Onset Epilepsy&#39;. That copy is the load-bearing one - it is the target of two edges, an attaches_to anchor for the ketogenic-diet discussion, and the name that propagates into the pathograph - so the entry was asserting both that refractoriness is typical and that it is not definitional. Softened the node description to match the phenotype wording and renamed the node to &#39;Infantile-Onset Epilepsy&#39;, updating all three internal references; conforms_to points at the module&#39;s node name and is unaffected. Also softened the incoming edge description, which said &#39;treatment-resistant seizures&#39;. Item B: split the PMID:31403263 evidence item whose snippet spanned an in vivo mouse-brain measurement and a neuronal-culture respirometry measurement into two items with separate verbatim snippets, one MODEL_ORGANISM and one IN_VITRO, per the CLAUDE.md rule for mixed-source snippets. Retagged the PMID:33087477 beta-hydroxybutyrate respirometry snippet from MODEL_ORGANISM to IN_VITRO, since that arm was done in cultured aralar-KO neurons while the in vivo arm was the injected pups. Retagged the pyruvate-rescue interpretation snippet from the same paragraph to IN_VITRO for the same reason, since the experiments it interprets were cerebellar slice cultures and cortical neurons. Suggestion C: cited PMID:33087477 in the ketogenic-diet discussion and rewrote its rationale, since the beta-hydroxybutyrate rescue is a direct test of the metabolic-bypass mechanism the discussion previously supported only by analogy to pyruvate; the open question narrows from whether the rationale is right to whether it translates to patients. Suggestion D: qualified the ketogenic-diet description so it no longer reads as uniformly effective, and recorded the response-heterogeneity limitation in notes rather than as evidence, because the cohort figures in the deep-research artifact could not be resolved to a citable publication. Validation: just validate passed with 68/68 snippets verified against cached references, up from 66/66.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: SLC25A12-Related Developmental and Epileptic Encephalopathy DEE39</strong> · 2026-08-19T15:37:55Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/SLC25A12-Related_Developmental_and_Epileptic_Encephalopathy/2026-08-19T153755Z-claude-code-9da3b5.yaml">View source</a></p>
+                        <p class="research-review-text">New entry for DEE39 MONDO:0013056, AGC1/aralar deficiency. Deep research via &#34;just research-disorder claude_code&#34;; NEC preflight PASS with SLC25A12 mentioned 36 times and report OMIM 612949 matching the MONDO xref. Note the report carried two malformed DOI strings flagged as unresolved in its own reference_validation block and one off-topic reference; none was cited. No GeneReviews chapter exists for SLC25A12, confirmed by PubMed search. Pathophysiology de-bundled into 13 atomic nodes running two independent routes from one transport defect: a bioenergetic route through malate-aspartate shuttle failure to impaired activity-dependent respiration, and a biosynthetic route through aspartate depletion to reduced N-acetylaspartate and the acetyl-group supply to oligodendrocytes. The astroglial glutamine failure and the nigrostriatal dopaminergic arm are modeled as separate branches. Four discussions, the central one a CONTROVERSY on whether the hypomyelination is primary oligodendrocyte disease or a leuko-axonopathy secondary to neuronal dysfunction, which the longitudinal MRI evidence bears directly on. Two snippets were dropped or requoted during validation: a title quote on PMID:23216354 and a sentence interrupted by a stripped citation marker. Validated with just validate 62/62 snippets verified, just validate-terms passed, check_snippet_length, just check-duplicate-keys, and just check-title-snippets.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

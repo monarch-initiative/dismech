@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4094,6 +4166,7 @@
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Autosomal recessive"</div>
@@ -4113,6 +4186,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4137,6 +4211,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4232,6 +4307,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4253,6 +4329,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4319,6 +4396,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4340,6 +4418,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4387,6 +4466,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cyp24a1-vitamin-d-catabolism-defect" data-dismech-node="CYP24A1 vitamin D catabolism defect" data-dismech-type="pathophysiology">
                 <div class="item-name">CYP24A1 vitamin D catabolism defect</div>
+
 
                 <div class="item-desc">CYP24A1 encodes 25-hydroxyvitamin D 24-hydroxylase, the enzyme responsible for catabolism of active vitamin D metabolites. Loss-of-function variants reduce degradation of 1,25-dihydroxyvitamin D3, increasing sensitivity to vitamin D and predisposing to PTH-independent hypercalcemia.
 </div>
@@ -4518,6 +4598,7 @@ This pathophysiological event involves vitamin D metabolic process (GO:0042359).
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"CYP24A1 | cytochrome P450 family 24 subfamily A member 1 | hgnc:2602 | Disease-causing germline mutation(s) (loss of function) in"</div>
@@ -4537,6 +4618,7 @@ This pathophysiological event involves vitamin D metabolic process (GO:0042359).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4564,6 +4646,7 @@ This pathophysiological event involves vitamin D metabolic process (GO:0042359).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4586,6 +4669,7 @@ This pathophysiological event involves vitamin D metabolic process (GO:0042359).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-slc34a1-renal-phosphate-transport-defect" data-dismech-node="SLC34A1 renal phosphate transport defect" data-dismech-type="pathophysiology">
                 <div class="item-name">SLC34A1 renal phosphate transport defect</div>
+
 
                 <div class="item-desc">SLC34A1 encodes the renal sodium-phosphate cotransporter NaPi-IIa. Defective NaPi-IIa trafficking or transport causes proximal-tubule phosphate wasting and hypophosphatemia, which promotes inappropriate production of 1,25-dihydroxyvitamin D3 and symptomatic hypercalcemia.
 </div>
@@ -4818,6 +4902,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"SLC34A1 | solute carrier family 34 member 1 | hgnc:11019 | Disease-causing germline mutation(s) (loss of function) in"</div>
@@ -4837,6 +4922,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4864,6 +4950,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4888,6 +4975,7 @@ suppression on the development"</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-active-vitamin-d-excess-and-pth-independent-hypercalcemia" data-dismech-node="Active vitamin D excess and PTH-independent hypercalcemia" data-dismech-type="pathophysiology">
                 <div class="item-name">Active vitamin D excess and PTH-independent hypercalcemia</div>
+
 
                 <div class="item-desc">CYP24A1-associated impaired catabolism or SLC34A1-associated excessive generation of active vitamin D metabolites increases active vitamin D signaling. The resulting PTH-independent hypercalcemia includes hypercalciuria, suppressed intact PTH, hypophosphatemia in phosphate-wasting cases, and nephrocalcinosis.
 </div>
@@ -5086,6 +5174,7 @@ This pathophysiological event involves calcium ion homeostasis (GO:0055074). GO:
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"A rare, genetic, phosphocalcic metabolism disorder characterized by early-onset hypercalcemia, hypophosphatemia, hypercalciuria, decreased intact parathyroid hormone serum levels and medullary nephrocalcinosis"</div>
@@ -5105,6 +5194,7 @@ This pathophysiological event involves calcium ion homeostasis (GO:0055074). GO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5132,6 +5222,7 @@ This pathophysiological event involves calcium ion homeostasis (GO:0055074). GO:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5156,6 +5247,7 @@ This pathophysiological event involves calcium ion homeostasis (GO:0055074). GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nephrocalcinosis-and-chronic-kidney-injury" data-dismech-node="Nephrocalcinosis and chronic kidney injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Nephrocalcinosis and chronic kidney injury</div>
+
 
                 <div class="item-desc">Hypercalcemia and hypercalciuria drive renal calcium deposition, medullary nephrocalcinosis, and tubulointerstitial injury. Long-term survivors can have persistent nephrocalcinosis, reduced GFR, CKD, and rarely ESRD.
 </div>
@@ -5255,6 +5347,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5276,6 +5369,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5347,15 +5441,15 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Genitourinary<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Endocrine<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Metabolism<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Genitourinary<span class="pill-count">(7)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Metabolism<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Musculoskeletal<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Other<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Growth<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5396,6 +5490,9 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5410,6 +5507,7 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5473,6 +5571,9 @@ This clinical feature is Vomiting (HP:0002013). HP:0002013 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5487,6 +5588,7 @@ This clinical feature is Vomiting (HP:0002013). HP:0002013 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5509,6 +5611,7 @@ This clinical feature is Vomiting (HP:0002013). HP:0002013 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5563,6 +5666,9 @@ This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5577,6 +5683,7 @@ This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5599,6 +5706,7 @@ This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5630,13 +5738,13 @@ This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype fr
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Genitourinary
-                    <span class="cat-count">3</span>
+                    Endocrine
+                    <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-polyuria" data-dismech-node="Polyuria" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-decreased-circulating-parathyroid-hormone-level" data-dismech-node="Decreased circulating parathyroid hormone level" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Polyuria
+                        Decreased circulating parathyroid hormone level
 
 
 
@@ -5648,12 +5756,12 @@ This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000103" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000103</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031817" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0031817</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Polyuria (HP:0000103). HP:0000103 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Decreased circulating parathyroid hormone level (HP:0031817). HP:0031817 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5662,9 +5770,12 @@ This clinical feature is Polyuria (HP:0000103). HP:0000103 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
 
@@ -5679,220 +5790,13 @@ This clinical feature is Polyuria (HP:0000103). HP:0000103 is a phenotype from t
 
 
 
-                </div>
-
-                <div class="evidence-snippet">"polyuria"</div>
-
-
-                <div class="evidence-explanation">Orphanet lists polyuria among typical manifestations.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33099630" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33099630" target="_blank">PMID:33099630</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"emesis, anorexia, polyuria"</div>
+                <div class="evidence-snippet">"decreased intact parathyroid hormone serum levels"</div>
 
 
-                <div class="evidence-explanation">Long-term cohort background lists polyuria among symptomatic hypercalcemia features.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-chronic-kidney-disease" data-dismech-node="Chronic kidney disease" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Chronic kidney disease
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012622" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0012622</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Chronic kidney disease (HP:0012622). HP:0012622 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33099630" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33099630" target="_blank">PMID:33099630</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"14 of 18 (77%) subjects had GFR &lt;90"</div>
-
-
-                <div class="evidence-explanation">Long-term outcome cohort documented reduced GFR in most molecularly confirmed survivors.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33099630" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33099630" target="_blank">PMID:33099630</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"progressive CKD with interstitial fibrosis."</div>
-
-
-                <div class="evidence-explanation">The cohort discussion links initial kidney injury and tubulointerstitial fibrosis to progressive CKD.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-nephrolithiasis" data-dismech-node="Nephrolithiasis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Nephrolithiasis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000787" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000787</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Nephrolithiasis (HP:0000787). HP:0000787 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="DOI:10.1186/s13023-024-03135-8" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/DOI:10.1186/s13023-024-03135-8" target="_blank">DOI:10.1186/s13023-024-03135-8</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"IIH should be considered in patients with nephrolithiasis either in older children or adults."</div>
-
-
-                <div class="evidence-explanation">Recent genotype-expansion series highlights nephrolithiasis as a later presentation of IIH.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="DOI:10.1530/eje-21-0713" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/DOI:10.1530/eje-21-0713" target="_blank">DOI:10.1530/eje-21-0713</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Monoallelic carriers displayed significant rates of nephrolithiasis (19.4%), nephrocalcinosis (4.9%), and symptomatic hypercalcemia (5.6%)."</div>
-
-
-                <div class="evidence-explanation">Systematic review documents nephrolithiasis among monoallelic CYP24A1 carriers.</div>
+                <div class="evidence-explanation">Orphanet lists decreased intact PTH as a characteristic biochemical abnormality.</div>
 
 
 
@@ -5913,487 +5817,8 @@ This clinical feature is Nephrolithiasis (HP:0000787). HP:0000787 is a phenotype
             <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Metabolism
-                    <span class="cat-count">3</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hypercalcemia" data-dismech-node="Hypercalcemia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hypercalcemia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003072" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0003072</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hypercalcemia (HP:0003072). HP:0003072 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:300547" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:300547" target="_blank">ORPHA:300547</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                </div>
-
-                <div class="evidence-snippet">"early-onset hypercalcemia"</div>
-
-
-                <div class="evidence-explanation">Orphanet defines the disorder by early-onset hypercalcemia.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:21675912" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21675912" target="_blank">PMID:21675912</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"hypercalcemia, failure to thrive, vomiting, dehydration, and nephrocalcinosis."</div>
-
-
-                <div class="evidence-explanation">CYP24A1 discovery paper lists hypercalcemia among the defining manifestations.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hypophosphatemia" data-dismech-node="Hypophosphatemia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hypophosphatemia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002148" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002148</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hypophosphatemia (HP:0002148). HP:0002148 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:300547" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:300547" target="_blank">ORPHA:300547</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                </div>
-
-                <div class="evidence-snippet">"hypophosphatemia"</div>
-
-
-                <div class="evidence-explanation">Orphanet lists hypophosphatemia as a characteristic feature.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:26047794" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26047794" target="_blank">PMID:26047794</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"renal phosphate wasting and symptomatic hypercalcemia"</div>
-
-
-                <div class="evidence-explanation">SLC34A1-associated disease presents with renal phosphate wasting and hypercalcemia.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-dehydration" data-dismech-node="Dehydration" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Dehydration
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001944" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001944</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Dehydration (HP:0001944). HP:0001944 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:21675912" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21675912" target="_blank">PMID:21675912</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"vomiting, dehydration, and nephrocalcinosis."</div>
-
-
-                <div class="evidence-explanation">CYP24A1 discovery paper lists dehydration among typical symptoms.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33099630" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33099630" target="_blank">PMID:33099630</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"polyuria, dehydration, constipation, generalized hypotonia"</div>
-
-
-                <div class="evidence-explanation">Long-term cohort background lists dehydration among symptomatic hypercalcemia features.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Musculoskeletal
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hypotonia" data-dismech-node="Hypotonia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hypotonia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001252</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:300547" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:300547" target="_blank">ORPHA:300547</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                </div>
-
-                <div class="evidence-snippet">"hypotonia"</div>
-
-
-                <div class="evidence-explanation">Orphanet lists hypotonia among typical manifestations.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33099630" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33099630" target="_blank">PMID:33099630</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"generalized hypotonia, arterial hypertension"</div>
-
-
-                <div class="evidence-explanation">Long-term cohort background lists generalized hypotonia among symptomatic hypercalcemia features.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Growth
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-failure-to-thrive" data-dismech-node="Failure to thrive" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Failure to thrive
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001508</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:300547" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:300547" target="_blank">ORPHA:300547</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                </div>
-
-                <div class="evidence-snippet">"failure to thrive"</div>
-
-
-                <div class="evidence-explanation">Orphanet lists failure to thrive among typical manifestations.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:26047794" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26047794" target="_blank">PMID:26047794</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"hypercalcemia with failure to thrive, vomiting, dehydration, and"</div>
-
-
-                <div class="evidence-explanation">SLC34A1 discovery paper lists failure to thrive among typical features.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-7">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">5</span>
+                    Genitourinary
+                    <span class="cat-count">7</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-hypercalciuria" data-dismech-node="Hypercalciuria" data-dismech-type="phenotype">
@@ -6410,15 +5835,18 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002150" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002150</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002150" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002150</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypercalciuria (HP:0002150). HP:0002150 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6438,6 +5866,7 @@ This clinical feature is Hypercalciuria (HP:0002150). HP:0002150 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6463,6 +5892,7 @@ This clinical feature is Hypercalciuria (HP:0002150). HP:0002150 is a phenotype 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6471,72 +5901,6 @@ This clinical feature is Hypercalciuria (HP:0002150). HP:0002150 is a phenotype 
 
 
                 <div class="evidence-explanation">A recent case series describes hypercalciuria with hypercalcemia and nephrocalcinosis.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-decreased-circulating-parathyroid-hormone-level" data-dismech-node="Decreased circulating parathyroid hormone level" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Decreased circulating parathyroid hormone level
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0031817" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0031817</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Decreased circulating parathyroid hormone level (HP:0031817). HP:0031817 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:300547" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:300547" target="_blank">ORPHA:300547</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                </div>
-
-                <div class="evidence-snippet">"decreased intact parathyroid hormone serum levels"</div>
-
-
-                <div class="evidence-explanation">Orphanet lists decreased intact PTH as a characteristic biochemical abnormality.</div>
 
 
 
@@ -6566,15 +5930,18 @@ This clinical feature is Decreased circulating parathyroid hormone level (HP:003
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000117" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000117</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000117" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000117</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Renal phosphate wasting (HP:0000117). HP:0000117 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6594,6 +5961,7 @@ This clinical feature is Renal phosphate wasting (HP:0000117). HP:0000117 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6636,15 +6004,18 @@ This clinical feature is Renal phosphate wasting (HP:0000117). HP:0000117 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000121" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000121</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000121" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000121</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Nephrocalcinosis (HP:0000121). HP:0000121 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6667,6 +6038,7 @@ This clinical feature is Nephrocalcinosis (HP:0000121). HP:0000121 is a phenotyp
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"medullary nephrocalcinosis"</div>
@@ -6686,6 +6058,7 @@ This clinical feature is Nephrocalcinosis (HP:0000121). HP:0000121 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6727,15 +6100,18 @@ nephrocalcinosis in 16 of 18 (88%) patients"</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012408" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0012408</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012408" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0012408</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Medullary nephrocalcinosis (HP:0012408). HP:0012408 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6758,12 +6134,806 @@ This clinical feature is Medullary nephrocalcinosis (HP:0012408). HP:0012408 is 
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"medullary nephrocalcinosis"</div>
 
 
                 <div class="evidence-explanation">Orphanet specifies medullary nephrocalcinosis in its definition of infantile hypercalcemia.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-polyuria" data-dismech-node="Polyuria" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Polyuria
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000103" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000103</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Polyuria (HP:0000103). HP:0000103 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:300547" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:300547" target="_blank">ORPHA:300547</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"polyuria"</div>
+
+
+                <div class="evidence-explanation">Orphanet lists polyuria among typical manifestations.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33099630" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33099630" target="_blank">PMID:33099630</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"emesis, anorexia, polyuria"</div>
+
+
+                <div class="evidence-explanation">Long-term cohort background lists polyuria among symptomatic hypercalcemia features.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-chronic-kidney-disease" data-dismech-node="Chronic kidney disease" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Chronic kidney disease
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012622" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0012622</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chronic kidney disease (HP:0012622). HP:0012622 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33099630" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33099630" target="_blank">PMID:33099630</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"14 of 18 (77%) subjects had GFR &lt;90"</div>
+
+
+                <div class="evidence-explanation">Long-term outcome cohort documented reduced GFR in most molecularly confirmed survivors.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33099630" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33099630" target="_blank">PMID:33099630</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"progressive CKD with interstitial fibrosis."</div>
+
+
+                <div class="evidence-explanation">The cohort discussion links initial kidney injury and tubulointerstitial fibrosis to progressive CKD.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-nephrolithiasis" data-dismech-node="Nephrolithiasis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Nephrolithiasis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000787" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000787</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Nephrolithiasis (HP:0000787). HP:0000787 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1186/s13023-024-03135-8" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1186/s13023-024-03135-8" target="_blank">DOI:10.1186/s13023-024-03135-8</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"IIH should be considered in patients with nephrolithiasis either in older children or adults."</div>
+
+
+                <div class="evidence-explanation">Recent genotype-expansion series highlights nephrolithiasis as a later presentation of IIH.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1530/eje-21-0713" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1530/eje-21-0713" target="_blank">DOI:10.1530/eje-21-0713</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Monoallelic carriers displayed significant rates of nephrolithiasis (19.4%), nephrocalcinosis (4.9%), and symptomatic hypercalcemia (5.6%)."</div>
+
+
+                <div class="evidence-explanation">Systematic review documents nephrolithiasis among monoallelic CYP24A1 carriers.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Metabolism
+                    <span class="cat-count">3</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypercalcemia" data-dismech-node="Hypercalcemia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hypercalcemia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003072" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0003072</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypercalcemia (HP:0003072). HP:0003072 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:300547" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:300547" target="_blank">ORPHA:300547</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"early-onset hypercalcemia"</div>
+
+
+                <div class="evidence-explanation">Orphanet defines the disorder by early-onset hypercalcemia.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21675912" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21675912" target="_blank">PMID:21675912</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"hypercalcemia, failure to thrive, vomiting, dehydration, and nephrocalcinosis."</div>
+
+
+                <div class="evidence-explanation">CYP24A1 discovery paper lists hypercalcemia among the defining manifestations.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypophosphatemia" data-dismech-node="Hypophosphatemia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hypophosphatemia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002148" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002148</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypophosphatemia (HP:0002148). HP:0002148 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:300547" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:300547" target="_blank">ORPHA:300547</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"hypophosphatemia"</div>
+
+
+                <div class="evidence-explanation">Orphanet lists hypophosphatemia as a characteristic feature.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26047794" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26047794" target="_blank">PMID:26047794</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"renal phosphate wasting and symptomatic hypercalcemia"</div>
+
+
+                <div class="evidence-explanation">SLC34A1-associated disease presents with renal phosphate wasting and hypercalcemia.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dehydration" data-dismech-node="Dehydration" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Dehydration
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001944" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001944</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dehydration (HP:0001944). HP:0001944 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21675912" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21675912" target="_blank">PMID:21675912</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"vomiting, dehydration, and nephrocalcinosis."</div>
+
+
+                <div class="evidence-explanation">CYP24A1 discovery paper lists dehydration among typical symptoms.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33099630" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33099630" target="_blank">PMID:33099630</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"polyuria, dehydration, constipation, generalized hypotonia"</div>
+
+
+                <div class="evidence-explanation">Long-term cohort background lists dehydration among symptomatic hypercalcemia features.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-6">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Musculoskeletal
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypotonia" data-dismech-node="Hypotonia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hypotonia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001252</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:300547" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:300547" target="_blank">ORPHA:300547</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"hypotonia"</div>
+
+
+                <div class="evidence-explanation">Orphanet lists hypotonia among typical manifestations.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33099630" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33099630" target="_blank">PMID:33099630</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"generalized hypotonia, arterial hypertension"</div>
+
+
+                <div class="evidence-explanation">Long-term cohort background lists generalized hypotonia among symptomatic hypercalcemia features.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-7">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Growth
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-failure-to-thrive" data-dismech-node="Failure to thrive" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Failure to thrive
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001508</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:300547" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:300547" target="_blank">ORPHA:300547</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"failure to thrive"</div>
+
+
+                <div class="evidence-explanation">Orphanet lists failure to thrive among typical manifestations.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26047794" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26047794" target="_blank">PMID:26047794</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"hypercalcemia with failure to thrive, vomiting, dehydration, and"</div>
+
+
+                <div class="evidence-explanation">SLC34A1 discovery paper lists failure to thrive among typical features.</div>
 
 
 
@@ -6847,6 +7017,9 @@ This disease-associated gene is CYP24A1 (hgnc:2602). hgnc:2602 is a gene from th
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
@@ -6872,6 +7045,7 @@ This disease-associated gene is CYP24A1 (hgnc:2602). hgnc:2602 is a gene from th
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"CYP24A1 | cytochrome P450 family 24 subfamily A member 1 | hgnc:2602 | Disease-causing germline mutation(s) (loss of function) in"</div>
@@ -6891,6 +7065,7 @@ This disease-associated gene is CYP24A1 (hgnc:2602). hgnc:2602 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6923,6 +7098,12 @@ This disease-associated gene is CYP24A1 (hgnc:2602). hgnc:2602 is a gene from th
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">CYP24A1 variants impair or abolish 24-hydroxylase function, reducing degradation of active vitamin D metabolites and causing vitamin D hypersensitivity.
 </div>
 
@@ -6951,6 +7132,7 @@ This disease-associated gene is CYP24A1 (hgnc:2602). hgnc:2602 is a gene from th
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6972,6 +7154,7 @@ This disease-associated gene is CYP24A1 (hgnc:2602). hgnc:2602 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7030,6 +7213,9 @@ This disease-associated gene is SLC34A1 (hgnc:11019). hgnc:11019 is a gene from 
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
@@ -7052,6 +7238,7 @@ This disease-associated gene is SLC34A1 (hgnc:11019). hgnc:11019 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7084,6 +7271,12 @@ This disease-associated gene is SLC34A1 (hgnc:11019). hgnc:11019 is a gene from 
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">SLC34A1 variants impair NaPi-IIa phosphate transport, causing renal phosphate wasting and inappropriate active vitamin D generation.
 </div>
 
@@ -7112,6 +7305,7 @@ This disease-associated gene is SLC34A1 (hgnc:11019). hgnc:11019 is a gene from 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7133,6 +7327,7 @@ This disease-associated gene is SLC34A1 (hgnc:11019). hgnc:11019 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7216,6 +7411,31 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -7333,6 +7553,7 @@ This treatment targets Nephrocalcinosis (HP:0000121). HP:0000121 is a phenotype 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7354,6 +7575,7 @@ This treatment targets Nephrocalcinosis (HP:0000121). HP:0000121 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7413,6 +7635,20 @@ This treatment is nutritional supplementation, annotated with Nutritional Suppor
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -7513,6 +7749,7 @@ This treatment targets Hypercalcemia (HP:0003072). HP:0003072 is a phenotype fro
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7535,6 +7772,7 @@ supplementation."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7595,6 +7833,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -7712,6 +7964,7 @@ This treatment targets Vomiting (HP:0002013). HP:0002013 is a phenotype from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7769,6 +8022,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -7873,6 +8140,7 @@ This treatment targets Nephrolithiasis (HP:0000787). HP:0000787 is a phenotype f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7894,6 +8162,7 @@ This treatment targets Nephrolithiasis (HP:0000787). HP:0000787 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7993,6 +8262,20 @@ This treatment uses rifampicin (CHEBI:28077). CHEBI:28077 is a therapeutic agent
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -8125,6 +8408,7 @@ This treatment targets Chronic kidney disease (HP:0012622). HP:0012622 is a phen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8146,6 +8430,7 @@ This treatment targets Chronic kidney disease (HP:0012622). HP:0012622 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8237,6 +8522,7 @@ This treatment targets Chronic kidney disease (HP:0012622). HP:0012622 is a phen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8279,6 +8565,7 @@ This treatment targets Chronic kidney disease (HP:0012622). HP:0012622 is a phen
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"early-onset hypercalcemia"</div>
@@ -8298,6 +8585,7 @@ This treatment targets Chronic kidney disease (HP:0012622). HP:0012622 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8374,6 +8662,7 @@ This treatment targets Chronic kidney disease (HP:0012622). HP:0012622 is a phen
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"hypercalciuria"</div>
@@ -8411,6 +8700,7 @@ This treatment targets Chronic kidney disease (HP:0012622). HP:0012622 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8485,6 +8775,7 @@ This treatment targets Chronic kidney disease (HP:0012622). HP:0012622 is a phen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8527,6 +8818,7 @@ This treatment targets Chronic kidney disease (HP:0012622). HP:0012622 is a phen
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"hypophosphatemia"</div>
@@ -8546,6 +8838,7 @@ This treatment targets Chronic kidney disease (HP:0012622). HP:0012622 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8622,6 +8915,7 @@ This treatment targets Chronic kidney disease (HP:0012622). HP:0012622 is a phen
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"decreased intact parathyroid hormone serum levels"</div>
@@ -8659,6 +8953,7 @@ This treatment targets Chronic kidney disease (HP:0012622). HP:0012622 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8734,6 +9029,7 @@ This treatment targets Chronic kidney disease (HP:0012622). HP:0012622 is a phen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8776,6 +9072,7 @@ This treatment targets Chronic kidney disease (HP:0012622). HP:0012622 is a phen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8797,6 +9094,7 @@ This treatment targets Chronic kidney disease (HP:0012622). HP:0012622 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8873,6 +9171,7 @@ This treatment targets Chronic kidney disease (HP:0012622). HP:0012622 is a phen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8912,6 +9211,7 @@ This treatment targets Chronic kidney disease (HP:0012622). HP:0012622 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9015,6 +9315,7 @@ This treatment targets Chronic kidney disease (HP:0012622). HP:0012622 is a phen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9036,6 +9337,7 @@ This treatment targets Chronic kidney disease (HP:0012622). HP:0012622 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9127,6 +9429,7 @@ This treatment targets Chronic kidney disease (HP:0012622). HP:0012622 is a phen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9148,6 +9451,7 @@ This treatment targets Chronic kidney disease (HP:0012622). HP:0012622 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9240,6 +9544,7 @@ nephrocalcinosis in 16 of 18 (88%) patients"</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9261,6 +9566,7 @@ nephrocalcinosis in 16 of 18 (88%) patients"</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9330,6 +9636,7 @@ nephrocalcinosis in 16 of 18 (88%) patients"</div>
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Age of onset: Infancy"</div>
@@ -9352,6 +9659,7 @@ nephrocalcinosis in 16 of 18 (88%) patients"</div>
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Age of onset: Neonatal"</div>
@@ -9371,6 +9679,7 @@ nephrocalcinosis in 16 of 18 (88%) patients"</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9425,6 +9734,7 @@ nephrocalcinosis in 16 of 18 (88%) patients"</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9446,6 +9756,7 @@ nephrocalcinosis in 16 of 18 (88%) patients"</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9522,6 +9833,7 @@ ESRD and underwent renal transplantation."</div>
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"&lt;1 / 1 000 000 | Worldwide | Point prevalence | ORPHANET"</div>
@@ -9576,6 +9888,7 @@ ESRD and underwent renal transplantation."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11416,6 +11729,8 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

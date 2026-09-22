@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -467,6 +468,18 @@
         .tag-component {
             background: #f0fdf4;
             color: #166534;
+        }
+
+        /* Same values as disorder.html.j2 so a treatment chip looks identical
+           whether it is read on a disorder page or on a module page. */
+        .tag-treatment {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .tag-gene {
+            background: #dbeafe;
+            color: #1e40af;
         }
 
         .tag-role {
@@ -1044,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1059,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1113,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1126,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1284,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1294,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1335,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1537,6 +1586,9 @@
 
     
 
+    
+
+    
     
 
     
@@ -1894,11 +1946,13 @@ Node term-binding follows module convention (GO/CL terms only; the drug identity
             
             <div class="item-box anchor-target" id="module-pathophysiology-spinal-hsp90-chaperone-restraint-of-mor-signaling" data-dismech-node="Spinal Hsp90 Chaperone Restraint of MOR Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Spinal Hsp90 Chaperone Restraint of MOR Signaling</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The trigger and the drug-target node, named for the biological process that the treatment acts on (following module convention). In the spinal dorsal horn the chaperone Hsp90 normally restrains a downstream mu-opioid receptor (MOR) signaling cascade. Pharmacological Hsp90 inhibition delivered intrathecally (17-AAG/tanespimycin, KU-32) removes this chaperone-imposed brake, enabling the amplified MOR signaling modeled by the downstream nodes. The effect is compartment-specific: inhibiting Hsp90 specifically in the spinal cord enhances opioid antinociception, whereas brain or systemic non-selective inhibition has the opposite, opioid-blocking effect.</div>
                 
@@ -1933,11 +1987,13 @@ Node term-binding follows module convention (GO/CL terms only; the drug identity
             
             <div class="item-box anchor-target" id="module-pathophysiology-microglial-src-kinase-activation" data-dismech-node="Microglial Src Kinase Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Microglial Src Kinase Activation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The amplifier arm characterized by the flagship study. Following spinal Hsp90 inhibition, Src-family kinase is upregulated and activated in the spinal dorsal horn, where activated Src colocalizes with microglia. Microglial Src is causally required: microglial-specific Src CRISPR knockdown abolishes the enhanced antinociception, and pharmacological microglial inhibition (minocycline/PLX3397) mimics the Hsp90-inhibition effect while microglial activation (LPS) reverses it. Src acts upstream of ERK in this cascade.</div>
                 
@@ -2011,11 +2067,13 @@ This pathophysiological event involves Spinal dorsal horn microglia, annotated w
             
             <div class="item-box anchor-target" id="module-pathophysiology-pkcbeta-activation-in-cgrp-neurons" data-dismech-node="PKCbeta Activation in CGRP Neurons" data-dismech-type="pathophysiology">
                 <div class="item-name">PKCbeta Activation in CGRP Neurons</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">A second, parallel amplifier arm established by the same lab with the same cell-type-selective CRISPR logic as the microglial Src arm. Spinal Hsp90 inhibition (with opioid) selectively activates protein kinase C beta (PKCbeta) in calcitonin-gene-related-peptide (CGRP) primary-afferent neurons of the dorsal horn; PKCbeta in these specific cells is required for the enhanced opioid antinociception. Like the Src arm, this contributes to the convergent ERK/downstream MOR signaling enhancement, and it was demonstrated in tail-flick and postsurgical (paw-incision) pain models.</div>
                 
@@ -2075,11 +2133,13 @@ This pathophysiological event involves CGRP-positive peptidergic nociceptor, ann
             
             <div class="item-box anchor-target" id="module-pathophysiology-erk-rsk-cascade-activation" data-dismech-node="ERK-RSK Cascade Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">ERK-RSK Cascade Activation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The central effector and convergent hub. Spinal Hsp90 inhibition permits opioid-induced phosphorylation of ERK1/2 and increased abundance of the kinase RSK in the spinal dorsal horn. Mechanistically this convergence is gated by relief of an opioid-induced, AMPK-mediated negative feedback loop (Hsp90 inhibition lowers spinal AMPK, disabling the brake), and microglial Src acts upstream of ERK. Blocking ERK, RSK, or protein synthesis abolishes the enhancement, marking this cascade as the rate-limiting step every mechanistic arm funnels through.</div>
                 
@@ -2141,11 +2201,13 @@ This pathophysiological event involves increased Opioid-evoked ERK1/2 cascade ac
             
             <div class="item-box anchor-target" id="module-pathophysiology-enhanced-spinal-mu-opioid-receptor-antinociceptive-signaling" data-dismech-node="Enhanced Spinal Mu-Opioid Receptor Antinociceptive Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Enhanced Spinal Mu-Opioid Receptor Antinociceptive Signaling</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The effector node. The relieved, amplified cascade downstream of the spinal mu-opioid receptor increases antinociceptive output while the Hsp90-restrained pronociceptive arm is disabled. This enhanced MOR signaling is localized to the spinal cord and is the disorder-agnostic convergence point that translates the molecular cascade into increased analgesic efficacy.</div>
                 
@@ -2207,11 +2269,13 @@ This pathophysiological event involves increased Spinal mu-opioid receptor antin
             
             <div class="item-box anchor-target" id="module-pathophysiology-increased-opioid-antinociception-and-improved-therapeutic-index" data-dismech-node="Increased Opioid Antinociception and Improved Therapeutic Index" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Opioid Antinociception and Improved Therapeutic Index</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The consequence node. The enhanced spinal MOR signaling produces increased opioid antinociception at the behavioral level, boosting analgesic potency while reducing and rescuing tolerance and leaving reward and constipation liability largely unchanged, i.e. an improved therapeutic index and an opioid dose-reduction opportunity. Conforming pain-disorder entries substitute the pain-context-specific behavioral model (thermal/tail-flick, incisional/postsurgical, neuropathic, cancer pain).</div>
                 
@@ -2256,6 +2320,131 @@ This pathophysiological event involves decreased Reduced behavioral pain respons
 
                 
 
+                
+            </div>
+            
+        </div>
+        
+
+        
+        
+        <div class="card" id="treatments">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
+                <h2 class="card-title">Treatments</h2>
+                <span class="card-count">1</span>
+            </div>
+            
+            <div class="item-box" data-dismech-node="Spinal-Selective Hsp90 Inhibitor (Opioid Adjuvant)" data-dismech-type="treatment">
+                <div class="item-name">Spinal-Selective Hsp90 Inhibitor (Opioid Adjuvant)</div>
+                
+                <div class="item-meta">
+                    
+                    
+                    
+                    
+                    <span class="tag tag-treatment">
+                        Pharmacotherapy
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-11">NCIT:C15986</a>
+    
+    
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    
+                    
+                    
+                    <span class="tag tag-treatment">
+                        17-AAG (tanespimycin)
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/CHEBI_64153" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-12">CHEBI:64153</a>
+    
+    
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses 17-AAG (tanespimycin), annotated with tanespimycin (CHEBI:64153). CHEBI:64153 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+                    
+                </div>
+                
+                
+    
+    
+    
+    
+    
+    
+    
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+        
+        <span class="tag tag-treatment">Small molecule</span>
+        
+        
+        
+        
+        
+    </div>
+    
+    
+    
+    
+    
+    
+    
+                
+                <div class="item-desc">A spinal-cord-directed Hsp90 inhibitor used as an opioid adjuvant to potentiate analgesia and enable dose reduction. Tool compounds are the intrathecally delivered non-selective inhibitors 17-AAG (tanespimycin) and KU-32; the translationally feasible form is a systemically delivered inhibitor selective for the spinal-cord-active isoforms Hsp90-beta (KUNB106) or Grp94 (KUNG65), which enhance opioid antinociception and rescue tolerance while avoiding the opioid-blocking effect of brain/systemic non-selective Hsp90 inhibition. This is the drug-target design pattern for conforming pain-disorder entries: a treatment acting on the upstream Hsp90 trigger node, not on a downstream pain phenotype.</div>
+                
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism target:</strong>
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">INHIBITS</span>
+                        
+                        
+                        <a href="#module-pathophysiology-spinal-hsp90-chaperone-restraint-of-mor-signaling"><strong>Spinal Hsp90 Chaperone Restraint of MOR Signaling</strong></a>
+                        
+                        <span> — The inhibitor blocks spinal-cord Hsp90 chaperone activity, relieving its restraint on the downstream MOR cascade (Src/microglia, AMPK-feedback relief, ERK-RSK) and thereby amplifying opioid antinociception. Spinal compartment or isoform selectivity is required, since brain/systemic non-selective inhibition blocks opioid antinociception instead.</span>
+                        
+                    </div>
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <span class="tag" style="background:#ecfeff;color:#155e75;">Evidence: 1</span>
+                </div>
+                
                 
             </div>
             

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4192,6 +4264,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pet100-loss-and-failed-complex-iv-assembly" data-dismech-node="PET100 Loss and Failed Complex IV Assembly" data-dismech-type="pathophysiology">
                 <div class="item-name">PET100 Loss and Failed Complex IV Assembly</div>
 
+
                 <div class="item-desc">Biallelic PET100 variants cause loss of a small mitochondrial inner-membrane Complex IV biogenesis factor. PET100 forms a subcomplex with Complex IV subunits and is required for their incorporation into the maturing holoenzyme; in its absence the COX subunits are destabilized and the holoenzyme fails to assemble, yielding isolated Complex IV biogenesis failure.
 </div>
 
@@ -4326,6 +4399,7 @@ This pathophysiological event involves decreased mitochondrial respiratory chain
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4347,6 +4421,7 @@ This pathophysiological event involves decreased mitochondrial respiratory chain
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4374,6 +4449,7 @@ This pathophysiological event involves decreased mitochondrial respiratory chain
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4398,6 +4474,7 @@ This pathophysiological event involves decreased mitochondrial respiratory chain
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-terminal-electron-transfer-and-atp-synthesis" data-dismech-node="Impaired Terminal Electron Transfer and ATP Synthesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Terminal Electron Transfer and ATP Synthesis</div>
+
 
                 <div class="item-desc">Deficient Complex IV blocks electron transfer from cytochrome c to oxygen and proton pumping, collapsing oxidative ATP synthesis and preferentially injuring high-energy tissue (brain, skeletal muscle).
 </div>
@@ -4582,6 +4659,7 @@ This pathophysiological event involves decreased ATP synthesis coupled electron 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4603,6 +4681,7 @@ This pathophysiological event involves decreased ATP synthesis coupled electron 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4628,6 +4707,7 @@ This pathophysiological event involves decreased ATP synthesis coupled electron 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lactic-acidosis-and-metabolic-decompensation" data-dismech-node="Lactic Acidosis and Metabolic Decompensation" data-dismech-type="pathophysiology">
                 <div class="item-name">Lactic Acidosis and Metabolic Decompensation</div>
+
 
                 <div class="item-desc">With oxidative phosphorylation blocked, pyruvate is shunted to lactate, elevating blood lactate; in PET100-related disease this can present as a severe, treatment-refractory neonatal lactic acidosis.
 </div>
@@ -4728,6 +4808,7 @@ This pathophysiological event involves increased lactate biosynthetic process (G
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4750,6 +4831,7 @@ This pathophysiological event involves increased lactate biosynthetic process (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neurodevelopmental-leigh-spectrum-injury" data-dismech-node="Neurodevelopmental Leigh Spectrum Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Neurodevelopmental Leigh Spectrum Injury</div>
+
 
                 <div class="item-desc">PET100-related complex IV deficiency injures high-energy neural tissues, producing Leigh syndrome with seizures and later neurodevelopmental, motor, respiratory, and growth phenotypes.
 </div>
@@ -4916,6 +4998,7 @@ This pathophysiological event involves decreased mitochondrial ATP synthesis cou
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4938,6 +5021,7 @@ This pathophysiological event involves decreased mitochondrial ATP synthesis cou
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4964,6 +5048,7 @@ This pathophysiological event involves decreased mitochondrial ATP synthesis cou
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neonatal-multiorgan-energy-failure" data-dismech-node="Neonatal Multiorgan Energy Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Neonatal Multiorgan Energy Failure</div>
+
 
                 <div class="item-desc">In severe truncating PET100 disease, neonatal complex IV failure disrupts energy homeostasis across multiple organs, with hypoglycemia, renal tubular aminoaciduria, hepatic synthetic dysfunction, skeletal muscle involvement, and prenatal brain-growth effects.
 </div>
@@ -5104,6 +5189,7 @@ This pathophysiological event involves decreased mitochondrial ATP synthesis cou
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5126,6 +5212,7 @@ This pathophysiological event involves decreased mitochondrial ATP synthesis cou
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5194,27 +5281,110 @@ This pathophysiological event involves decreased mitochondrial ATP synthesis cou
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Head and Neck<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Metabolism<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Genitourinary<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Musculoskeletal<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Head and Neck<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Nervous System<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Metabolism<span class="pill-count">(4)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Respiratory<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Musculoskeletal<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Growth<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Nervous System<span class="pill-count">(4)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Other<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Respiratory<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Growth<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
 
 
             <details class="phenotype-category-group" id="pheno-cat-1">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Blood
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-prolonged-prothrombin-time" data-dismech-node="Prolonged prothrombin time" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Prolonged prothrombin time
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008151" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0008151</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Prolonged prothrombin time (HP:0008151). HP:0008151 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25293719" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25293719" target="_blank">PMID:25293719</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"severe coagulopathy with an extended prothrombin time of 47.7 s (normal 12.3–16.6 s)"</div>
+
+
+                <div class="evidence-explanation">Severe coagulopathy with a markedly prolonged prothrombin time documents the hepatic synthetic dysfunction of the neonatal presentation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Digestive
@@ -5235,15 +5405,18 @@ This pathophysiological event involves decreased mitochondrial ATP synthesis cou
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001410" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0001410</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001410" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001410</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Decreased liver function (HP:0001410). HP:0001410 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">The abnormality here is hepatic *synthetic* dysfunction, not hepatocellular injury. The authors&#39; discussion calls it &#34;severely impaired liver function&#34;, but their own case description records &#34;otherwise normal liver function tests&#34; alongside a prothrombin time of 47.7 s and a plasma albumin of 7 g/l. Read this node as the synthetic deficit (see the Prolonged prothrombin time and Hypoalbuminemia nodes), not as elevated transaminases.
@@ -5266,6 +5439,7 @@ This clinical feature is Decreased liver function (HP:0001410). HP:0001410 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5294,7 +5468,88 @@ This clinical feature is Decreased liver function (HP:0001410). HP:0001410 is a 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-2">
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Genitourinary
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-generalized-aminoaciduria" data-dismech-node="Generalized aminoaciduria" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Generalized aminoaciduria
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002909" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0002909</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Generalized aminoaciduria (HP:0002909). HP:0002909 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25293719" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25293719" target="_blank">PMID:25293719</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"There was gross generalised aminoaciduria."</div>
+
+
+                <div class="evidence-explanation">Generalized aminoaciduria indicates renal tubular involvement in the multiorgan neonatal presentation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
@@ -5315,15 +5570,18 @@ This clinical feature is Decreased liver function (HP:0001410). HP:0001410 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0000252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000252</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5343,6 +5601,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5371,11 +5630,11 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-3">
+            <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">4</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-lactic-acidosis" data-dismech-node="Lactic acidosis" data-dismech-type="phenotype">
@@ -5392,15 +5651,18 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003128" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0003128</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003128" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0003128</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Lactic acidosis (HP:0003128). HP:0003128 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5423,6 +5685,7 @@ This clinical feature is Lactic acidosis (HP:0003128). HP:0003128 is a phenotype
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5431,6 +5694,78 @@ This clinical feature is Lactic acidosis (HP:0003128). HP:0003128 is a phenotype
 
 
                 <div class="evidence-explanation">Severe neonatal lactic acidosis is documented in the PET100 truncating-variant patient.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-neonatal-hypoglycemia" data-dismech-node="Neonatal hypoglycemia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Neonatal hypoglycemia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001998" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001998</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Neonatal hypoglycemia (HP:0001998). HP:0001998 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25293719" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25293719" target="_blank">PMID:25293719</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"She also developed hypoglycaemia within hours of birth"</div>
+
+
+                <div class="evidence-explanation">Neonatal hypoglycemia is documented in the PET100 truncating-variant patient.</div>
 
 
 
@@ -5460,15 +5795,18 @@ This clinical feature is Lactic acidosis (HP:0003128). HP:0003128 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003073" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0003073</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003073" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0003073</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypoalbuminemia (HP:0003073). HP:0003073 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5488,6 +5826,7 @@ This clinical feature is Hypoalbuminemia (HP:0003073). HP:0003073 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5525,18 +5864,23 @@ This clinical feature is Hypoalbuminemia (HP:0003073). HP:0003073 is a phenotype
 
                     <span class="phenotype-id">
 
+                        <span class="phenotype-term-label">Elevated circulating creatine kinase activity</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003236" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0003236</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003236" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0003236</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Elevated circulating creatine kinase concentration (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Elevated circulating creatine kinase activity (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5556,6 +5900,7 @@ This clinical feature is Elevated circulating creatine kinase concentration (HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5584,7 +5929,7 @@ This clinical feature is Elevated circulating creatine kinase concentration (HP:
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
@@ -5605,15 +5950,18 @@ This clinical feature is Elevated circulating creatine kinase concentration (HP:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001252</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5633,6 +5981,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5661,426 +6010,11 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Nervous System
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-seizures" data-dismech-node="Seizures" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Seizures
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001250</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:24462369" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24462369" target="_blank">PMID:24462369</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"They differed from individuals with SURF1 mutations in having seizures as a prominent feature."</div>
-
-
-                <div class="evidence-explanation">Seizures are a prominent and distinguishing feature of PET100-related Leigh syndrome.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:25293719" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25293719" target="_blank">PMID:25293719</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"She started having seizures at ∼48 h of age."</div>
-
-
-                <div class="evidence-explanation">The neonatal-onset patient also developed seizures.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-global-developmental-delay" data-dismech-node="Global developmental delay" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Global developmental delay
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001263</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:25293719" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25293719" target="_blank">PMID:25293719</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"associated with Leigh syndrome, seizures, developmental delay and elevated blood lactate levels"</div>
-
-
-                <div class="evidence-explanation">Developmental delay is reported as a core feature of the Lebanese founder-variant cohort.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31406627" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31406627" target="_blank">PMID:31406627</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"a history of global developmental delay, failure to thrive, muscular hypotonia, seizures, developmental regression, respiratory insufficiency, and lactic acidosis"</div>
-
-
-                <div class="evidence-explanation">Global developmental delay is directly documented in affected siblings carrying the Lebanese founder allele.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Respiratory
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-respiratory-insufficiency" data-dismech-node="Respiratory insufficiency" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Respiratory insufficiency
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002093</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Respiratory insufficiency (HP:0002093). HP:0002093 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31406627" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31406627" target="_blank">PMID:31406627</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"developmental regression, respiratory insufficiency, and lactic acidosis"</div>
-
-
-                <div class="evidence-explanation">Respiratory insufficiency is documented in the more severely affected founder-allele siblings.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
             <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Growth
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-intrauterine-growth-retardation" data-dismech-node="Intrauterine growth retardation" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Intrauterine growth retardation
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001511" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001511</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Intrauterine growth retardation (HP:0001511). HP:0001511 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:25293719" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25293719" target="_blank">PMID:25293719</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Antenatal scans showed that she was small for her gestation, weighing 1.19 kg at birth"</div>
-
-
-                <div class="evidence-explanation">Antenatal growth restriction (small for gestational age) is documented in the neonatal-onset patient.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-failure-to-thrive" data-dismech-node="Failure to thrive" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Failure to thrive
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001508</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31406627" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31406627" target="_blank">PMID:31406627</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"global developmental delay, failure to thrive, muscular hypotonia"</div>
-
-
-                <div class="evidence-explanation">Failure to thrive is documented in affected siblings carrying the Lebanese founder allele.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-8">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">5</span>
+                    Nervous System
+                    <span class="cat-count">4</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-leigh-syndrome" data-dismech-node="Leigh syndrome" data-dismech-type="phenotype">
@@ -6099,15 +6033,18 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002180" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002180</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002180" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002180</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Neurodegeneration (HP:0002180). HP:0002180 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6127,6 +6064,7 @@ This clinical feature is Neurodegeneration (HP:0002180). HP:0002180 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6167,15 +6105,18 @@ This clinical feature is Neurodegeneration (HP:0002180). HP:0002180 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007146" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0007146</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007146" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0007146</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Bilateral basal ganglia lesions (HP:0007146). HP:0007146 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6195,6 +6136,7 @@ This clinical feature is Bilateral basal ganglia lesions (HP:0007146). HP:000714
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6221,9 +6163,9 @@ This clinical feature is Bilateral basal ganglia lesions (HP:0007146). HP:000714
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-neonatal-hypoglycemia" data-dismech-node="Neonatal hypoglycemia" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-seizures" data-dismech-node="Seizures" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Neonatal hypoglycemia
+                        Seizures
 
 
 
@@ -6235,15 +6177,221 @@ This clinical feature is Bilateral basal ganglia lesions (HP:0007146). HP:000714
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001998" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001998</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001250</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24462369" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24462369" target="_blank">PMID:24462369</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"They differed from individuals with SURF1 mutations in having seizures as a prominent feature."</div>
+
+
+                <div class="evidence-explanation">Seizures are a prominent and distinguishing feature of PET100-related Leigh syndrome.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25293719" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25293719" target="_blank">PMID:25293719</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"She started having seizures at ∼48 h of age."</div>
+
+
+                <div class="evidence-explanation">The neonatal-onset patient also developed seizures.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-global-developmental-delay" data-dismech-node="Global developmental delay" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Global developmental delay
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001263</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25293719" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25293719" target="_blank">PMID:25293719</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"associated with Leigh syndrome, seizures, developmental delay and elevated blood lactate levels"</div>
+
+
+                <div class="evidence-explanation">Developmental delay is reported as a core feature of the Lebanese founder-variant cohort.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31406627" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31406627" target="_blank">PMID:31406627</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"a history of global developmental delay, failure to thrive, muscular hypotonia, seizures, developmental regression, respiratory insufficiency, and lactic acidosis"</div>
+
+
+                <div class="evidence-explanation">Global developmental delay is directly documented in affected siblings carrying the Lebanese founder allele.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-8">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Respiratory
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-respiratory-insufficiency" data-dismech-node="Respiratory insufficiency" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Respiratory insufficiency
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002093</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Neonatal hypoglycemia (HP:0001998). HP:0001998 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Respiratory insufficiency (HP:0002093). HP:0002093 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6255,10 +6403,10 @@ This clinical feature is Neonatal hypoglycemia (HP:0001998). HP:0001998 is a phe
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:25293719" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:31406627" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25293719" target="_blank">PMID:25293719</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31406627" target="_blank">PMID:31406627</a>
                     </span>
 
 
@@ -6266,14 +6414,15 @@ This clinical feature is Neonatal hypoglycemia (HP:0001998). HP:0001998 is a phe
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"She also developed hypoglycaemia within hours of birth"</div>
+                <div class="evidence-snippet">"developmental regression, respiratory insufficiency, and lactic acidosis"</div>
 
 
-                <div class="evidence-explanation">Neonatal hypoglycemia is documented in the PET100 truncating-variant patient.</div>
+                <div class="evidence-explanation">Respiratory insufficiency is documented in the more severely affected founder-allele siblings.</div>
 
 
 
@@ -6289,9 +6438,18 @@ This clinical feature is Neonatal hypoglycemia (HP:0001998). HP:0001998 is a phe
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-generalized-aminoaciduria" data-dismech-node="Generalized aminoaciduria" data-dismech-type="phenotype">
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-9">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Growth
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-intrauterine-growth-retardation" data-dismech-node="Intrauterine growth retardation" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Generalized aminoaciduria
+                        Intrauterine growth retardation
 
 
 
@@ -6303,15 +6461,18 @@ This clinical feature is Neonatal hypoglycemia (HP:0001998). HP:0001998 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002909" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002909</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001511" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001511</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Generalized aminoaciduria (HP:0002909). HP:0002909 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Intrauterine growth retardation (HP:0001511). HP:0001511 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6334,14 +6495,15 @@ This clinical feature is Generalized aminoaciduria (HP:0002909). HP:0002909 is a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"There was gross generalised aminoaciduria."</div>
+                <div class="evidence-snippet">"Antenatal scans showed that she was small for her gestation, weighing 1.19 kg at birth"</div>
 
 
-                <div class="evidence-explanation">Generalized aminoaciduria indicates renal tubular involvement in the multiorgan neonatal presentation.</div>
+                <div class="evidence-explanation">Antenatal growth restriction (small for gestational age) is documented in the neonatal-onset patient.</div>
 
 
 
@@ -6357,9 +6519,9 @@ This clinical feature is Generalized aminoaciduria (HP:0002909). HP:0002909 is a
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-prolonged-prothrombin-time" data-dismech-node="Prolonged prothrombin time" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-failure-to-thrive" data-dismech-node="Failure to thrive" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Prolonged prothrombin time
+                        Failure to thrive
 
 
 
@@ -6371,15 +6533,18 @@ This clinical feature is Generalized aminoaciduria (HP:0002909). HP:0002909 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008151" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0008151</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001508</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Prolonged prothrombin time (HP:0008151). HP:0008151 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6391,10 +6556,10 @@ This clinical feature is Prolonged prothrombin time (HP:0008151). HP:0008151 is 
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:25293719" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:31406627" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25293719" target="_blank">PMID:25293719</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31406627" target="_blank">PMID:31406627</a>
                     </span>
 
 
@@ -6402,14 +6567,15 @@ This clinical feature is Prolonged prothrombin time (HP:0008151). HP:0008151 is 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"severe coagulopathy with an extended prothrombin time of 47.7 s (normal 12.3–16.6 s)"</div>
+                <div class="evidence-snippet">"global developmental delay, failure to thrive, muscular hypotonia"</div>
 
 
-                <div class="evidence-explanation">Severe coagulopathy with a markedly prolonged prothrombin time documents the hepatic synthetic dysfunction of the neonatal presentation.</div>
+                <div class="evidence-explanation">Failure to thrive is documented in affected siblings carrying the Lebanese founder allele.</div>
 
 
 
@@ -6493,6 +6659,9 @@ This disease-associated gene is PET100 (hgnc:40038). hgnc:40038 is a gene from t
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
@@ -6515,6 +6684,7 @@ This disease-associated gene is PET100 (hgnc:40038). hgnc:40038 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6542,6 +6712,7 @@ This disease-associated gene is PET100 (hgnc:40038). hgnc:40038 is a gene from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6563,6 +6734,7 @@ This disease-associated gene is PET100 (hgnc:40038). hgnc:40038 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6641,6 +6813,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -7365,10 +7551,10 @@ phenotypes:
     Raised serum creatine kinase indicating skeletal muscle involvement in the
     neonatal-onset multiorgan presentation.
   phenotype_term:
-    preferred_term: Elevated circulating creatine kinase concentration
+    preferred_term: Elevated circulating creatine kinase activity
     term:
       id: HP:0003236
-      label: Elevated circulating creatine kinase concentration
+      label: Elevated circulating creatine kinase activity
   evidence:
   - reference: PMID:25293719
     reference_title: &#34;A truncating PET100 variant causing fatal infantile lactic acidosis and isolated cytochrome c oxidase deficiency.&#34;
@@ -7547,6 +7733,8 @@ treatments:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -7755,7 +7943,7 @@ across all reports.</p>
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "PET100-Related COX Deficiency", "mondoId": "MONDO:0033646", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "PET100-Related_COX_Deficiency", "yamlRevision": "29d1d1f761cc"};
+        const OS_CONFIG = {"diseaseName": "PET100-Related COX Deficiency", "mondoId": "MONDO:0033646", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "PET100-Related_COX_Deficiency", "yamlRevision": "fe923cbca892"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

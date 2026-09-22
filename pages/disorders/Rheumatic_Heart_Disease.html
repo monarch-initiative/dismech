@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4209,6 +4281,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4353,6 +4426,7 @@
 
 
 
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -4377,6 +4451,7 @@
 
 
 
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -4398,6 +4473,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4531,6 +4607,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4552,6 +4629,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4685,6 +4763,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4709,6 +4788,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4730,6 +4810,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4859,6 +4940,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-group-a-streptococcal-infection-in-a-susceptible-host" data-dismech-node="Group A streptococcal infection in a susceptible host" data-dismech-type="pathophysiology">
                 <div class="item-name">Group A streptococcal infection in a susceptible host</div>
 
+
                 <div class="item-desc">Pharyngeal infection with Streptococcus pyogenes is the initiating event. Skin infection is an increasingly recognised alternative portal in high-burden tropical settings. Susceptibility is conferred largely by HLA class II genotype, which determines which streptococcal and self peptides are presented to CD4-positive T cells, so the same exposure produces disease in some hosts and not others.
 </div>
 
@@ -4913,6 +4995,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4935,6 +5018,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-molecular-mimicry-and-cross-reactive-immune-priming" data-dismech-node="Molecular mimicry and cross-reactive immune priming" data-dismech-type="pathophysiology">
                 <div class="item-name">Molecular mimicry and cross-reactive immune priming</div>
+
 
                 <div class="item-desc">The group A carbohydrate epitope N-acetylglucosamine and the alpha-helical coiled-coil M protein structurally resemble human cardiac myosin and connective tissue proteins closely enough that antibodies and T cells raised against the organism bind host tissue. Which host protein is struck first is genuinely disputed and is curated as a controversy rather than as settled fact. The long-standing answer is cardiac myosin, but myosin is intracellular and therefore hard to reach, which motivates an alternative in which extracellular proteins are hit first.
 </div>
@@ -5082,6 +5166,7 @@ This pathophysiological event involves increased inflammatory response to antige
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5103,6 +5188,7 @@ This pathophysiological event involves increased inflammatory response to antige
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5128,6 +5214,7 @@ This pathophysiological event involves increased inflammatory response to antige
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cross-reactive-antibody-binding-and-valve-endothelial-activation" data-dismech-node="Cross-reactive antibody binding and valve endothelial activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Cross-reactive antibody binding and valve endothelial activation</div>
+
 
                 <div class="item-desc">Cross-reactive antibody binds valve endothelium and upregulates VCAM-1, converting the valve surface from a quiescent lining into an adhesive one. This is the step that recruits the cellular infiltrate; antibody alone does not destroy the valve.
 </div>
@@ -5238,6 +5325,7 @@ This pathophysiological event occurs in mitral valve (UBERON:0002135). UBERON:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5260,6 +5348,7 @@ This pathophysiological event occurs in mitral valve (UBERON:0002135). UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cd4-positive-t-cell-infiltration-of-the-valve" data-dismech-node="CD4-positive T cell infiltration of the valve" data-dismech-type="pathophysiology">
                 <div class="item-name">CD4-positive T cell infiltration of the valve</div>
+
 
                 <div class="item-desc">CD4-positive T lymphocytes showing degenerate, cross-reactive antigen recognition infiltrate valve tissue and myocardium and are considered the prime effectors of valve destruction. Epitope spreading broadens the response with each recurrence, which is the mechanistic reason a second episode of rheumatic fever damages the valve more than the first, and why prophylaxis against reinfection is the whole of secondary prevention.
 </div>
@@ -5387,6 +5476,7 @@ This pathophysiological event involves increased T cell mediated immunity (GO:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5409,6 +5499,7 @@ This pathophysiological event involves increased T cell mediated immunity (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-acute-valvulitis-with-aschoff-body-formation" data-dismech-node="Acute valvulitis with Aschoff body formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Acute valvulitis with Aschoff body formation</div>
+
 
                 <div class="item-desc">The histological signature of active carditis, consisting of granulomatous foci of central fibrinoid necrosis ringed by lymphocytes, plasma cells, and macrophages, including the Anitschkow cells whose linear chromatin gives them their caterpillar appearance. The Aschoff body is a pathological structure formed de novo and so is conceptually an Xogenesis lesion, but it is deliberately not curated as conforming to the granuloma_formation module. That module models containment of an indigestible persistent stimulus by macrophage fusion, and here there is no organism in the tissue to contain.
 </div>
@@ -5537,6 +5628,7 @@ This pathophysiological event occurs in mitral valve (UBERON:0002135). UBERON:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5559,6 +5651,7 @@ This pathophysiological event occurs in mitral valve (UBERON:0002135). UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-valve-fibrosis-commissural-fusion-and-calcification" data-dismech-node="Chronic valve fibrosis, commissural fusion, and calcification" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic valve fibrosis, commissural fusion, and calcification</div>
+
 
                 <div class="item-desc">Leaflet thickening, neovascularisation of a normally avascular tissue, fusion of the commissures, and dystrophic calcification convert inflammation into fixed stenosis, regurgitation, or both. This is the point of no return, since everything upstream is in principle reversible and nothing from here on is. The mitral valve is affected most often and most severely, then the aortic, an asymmetry conventionally attributed to the higher shear stress on left-sided valves.
 </div>
@@ -5707,6 +5800,7 @@ This pathophysiological event occurs in mitral valve (UBERON:0002135). UBERON:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5729,6 +5823,7 @@ This pathophysiological event occurs in mitral valve (UBERON:0002135). UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-valvular-stenosis-and-regurgitation-with-hemodynamic-overload" data-dismech-node="Valvular stenosis and regurgitation with hemodynamic overload" data-dismech-type="pathophysiology">
                 <div class="item-name">Valvular stenosis and regurgitation with hemodynamic overload</div>
+
 
                 <div class="item-desc">Mitral regurgitation appears first, mitral stenosis later as leaflets thicken and commissures fuse. The resulting left atrial enlargement, pulmonary venous congestion, and ventricular volume or pressure overload account for essentially all the downstream clinical disease.
 </div>
@@ -5812,11 +5907,49 @@ This pathophysiological event occurs in mitral valve (UBERON:0002135). UBERON:00
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27188830" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27188830" target="_blank">PMID:27188830</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Carditis occurs in &gt;50% of patients with ARF and is predominantly characterized by valvulitis of the mitral valve (mitral regurgitation) and, less frequently, of the aortic valve (aortic regurgitation)"</div>
+
+
+                <div class="evidence-explanation">Establishes the valve distribution this node asserts, mitral first and aortic second, and gives the proportion of acute episodes in which carditis occurs at all.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
 
 	            </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pulmonary-venous-congestion-and-pulmonary-hypertension" data-dismech-node="Pulmonary venous congestion and pulmonary hypertension" data-dismech-type="pathophysiology">
                 <div class="item-name">Pulmonary venous congestion and pulmonary hypertension</div>
+
 
                 <div class="item-desc">Sustained elevation of left atrial pressure in mitral stenosis is transmitted back through the pulmonary veins, and chronic passive congestion eventually produces reactive remodelling of the pulmonary arterioles. This is post-capillary pulmonary hypertension arising from a mechanical upstream cause, so conformance is declared at the remodelling node only and not at the module&#39;s endothelial and BMPR2 trigger nodes, which model a primary pulmonary arteriopathy. The consequence is right ventricular pressure loading, which is how a left-sided valve lesion ends in right heart failure.
 </div>
@@ -5864,11 +5997,51 @@ This pathophysiological event occurs in mitral valve (UBERON:0002135). UBERON:00
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27188830" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27188830" target="_blank">PMID:27188830</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In addition, half of these patients had severe complications including heart failure, atrial flutter and/or fibrillation, pulmonary hypertension and stroke."</div>
+
+
+                <div class="evidence-explanation">&#34;These patients&#34; are a Ugandan RHD cohort (n = 309, mean age 30) described in the sentence before this one, of whom 85% already had cardiovascular symptoms at first presentation and none had ever been diagnosed with ARF or taken penicillin. Within that cohort, pulmonary hypertension is one of four severe complications affecting half the patients, alongside the other three outcomes this entry curates downstream of the valve lesion. The cohort is selected for late, previously undiagnosed presentation in a high-burden low-resource setting, so the 50% figure is not a general frequency for this disease and no frequency band is assigned from it. It does not by itself establish the post-capillary mechanism, which the node asserts on physiological grounds and which remains uncited.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
 
 	            </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-right-heart-failure" data-dismech-node="Right heart failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Right heart failure</div>
+
 
                 <div class="item-desc">Raised jugular venous pressure, hepatic congestion, ascites, and peripheral oedema, arising from right ventricular pressure loading rather than from any right-sided valve lesion. Curated separately from left-sided congestive failure because the mechanism and the clinical picture differ.
 </div>
@@ -5891,11 +6064,51 @@ This pathophysiological event occurs in mitral valve (UBERON:0002135). UBERON:00
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27188830" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27188830" target="_blank">PMID:27188830</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Of children that progressed to RHD, 14% showed heart failure at 1 year and 27% had heart failure at 5 years."</div>
+
+
+                <div class="evidence-explanation">INDIRECT, and the weaker of the two possible readings. The figures come from Lawrence and colleagues&#39; study of 1,149 children with ARF in the Northern Territory, Australia, as restated by this primer. It quantifies heart failure after progression to this disease and shows it accumulates with time, but the cited figures do not separate right-sided from left-sided failure, which is the distinction this node is curated to make.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
 
 	            </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-atrial-fibrillation-and-cardioembolic-risk" data-dismech-node="Atrial fibrillation and cardioembolic risk" data-dismech-type="pathophysiology">
                 <div class="item-name">Atrial fibrillation and cardioembolic risk</div>
+
 
                 <div class="item-desc">Atrial fibrillation here is structural, arising from left atrial enlargement, and is deliberately not curated as conforming to cardiac_ion_channel_repolarization. That module models a primary channelopathy in a structurally normal heart, which is the opposite of the situation here. The distinction is not academic, because it is why this population needs a vitamin K antagonist rather than a direct oral anticoagulant, a question settled by trial and against expectation.
 </div>
@@ -5969,6 +6182,7 @@ This pathophysiological event occurs in mitral valve (UBERON:0002135). UBERON:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5991,6 +6205,7 @@ This pathophysiological event occurs in mitral valve (UBERON:0002135). UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-congestive-heart-failure" data-dismech-node="Congestive heart failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Congestive heart failure</div>
+
 
                 <div class="item-desc">The usual presenting syndrome, because chronic rheumatic heart disease is frequently silent until it decompensates. That latency is what motivates echocardiographic screening programmes in endemic populations.
 </div>
@@ -6027,6 +6242,7 @@ This pathophysiological event occurs in mitral valve (UBERON:0002135). UBERON:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6075,7 +6291,7 @@ This pathophysiological event occurs in mitral valve (UBERON:0002135). UBERON:00
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acute valvulitis with Aschoff body formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The histological signature of active carditis, consisting of granulomatous foci of central fibrinoid necrosis ringed by lymphocytes, plasma cells, and macrophages, including the Anitschkow cells whose linear chromatin gives them their caterpillar appearance. The Aschoff body is a pathological structure formed de novo and so is conceptually an Xogenesis lesion, but it is deliberately not curated as conforming to the granuloma_formation module. That module models containment of an indigestible persistent stimulus by macrophage fusion, and here there is no organism in the tissue to contain.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"macrophage\"], \"locations\": [\"mitral valve\"], \"experimental_models\": [{\"name\": \"Lewis rat autoimmune valvulitis model\", \"model_type\": \"OTHER\", \"description\": \"The model develops valvulitis, the acute lesion of this disease.\\n\"}]}}, {\"id\": \"Anti-DNase B titre\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"presence\": \"INCREASED\", \"readouts\": [{\"target\": \"Group A streptococcal infection in a susceptible host\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"The complementary serological readout of the same antecedent infection, paired with anti-streptolysin O because neither alone detects all antecedent infections.\\n\"}]}}, {\"id\": \"Anti-inflammatory therapy for acute carditis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Aspirin or corticosteroids are given for symptomatic relief of the acute episode. They do not protect the valve. This is curated because the negative result matters. The intuitive assumption is that suppressing the inflammation which is destroying the valve should preserve it, and the trial evidence does not support that. The evidence is old and at substantial risk of bias, so this is a failure to demonstrate benefit rather than a demonstration of futility.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"aspirin\"]}}, {\"id\": \"Anti-streptolysin O titre\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"presence\": \"INCREASED\", \"readouts\": [{\"target\": \"Group A streptococcal infection in a susceptible host\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"A raised or changing titre is serological evidence that the antecedent streptococcal infection occurred, which is what the Jones criteria require; it reports on the trigger, not on valve damage.\\n\"}]}}, {\"id\": \"Aortic regurgitation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The second most commonly involved valve, usually alongside mitral disease and rarely in isolation.\\n\", \"meta\": {\"term_id\": \"HP:0001659\"}}, {\"id\": \"Atrial fibrillation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Arises from left atrial enlargement in mitral disease and is the main driver of thromboembolic stroke risk.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005110\"}}, {\"id\": \"Atrial fibrillation and cardioembolic risk\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Atrial fibrillation here is structural, arising from left atrial enlargement, and is deliberately not curated as conforming to cardiac_ion_channel_repolarization. That module models a primary channelopathy in a structurally normal heart, which is the opposite of the situation here. The distinction is not academic, because it is why this population needs a vitamin K antagonist rather than a direct oral anticoagulant, a question settled by trial and against expectation.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Benzathine penicillin G secondary prophylaxis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The cornerstone of management, and the only intervention that alters the natural history. It works by preventing reinfection and therefore recurrence, not by treating the heart at all. It is given as a deep intramuscular injection every three to four weeks for a minimum of five years, often to age 21 or for ten years after the episode. The burden of that regimen, monthly painful injections in adolescents who feel well, is the principal reason real-world adherence is poor, and adherence rather than efficacy is the limiting factor.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"C-reactive protein\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"presence\": \"INCREASED\", \"readouts\": [{\"target\": \"Acute valvulitis with Aschoff body formation\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\", \"interpretation\": \"A non-specific systemic marker of the active inflammatory episode in which the valvulitis occurs; it corroborates activity rather than reporting on the valve itself.\\n\"}]}}, {\"id\": \"CD4-positive T cell infiltration of the valve\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CD4-positive T lymphocytes showing degenerate, cross-reactive antigen recognition infiltrate valve tissue and myocardium and are considered the prime effectors of valve destruction. Epitope spreading broadens the response with each recurrence, which is the mechanistic reason a second episode of rheumatic fever damages the valve more than the first, and why prophylaxis against reinfection is the whole of secondary prevention.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"CD4-positive T cell\"], \"biological_processes\": [\"T cell mediated immunity\"]}}, {\"id\": \"Chronic valve fibrosis, commissural fusion, and calcification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Leaflet thickening, neovascularisation of a normally avascular tissue, fusion of the commissures, and dystrophic calcification convert inflammation into fixed stenosis, regurgitation, or both. This is the point of no return, since everything upstream is in principle reversible and nothing from here on is. The mitral valve is affected most often and most severely, then the aortic, an asymmetry conventionally attributed to the higher shear stress on left-sided valves.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"valve interstitial cell\"], \"biological_processes\": [\"extracellular matrix organization\"], \"locations\": [\"mitral valve\"]}}, {\"id\": \"Congestive heart failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Frequently the presenting feature, since the chronic disease is usually asymptomatic until decompensation.\\n\", \"meta\": {\"term_id\": \"HP:0001635\"}}, {\"id\": \"Cross-reactive antibody binding and valve endothelial activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cross-reactive antibody binds valve endothelium and upregulates VCAM-1, converting the valve surface from a quiescent lining into an adhesive one. This is the step that recruits the cellular infiltrate; antibody alone does not destroy the valve.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"valve endothelial cell\"], \"locations\": [\"mitral valve\"]}}, {\"id\": \"Erythrocyte sedimentation rate\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"presence\": \"INCREASED\", \"readouts\": [{\"target\": \"Acute valvulitis with Aschoff body formation\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\", \"interpretation\": \"Used alongside C-reactive protein to document that the acute inflammatory episode is ongoing and to follow its resolution.\\n\"}]}}, {\"id\": \"Fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A minor Jones criterion during the acute episode.\\n\", \"meta\": {\"term_id\": \"HP:0001945\"}}, {\"id\": \"Group A streptococcal infection in a susceptible host\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pharyngeal infection with Streptococcus pyogenes is the initiating event. Skin infection is an increasingly recognised alternative portal in high-burden tropical settings. Susceptibility is conferred largely by HLA class II genotype, which determines which streptococcal and self peptides are presented to CD4-positive T cells, so the same exposure produces disease in some hosts and not others.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Household crowding and poverty\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"The dominant determinant of who develops this disease. Crowding drives streptococcal transmission, and poverty drives both untreated pharyngitis and failure of secondary prophylaxis. The geographic and Indigenous-population disparity in burden is explained by these factors rather than by any biological gradient, which is why this entry treats them as mechanism rather than as background.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Lewis rat autoimmune valvulitis model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"The principal animal model, produced by immunising Lewis rats with streptococcal M protein or cardiac myosin. It reproduces the valvulitis and the cross-reactive immune response, which is what established molecular mimicry as more than an observation about sequence similarity. It is explicitly the subject of a published discussion of what a robust model of this disease would have to demonstrate, which is a fair signal that the existing models are not considered settled.\\n\", \"meta\": {\"evidence_count\": 2, \"model_type\": \"OTHER\", \"publication\": \"PMID:25414841\"}}, {\"id\": \"Low-molecular-weight heparin anticoagulation in pregnancy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Pregnancy is the period of highest thromboembolic risk in a woman with a prosthetic valve, and it is also when warfarin cannot be used, because it crosses the placenta and is teratogenic in the first trimester. Low-molecular-weight heparin is the usual substitute and remains an off-label indication without an agreed regimen, which is a substantial evidence gap in a disease whose population is overwhelmingly young women. The modality is recorded as OTHER rather than SMALL_MOLECULE, since a low-molecular-weight heparin is a sulfated polysaccharide rather than a small molecule in the usual sense.\\n\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Migratory polyarthritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"An acute rheumatic fever manifestation rather than a feature of the chronic valvular disease. Classically large-joint, fleeting, asymmetric, and strikingly aspirin-responsive.\\n\", \"meta\": {\"term_id\": \"HP:0001369\"}}, {\"id\": \"Mitral regurgitation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The earliest and most common valvular lesion, present before stenosis develops.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001653\"}}, {\"id\": \"Mitral stenosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Develops later than regurgitation, from progressive leaflet thickening and commissural fusion. It is the lesion that produces left atrial enlargement, and therefore the atrial fibrillation and stroke risk.\\n\", \"meta\": {\"term_id\": \"HP:0001718\"}}, {\"id\": \"Mitral valve repair or replacement\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Required for advanced, calcified, or regurgitant disease. Repair outperforms replacement where anatomically feasible. Mechanical replacement commits a young patient to lifelong anticoagulation, with the accumulating risks of thromboembolism, haemorrhage, perivalvular leak, and prosthetic endocarditis, which is a heavy long-term cost in the adolescents and young adults who make up much of this population.\\n\"}, {\"id\": \"Molecular mimicry and cross-reactive immune priming\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The group A carbohydrate epitope N-acetylglucosamine and the alpha-helical coiled-coil M protein structurally resemble human cardiac myosin and connective tissue proteins closely enough that antibodies and T cells raised against the organism bind host tissue. Which host protein is struck first is genuinely disputed and is curated as a controversy rather than as settled fact. The long-standing answer is cardiac myosin, but myosin is intracellular and therefore hard to reach, which motivates an alternative in which extracellular proteins are hit first.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"inflammatory response to antigenic stimulus\"], \"experimental_models\": [{\"name\": \"Lewis rat autoimmune valvulitis model\", \"model_type\": \"OTHER\", \"description\": \"Immunisation with M protein or cardiac myosin reproduces the cross-reactive response.\\n\"}]}}, {\"id\": \"Percutaneous balloon mitral valvuloplasty\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Mechanical relief of rheumatic mitral stenosis in suitable valves, meaning those that are not calcified and not significantly regurgitant. It is less invasive and cheaper than surgery, which matters disproportionately in the settings where this disease actually occurs.\\n\"}, {\"id\": \"Post-capillary pulmonary hypertension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pulmonary hypertension arising from chronic left atrial pressure elevation in mitral stenosis, and the route by which a left-sided valve lesion produces right heart failure. It is bound to the post-capillary term rather than to pulmonary arterial hypertension deliberately: the latter is the pre-capillary Group 1 entity, which is precisely what this is not, and binding it would make the machine-readable slot contradict the prose.\\n\", \"meta\": {\"term_id\": \"HP:0033635\"}}, {\"id\": \"Pulmonary venous congestion and pulmonary hypertension\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sustained elevation of left atrial pressure in mitral stenosis is transmitted back through the pulmonary veins, and chronic passive congestion eventually produces reactive remodelling of the pulmonary arterioles. This is post-capillary pulmonary hypertension arising from a mechanical upstream cause, so conformance is declared at the remodelling node only and not at the module\u0027s endothelial and BMPR2 trigger nodes, which model a primary pulmonary arteriopathy. The consequence is right ventricular pressure loading, which is how a left-sided valve lesion ends in right heart failure.\\n\"}, {\"id\": \"Right heart failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Raised jugular venous pressure, hepatic congestion, ascites, and peripheral oedema, arising from right ventricular pressure loading rather than from any right-sided valve lesion. Curated separately from left-sided congestive failure because the mechanism and the clinical picture differ.\\n\"}, {\"id\": \"Stroke\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardioembolic, arising from atrial fibrillation or valve-associated thrombus. It is the complication that makes anticoagulation choice consequential in this population.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001297\"}}, {\"id\": \"Subcutaneous nodules\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Firm painless nodules over extensor surfaces. Uncommon, but they almost always accompany carditis, which makes them a useful clinical marker of cardiac involvement.\\n\", \"meta\": {\"term_id\": \"HP:0001482\"}}, {\"id\": \"Sydenham chorea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A delayed neurological manifestation appearing one to eight months after the streptococcal infection, long after the other features have resolved, which is why it is accepted on its own as presumptive evidence of acute rheumatic fever. Most affected individuals have concurrent cardiac involvement.\\n\", \"meta\": {\"term_id\": \"HP:0002072\"}}, {\"id\": \"Valvular stenosis and regurgitation with hemodynamic overload\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mitral regurgitation appears first, mitral stenosis later as leaflets thicken and commissures fuse. The resulting left atrial enlargement, pulmonary venous congestion, and ventricular volume or pressure overload account for essentially all the downstream clinical disease.\\n\"}, {\"id\": \"Vitamin K antagonist anticoagulation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Warfarin, with a target INR of 2 to 3, for atrial fibrillation or a mechanical valve. This is one of the few places in modern cardiology where the older drug won a head-to-head trial. Direct oral anticoagulants are standard for nonvalvular atrial fibrillation, and in this population they were worse. That result is the practical payoff of modelling rheumatic atrial fibrillation as a structural rather than an electrical disease.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"warfarin\"]}}], \"edges\": [{\"source\": \"Group A streptococcal infection in a susceptible host\", \"target\": \"Molecular mimicry and cross-reactive immune priming\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Antigens of the organism prime an immune response that does not distinguish them from host cardiac and connective tissue proteins.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Molecular mimicry and cross-reactive immune priming\", \"target\": \"Cross-reactive antibody binding and valve endothelial activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cross-reactive antibody binds the valve surface, whichever host protein it recognises first.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Molecular mimicry and cross-reactive immune priming\", \"target\": \"Migratory polyarthritis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same cross-reactive response deposits in synovium, producing the fleeting large-joint arthritis of the acute episode. This is an acute rheumatic fever manifestation, not a feature of the chronic valve disease, and the steps between priming and synovitis are not resolved.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Molecular mimicry and cross-reactive immune priming\", \"target\": \"Sydenham chorea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cross-reactive antibody recognising basal ganglia neuronal antigen produces chorea, which appears one to eight months after the infection and so sits at the end of an unresolved chain rather than immediately downstream of priming.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Molecular mimicry and cross-reactive immune priming\", \"target\": \"Subcutaneous nodules\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cross-reactive inflammation of connective tissue over extensor surfaces produces the firm painless nodules, which almost always accompany carditis.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Molecular mimicry and cross-reactive immune priming\", \"target\": \"Fever\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The systemic inflammatory response accompanying the cross-reactive attack produces the fever that is a minor Jones criterion during the acute episode.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Cross-reactive antibody binding and valve endothelial activation\", \"target\": \"CD4-positive T cell infiltration of the valve\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Adhesion molecule upregulation permits lymphocyte recruitment into a normally avascular tissue.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"CD4-positive T cell infiltration of the valve\", \"target\": \"Acute valvulitis with Aschoff body formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained lymphocytic and macrophage infiltration organises into the characteristic lesion.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Acute valvulitis with Aschoff body formation\", \"target\": \"Chronic valve fibrosis, commissural fusion, and calcification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Repeated or persistent inflammation converts reversible valvulitis into fixed scar.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic valve fibrosis, commissural fusion, and calcification\", \"target\": \"Valvular stenosis and regurgitation with hemodynamic overload\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fixed structural valve deformity imposes a pressure or volume load on the chambers upstream.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Valvular stenosis and regurgitation with hemodynamic overload\", \"target\": \"Atrial fibrillation and cardioembolic risk\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Left atrial enlargement from mitral disease creates the substrate for atrial fibrillation.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Valvular stenosis and regurgitation with hemodynamic overload\", \"target\": \"Congestive heart failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic volume or pressure overload culminates in ventricular failure.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Valvular stenosis and regurgitation with hemodynamic overload\", \"target\": \"Pulmonary venous congestion and pulmonary hypertension\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mitral stenosis raises left atrial pressure, which is transmitted backwards into the pulmonary venous circulation.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Valvular stenosis and regurgitation with hemodynamic overload\", \"target\": \"Mitral regurgitation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Incompetent mitral leaflets are the earliest and commonest clinical lesion of the disease.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Valvular stenosis and regurgitation with hemodynamic overload\", \"target\": \"Mitral stenosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Leaflet thickening with commissural fusion narrows the mitral orifice, which develops later than the regurgitant lesion.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Valvular stenosis and regurgitation with hemodynamic overload\", \"target\": \"Aortic regurgitation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Aortic leaflet involvement, usually alongside mitral disease, produces the second commonest clinical valve lesion.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pulmonary venous congestion and pulmonary hypertension\", \"target\": \"Right heart failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronically raised pulmonary vascular resistance loads the right ventricle.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pulmonary venous congestion and pulmonary hypertension\", \"target\": \"Post-capillary pulmonary hypertension\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Backward transmission of a raised left atrial pressure is measured clinically as post-capillary, rather than pre-capillary, pulmonary hypertension.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Atrial fibrillation and cardioembolic risk\", \"target\": \"Congestive heart failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of atrial contribution and rate irregularity worsen an already loaded ventricle.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Atrial fibrillation and cardioembolic risk\", \"target\": \"Atrial fibrillation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The structural atrial substrate created by mitral disease manifests as clinical atrial fibrillation.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Atrial fibrillation and cardioembolic risk\", \"target\": \"Stroke\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Thrombus forming in the fibrillating, enlarged left atrium embolises to the cerebral circulation, which is the complication that makes the anticoagulant choice consequential here.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Household crowding and poverty\", \"target\": \"Group A streptococcal infection in a susceptible host\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Crowding raises the rate of streptococcal transmission and therefore of the initiating infection.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Benzathine penicillin G secondary prophylaxis\", \"target\": \"Group A streptococcal infection in a susceptible host\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Anti-inflammatory therapy for acute carditis\", \"target\": \"Acute valvulitis with Aschoff body formation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Vitamin K antagonist anticoagulation\", \"target\": \"Atrial fibrillation and cardioembolic risk\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Low-molecular-weight heparin anticoagulation in pregnancy\", \"target\": \"Valvular stenosis and regurgitation with hemodynamic overload\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Percutaneous balloon mitral valvuloplasty\", \"target\": \"Valvular stenosis and regurgitation with hemodynamic overload\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Mitral valve repair or replacement\", \"target\": \"Valvular stenosis and regurgitation with hemodynamic overload\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Lewis rat autoimmune valvulitis model\", \"target\": \"Molecular mimicry and cross-reactive immune priming\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Immunisation with M protein or cardiac myosin reproduces the cross-reactive response.\\n\"}, {\"source\": \"Lewis rat autoimmune valvulitis model\", \"target\": \"Acute valvulitis with Aschoff body formation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The model develops valvulitis, the acute lesion of this disease.\\n\"}, {\"source\": \"Group A streptococcal infection in a susceptible host\", \"target\": \"Anti-streptolysin O titre\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"A raised or changing titre is serological evidence that the antecedent streptococcal infection occurred, which is what the Jones criteria require; it reports on the trigger, not on valve damage.\\n\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Group A streptococcal infection in a susceptible host\", \"target\": \"Anti-DNase B titre\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"The complementary serological readout of the same antecedent infection, paired with anti-streptolysin O because neither alone detects all antecedent infections.\\n\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Acute valvulitis with Aschoff body formation\", \"target\": \"C-reactive protein\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"A non-specific systemic marker of the active inflammatory episode in which the valvulitis occurs; it corroborates activity rather than reporting on the valve itself.\\n\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\"}, {\"source\": \"Acute valvulitis with Aschoff body formation\", \"target\": \"Erythrocyte sedimentation rate\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Used alongside C-reactive protein to document that the acute inflammatory episode is ongoing and to follow its resolution.\\n\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acute valvulitis with Aschoff body formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The histological signature of active carditis, consisting of granulomatous foci of central fibrinoid necrosis ringed by lymphocytes, plasma cells, and macrophages, including the Anitschkow cells whose linear chromatin gives them their caterpillar appearance. The Aschoff body is a pathological structure formed de novo and so is conceptually an Xogenesis lesion, but it is deliberately not curated as conforming to the granuloma_formation module. That module models containment of an indigestible persistent stimulus by macrophage fusion, and here there is no organism in the tissue to contain.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"macrophage\"], \"locations\": [\"mitral valve\"], \"experimental_models\": [{\"name\": \"Lewis rat autoimmune valvulitis model\", \"model_type\": \"OTHER\", \"description\": \"The model develops valvulitis, the acute lesion of this disease.\\n\"}]}}, {\"id\": \"Anti-DNase B titre\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"readouts\": [{\"target\": \"Group A streptococcal infection in a susceptible host\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"The complementary serological readout of the same antecedent infection, paired with anti-streptolysin O because neither alone detects all antecedent infections.\\n\"}]}}, {\"id\": \"Anti-inflammatory therapy for acute carditis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Aspirin or corticosteroids are given for symptomatic relief of the acute episode. They do not protect the valve. This is curated because the negative result matters. The intuitive assumption is that suppressing the inflammation which is destroying the valve should preserve it, and the trial evidence does not support that. The evidence is old and at substantial risk of bias, so this is a failure to demonstrate benefit rather than a demonstration of futility.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"aspirin\"]}}, {\"id\": \"Anti-streptolysin O titre\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"readouts\": [{\"target\": \"Group A streptococcal infection in a susceptible host\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"A raised or changing titre is serological evidence that the antecedent streptococcal infection occurred, which is what the Jones criteria require; it reports on the trigger, not on valve damage.\\n\"}]}}, {\"id\": \"Aortic regurgitation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The second most commonly involved valve, usually alongside mitral disease and rarely in isolation.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001659\"}}, {\"id\": \"Atrial fibrillation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Arises from left atrial enlargement in mitral disease and is the main driver of thromboembolic stroke risk.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005110\"}}, {\"id\": \"Atrial fibrillation and cardioembolic risk\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Atrial fibrillation here is structural, arising from left atrial enlargement, and is deliberately not curated as conforming to cardiac_ion_channel_repolarization. That module models a primary channelopathy in a structurally normal heart, which is the opposite of the situation here. The distinction is not academic, because it is why this population needs a vitamin K antagonist rather than a direct oral anticoagulant, a question settled by trial and against expectation.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Benzathine penicillin G secondary prophylaxis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The cornerstone of management, and the only intervention that alters the natural history. It works by preventing reinfection and therefore recurrence, not by treating the heart at all. It is given as a deep intramuscular injection every three to four weeks for a minimum of five years, often to age 21 or for ten years after the episode. The burden of that regimen, monthly painful injections in adolescents who feel well, is the principal reason real-world adherence is poor, and adherence rather than efficacy is the limiting factor.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"C-reactive protein\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"presence\": \"INCREASED\", \"readouts\": [{\"target\": \"Acute valvulitis with Aschoff body formation\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\", \"interpretation\": \"A non-specific systemic marker of the active inflammatory episode in which the valvulitis occurs; it corroborates activity rather than reporting on the valve itself.\\n\"}]}}, {\"id\": \"CD4-positive T cell infiltration of the valve\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CD4-positive T lymphocytes showing degenerate, cross-reactive antigen recognition infiltrate valve tissue and myocardium and are considered the prime effectors of valve destruction. Epitope spreading broadens the response with each recurrence, which is the mechanistic reason a second episode of rheumatic fever damages the valve more than the first, and why prophylaxis against reinfection is the whole of secondary prevention.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"CD4-positive T cell\"], \"biological_processes\": [\"T cell mediated immunity\"]}}, {\"id\": \"Chronic valve fibrosis, commissural fusion, and calcification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Leaflet thickening, neovascularisation of a normally avascular tissue, fusion of the commissures, and dystrophic calcification convert inflammation into fixed stenosis, regurgitation, or both. This is the point of no return, since everything upstream is in principle reversible and nothing from here on is. The mitral valve is affected most often and most severely, then the aortic, an asymmetry conventionally attributed to the higher shear stress on left-sided valves.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"valve interstitial cell\"], \"biological_processes\": [\"extracellular matrix organization\"], \"locations\": [\"mitral valve\"]}}, {\"id\": \"Congestive heart failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Frequently the presenting feature, since the chronic disease is usually asymptomatic until decompensation.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001635\"}}, {\"id\": \"Cross-reactive antibody binding and valve endothelial activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cross-reactive antibody binds valve endothelium and upregulates VCAM-1, converting the valve surface from a quiescent lining into an adhesive one. This is the step that recruits the cellular infiltrate; antibody alone does not destroy the valve.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"valve endothelial cell\"], \"locations\": [\"mitral valve\"]}}, {\"id\": \"Erythrocyte sedimentation rate\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"presence\": \"INCREASED\", \"readouts\": [{\"target\": \"Acute valvulitis with Aschoff body formation\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\", \"interpretation\": \"Used alongside C-reactive protein to document that the acute inflammatory episode is ongoing and to follow its resolution.\\n\"}]}}, {\"id\": \"Fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A minor Jones criterion during the acute episode.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001945\"}}, {\"id\": \"Group A streptococcal infection in a susceptible host\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pharyngeal infection with Streptococcus pyogenes is the initiating event. Skin infection is an increasingly recognised alternative portal in high-burden tropical settings. Susceptibility is conferred largely by HLA class II genotype, which determines which streptococcal and self peptides are presented to CD4-positive T cells, so the same exposure produces disease in some hosts and not others.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Household crowding and poverty\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"The dominant determinant of who develops this disease. Crowding drives streptococcal transmission, and poverty drives both untreated pharyngitis and failure of secondary prophylaxis. The geographic and Indigenous-population disparity in burden is explained by these factors rather than by any biological gradient, which is why this entry treats them as mechanism rather than as background.\\n\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Lewis rat autoimmune valvulitis model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"The principal animal model, produced by immunising Lewis rats with streptococcal M protein or cardiac myosin. It reproduces the valvulitis and the cross-reactive immune response, which is what established molecular mimicry as more than an observation about sequence similarity. It is explicitly the subject of a published discussion of what a robust model of this disease would have to demonstrate, which is a fair signal that the existing models are not considered settled.\\n\", \"meta\": {\"evidence_count\": 2, \"model_type\": \"OTHER\", \"publication\": \"PMID:25414841\"}}, {\"id\": \"Low-molecular-weight heparin anticoagulation in pregnancy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Pregnancy is the period of highest thromboembolic risk in a woman with a prosthetic valve, and it is also when warfarin cannot be used, because it crosses the placenta and is teratogenic in the first trimester. Low-molecular-weight heparin is the usual substitute and remains an off-label indication without an agreed regimen, which is a substantial evidence gap in a disease whose population is overwhelmingly young women. The modality is recorded as OTHER rather than SMALL_MOLECULE, since a low-molecular-weight heparin is a sulfated polysaccharide rather than a small molecule in the usual sense.\\n\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Migratory polyarthritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"An acute rheumatic fever manifestation rather than a feature of the chronic valvular disease. Classically large-joint, fleeting, asymmetric, and strikingly aspirin-responsive.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001369\"}}, {\"id\": \"Mitral regurgitation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The earliest and most common valvular lesion, present before stenosis develops.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001653\"}}, {\"id\": \"Mitral stenosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Develops later than regurgitation, from progressive leaflet thickening and commissural fusion. It is the lesion that produces left atrial enlargement, and therefore the atrial fibrillation and stroke risk.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001718\"}}, {\"id\": \"Mitral valve repair or replacement\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Required for advanced, calcified, or regurgitant disease. Repair outperforms replacement where anatomically feasible. Mechanical replacement commits a young patient to lifelong anticoagulation, with the accumulating risks of thromboembolism, haemorrhage, perivalvular leak, and prosthetic endocarditis, which is a heavy long-term cost in the adolescents and young adults who make up much of this population.\\n\"}, {\"id\": \"Molecular mimicry and cross-reactive immune priming\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The group A carbohydrate epitope N-acetylglucosamine and the alpha-helical coiled-coil M protein structurally resemble human cardiac myosin and connective tissue proteins closely enough that antibodies and T cells raised against the organism bind host tissue. Which host protein is struck first is genuinely disputed and is curated as a controversy rather than as settled fact. The long-standing answer is cardiac myosin, but myosin is intracellular and therefore hard to reach, which motivates an alternative in which extracellular proteins are hit first.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"inflammatory response to antigenic stimulus\"], \"experimental_models\": [{\"name\": \"Lewis rat autoimmune valvulitis model\", \"model_type\": \"OTHER\", \"description\": \"Immunisation with M protein or cardiac myosin reproduces the cross-reactive response.\\n\"}]}}, {\"id\": \"Percutaneous balloon mitral valvuloplasty\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Mechanical relief of rheumatic mitral stenosis in suitable valves, meaning those that are not calcified and not significantly regurgitant. It is less invasive and cheaper than surgery, which matters disproportionately in the settings where this disease actually occurs.\\n\"}, {\"id\": \"Post-capillary pulmonary hypertension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pulmonary hypertension arising from chronic left atrial pressure elevation in mitral stenosis, and the route by which a left-sided valve lesion produces right heart failure. It is bound to the post-capillary term rather than to pulmonary arterial hypertension deliberately: the latter is the pre-capillary Group 1 entity, which is precisely what this is not, and binding it would make the machine-readable slot contradict the prose.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0033635\"}}, {\"id\": \"Pulmonary venous congestion and pulmonary hypertension\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sustained elevation of left atrial pressure in mitral stenosis is transmitted back through the pulmonary veins, and chronic passive congestion eventually produces reactive remodelling of the pulmonary arterioles. This is post-capillary pulmonary hypertension arising from a mechanical upstream cause, so conformance is declared at the remodelling node only and not at the module\u0027s endothelial and BMPR2 trigger nodes, which model a primary pulmonary arteriopathy. The consequence is right ventricular pressure loading, which is how a left-sided valve lesion ends in right heart failure.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Right heart failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Raised jugular venous pressure, hepatic congestion, ascites, and peripheral oedema, arising from right ventricular pressure loading rather than from any right-sided valve lesion. Curated separately from left-sided congestive failure because the mechanism and the clinical picture differ.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Stroke\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardioembolic, arising from atrial fibrillation or valve-associated thrombus. It is the complication that makes anticoagulation choice consequential in this population.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001297\"}}, {\"id\": \"Subcutaneous nodules\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Firm painless nodules over extensor surfaces. Uncommon, but they almost always accompany carditis, which makes them a useful clinical marker of cardiac involvement.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001482\"}}, {\"id\": \"Sydenham chorea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A delayed neurological manifestation appearing one to eight months after the streptococcal infection, long after the other features have resolved, which is why it is accepted on its own as presumptive evidence of acute rheumatic fever. Most affected individuals have concurrent cardiac involvement.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002072\"}}, {\"id\": \"Valvular stenosis and regurgitation with hemodynamic overload\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mitral regurgitation appears first, mitral stenosis later as leaflets thicken and commissures fuse. The resulting left atrial enlargement, pulmonary venous congestion, and ventricular volume or pressure overload account for essentially all the downstream clinical disease.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Vitamin K antagonist anticoagulation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Warfarin, with a target INR of 2 to 3, for atrial fibrillation or a mechanical valve. This is one of the few places in modern cardiology where the older drug won a head-to-head trial. Direct oral anticoagulants are standard for nonvalvular atrial fibrillation, and in this population they were worse. That result is the practical payoff of modelling rheumatic atrial fibrillation as a structural rather than an electrical disease.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"warfarin\"]}}], \"edges\": [{\"source\": \"Group A streptococcal infection in a susceptible host\", \"target\": \"Molecular mimicry and cross-reactive immune priming\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Antigens of the organism prime an immune response that does not distinguish them from host cardiac and connective tissue proteins.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Molecular mimicry and cross-reactive immune priming\", \"target\": \"Cross-reactive antibody binding and valve endothelial activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cross-reactive antibody binds the valve surface, whichever host protein it recognises first.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Molecular mimicry and cross-reactive immune priming\", \"target\": \"Migratory polyarthritis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same cross-reactive response deposits in synovium, producing the fleeting large-joint arthritis of the acute episode. This is an acute rheumatic fever manifestation, not a feature of the chronic valve disease, and the steps between priming and synovitis are not resolved.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Molecular mimicry and cross-reactive immune priming\", \"target\": \"Sydenham chorea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cross-reactive antibody recognising basal ganglia neuronal antigen produces chorea, which appears one to eight months after the infection and so sits at the end of an unresolved chain rather than immediately downstream of priming.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Molecular mimicry and cross-reactive immune priming\", \"target\": \"Subcutaneous nodules\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cross-reactive inflammation of connective tissue over extensor surfaces produces the firm painless nodules, which almost always accompany carditis.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Molecular mimicry and cross-reactive immune priming\", \"target\": \"Fever\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The systemic inflammatory response accompanying the cross-reactive attack produces the fever that is a minor Jones criterion during the acute episode.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Cross-reactive antibody binding and valve endothelial activation\", \"target\": \"CD4-positive T cell infiltration of the valve\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Adhesion molecule upregulation permits lymphocyte recruitment into a normally avascular tissue.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"CD4-positive T cell infiltration of the valve\", \"target\": \"Acute valvulitis with Aschoff body formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained lymphocytic and macrophage infiltration organises into the characteristic lesion.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Acute valvulitis with Aschoff body formation\", \"target\": \"Chronic valve fibrosis, commissural fusion, and calcification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Repeated or persistent inflammation converts reversible valvulitis into fixed scar.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic valve fibrosis, commissural fusion, and calcification\", \"target\": \"Valvular stenosis and regurgitation with hemodynamic overload\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fixed structural valve deformity imposes a pressure or volume load on the chambers upstream.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Valvular stenosis and regurgitation with hemodynamic overload\", \"target\": \"Atrial fibrillation and cardioembolic risk\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Left atrial enlargement from mitral disease creates the substrate for atrial fibrillation.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Valvular stenosis and regurgitation with hemodynamic overload\", \"target\": \"Congestive heart failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic volume or pressure overload culminates in ventricular failure.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Valvular stenosis and regurgitation with hemodynamic overload\", \"target\": \"Pulmonary venous congestion and pulmonary hypertension\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mitral stenosis raises left atrial pressure, which is transmitted backwards into the pulmonary venous circulation.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Valvular stenosis and regurgitation with hemodynamic overload\", \"target\": \"Mitral regurgitation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Incompetent mitral leaflets are the earliest and commonest clinical lesion of the disease.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Valvular stenosis and regurgitation with hemodynamic overload\", \"target\": \"Mitral stenosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Leaflet thickening with commissural fusion narrows the mitral orifice, which develops later than the regurgitant lesion.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Valvular stenosis and regurgitation with hemodynamic overload\", \"target\": \"Aortic regurgitation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Aortic leaflet involvement, usually alongside mitral disease, produces the second commonest clinical valve lesion.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pulmonary venous congestion and pulmonary hypertension\", \"target\": \"Right heart failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronically raised pulmonary vascular resistance loads the right ventricle.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pulmonary venous congestion and pulmonary hypertension\", \"target\": \"Post-capillary pulmonary hypertension\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Backward transmission of a raised left atrial pressure is measured clinically as post-capillary, rather than pre-capillary, pulmonary hypertension.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Atrial fibrillation and cardioembolic risk\", \"target\": \"Congestive heart failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of atrial contribution and rate irregularity worsen an already loaded ventricle.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Atrial fibrillation and cardioembolic risk\", \"target\": \"Atrial fibrillation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The structural atrial substrate created by mitral disease manifests as clinical atrial fibrillation.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Atrial fibrillation and cardioembolic risk\", \"target\": \"Stroke\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Thrombus forming in the fibrillating, enlarged left atrium embolises to the cerebral circulation, which is the complication that makes the anticoagulant choice consequential here.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Household crowding and poverty\", \"target\": \"Group A streptococcal infection in a susceptible host\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Crowding raises the rate of streptococcal transmission and therefore of the initiating infection.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Benzathine penicillin G secondary prophylaxis\", \"target\": \"Group A streptococcal infection in a susceptible host\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Anti-inflammatory therapy for acute carditis\", \"target\": \"Acute valvulitis with Aschoff body formation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Vitamin K antagonist anticoagulation\", \"target\": \"Atrial fibrillation and cardioembolic risk\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Low-molecular-weight heparin anticoagulation in pregnancy\", \"target\": \"Valvular stenosis and regurgitation with hemodynamic overload\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Percutaneous balloon mitral valvuloplasty\", \"target\": \"Valvular stenosis and regurgitation with hemodynamic overload\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Mitral valve repair or replacement\", \"target\": \"Valvular stenosis and regurgitation with hemodynamic overload\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Lewis rat autoimmune valvulitis model\", \"target\": \"Molecular mimicry and cross-reactive immune priming\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Immunisation with M protein or cardiac myosin reproduces the cross-reactive response.\\n\"}, {\"source\": \"Lewis rat autoimmune valvulitis model\", \"target\": \"Acute valvulitis with Aschoff body formation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The model develops valvulitis, the acute lesion of this disease.\\n\"}, {\"source\": \"Group A streptococcal infection in a susceptible host\", \"target\": \"Anti-streptolysin O titre\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"A raised or changing titre is serological evidence that the antecedent streptococcal infection occurred, which is what the Jones criteria require; it reports on the trigger, not on valve damage.\\n\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Group A streptococcal infection in a susceptible host\", \"target\": \"Anti-DNase B titre\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"The complementary serological readout of the same antecedent infection, paired with anti-streptolysin O because neither alone detects all antecedent infections.\\n\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Acute valvulitis with Aschoff body formation\", \"target\": \"C-reactive protein\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"A non-specific systemic marker of the active inflammatory episode in which the valvulitis occurs; it corroborates activity rather than reporting on the valve itself.\\n\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\"}, {\"source\": \"Acute valvulitis with Aschoff body formation\", \"target\": \"Erythrocyte sedimentation rate\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Used alongside C-reactive protein to document that the acute inflammatory episode is ongoing and to follow its resolution.\\n\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6094,7 +6310,7 @@ This pathophysiological event occurs in mitral valve (UBERON:0002135). UBERON:00
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(7)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Integument<span class="pill-count">(1)</span></button>
 
@@ -6104,8 +6320,6 @@ This pathophysiological event occurs in mitral valve (UBERON:0002135). UBERON:00
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Nervous System<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(3)</span></button>
-
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
 
@@ -6114,8 +6328,179 @@ This pathophysiological event occurs in mitral valve (UBERON:0002135). UBERON:00
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
-                    <span class="cat-count">4</span>
+                    <span class="cat-count">7</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-mitral-regurgitation" data-dismech-node="Mitral regurgitation" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Mitral regurgitation
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001653" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001653</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Mitral regurgitation (HP:0001653). HP:0001653 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22371105" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22371105" target="_blank">PMID:22371105</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Systematic differences in the reporting of and diagnostic approach to RHD exist, reflecting differences in local experience and disease patterns."</div>
+
+
+                <div class="evidence-explanation">PARTIAL. Establishes that the diagnostic approach to these valvular lesions needed standardising, which is context for the lesion rather than evidence of its frequency; the cached abstract does not rank the valve lesions.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27188830" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27188830" target="_blank">PMID:27188830</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Carditis occurs in &gt;50% of patients with ARF and is predominantly characterized by valvulitis of the mitral valve (mitral regurgitation) and, less frequently, of the aortic valve (aortic regurgitation)"</div>
+
+
+                <div class="evidence-explanation">Supplies the ranking the item above could not. Mitral regurgitation is the predominant lesion and aortic regurgitation the less frequent one, which is what this phenotype&#39;s description claims.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-mitral-stenosis" data-dismech-node="Mitral stenosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Mitral stenosis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001718" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001718</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Mitral stenosis (HP:0001718). HP:0001718 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27188830" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27188830" target="_blank">PMID:27188830</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Mitral stenosis usually occurs many years after the initial episode of ARF."</div>
+
+
+                <div class="evidence-explanation">States the timing that separates this lesion from the regurgitant one, which is the ordering this phenotype and its upstream node assert.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-aortic-regurgitation" data-dismech-node="Aortic regurgitation" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6131,10 +6516,10 @@ This pathophysiological event occurs in mitral valve (UBERON:0002135). UBERON:00
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001659" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001659</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001659" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001659</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Aortic regurgitation (HP:0001659). HP:0001659 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6144,6 +6529,46 @@ This clinical feature is Aortic regurgitation (HP:0001659). HP:0001659 is a phen
 
 
 
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27188830" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27188830" target="_blank">PMID:27188830</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Carditis occurs in &gt;50% of patients with ARF and is predominantly characterized by valvulitis of the mitral valve (mitral regurgitation) and, less frequently, of the aortic valve (aortic regurgitation)"</div>
+
+
+                <div class="evidence-explanation">Ranks aortic involvement as the less frequent of the two, which is what this phenotype&#39;s description records.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -6165,15 +6590,18 @@ This clinical feature is Aortic regurgitation (HP:0001659). HP:0001659 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0005110</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0005110</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Atrial fibrillation (HP:0005110). HP:0005110 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6193,6 +6621,7 @@ This clinical feature is Atrial fibrillation (HP:0005110). HP:0005110 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6233,10 +6662,10 @@ This clinical feature is Atrial fibrillation (HP:0005110). HP:0005110 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001635</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001635</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6246,6 +6675,46 @@ This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a 
 
 
 
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27188830" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27188830" target="_blank">PMID:27188830</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Of children that progressed to RHD, 14% showed heart failure at 1 year and 27% had heart failure at 5 years."</div>
+
+
+                <div class="evidence-explanation">Quantifies the accumulation of heart failure after progression to this disease, rising from 14 to 27 percent between one and five years, in Lawrence and colleagues&#39; study of 1,149 children with ARF in the Northern Territory, Australia, as restated by this primer. No frequency band is assigned, because the figure depends both on how long after progression it is measured and on the cohort it is measured in.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -6267,15 +6736,18 @@ This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001297" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001297</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001297" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001297</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Stroke (HP:0001297). HP:0001297 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6298,6 +6770,7 @@ This clinical feature is Stroke (HP:0001297). HP:0001297 is a phenotype from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6306,6 +6779,82 @@ This clinical feature is Stroke (HP:0001297). HP:0001297 is a phenotype from the
 
 
                 <div class="evidence-explanation">PARTIAL. Stroke is a component of the composite endpoint rather than separately reported in this abstract, so this supports the embolic risk without quantifying stroke alone.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-post-capillary-pulmonary-hypertension" data-dismech-node="Post-capillary pulmonary hypertension" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Post-capillary pulmonary hypertension
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033635" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0033635</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Post-capillary pulmonary hypertension (HP:0033635). HP:0033635 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27188830" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27188830" target="_blank">PMID:27188830</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In addition, half of these patients had severe complications including heart failure, atrial flutter and/or fibrillation, pulmonary hypertension and stroke."</div>
+
+
+                <div class="evidence-explanation">&#34;These patients&#34; are a Ugandan RHD cohort (n = 309, mean age 30) described in the sentence before this one, of whom 85% already had cardiovascular symptoms at first presentation and none had ever been diagnosed with ARF or taken penicillin. Half of that cohort had at least one severe complication, pulmonary hypertension among the four listed; the share with pulmonary hypertension specifically is not given. Because the cohort is selected for late, previously undiagnosed presentation, even that composite 50% figure is not a general frequency for this disease and no frequency band is assigned from it. It also does not distinguish post-capillary from pre-capillary, which is the specific claim behind the HP binding chosen here, and that distinction remains supported by physiological reasoning rather than by this citation.</div>
 
 
 
@@ -6344,10 +6893,10 @@ This clinical feature is Stroke (HP:0001297). HP:0001297 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001482" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001482</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001482" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001482</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Subcutaneous nodule (HP:0001482). HP:0001482 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6357,6 +6906,46 @@ This clinical feature is Subcutaneous nodule (HP:0001482). HP:0001482 is a pheno
 
 
 
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27188830" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27188830" target="_blank">PMID:27188830</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the subcutaneous nodules that sometimes form in ARF might be granulomatous lesions that develop in the dermis of the skin as a result of delayed hypersensitivity against GAS antigens"</div>
+
+
+                <div class="evidence-explanation">INDIRECT, and hedged in the source. It proposes a delayed-hypersensitivity mechanism distinct from the antibody-mediated valve lesion, and the authors write &#34;might be&#34;. It does not support the further claim in this description that the nodules almost always accompany carditis, which remains uncited.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -6387,10 +6976,10 @@ This clinical feature is Subcutaneous nodule (HP:0001482). HP:0001482 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001945</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001945</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Fever (HP:0001945), qualified as temporality acute. HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6422,6 +7011,44 @@ This clinical feature is Fever (HP:0001945), qualified as temporality acute. HP:
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27188830" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27188830" target="_blank">PMID:27188830</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"ARF leads to an illness that is characterized by various combinations of joint pain and swelling, cardiac valvular regurgitation with the potential for secondary heart failure, chorea, skin and subcutaneous manifestations and fever."</div>
+
+
+                <div class="evidence-explanation">Names fever among the manifestations of the acute episode, alongside the other acute features this entry curates as phenotypes.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
 
                 </div>
 
@@ -6448,10 +7075,10 @@ This clinical feature is Fever (HP:0001945), qualified as temporality acute. HP:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001369" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001369</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001369" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001369</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Arthritis (HP:0001369), qualified as temporality acute. HP:0001369 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6483,6 +7110,44 @@ This clinical feature is Arthritis (HP:0001369), qualified as temporality acute.
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27188830" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27188830" target="_blank">PMID:27188830</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The cross-reactive immune response results in transient migratory polyarthritis as a result of the formation of immune complexes"</div>
+
+
+                <div class="evidence-explanation">Attributes the arthritis to immune-complex formation, which is a distinct effector route from the cross-reactive antibody binding that this entry curates for the valve, and it supports the transient migratory character named in the description.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
 
                 </div>
 
@@ -6509,10 +7174,10 @@ This clinical feature is Arthritis (HP:0001369), qualified as temporality acute.
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002072" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002072</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002072" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002072</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Chorea (HP:0002072). HP:0002072 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6526,56 +7191,16 @@ This clinical feature is Chorea (HP:0002072). HP:0002072 is a phenotype from the
 
 
 
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">3</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-mitral-regurgitation" data-dismech-node="Mitral regurgitation" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Mitral regurgitation
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001653" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001653</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Mitral regurgitation (HP:0001653). HP:0001653 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:22371105" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:27188830" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22371105" target="_blank">PMID:22371105</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27188830" target="_blank">PMID:27188830</a>
                     </span>
 
 
@@ -6583,14 +7208,17 @@ This clinical feature is Mitral regurgitation (HP:0001653). HP:0001653 is a phen
 
 
 
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"Systematic differences in the reporting of and diagnostic approach to RHD exist, reflecting differences in local experience and disease patterns."</div>
+                <div class="evidence-snippet">"The humoral response can also lead to Sydenham’s chorea, which involves lymphocytic perivascular cuffing of vessels in the brain"</div>
 
 
-                <div class="evidence-explanation">PARTIAL. Establishes that the diagnostic approach to these valvular lesions needed standardising, which is context for the lesion rather than evidence of its frequency; the cached abstract does not rank the valve lesions.</div>
+                <div class="evidence-explanation">Places the chorea in the same humoral cross-reactive mechanism as the carditis, acting on the brain instead of the valve, and gives its histological correlate.</div>
 
 
 
@@ -6599,74 +7227,6 @@ This clinical feature is Mitral regurgitation (HP:0001653). HP:0001653 is a phen
 
         </div>
     </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-mitral-stenosis" data-dismech-node="Mitral stenosis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Mitral stenosis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001718" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001718</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Mitral stenosis (HP:0001718). HP:0001718 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-post-capillary-pulmonary-hypertension" data-dismech-node="Post-capillary pulmonary hypertension" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Post-capillary pulmonary hypertension
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0033635" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0033635</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Post-capillary pulmonary hypertension (HP:0033635). HP:0033635 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
 
 
 
@@ -6748,6 +7308,9 @@ This disease-associated gene is HLA-DQB1 (hgnc:4944). hgnc:4944 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6762,6 +7325,7 @@ This disease-associated gene is HLA-DQB1 (hgnc:4944). hgnc:4944 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6821,6 +7385,9 @@ This disease-associated gene is HLA-DRB1 (hgnc:4948). hgnc:4948 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6835,6 +7402,7 @@ This disease-associated gene is HLA-DRB1 (hgnc:4948). hgnc:4948 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6917,6 +7485,31 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">The cornerstone of management, and the only intervention that alters the natural history. It works by preventing reinfection and therefore recurrence, not by treating the heart at all. It is given as a deep intramuscular injection every three to four weeks for a minimum of five years, often to age 21 or for ten years after the episode. The burden of that regimen, monthly painful injections in adolescents who feel well, is the principal reason real-world adherence is poor, and adherence rather than efficacy is the limiting factor.
 </div>
 
@@ -6949,6 +7542,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6995,6 +7589,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7016,6 +7611,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7101,6 +7697,31 @@ This treatment uses aspirin, annotated with acetylsalicylic acid (CHEBI:15365). 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Aspirin or corticosteroids are given for symptomatic relief of the acute episode. They do not protect the valve. This is curated because the negative result matters. The intuitive assumption is that suppressing the inflammation which is destroying the valve should preserve it, and the trial evidence does not support that. The evidence is old and at substantial risk of bias, so this is a failure to demonstrate benefit rather than a demonstration of futility.
 </div>
 
@@ -7133,6 +7754,7 @@ This treatment uses aspirin, annotated with acetylsalicylic acid (CHEBI:15365). 
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -7179,6 +7801,7 @@ This treatment uses aspirin, annotated with acetylsalicylic acid (CHEBI:15365). 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7200,6 +7823,7 @@ This treatment uses aspirin, annotated with acetylsalicylic acid (CHEBI:15365). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7285,6 +7909,31 @@ This treatment uses warfarin (CHEBI:10033). CHEBI:10033 is a therapeutic agent f
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Warfarin, with a target INR of 2 to 3, for atrial fibrillation or a mechanical valve. This is one of the few places in modern cardiology where the older drug won a head-to-head trial. Direct oral anticoagulants are standard for nonvalvular atrial fibrillation, and in this population they were worse. That result is the practical payoff of modelling rheumatic atrial fibrillation as a structural rather than an electrical disease.
 </div>
 
@@ -7317,6 +7966,7 @@ This treatment uses warfarin (CHEBI:10033). CHEBI:10033 is a therapeutic agent f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7360,6 +8010,7 @@ This treatment uses warfarin (CHEBI:10033). CHEBI:10033 is a therapeutic agent f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7423,6 +8074,31 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Pregnancy is the period of highest thromboembolic risk in a woman with a prosthetic valve, and it is also when warfarin cannot be used, because it crosses the placenta and is teratogenic in the first trimester. Low-molecular-weight heparin is the usual substitute and remains an off-label indication without an agreed regimen, which is a substantial evidence gap in a disease whose population is overwhelmingly young women. The modality is recorded as OTHER rather than SMALL_MOLECULE, since a low-molecular-weight heparin is a sulfated polysaccharide rather than a small molecule in the usual sense.
 </div>
 
@@ -7467,6 +8143,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7491,6 +8168,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7512,6 +8190,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7570,6 +8249,31 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Device</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -7640,6 +8344,31 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -7718,7 +8447,9 @@ This environmental factor is exposure to adverse socioeconomic factors, annotate
 
 
 
-                <div class="item-desc">ECTO:6000028 (exposure to socioeconomic factors) is bound as the closest available term. It covers the poverty dimension but not household crowding, for which the exposure hierarchy has no term, so this entry&#39;s name is deliberately broader than its binding. An earlier version of this note said no term was bound; the binding was added afterwards, by the #8430 exposure-binding sweep, which did not revisit the note.
+                <div class="item-desc">ECTO:6000028 (exposure to socioeconomic factors) is bound as the closest available term. It covers the deprivation dimension but not household crowding, for which the exposure hierarchy has no term, so the binding loses the crowding dimension and this entry&#39;s name is deliberately broader than its binding. An earlier version of this note said no term was bound; the binding was added afterwards, by the #8430 exposure-binding sweep, which did not revisit the note. An ECTO new-term request for household crowding is worth filing.
+
+This note previously claimed the cited evidence separates crowding from deprivation, because crowding survived adjustment for household income. That claim has been withdrawn. PMID:20948456 is an ecologic study, and its own METHODS describe crowding, the deprivation index and household income alike as &#34;area factors based on the CAU of home address&#34; - all census-area aggregates. Adjusting one area-level variable for another cannot rule out confounding at the individual household, and the authors say as much: &#34;Our conclusion could be further investigated using a case-control study.&#34; Whether crowding is a cause or a marker of deprivation is therefore open on this evidence.
 </div>
 
 
@@ -7729,14 +8460,14 @@ This environmental factor is exposure to adverse socioeconomic factors, annotate
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (4 references)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:15927077" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:20948456" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15927077" target="_blank">PMID:15927077</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20948456" target="_blank">PMID:20948456</a>
                     </span>
 
 
@@ -7744,20 +8475,75 @@ This environmental factor is exposure to adverse socioeconomic factors, annotate
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"Rheumatic fever continues to put a significant burden on the health of low socio-economic populations in low and middle-income countries despite the near disappearance of the disease in the developed world over the past century."</div>
+                <div class="evidence-snippet">"ARF rates were significantly and positively related to household crowding after controlling for age, ethnicity, household income, and the density of children in the neighborhood."</div>
 
 
-                <div class="evidence-explanation">Establishes that the disease is concentrated in low socio-economic populations and has all but vanished from wealthy countries, which is the association this exposure entry asserts. PARTIAL because it reports where the disease occurs rather than measuring an effect of crowding or of poverty.
+                <div class="evidence-explanation">An ecologic study: hospitalisation counts joined to census area units, with crowding, deprivation index, household income and child density all entered as &#34;area factors based on the CAU of home address&#34;. Exposure was never measured on any individual case, so this is not a 1249-case series in the exposure sense. It establishes a graded area-level association between crowding and ARF incidence, which is what a PREDISPOSES link asserts. It does not separate crowding as a cause from crowding as a marker of deprivation, because adjusting one area-level aggregate for another leaves individual-household confounding open - as the authors themselves note: &#34;Our conclusion could be further investigated using a case-control study.&#34;
 </div>
 
 
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="PMID:28052445" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28052445" target="_blank">PMID:28052445</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Common exposures were household crowding (58%), bed-sharing (49%), dampness and mould (76%), cold (82%) and co-habiting with smokers (71%)."</div>
+
+
+                <div class="evidence-explanation">Measures the housing exposures directly in recently diagnosed cases rather than inferring them from area deprivation, giving the entry a case-level exposure prevalence.
+</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28052445" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28052445" target="_blank">PMID:28052445</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Experiencing sore throat in the weeks before ARF was recalled by 62%, with 29% seeing a doctor or nurse and 13% of the total sample receiving antibiotics."</div>
+
+
+                <div class="evidence-explanation">Measures attrition along the sore-throat treatment cascade in recently diagnosed cases: 62% recalled a sore throat, 29% saw a doctor or nurse, and 13% of the total sample received antibiotics. That is all this item claims. It does not attribute the treatment gap to poverty: the study is a descriptive interview series of 55 cases with no comparator, so it cannot separate a poverty effect from any other reason a sore throat went untreated. The authors in fact use the result in the opposite direction, against sore-throat treatment as the intervention of choice: &#34;Sore throat treatment has important limitations as an intervention, particularly as 38% of participants did not recall sore throat preceding the diagnosis.&#34; That 38% is a real limit on this edge and is recorded here rather than left to the reader.
+</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
 
         </div>
     </details>
@@ -7782,9 +8568,35 @@ This environmental factor is exposure to adverse socioeconomic factors, annotate
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20948456" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20948456" target="_blank">PMID:20948456</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The incidence rate ratio was 1.065 (95% confidence interval, 1.052-1.079) for the total population."</div>
+
+
+                <div class="evidence-explanation">Quantifies the crowding-to-infection edge as a graded dose relationship rather than a binary risk factor, which is what a PREDISPOSES link on a transmission mechanism asserts.
+</div>
+
+
+
+            </div>
 
             <div class="evidence-item" data-dismech-evidence="PMID:15927077" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
@@ -7797,6 +8609,7 @@ This environmental factor is exposure to adverse socioeconomic factors, annotate
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7804,7 +8617,7 @@ This environmental factor is exposure to adverse socioeconomic factors, annotate
                 <div class="evidence-snippet">"Rheumatic fever continues to put a significant burden on the health of low socio-economic populations in low and middle-income countries despite the near disappearance of the disease in the developed world over the past century."</div>
 
 
-                <div class="evidence-explanation">Documents the socioeconomic concentration of the disease and its disappearance from wealthy countries, which is the strongest available evidence that the determinant is social rather than biological. PARTIAL because it is an observed distribution rather than a measured exposure effect.</div>
+                <div class="evidence-explanation">Documents the socioeconomic concentration of the disease and its disappearance from wealthy countries, which is the strongest available evidence that the determinant is social rather than biological. It supports this link only indirectly, being an observed distribution rather than a measured exposure effect.</div>
 
 
 
@@ -7876,6 +8689,41 @@ This environmental factor is exposure to adverse socioeconomic factors, annotate
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31516274" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31516274" target="_blank">PMID:31516274</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The median ASO titers in acute pharyngitis group and ARF were significantly raised compared to that of the control group."</div>
+
+
+                <div class="evidence-explanation">Establishes that the titre is raised in the acute episode against a healthy control group from the same population. Note the study found ASO not raised in established rheumatic heart disease, which is consistent with this marker reporting on the antecedent infection rather than on the chronic valve disease.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
 
             </div>
 
@@ -7921,6 +8769,41 @@ This environmental factor is exposure to adverse socioeconomic factors, annotate
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31516274" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31516274" target="_blank">PMID:31516274</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The ADB titers were raised in ARF and RHD patients albeit the levels were higher in ARF patients."</div>
+
+
+                <div class="evidence-explanation">Shows this titre raised in both the acute episode and established rheumatic heart disease, where the anti-streptolysin O titre in the same cohort was not, which is the complementarity that makes the pair worth measuring together.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
             </div>
@@ -8064,6 +8947,7 @@ This environmental factor is exposure to adverse socioeconomic factors, annotate
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8137,6 +9021,7 @@ This environmental factor is exposure to adverse socioeconomic factors, annotate
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8240,6 +9125,7 @@ This environmental factor is exposure to adverse socioeconomic factors, annotate
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8261,6 +9147,7 @@ This environmental factor is exposure to adverse socioeconomic factors, annotate
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8312,6 +9199,7 @@ This environmental factor is exposure to adverse socioeconomic factors, annotate
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8381,6 +9269,7 @@ This environmental factor is exposure to adverse socioeconomic factors, annotate
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8633,6 +9522,7 @@ This experimental model is built in Norway rat, annotated with Rattus norvegicus
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8654,6 +9544,7 @@ This experimental model is built in Norway rat, annotated with Rattus norvegicus
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8972,6 +9863,14 @@ pathophysiology:
     description: &gt;
       Aortic leaflet involvement, usually alongside mitral disease, produces the second commonest
       clinical valve lesion.
+  evidence:
+  - reference: PMID:27188830
+    reference_title: Acute rheumatic fever and rheumatic heart disease.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &#34;Carditis occurs in &gt;50% of patients with ARF and is predominantly characterized by valvulitis of the mitral valve (mitral regurgitation) and, less frequently, of the aortic valve (aortic regurgitation)&#34;
+    explanation: Establishes the valve distribution this node asserts, mitral first and aortic second, and gives the proportion of acute episodes in which carditis occurs at all.
 
 - name: Pulmonary venous congestion and pulmonary hypertension
   biological_scale: ORGANISM
@@ -8994,6 +9893,26 @@ pathophysiology:
     description: &gt;
       Backward transmission of a raised left atrial pressure is measured clinically as
       post-capillary, rather than pre-capillary, pulmonary hypertension.
+  evidence:
+  - reference: PMID:27188830
+    reference_title: Acute rheumatic fever and rheumatic heart disease.
+    supports: SUPPORT
+    directness: INDIRECT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &#34;In addition, half of these patients had severe complications including heart failure, atrial flutter and/or fibrillation, pulmonary hypertension and stroke.&#34;
+    explanation: &gt;-
+      &#34;These patients&#34; are a Ugandan RHD cohort (n = 309, mean age 30) described
+      in the sentence before this one, of whom 85% already had cardiovascular
+      symptoms at first presentation and none had ever been diagnosed with ARF
+      or taken penicillin. Within that cohort, pulmonary hypertension is one of
+      four severe complications affecting half the patients, alongside the other
+      three outcomes this entry curates downstream of the valve lesion. The
+      cohort is selected for late, previously undiagnosed presentation in a
+      high-burden low-resource setting, so the 50% figure is not a general
+      frequency for this disease and no frequency band is assigned from it. It
+      does not by itself establish the post-capillary mechanism, which the node
+      asserts on physiological grounds and which remains uncited.
 
 - name: Right heart failure
   biological_scale: ORGANISM
@@ -9002,6 +9921,21 @@ pathophysiology:
     from right ventricular pressure loading rather than from any right-sided valve lesion. Curated
     separately from left-sided congestive failure because the mechanism and the clinical picture
     differ.
+  evidence:
+  - reference: PMID:27188830
+    reference_title: Acute rheumatic fever and rheumatic heart disease.
+    supports: SUPPORT
+    directness: INDIRECT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &#34;Of children that progressed to RHD, 14% showed heart failure at 1 year and 27% had heart failure at 5 years.&#34;
+    explanation: &gt;-
+      INDIRECT, and the weaker of the two possible readings. The figures come
+      from Lawrence and colleagues&#39; study of 1,149 children with ARF in the
+      Northern Territory, Australia, as restated by this primer. It quantifies
+      heart failure after progression to this disease and shows it accumulates
+      with time, but the cited figures do not separate right-sided from
+      left-sided failure, which is the distinction this node is curated to make.
 
 - name: Atrial fibrillation and cardioembolic risk
   biological_scale: ORGANISM
@@ -9065,6 +9999,13 @@ phenotypes:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Systematic differences in the reporting of and diagnostic approach to RHD exist, reflecting differences in local experience and disease patterns.&#34;
     explanation: PARTIAL. Establishes that the diagnostic approach to these valvular lesions needed standardising, which is context for the lesion rather than evidence of its frequency; the cached abstract does not rank the valve lesions.
+  - reference: PMID:27188830
+    reference_title: Acute rheumatic fever and rheumatic heart disease.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &#34;Carditis occurs in &gt;50% of patients with ARF and is predominantly characterized by valvulitis of the mitral valve (mitral regurgitation) and, less frequently, of the aortic valve (aortic regurgitation)&#34;
+    explanation: Supplies the ranking the item above could not. Mitral regurgitation is the predominant lesion and aortic regurgitation the less frequent one, which is what this phenotype&#39;s description claims.
 
 - category: Clinical
   name: Mitral stenosis
@@ -9077,6 +10018,13 @@ phenotypes:
     term:
       id: HP:0001718
       label: Mitral stenosis
+  evidence:
+  - reference: PMID:27188830
+    reference_title: Acute rheumatic fever and rheumatic heart disease.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Mitral stenosis usually occurs many years after the initial episode of ARF.&#34;
+    explanation: States the timing that separates this lesion from the regurgitant one, which is the ordering this phenotype and its upstream node assert.
 
 - category: Clinical
   name: Aortic regurgitation
@@ -9087,6 +10035,14 @@ phenotypes:
     term:
       id: HP:0001659
       label: Aortic regurgitation
+  evidence:
+  - reference: PMID:27188830
+    reference_title: Acute rheumatic fever and rheumatic heart disease.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &#34;Carditis occurs in &gt;50% of patients with ARF and is predominantly characterized by valvulitis of the mitral valve (mitral regurgitation) and, less frequently, of the aortic valve (aortic regurgitation)&#34;
+    explanation: Ranks aortic involvement as the less frequent of the two, which is what this phenotype&#39;s description records.
 
 - category: Clinical
   name: Atrial fibrillation
@@ -9116,6 +10072,20 @@ phenotypes:
     term:
       id: HP:0001635
       label: Congestive heart failure
+  evidence:
+  - reference: PMID:27188830
+    reference_title: Acute rheumatic fever and rheumatic heart disease.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &#34;Of children that progressed to RHD, 14% showed heart failure at 1 year and 27% had heart failure at 5 years.&#34;
+    explanation: &gt;-
+      Quantifies the accumulation of heart failure after progression to this
+      disease, rising from 14 to 27 percent between one and five years, in
+      Lawrence and colleagues&#39; study of 1,149 children with ARF in the Northern
+      Territory, Australia, as restated by this primer. No frequency band is
+      assigned, because the figure depends both on how long after progression it
+      is measured and on the cohort it is measured in.
 
 - category: Clinical
   name: Stroke
@@ -9148,6 +10118,27 @@ phenotypes:
     term:
       id: HP:0033635
       label: Post-capillary pulmonary hypertension
+  evidence:
+  - reference: PMID:27188830
+    reference_title: Acute rheumatic fever and rheumatic heart disease.
+    supports: SUPPORT
+    directness: INDIRECT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &#34;In addition, half of these patients had severe complications including heart failure, atrial flutter and/or fibrillation, pulmonary hypertension and stroke.&#34;
+    explanation: &gt;-
+      &#34;These patients&#34; are a Ugandan RHD cohort (n = 309, mean age 30) described
+      in the sentence before this one, of whom 85% already had cardiovascular
+      symptoms at first presentation and none had ever been diagnosed with ARF
+      or taken penicillin. Half of that cohort had at least one severe
+      complication, pulmonary hypertension among the four listed; the share with
+      pulmonary hypertension specifically is not given. Because the cohort is
+      selected for late, previously undiagnosed presentation, even that
+      composite 50% figure is not a general frequency for this disease and no
+      frequency band is assigned from it. It also does not distinguish
+      post-capillary from pre-capillary, which is the specific claim behind the
+      HP binding chosen here, and that distinction remains supported by
+      physiological reasoning rather than by this citation.
 
 - category: Clinical
   name: Migratory polyarthritis
@@ -9160,6 +10151,13 @@ phenotypes:
       id: HP:0001369
       label: Arthritis
     temporality: ACUTE
+  evidence:
+  - reference: PMID:27188830
+    reference_title: Acute rheumatic fever and rheumatic heart disease.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The cross-reactive immune response results in transient migratory polyarthritis as a result of the formation of immune complexes&#34;
+    explanation: Attributes the arthritis to immune-complex formation, which is a distinct effector route from the cross-reactive antibody binding that this entry curates for the valve, and it supports the transient migratory character named in the description.
 
 - category: Neurologic
   name: Sydenham chorea
@@ -9173,6 +10171,14 @@ phenotypes:
     term:
       id: HP:0002072
       label: Chorea
+  evidence:
+  - reference: PMID:27188830
+    reference_title: Acute rheumatic fever and rheumatic heart disease.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &#34;The humoral response can also lead to Sydenham’s chorea, which involves lymphocytic perivascular cuffing of vessels in the brain&#34;
+    explanation: Places the chorea in the same humoral cross-reactive mechanism as the carditis, acting on the brain instead of the valve, and gives its histological correlate.
 
 - category: Clinical
   name: Subcutaneous nodules
@@ -9184,6 +10190,14 @@ phenotypes:
     term:
       id: HP:0001482
       label: Subcutaneous nodule
+  evidence:
+  - reference: PMID:27188830
+    reference_title: Acute rheumatic fever and rheumatic heart disease.
+    supports: SUPPORT
+    directness: INDIRECT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;the subcutaneous nodules that sometimes form in ARF might be granulomatous lesions that develop in the dermis of the skin as a result of delayed hypersensitivity against GAS antigens&#34;
+    explanation: INDIRECT, and hedged in the source. It proposes a delayed-hypersensitivity mechanism distinct from the antibody-mediated valve lesion, and the authors write &#34;might be&#34;. It does not support the further claim in this description that the nodules almost always accompany carditis, which remains uncited.
 
 - category: Clinical
   name: Fever
@@ -9195,6 +10209,13 @@ phenotypes:
       id: HP:0001945
       label: Fever
     temporality: ACUTE
+  evidence:
+  - reference: PMID:27188830
+    reference_title: Acute rheumatic fever and rheumatic heart disease.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;ARF leads to an illness that is characterized by various combinations of joint pain and swelling, cardiac valvular regurgitation with the potential for secondary heart failure, chorea, skin and subcutaneous manifestations and fever.&#34;
+    explanation: Names fever among the manifestations of the acute episode, alongside the other acute features this entry curates as phenotypes.
 
 genetic:
 - name: HLA-DQB1
@@ -9270,20 +10291,45 @@ environmental:
     and poverty drives both untreated pharyngitis and failure of secondary prophylaxis. The geographic
     and Indigenous-population disparity in burden is explained by these factors rather than by any
     biological gradient, which is why this entry treats them as mechanism rather than as background.
-  influences_mechanisms:
-  - target: Group A streptococcal infection in a susceptible host
-    environmental_effect: PREDISPOSES
-    causal_link_type: DIRECT
-    description: &gt;
-      Crowding raises the rate of streptococcal transmission and therefore of the initiating infection.
-    evidence:
-    - reference: PMID:15927077
-      reference_title: &#34;Antibiotics for the primary prevention of acute rheumatic fever: a meta-analysis.&#34;
-      supports: SUPPORT
-      evidence_source: HUMAN_CLINICAL
-      snippet: &#34;Rheumatic fever continues to put a significant burden on the health of low socio-economic populations in low and middle-income countries despite the near disappearance of the disease in the developed world over the past century.&#34;
-      explanation: Documents the socioeconomic concentration of the disease and its disappearance from wealthy countries, which is the strongest available evidence that the determinant is social rather than biological. PARTIAL because it is an observed distribution rather than a measured exposure effect.
   evidence:
+  - reference: PMID:20948456
+    reference_title: Acute rheumatic fever associated with household crowding in a developed country.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;ARF rates were significantly and positively related to household crowding after controlling for age, ethnicity, household income, and the density of children in the neighborhood.&#34;
+    explanation: &gt;
+      An ecologic study: hospitalisation counts joined to census area units, with crowding,
+      deprivation index, household income and child density all entered as &#34;area factors based on
+      the CAU of home address&#34;. Exposure was never measured on any individual case, so this is not
+      a 1249-case series in the exposure sense. It establishes a graded area-level association
+      between crowding and ARF incidence, which is what a PREDISPOSES link asserts. It does not
+      separate crowding as a cause from crowding as a marker of deprivation, because adjusting one
+      area-level aggregate for another leaves individual-household confounding open - as the
+      authors themselves note: &#34;Our conclusion could be further investigated using a case-control
+      study.&#34;
+  - reference: PMID:28052445
+    reference_title: &#34;Acute rheumatic fever and exposure to poor housing conditions in New Zealand: A descriptive study.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Common exposures were household crowding (58%), bed-sharing (49%), dampness and mould (76%), cold (82%) and co-habiting with smokers (71%).&#34;
+    explanation: &gt;
+      Measures the housing exposures directly in recently diagnosed cases rather than inferring
+      them from area deprivation, giving the entry a case-level exposure prevalence.
+  - reference: PMID:28052445
+    reference_title: &#34;Acute rheumatic fever and exposure to poor housing conditions in New Zealand: A descriptive study.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Experiencing sore throat in the weeks before ARF was recalled by 62%, with 29% seeing a doctor or nurse and 13% of the total sample receiving antibiotics.&#34;
+    explanation: &gt;
+      Measures attrition along the sore-throat treatment cascade in recently diagnosed cases: 62%
+      recalled a sore throat, 29% saw a doctor or nurse, and 13% of the total sample received
+      antibiotics. That is all this item claims. It does not attribute the treatment gap to poverty:
+      the study is a descriptive interview series of 55 cases with no comparator, so it cannot
+      separate a poverty effect from any other reason a sore throat went untreated. The authors in
+      fact use the result in the opposite direction, against sore-throat treatment as the
+      intervention of choice: &#34;Sore throat treatment has important limitations as an intervention,
+      particularly as 38% of participants did not recall sore throat preceding the diagnosis.&#34; That
+      38% is a real limit on this edge and is recorded here rather than left to the reader.
   - reference: PMID:15927077
     reference_title: &#34;Antibiotics for the primary prevention of acute rheumatic fever: a meta-analysis.&#34;
     supports: SUPPORT
@@ -9291,15 +10337,47 @@ environmental:
     snippet: &#34;Rheumatic fever continues to put a significant burden on the health of low socio-economic populations in low and middle-income countries despite the near disappearance of the disease in the developed world over the past century.&#34;
     explanation: &gt;
       Establishes that the disease is concentrated in low socio-economic populations and has all but
-      vanished from wealthy countries, which is the association this exposure entry asserts. PARTIAL
-      because it reports where the disease occurs rather than measuring an effect of crowding or of
-      poverty.
+      vanished from wealthy countries, which is the association this exposure entry asserts. It
+      supports that association only indirectly, reporting where the disease occurs rather than
+      measuring an effect of crowding or of poverty.
+  influences_mechanisms:
+  - target: Group A streptococcal infection in a susceptible host
+    environmental_effect: PREDISPOSES
+    causal_link_type: DIRECT
+    description: &gt;
+      Crowding raises the rate of streptococcal transmission and therefore of the initiating infection.
+    evidence:
+    - reference: PMID:20948456
+      reference_title: Acute rheumatic fever associated with household crowding in a developed country.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;The incidence rate ratio was 1.065 (95% confidence interval, 1.052-1.079) for the total population.&#34;
+      explanation: &gt;
+        Quantifies the crowding-to-infection edge as a graded dose relationship rather than a
+        binary risk factor, which is what a PREDISPOSES link on a transmission mechanism asserts.
+    - reference: PMID:15927077
+      reference_title: &#34;Antibiotics for the primary prevention of acute rheumatic fever: a meta-analysis.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Rheumatic fever continues to put a significant burden on the health of low socio-economic populations in low and middle-income countries despite the near disappearance of the disease in the developed world over the past century.&#34;
+      explanation: Documents the socioeconomic concentration of the disease and its disappearance from wealthy countries, which is the strongest available evidence that the determinant is social rather than biological. It supports this link only indirectly, being an observed distribution rather than a measured exposure effect.
   notes: &gt;
     ECTO:6000028 (exposure to socioeconomic factors) is bound as the closest available term. It
-    covers the poverty dimension but not household crowding, for which the exposure hierarchy has no
-    term, so this entry&#39;s name is deliberately broader than its binding. An earlier version of this
-    note said no term was bound; the binding was added afterwards, by the #8430 exposure-binding
-    sweep, which did not revisit the note.
+    covers the deprivation dimension but not household crowding, for which the exposure hierarchy
+    has no term, so the binding loses the crowding dimension and this entry&#39;s name is deliberately
+    broader than its binding. An earlier version of this note said no term was bound; the binding
+    was added afterwards, by the #8430 exposure-binding sweep, which did not revisit the note. An
+    ECTO new-term request for household crowding is worth filing.
+
+
+    This note previously claimed the cited evidence separates crowding from deprivation, because
+    crowding survived adjustment for household income. That claim has been withdrawn. PMID:20948456
+    is an ecologic study, and its own METHODS describe crowding, the deprivation index and household
+    income alike as &#34;area factors based on the CAU of home address&#34; - all census-area aggregates.
+    Adjusting one area-level variable for another cannot rule out confounding at the individual
+    household, and the authors say as much: &#34;Our conclusion could be further investigated using a
+    case-control study.&#34; Whether crowding is a cause or a marker of deprivation is therefore open on
+    this evidence.
 
 experimental_models:
 - name: Lewis rat autoimmune valvulitis model
@@ -9647,6 +10725,13 @@ biochemical:
     substantially more antecedent infections than either alone. A rising or falling paired titre is
     more informative than a single value, because the organism has usually gone by the time the
     illness appears.
+  evidence:
+  - reference: PMID:31516274
+    reference_title: &#34;Comparison of antistreptolysin O and anti-deoxyribonucleic B titers in healthy children to those with acute pharyngitis, acute rheumatic fever, and rheumatic heart disease aged 5-15 years.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The median ASO titers in acute pharyngitis group and ARF were significantly raised compared to that of the control group.&#34;
+    explanation: Establishes that the titre is raised in the acute episode against a healthy control group from the same population. Note the study found ASO not raised in established rheumatic heart disease, which is consistent with this marker reporting on the antecedent infection rather than on the chronic valve disease.
   readouts:
   - target: Group A streptococcal infection in a susceptible host
     relationship: READOUT_OF
@@ -9662,6 +10747,13 @@ biochemical:
   notes: &gt;
     The complementary streptococcal antibody, with sensitivity around ninety percent, and
     particularly useful when the antecedent infection was cutaneous rather than pharyngeal.
+  evidence:
+  - reference: PMID:31516274
+    reference_title: &#34;Comparison of antistreptolysin O and anti-deoxyribonucleic B titers in healthy children to those with acute pharyngitis, acute rheumatic fever, and rheumatic heart disease aged 5-15 years.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The ADB titers were raised in ARF and RHD patients albeit the levels were higher in ARF patients.&#34;
+    explanation: Shows this titre raised in both the acute episode and established rheumatic heart disease, where the anti-streptolysin O titre in the same cohort was not, which is the complementarity that makes the pair worth measuring together.
   readouts:
   - target: Group A streptococcal infection in a susceptible host
     relationship: READOUT_OF
@@ -9939,6 +11031,73 @@ notes: &gt;
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Deep-research provenance. Curated from a claude_code deep-research report treated as leads only. The report was unusually careful and flagged its own ontology and MONDO identifiers as unverified rather than asserting them. Every identifier used here was independently checked against OAK or OLS.
+MONDO term selection. MONDO:0006955 is the live term. MONDO:0000472 also matches a search for this disease name and is obsolete; it must not be used.
+NEC preflight returned SKIP, because MONDO records no causal gene for this disease and the gene-identity check therefore cannot discriminate. The manual fallback was run. The report is unambiguously about rheumatic heart disease throughout, and the apparent top gene hit reported by the tool, RHD at 95 mentions, is the tool matching the disease acronym against the unrelated Rh blood group gene rather than a genuine gene signal.
+Cochrane version. The report cited the Cochrane review on anti-inflammatory treatment without a PMID. Three versions exist, from 2003, 2012, and 2015. The 2015 update, PMID:26017576, is cited here. The superseded 2003 version, PMID:12804454, was fetched during curation and is deliberately not cited.
+Module conformance. One node conforms to fibrotic_response. The report suggested the Aschoff body might conform to granuloma_formation; it is deliberately not curated that way, because that module models containment of a persistent indigestible stimulus by macrophage fusion and there is no organism in the rheumatic valve to contain. The report also advised against conforming the atrial fibrillation to cardiac_ion_channel_repolarization, which is correct and is followed here, since this arrhythmia is structural and the INVICTUS result is the clinical consequence of that fact.
+Absent bindings. No ECTO term is available for household crowding or poverty as exposures, which is documented on the environmental entry. No therapeutic_agent is bound on the benzathine penicillin treatment because the NCIT identifier for the benzathine salt was not confirmed during curation; the generic Pharmacotherapy action term is used alone rather than binding an unverified CURIE.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Rheumatic Heart Disease</strong> · 2026-08-10T01:19:26Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Rheumatic_Heart_Disease/2026-08-10T011926Z-claude-code-b7bdb6.yaml">View source</a></p>
+                        <p class="research-review-text">Created the Rheumatic Heart Disease entry from a claude_code deep-research report
+treated as leads only. The report was unusually disciplined and flagged its own
+MONDO and ontology identifiers as unverified rather than asserting them; every
+identifier used was independently checked against OAK or OLS.
+
+Mechanism model. Nine pathophysiology nodes running from group A streptococcal
+infection in an HLA-susceptible host, through molecular mimicry, cross-reactive
+antibody binding with valve endothelial activation, CD4-positive T cell
+infiltration, acute valvulitis with Aschoff body formation, and chronic valve
+fibrosis with commissural fusion, to valvular stenosis and regurgitation and
+thence to atrial fibrillation and heart failure. One node conforms to
+fibrotic_response.
+
+Two deliberate non-conformances, both following the report&#39;s own advice. The
+Aschoff body is an Xogenesis-style lesion but is not conformed to
+granuloma_formation, because that module models containment of a persistent
+indigestible stimulus by macrophage fusion and there is no organism in the
+rheumatic valve to contain. The atrial fibrillation is not conformed to
+cardiac_ion_channel_repolarization, because it is structural rather than a
+primary channelopathy; the INVICTUS trial result, in which warfarin beat
+rivaroxaban in exactly this population, is the clinical consequence of that
+distinction and is curated on the node.
+
+Curated negatives. The 2015 Cochrane review found little evidence that
+corticosteroids or intravenous immunoglobulin protect the valve, which is
+curated as a REFUTE item on the anti-inflammatory treatment edge together with
+the reviewers&#39; own caveats about trial antiquity and risk of bias, so it reads
+as failure to demonstrate benefit rather than demonstrated futility. The primary
+prevention meta-analysis is curated with its own limitation, namely that the
+evidence base is seventy-year-old trials in young American servicemen.
+
+Sixteen references fetched and verified. The report cited the Cochrane review
+without a PMID; three versions exist and the 2015 update was used, with the
+superseded 2003 version fetched during curation and deliberately not cited.
+
+Snippet discipline. An automated check flagged one snippet under five words, and
+inspection showed that eight snippets in the draft were title fragments rather
+than assertive sentences. All eight were replaced with real sentences from the
+cached abstracts. Two of the replacements were then caught by the reference
+validator as misattributed, having been drawn from a different paper than the
+one cited, and were replaced with sentences from the correct abstract.
+
+Validation: schema, ontology terms, and references all pass. Snippets checked
+34 of 34 verified against cached references.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -10406,7 +11565,7 @@ notes: &gt;
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Rheumatic Heart Disease", "mondoId": "MONDO:0006955", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Rheumatic_Heart_Disease", "yamlRevision": "f8a349b5c92c"};
+        const OS_CONFIG = {"diseaseName": "Rheumatic Heart Disease", "mondoId": "MONDO:0006955", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Rheumatic_Heart_Disease", "yamlRevision": "26feed419287"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

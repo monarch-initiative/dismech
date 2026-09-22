@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3761,6 +3826,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -4035,6 +4107,132 @@ SCOPE: this entry covers the DOMINANT-NEGATIVE arm only. RAC2 disease is a four-
         <!-- Classifications -->
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
+                <h2 class="card-title">Classifications</h2>
+            </div>
+
+
+
+
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="A primary immunodeficiency presenting in early infancy with severe bacterial soft-tissue infection and absent pus formation.">IMMUNE RHEUMATOLOGIC</span>
+
+
+                    <span class="tag tag-classification" title="A Mendelian single-gene disorder caused by a dominant-negative RAC2 allele.">GENETICS ENVIRONMENT DISEASE</span>
+
+                </div>
+
+            </div>
+
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">IUIS Category</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="IUIS 2022 phenotypic classification (Tangye et al., PMID:35748970), Table 5 &#34;Congenital defects of phagocyte number or function&#34;, section 2 (Defects of Motility): row &#34;Rac2 deficiency RAC2 AD LOF 608203&#34;, affected cells N, affected function adherence, chemotaxis and superoxide production, associated features poor wound healing and leukocytosis.
+RAC2 is printed in THREE different IUIS 2022 tables as three distinct diseases, and the OMIM number — not the disease name — is the reliable discriminator, because two of the three rows are both printed as &#34;RAC2 deficiency&#34;:
+- Table 1 (immunodeficiencies affecting cellular and humoral immunity),
+  &#34;Activated RAC2 defect&#34;, AD GOF, MIM 602049;
+- Table 3 (predominantly antibody deficiencies), &#34;RAC2 deficiency&#34;, AR,
+  MIM 602049;
+- Table 5, &#34;Rac2 deficiency&#34;, AD LOF, MIM 608203 — this entry.
+This entry is the AD loss-of-function / dominant-negative arm (MONDO:0011988, IMD73A, the p.Asp57Asn allele), matching MIM 608203, and its own description already scopes it that way. The IMD73B (MONDO:0033554) and IMD73C (MONDO:0033555) arms belong to Tables 1 and 3 respectively and are not covered by this classification.">phagocyte defect</span>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+
         <!-- Mappings -->
 
 
@@ -4097,6 +4295,7 @@ SCOPE: this entry covers the DOMINANT-NEGATIVE arm only. RAC2 disease is a four-
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4195,6 +4394,7 @@ SCOPE: this entry covers the DOMINANT-NEGATIVE arm only. RAC2 disease is a four-
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4216,6 +4416,7 @@ SCOPE: this entry covers the DOMINANT-NEGATIVE arm only. RAC2 disease is a four-
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4293,6 +4494,7 @@ SCOPE: this entry covers the DOMINANT-NEGATIVE arm only. RAC2 disease is a four-
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4327,6 +4529,7 @@ SCOPE: this entry covers the DOMINANT-NEGATIVE arm only. RAC2 disease is a four-
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-rac2-p-asp57asn-dominant-negative-allele" data-dismech-node="RAC2 p.Asp57Asn Dominant-Negative Allele" data-dismech-type="pathophysiology">
                 <div class="item-name">RAC2 p.Asp57Asn Dominant-Negative Allele</div>
+
 
                 <div class="item-desc">The initiating lesion. Asp57 is invariant across GTP-binding proteins and participates directly in nucleotide binding. The mutant protein binds GDP but not GTP, so it is locked in the inactive conformation, and it acts dominant-negatively rather than as a simple null: it sequesters guanine nucleotide exchange factors and effectors away from the wild-type protein. That is why one allele is enough.</div>
 
@@ -4388,6 +4591,8 @@ This pathophysiological event involves RAC2 (hgnc:9802). hgnc:9802 is a gene fro
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4400,6 +4605,9 @@ This pathophysiological event involves RAC2 (hgnc:9802). hgnc:9802 is a gene fro
         <span class="tag tag-classification">functional_impact_category: DOMINANT_NEGATIVE</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Heterozygous germline p.Asp57Asn. The functional impact is recorded as DOMINANT_NEGATIVE rather than LOSS_OF_FUNCTION because the mutant actively inhibits the wild-type allele&#39;s product; a heterozygous null at this locus does not produce the disease.</div>
 
@@ -4495,6 +4703,7 @@ This pathophysiological event involves GTPase activity (GO:0003924), qualified a
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4516,6 +4725,7 @@ This pathophysiological event involves GTPase activity (GO:0003924), qualified a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4541,6 +4751,7 @@ This pathophysiological event involves GTPase activity (GO:0003924), qualified a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failed-nox2-oxidase-activation-and-superoxide-production" data-dismech-node="Failed NOX2 Oxidase Activation and Superoxide Production" data-dismech-type="pathophysiology">
                 <div class="item-name">Failed NOX2 Oxidase Activation and Superoxide Production</div>
+
 
                 <div class="item-desc">The first of the two effector arms. RAC2 is required for activation of the NOX2 NADPH oxidase, and the D57N protein inhibits oxidase activation in vitro. The defect is at the level of the ACTIVATOR, not the catalytic complex, which is what distinguishes this from chronic granulomatous disease even though the downstream consequence - failed respiratory burst - is shared. The decisive reconstitution experiment is that adding recombinant Rac to patient neutrophil extracts restores superoxide production.</div>
 
@@ -4666,6 +4877,7 @@ This pathophysiological event involves decreased superoxide anion generation (GO
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4687,6 +4899,7 @@ This pathophysiological event involves decreased superoxide anion generation (GO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4712,6 +4925,7 @@ This pathophysiological event involves decreased superoxide anion generation (GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failed-chemoattractant-driven-actin-assembly-and-directed-migration" data-dismech-node="Failed Chemoattractant-Driven Actin Assembly and Directed Migration" data-dismech-type="pathophysiology">
                 <div class="item-name">Failed Chemoattractant-Driven Actin Assembly and Directed Migration</div>
+
 
                 <div class="item-desc">The second effector arm, and the one chronic granulomatous disease does not have. Patient neutrophils show decreased chemotaxis, polarization and azurophilic granule secretion. In the Rac2-null mouse the same arm fails through defective F-actin generation, impaired p38 and p42/p44 MAP kinase activation, and loss of shear-dependent L-selectin-mediated capture, so the defect spans capture, polarization and migration rather than any single step. This is curated as a separate node from the oxidase arm rather than bundled into one &#34;neutrophil dysfunction&#34; node, because the two are independent effector routes from the same GTPase.</div>
 
@@ -4904,6 +5118,7 @@ This pathophysiological event involves decreased actin filament polymerization (
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4925,6 +5140,7 @@ This pathophysiological event involves decreased actin filament polymerization (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4950,6 +5166,7 @@ This pathophysiological event involves decreased actin filament polymerization (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neutrophils-released-but-unable-to-reach-or-kill-in-tissue" data-dismech-node="Neutrophils Released but Unable to Reach or Kill in Tissue" data-dismech-type="pathophysiology">
                 <div class="item-name">Neutrophils Released but Unable to Reach or Kill in Tissue</div>
+
 
                 <div class="item-desc">The two arms converge here, and the convergence explains the syndrome&#39;s most distinctive feature: peripheral neutrophilia coexisting with an absence of neutrophils where they are needed. Neutrophils are produced and released normally but do not accumulate at infected sites, so infections proceed without pus formation and wounds heal poorly. The Rac2-null mouse reproduces exactly this pairing - baseline neutrophilia in the blood alongside reduced inflammatory peritoneal exudate.</div>
 
@@ -5070,6 +5287,7 @@ This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5092,6 +5310,7 @@ This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-severe-early-onset-bacterial-infection-and-poor-wound-healing" data-dismech-node="Severe Early-Onset Bacterial Infection and Poor Wound Healing" data-dismech-type="pathophysiology">
                 <div class="item-name">Severe Early-Onset Bacterial Infection and Poor Wound Healing</div>
+
 
                 <div class="item-desc">The clinical presentation, in the index case at five weeks of age. Routine screening tests are normal, so the diagnosis is easily missed: the neutrophil count is high rather than low, CD11b is normal, and the defect is functional rather than numerical.</div>
 
@@ -5130,6 +5349,7 @@ This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5154,6 +5374,7 @@ This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5175,6 +5396,7 @@ This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5242,127 +5464,51 @@ This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a 
             </div>
 
 
+            <div class="pheno-toc">
 
-            <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-severe-bacterial-infection" data-dismech-node="Recurrent Severe Bacterial Infection" data-dismech-type="phenotype">
-                <div class="item-name">
-                    Recurrent Severe Bacterial Infection
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(3)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Immune<span class="pill-count">(1)</span></button>
+
+                <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
+            </div>
 
 
-                    <span class="phenotype-category">Immunological</span>
+            <details class="phenotype-category-group" id="pheno-cat-1">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Blood
+                    <span class="cat-count">3</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-normal-or-elevated-neutrophil-count" data-dismech-node="Normal or Elevated Neutrophil Count" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Normal or Elevated Neutrophil Count
+
+
 
 
 
 
                     <span class="phenotype-id">
 
+                        <span class="phenotype-term-label">Increased total neutrophil count</span>
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002718" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0002718</a>
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011897" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0011897</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Recurrent bacterial infections (HP:0002718), qualified as neonatal onset, up to 0.1y. HP:0002718 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                </div>
-
-                <div class="item-meta">
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">
-        Onset: NEONATAL; up to 0.1y</span>
-
-
-
-
-
-
-                </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:10758162" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10758162" target="_blank">PMID:10758162</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"A 5-week-old male infant presented with severe bacterial infections and poor wound healing, suggesting a neutrophil defect."</div>
-
-
-                <div class="evidence-explanation">The presenting infection phenotype.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-            </div>
-
-            <div class="item-box phenotype-box anchor-target" id="phenotype-normal-or-elevated-neutrophil-count" data-dismech-node="Normal or Elevated Neutrophil Count" data-dismech-type="phenotype">
-                <div class="item-name">
-                    Normal or Elevated Neutrophil Count
-
-
-                    <span class="phenotype-category">Hematological</span>
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011897" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0011897</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
 This clinical feature is Increased total neutrophil count (HP:0011897). HP:0011897 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                </div>
+                    </div>
+
+
+
 
 
 
@@ -5382,6 +5528,7 @@ This clinical feature is Increased total neutrophil count (HP:0011897). HP:00118
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5409,6 +5556,7 @@ This clinical feature is Increased total neutrophil count (HP:0011897). HP:00118
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5430,14 +5578,13 @@ This clinical feature is Increased total neutrophil count (HP:0011897). HP:00118
 
 
 
-            </div>
+                </div>
 
-            <div class="item-box phenotype-box anchor-target" id="phenotype-impaired-neutrophil-chemotaxis" data-dismech-node="Impaired Neutrophil Chemotaxis" data-dismech-type="phenotype">
-                <div class="item-name">
-                    Impaired Neutrophil Chemotaxis
+                <div class="item-box phenotype-box anchor-target" id="phenotype-impaired-neutrophil-chemotaxis" data-dismech-node="Impaired Neutrophil Chemotaxis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Impaired Neutrophil Chemotaxis
 
 
-                    <span class="phenotype-category">Hematological</span>
 
 
 
@@ -5446,15 +5593,19 @@ This clinical feature is Increased total neutrophil count (HP:0011897). HP:00118
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0040238" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0040238</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0040238" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0040238</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Impaired neutrophil chemotaxis (HP:0040238). HP:0040238 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                </div>
+                    </div>
+
+
+
 
 
 
@@ -5474,6 +5625,7 @@ This clinical feature is Impaired neutrophil chemotaxis (HP:0040238). HP:0040238
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5498,14 +5650,13 @@ This clinical feature is Impaired neutrophil chemotaxis (HP:0040238). HP:0040238
 
 
 
-            </div>
+                </div>
 
-            <div class="item-box phenotype-box anchor-target" id="phenotype-decreased-neutrophil-oxidative-burst" data-dismech-node="Decreased Neutrophil Oxidative Burst" data-dismech-type="phenotype">
-                <div class="item-name">
-                    Decreased Neutrophil Oxidative Burst
+                <div class="item-box phenotype-box anchor-target" id="phenotype-decreased-neutrophil-oxidative-burst" data-dismech-node="Decreased Neutrophil Oxidative Burst" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Decreased Neutrophil Oxidative Burst
 
 
-                    <span class="phenotype-category">Hematological</span>
 
 
 
@@ -5514,15 +5665,19 @@ This clinical feature is Impaired neutrophil chemotaxis (HP:0040238). HP:0040238
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003203" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0003203</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003203" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0003203</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Decreased neutrophil oxidative burst (HP:0003203). HP:0003203 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                </div>
+                    </div>
+
+
+
 
 
 
@@ -5542,6 +5697,7 @@ This clinical feature is Decreased neutrophil oxidative burst (HP:0003203). HP:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5566,8 +5722,146 @@ This clinical feature is Decreased neutrophil oxidative burst (HP:0003203). HP:0
 
 
 
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Immune
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-severe-bacterial-infection" data-dismech-node="Recurrent Severe Bacterial Infection" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Recurrent Severe Bacterial Infection
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Recurrent bacterial infections</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002718" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0002718</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Recurrent bacterial infections (HP:0002718), qualified as neonatal onset, up to 0.1y. HP:0002718 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">
+        Onset: NEONATAL; up to 0.1y</span>
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10758162" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10758162" target="_blank">PMID:10758162</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A 5-week-old male infant presented with severe bacterial infections and poor wound healing, suggesting a neutrophil defect."</div>
+
+
+                <div class="evidence-explanation">The presenting infection phenotype.</div>
+
+
+
             </div>
 
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <script>
+            (function() {
+                // TOC pill click: expand target group and scroll to it
+                document.querySelectorAll('.pheno-toc-pill').forEach(function(pill) {
+                    pill.addEventListener('click', function() {
+                        var target = document.getElementById(pill.dataset.target);
+                        if (target) {
+                            target.open = true;
+                            target.scrollIntoView({behavior: 'smooth', block: 'start'});
+                        }
+                    });
+                });
+                // Expand/collapse all toggle
+                var btn = document.getElementById('phenoToggleAll');
+                if (btn) {
+                    btn.addEventListener('click', function() {
+                        var groups = document.querySelectorAll('.phenotype-category-group');
+                        var anyOpen = Array.from(groups).some(function(g) { return g.open; });
+                        groups.forEach(function(g) { g.open = !anyOpen; });
+                        btn.textContent = anyOpen ? 'Expand all' : 'Collapse all';
+                    });
+                }
+            })();
+            </script>
 
         </div>
 
@@ -5614,6 +5908,9 @@ This disease-associated gene is RAC2 (hgnc:9802). hgnc:9802 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5628,6 +5925,7 @@ This disease-associated gene is RAC2 (hgnc:9802). hgnc:9802 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5711,6 +6009,31 @@ This treatment is hematopoietic cell transplantation (NCIT:C15431). NCIT:C15431 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Cell therapy</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">The definitive therapy. RAC2 is expressed only in haematopoietic cells, so replacing the haematopoietic compartment replaces the entire diseased tissue - there is no other organ carrying the lesion. In the RAC2 cohort most patients with dominant-negative disease were transplanted within the first year of life.</div>
 
 
@@ -5741,6 +6064,7 @@ This treatment is hematopoietic cell transplantation (NCIT:C15431). NCIT:C15431 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5784,6 +6108,7 @@ This treatment is hematopoietic cell transplantation (NCIT:C15431). NCIT:C15431 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5847,6 +6172,31 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Supportive rather than corrective. Because the neutrophils cannot reach or kill, bacterial infection is aggressive and rapidly progressive, so antimicrobial management is the mainstay until transplantation.</div>
 
 
@@ -5868,6 +6218,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5945,6 +6296,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5999,6 +6351,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6020,6 +6373,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6076,6 +6430,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6150,6 +6505,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6314,6 +6670,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6353,6 +6710,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6432,6 +6790,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6471,6 +6830,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6608,6 +6968,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6647,6 +7008,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6726,6 +7088,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6765,6 +7128,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6854,6 +7218,52 @@ disease_term:
     label: neutrophil immunodeficiency syndrome
 parents:
 - Inborn Error of Immunity
+classifications:
+  harrisons_chapter:
+  - classification_value: IMMUNE_RHEUMATOLOGIC
+    notes: &gt;-
+      A primary immunodeficiency presenting in early infancy with severe
+      bacterial soft-tissue infection and absent pus formation.
+  - classification_value: GENETICS_ENVIRONMENT_DISEASE
+    notes: &gt;-
+      A Mendelian single-gene disorder caused by a dominant-negative RAC2
+      allele.
+  iuis_category:
+    classification_value: phagocyte defect
+    notes: &gt;-
+      IUIS 2022 phenotypic classification (Tangye et al., PMID:35748970),
+      Table 5 &#34;Congenital defects of phagocyte number or function&#34;, section 2
+      (Defects of Motility): row &#34;Rac2 deficiency RAC2 AD LOF 608203&#34;,
+      affected cells N, affected function adherence, chemotaxis and
+      superoxide production, associated features poor wound healing and
+      leukocytosis.
+
+      RAC2 is printed in THREE different IUIS 2022 tables as three distinct
+      diseases, and the OMIM number — not the disease name — is the reliable
+      discriminator, because two of the three rows are both printed as &#34;RAC2
+      deficiency&#34;:
+
+      - Table 1 (immunodeficiencies affecting cellular and humoral immunity),
+        &#34;Activated RAC2 defect&#34;, AD GOF, MIM 602049;
+      - Table 3 (predominantly antibody deficiencies), &#34;RAC2 deficiency&#34;, AR,
+        MIM 602049;
+      - Table 5, &#34;Rac2 deficiency&#34;, AD LOF, MIM 608203 — this entry.
+
+      This entry is the AD loss-of-function / dominant-negative arm
+      (MONDO:0011988, IMD73A, the p.Asp57Asn allele), matching MIM 608203, and
+      its own description already scopes it that way. The IMD73B
+      (MONDO:0033554) and IMD73C (MONDO:0033555) arms belong to Tables 1 and 3
+      respectively and are not covered by this classification.
+    evidence:
+    - reference: PMID:35748970
+      reference_title: &#34;Human Inborn Errors of Immunity: 2022 Update on the Classification from the International Union of Immunological Societies Expert Committee.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;Rac2 deficiency RAC2 AD LOF 608203&#34;
+      explanation: &gt;-
+        The Table 5 RAC2 row, quoted verbatim. The &#34;AD LOF&#34; inheritance cell
+        and MIM 608203 together distinguish it from the AD GOF (Table 1) and
+        AR (Table 3) RAC2 rows, which both carry MIM 602049.
 inheritance:
 - name: Autosomal dominant
   inheritance_term:
@@ -7801,6 +8211,85 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Relationship to chronic granulomatous disease: both diseases end in a failed respiratory burst, but the lesion differs in kind. In CGD the catalytic NOX2 complex itself is broken; here the complex is intact and only its RAC2 activator is missing, which is why adding recombinant Rac to patient extracts restores superoxide production. RAC2 disease also has a second, independent arm - failed chemotaxis and actin assembly - that CGD does not, and it is that arm which makes the clinical picture a leukocyte adhesion deficiency mimic rather than a CGD mimic. The shared NOX2 chain is now factored out as the phagocyte_oxidative_burst_failure module, which this entry and CGD both conform to; the module&#39;s trigger node is a lesion-class node, and the substitution this entry makes there is activation failure rather than the subunit-assembly failure CGD makes.
+On the absent references: block. That block is GeneReviews-specific by schema - its tags slot permits exactly one value - and there is no GeneReviews chapter for RAC2 deficiency: a PubMed search of the GeneReviews book index for RAC2 returns no results. The absence is therefore correct rather than an omission, and is recorded here so it does not have to be rechecked.
+The diagnostic content that previously sat in this notes block as free text - normal CD11b as the LAD-I discriminator, the functional rather than numerical nature of the defect, and the normal routine screening - is now curated as a diagnosis: section with its own evidence, and is not duplicated here.
+Curation provenance: a Perplexity deep-research report was generated (research/Neutrophil_Immunodeficiency_Syndrome-deep-research-perplexity.md) and passed the NEC preflight against MONDO:0011988, with RAC2 mentioned 210 times. The gene-level preflight is weak evidence here, because every RAC2 allele class would pass it - the real risk was a report nominally about RAC2 immunodeficiency but substantively about the dominant-activating CID cohort, which accounts for 44 of the 54 patients in the flagship series. That was checked separately at the allele level: the report mentions D57N 58 times and the activating alleles E62K, G12R and Q61 not at all, so it is squarely about the arm curated here. Recording the check because the preflight tool cannot perform it - NEC risk in a gene with an allele-class spectrum lives in the variant, not the gene symbol.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Neutrophil Immunodeficiency Syndrome (MONDO:0011988), RAC2 dominant-negative arm</strong> · 2026-08-23T15:43:50Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Neutrophil_Immunodeficiency_Syndrome/2026-08-23T154350Z-claude-code-a3191d.yaml">View source</a></p>
+                        <p class="research-review-text">Created kb/disorders/Neutrophil_Immunodeficiency_Syndrome.yaml. entry_type DISEASE; the
+stub is retired by this change.
+
+This claim (#9309) replaced #9301 (AOA1) mid-run, after AOA1 turned out to be an earlier
+claim held by another curator on #8936 that was invisible to just fetch-claims because a
+REVIEW_AGAINST_PARENT retitle had dropped its claim label. That tooling gap is filed as
+#9307.
+
+Scope decision, and it is the substantive one here. RAC2 disease is a four-way
+allele-class spectrum, not a single entity: constitutively active RAS-like alleles cause
+neonatal SCID, dominant-negative alleles cause the LAD-like phagocyte disease curated
+here, and dominant-activating alleles cause a later-onset combined immunodeficiency
+accounting for 44 of 54 patients in the flagship cohort. MONDO:0011988 denotes the
+dominant-negative arm only, so this entry covers only that, and the boundary is stated in
+the entry description and recorded as an OPEN_QUESTION rather than left implicit. The
+IMD73B and IMD73C stubs remain open and belong to the CID arm.
+
+The mechanistic point that makes the entry worth having is that RAC2 sits at one branch
+point controlling two independent effector arms - NOX2 oxidase activation and
+chemoattractant-driven actin assembly - so a single allele disables both killing and
+getting there. Those are curated as two separate nodes converging on a third, rather than
+bundled into one neutrophil-dysfunction node, which also respects the single-value
+biological_scale discipline.
+
+The relationship to chronic granulomatous disease is recorded explicitly because it is
+easy to get backwards. Both end in a failed respiratory burst, but in CGD the catalytic
+NOX2 complex is broken while here it is intact and only its RAC2 activator is missing -
+which is exactly why adding recombinant Rac to patient extracts restores superoxide
+production. The second, chemotaxis arm is what CGD lacks and what makes this a leukocyte
+adhesion deficiency mimic rather than a CGD mimic; normal CD11b is what excludes LAD-I
+itself.
+
+An upstream ontology question is recorded as a KNOWLEDGE_GAP rather than acted on:
+MONDO:0011988&#39;s second parent, T-B- severe combined immunodeficiency, fits the
+constitutively active allele class rather than the dominant-negative one this term
+denotes, and looks like gene-level classification applied to an allele-level term.
+
+NEC handling deserves a note. The gene-level preflight passed with RAC2 mentioned 210
+times, but that check is weak for this disease because every allele class would pass it.
+The real risk was a report nominally about RAC2 and substantively about the CID cohort.
+That was checked separately at the allele level - D57N mentioned 58 times, E62K/G12R/Q61
+not at all - confirming the report is about the correct arm. The preflight tool cannot
+make that distinction, so the check was done and recorded by hand.
+
+The Rac2-null mouse is curated with two ModelMechanismLinks and honest limitations: it is
+a complete null while the human disease is a heterozygous dominant-negative, so it cannot
+speak to sequestration of the wild-type product; and its superoxide defect was present in
+bone marrow neutrophils but ABSENT in activated peritoneal exudate neutrophils, so the
+oxidase node is deliberately NOT claimed as recapitulated.
+
+Validation: just validate passes all three stages, reporting &#34;Snippets checked: 21/21
+verified against cached references&#34;. All six cited PMIDs fetched with just
+fetch-reference; no cache file hand-written. One snippet had been written from memory and
+was corrected against the source - the real PMID:11445809 abstract states that screening
+tests of phagocyte function were normal, which is a more useful claim than the one that
+had been invented, and it is now curated as the diagnostic-trap evidence.
+
+The first deep-research run for this disease failed on a transient Perplexity server
+disconnect and was relaunched; the second succeeded.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -8113,7 +8602,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Neutrophil Immunodeficiency Syndrome", "mondoId": "MONDO:0011988", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Neutrophil_Immunodeficiency_Syndrome", "yamlRevision": "f5888aa7e764"};
+        const OS_CONFIG = {"diseaseName": "Neutrophil Immunodeficiency Syndrome", "mondoId": "MONDO:0011988", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Neutrophil_Immunodeficiency_Syndrome", "yamlRevision": "3d208d2c40c2"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

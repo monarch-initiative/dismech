@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4137,6 +4209,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-brca1-2-tumor-suppressor-loss" data-dismech-node="BRCA1/2 Tumor Suppressor Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">BRCA1/2 Tumor Suppressor Loss</div>
 
+
                 <div class="item-desc">Germline heterozygous BRCA1 or BRCA2 mutations result in one functional allele. Somatic loss or mutation of the remaining wild-type allele (second hit) eliminates BRCA function, initiating tumorigenesis. This follows Knudson&#39;s two-hit hypothesis for tumor suppressor gene inactivation.</div>
 
 
@@ -4227,6 +4300,7 @@ This pathophysiological event involves decreased DNA repair (GO:0006281). GO:000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4249,6 +4323,7 @@ This pathophysiological event involves decreased DNA repair (GO:0006281). GO:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-homologous-recombination-deficiency" data-dismech-node="Homologous Recombination Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Homologous Recombination Deficiency</div>
+
 
                 <div class="item-desc">BRCA1 and BRCA2 are essential components of the homologous recombination (HR) pathway for error-free repair of DNA double-strand breaks. Loss of BRCA function forces cells to rely on error-prone repair pathways such as non-homologous end joining, leading to genomic instability.</div>
 
@@ -4340,6 +4415,7 @@ This pathophysiological event involves decreased homologous recombination (GO:00
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"BRCA1 is a pleiotropic DDR protein that functions in both checkpoint
@@ -4362,6 +4438,7 @@ homologous recombination."</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-genomic-instability" data-dismech-node="Genomic Instability" data-dismech-type="pathophysiology">
                 <div class="item-name">Genomic Instability</div>
+
 
                 <div class="item-desc">Loss of HR-mediated repair leads to accumulation of chromosomal aberrations, large-scale genomic rearrangements, and copy number alterations. This pattern of genomic instability, termed &#39;BRCAness&#39; or homologous recombination deficiency (HRD), is characteristic of BRCA-deficient tumors and creates therapeutic vulnerability to PARP inhibitors.</div>
 
@@ -4442,6 +4519,7 @@ This pathophysiological event involves abnormal regulation of DNA damage checkpo
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tumor-development" data-dismech-node="Tumor Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Tumor Development</div>
 
+
                 <div class="item-desc">Progressive accumulation of genomic alterations in BRCA-deficient cells leads to transformation and tumor development. The tissue specificity (breast, ovary) may relate to estrogen exposure and proliferative demands on these tissues, though the precise mechanisms remain incompletely understood. Emerging evidence identifies serous tubal intraepithelial carcinoma (STIC) in the fallopian tube as a precursor for BRCA-associated high-grade serous ovarian cancer.</div>
 
 
@@ -4517,6 +4595,7 @@ This pathophysiological event involves increased cell population proliferation (
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4583,11 +4662,13 @@ This pathophysiological event involves increased cell population proliferation (
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Breast<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Genitourinary<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Genitourinary<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Neoplasm<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4632,6 +4713,9 @@ This clinical feature is Breast carcinoma (HP:0003002). HP:0003002 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4646,6 +4730,7 @@ This clinical feature is Breast carcinoma (HP:0003002). HP:0003002 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4701,6 +4786,9 @@ This clinical feature is Breast carcinoma (HP:0003002). HP:0003002 is a phenotyp
                     </div>
 
 
+
+
+
                     <div class="item-desc">Uses same HP term as female breast cancer. Male breast cancer is specifically associated with BRCA2 more than BRCA1.</div>
 
 
@@ -4741,6 +4829,9 @@ This clinical feature is Breast carcinoma (HP:0003002). HP:0003002 is a phenotyp
                     </div>
 
 
+
+
+
                     <div class="item-desc">Uses same HP term as primary breast cancer. Contralateral breast cancer risk is a key consideration in surgical decision-making for BRCA carriers.</div>
 
 
@@ -4760,6 +4851,7 @@ This clinical feature is Breast carcinoma (HP:0003002). HP:0003002 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4792,8 +4884,80 @@ This clinical feature is Breast carcinoma (HP:0003002). HP:0003002 is a phenotyp
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Digestive
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-primary-peritoneal-carcinoma" data-dismech-node="Primary Peritoneal Carcinoma" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Primary Peritoneal Carcinoma
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030406" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0030406</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Primary peritoneal carcinoma (HP:0030406). HP:0030406 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.3390/genes15020219" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/genes15020219" target="_blank">DOI:10.3390/genes15020219</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Germline variants occurring in BRCA1 and BRCA2 give rise to hereditary breast and ovarian cancer (HBOC) syndrome, predisposing to breast, ovarian, fallopian tube, and peritoneal cancers marked by elevated incidences of genomic aberrations that correspond to poor prognoses."</div>
+
+
+                <div class="evidence-explanation">Review explicitly includes peritoneal cancer in the BRCA1/2-associated HBOC cancer spectrum.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-pancreatic-cancer" data-dismech-node="Pancreatic Cancer" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -4813,15 +4977,18 @@ This clinical feature is Breast carcinoma (HP:0003002). HP:0003002 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006725" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0006725</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006725" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0006725</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pancreatic adenocarcinoma (HP:0006725). HP:0006725 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -4841,6 +5008,7 @@ This clinical feature is Pancreatic adenocarcinoma (HP:0006725). HP:0006725 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4873,7 +5041,7 @@ This clinical feature is Pancreatic adenocarcinoma (HP:0006725). HP:0006725 is a
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Genitourinary
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-ovarian-cancer" data-dismech-node="Ovarian Cancer" data-dismech-type="phenotype">
@@ -4894,15 +5062,18 @@ This clinical feature is Pancreatic adenocarcinoma (HP:0006725). HP:0006725 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025318" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0025318</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0025318" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0025318</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ovarian carcinoma (HP:0025318). HP:0025318 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -4925,6 +5096,7 @@ This clinical feature is Ovarian carcinoma (HP:0025318). HP:0025318 is a phenoty
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4933,6 +5105,78 @@ This clinical feature is Ovarian carcinoma (HP:0025318). HP:0025318 is a phenoty
 
 
                 <div class="evidence-explanation">Prospective cohort study provides definitive penetrance estimates for ovarian cancer risk in BRCA1 and BRCA2 mutation carriers.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-fallopian-tube-carcinoma" data-dismech-node="Fallopian Tube Carcinoma" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Fallopian Tube Carcinoma
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030394" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0030394</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fallopian tube carcinoma (HP:0030394). HP:0030394 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.3390/genes15020219" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/genes15020219" target="_blank">DOI:10.3390/genes15020219</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Germline variants occurring in BRCA1 and BRCA2 give rise to hereditary breast and ovarian cancer (HBOC) syndrome, predisposing to breast, ovarian, fallopian tube, and peritoneal cancers marked by elevated incidences of genomic aberrations that correspond to poor prognoses."</div>
+
+
+                <div class="evidence-explanation">Review explicitly includes fallopian tube cancer in the BRCA1/2-associated HBOC cancer spectrum.</div>
 
 
 
@@ -4964,15 +5208,18 @@ This clinical feature is Ovarian carcinoma (HP:0025318). HP:0025318 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012125" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0012125</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012125" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0012125</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Prostate cancer (HP:0012125). HP:0012125 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -4992,6 +5239,7 @@ This clinical feature is Prostate cancer (HP:0012125). HP:0012125 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5023,213 +5271,9 @@ This clinical feature is Prostate cancer (HP:0012125). HP:0012125 is a phenotype
             <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">4</span>
+                    Neoplasm
+                    <span class="cat-count">1</span>
                 </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-triple-negative-breast-carcinoma" data-dismech-node="Triple-Negative Breast Carcinoma" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Triple-Negative Breast Carcinoma
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/MONDO_0005494" target="_blank" class="curie-chip curie-chip-mondo" aria-describedby="pill-tip-11">MONDO:0005494</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Mondo Disease Ontology (MONDO)
-Relation: this clinical feature is this phenotype
-This clinical feature is triple-negative breast carcinoma (MONDO:0005494). MONDO:0005494 is a phenotype from the Mondo Disease Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32029870" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32029870" target="_blank">PMID:32029870</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"associated with triple-negative breast cancer (TNBC), whereas BRCA2 mutation"</div>
-
-
-                <div class="evidence-explanation">Multigene germline testing cohort supports triple-negative breast carcinoma as a BRCA1-enriched HBOC phenotype.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-fallopian-tube-carcinoma" data-dismech-node="Fallopian Tube Carcinoma" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Fallopian Tube Carcinoma
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030394" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0030394</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Fallopian tube carcinoma (HP:0030394). HP:0030394 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="DOI:10.3390/genes15020219" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/DOI:10.3390/genes15020219" target="_blank">DOI:10.3390/genes15020219</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Germline variants occurring in BRCA1 and BRCA2 give rise to hereditary breast and ovarian cancer (HBOC) syndrome, predisposing to breast, ovarian, fallopian tube, and peritoneal cancers marked by elevated incidences of genomic aberrations that correspond to poor prognoses."</div>
-
-
-                <div class="evidence-explanation">Review explicitly includes fallopian tube cancer in the BRCA1/2-associated HBOC cancer spectrum.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-primary-peritoneal-carcinoma" data-dismech-node="Primary Peritoneal Carcinoma" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Primary Peritoneal Carcinoma
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030406" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0030406</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Primary peritoneal carcinoma (HP:0030406). HP:0030406 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="DOI:10.3390/genes15020219" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/DOI:10.3390/genes15020219" target="_blank">DOI:10.3390/genes15020219</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Germline variants occurring in BRCA1 and BRCA2 give rise to hereditary breast and ovarian cancer (HBOC) syndrome, predisposing to breast, ovarian, fallopian tube, and peritoneal cancers marked by elevated incidences of genomic aberrations that correspond to poor prognoses."</div>
-
-
-                <div class="evidence-explanation">Review explicitly includes peritoneal cancer in the BRCA1/2-associated HBOC cancer spectrum.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-melanoma" data-dismech-node="Melanoma" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -5247,15 +5291,18 @@ This clinical feature is Primary peritoneal carcinoma (HP:0030406). HP:0030406 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002861" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002861</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002861" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0002861</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Melanoma (HP:0002861). HP:0002861 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5278,6 +5325,7 @@ This clinical feature is Melanoma (HP:0002861). HP:0002861 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5286,6 +5334,87 @@ This clinical feature is Melanoma (HP:0002861). HP:0002861 is a phenotype from t
 
 
                 <div class="evidence-explanation">Breast Cancer Linkage Consortium study demonstrates a statistically significant 2.6-fold increased risk of melanoma in BRCA2 mutation carriers.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Other
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-triple-negative-breast-carcinoma" data-dismech-node="Triple-Negative Breast Carcinoma" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Triple-Negative Breast Carcinoma
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/MONDO_0005494" target="_blank" class="curie-chip curie-chip-mondo" aria-describedby="pill-tip-14">MONDO:0005494</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Mondo Disease Ontology (MONDO)
+Relation: this clinical feature is this phenotype
+This clinical feature is triple-negative breast carcinoma (MONDO:0005494). MONDO:0005494 is a phenotype from the Mondo Disease Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32029870" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32029870" target="_blank">PMID:32029870</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"associated with triple-negative breast cancer (TNBC), whereas BRCA2 mutation"</div>
+
+
+                <div class="evidence-explanation">Multigene germline testing cohort supports triple-negative breast carcinoma as a BRCA1-enriched HBOC phenotype.</div>
 
 
 
@@ -5371,6 +5500,9 @@ This disease-associated gene is BRCA1 (hgnc:1100). hgnc:1100 is a gene from the 
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal Dominant</span>
@@ -5393,6 +5525,7 @@ This disease-associated gene is BRCA1 (hgnc:1100). hgnc:1100 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5447,6 +5580,9 @@ This disease-associated gene is BRCA2 (hgnc:1101). hgnc:1101 is a gene from the 
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal Dominant</span>
@@ -5470,6 +5606,9 @@ This disease-associated gene is BRCA2 (hgnc:1101). hgnc:1101 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5484,6 +5623,7 @@ This disease-associated gene is BRCA2 (hgnc:1101). hgnc:1101 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5566,6 +5706,20 @@ This treatment is Prophylactic Mastectomy (NCIT:C94445). NCIT:C94445 is a clinic
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Bilateral prophylactic mastectomy reduces breast cancer risk by approximately 90% in BRCA mutation carriers. Timing and decision require careful counseling about risks, benefits, reconstruction options, and psychological impact.</div>
 
 
@@ -5587,6 +5741,7 @@ This treatment is Prophylactic Mastectomy (NCIT:C94445). NCIT:C94445 is a clinic
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5651,6 +5806,31 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Bilateral salpingo-oophorectomy recommended after completion of childbearing (typically age 35-40 for BRCA1, 40-45 for BRCA2). Reduces ovarian cancer risk by 80-90% and breast cancer risk by approximately 50% when performed premenopausally.</div>
 
 
@@ -5672,6 +5852,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5758,6 +5939,20 @@ This treatment uses olaparib (CHEBI:83766). CHEBI:83766 is a therapeutic agent f
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">PARP inhibitors (olaparib, rucaparib, niraparib, talazoparib) exploit synthetic lethality in BRCA-deficient tumors. PARP inhibition blocks single-strand break repair, causing double-strand breaks that cannot be repaired in HR-deficient cells. Approved for breast, ovarian, pancreatic, and prostate cancers with BRCA mutations.</div>
 
 
@@ -5779,6 +5974,7 @@ This treatment uses olaparib (CHEBI:83766). CHEBI:83766 is a therapeutic agent f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5806,6 +6002,7 @@ or distant disease than was placebo."</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5827,6 +6024,7 @@ or distant disease than was placebo."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5891,6 +6089,20 @@ This treatment is cancer screening (NCIT:C15406). NCIT:C15406 is a clinical inte
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">For women who do not undergo prophylactic surgery, enhanced surveillance includes annual breast MRI (starting age 25-30), mammography (starting age 30), and clinical breast exam. No proven effective ovarian cancer screening exists. Consider transvaginal ultrasound and CA-125, though sensitivity is limited.</div>
 
 
@@ -5936,6 +6148,20 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -6445,8 +6671,8 @@ genetic:
   inheritance:
   - name: Autosomal Dominant
   notes: &gt;-
-    BRCA2 (13q13.1) encodes a protein that facilitates RAD51 loading onto single-
-    stranded DNA at sites of DNA double-strand breaks, enabling homologous
+    BRCA2 (13q13.1) encodes a protein that facilitates RAD51 loading onto single-stranded
+    DNA at sites of DNA double-strand breaks, enabling homologous
     recombination repair. Also known as FANCD1 as biallelic mutations cause Fanconi
     anemia. Founder mutations include 6174delT in Ashkenazi Jewish and 999del5 in
     Icelandic populations.
@@ -7051,6 +7277,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7119,6 +7346,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7227,6 +7455,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7412,6 +7641,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7480,6 +7710,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7554,6 +7785,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7622,6 +7854,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7696,6 +7929,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7764,6 +7998,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7838,6 +8073,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7906,6 +8142,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7980,6 +8217,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8048,6 +8286,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8122,6 +8361,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8190,6 +8430,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8338,6 +8579,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8406,6 +8648,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8480,6 +8723,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8548,6 +8792,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8622,6 +8867,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8690,6 +8936,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8764,6 +9011,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8832,6 +9080,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8906,6 +9155,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8974,6 +9224,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9048,6 +9299,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9082,6 +9334,8 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -9543,7 +9797,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Hereditary Breast and Ovarian Cancer Syndrome", "mondoId": "MONDO:0011450", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hereditary_Breast_and_Ovarian_Cancer_Syndrome", "yamlRevision": "0a2e5f9228a0"};
+        const OS_CONFIG = {"diseaseName": "Hereditary Breast and Ovarian Cancer Syndrome", "mondoId": "MONDO:0011450", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hereditary_Breast_and_Ovarian_Cancer_Syndrome", "yamlRevision": "eff373fd7ab4"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

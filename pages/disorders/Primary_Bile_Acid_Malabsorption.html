@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4100,6 +4172,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4279,6 +4352,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4300,6 +4374,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4337,6 +4412,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-asbt-bile-acid-transport-function" data-dismech-node="Loss of ASBT Bile Acid Transport Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of ASBT Bile Acid Transport Function</div>
+
 
                 <div class="item-desc">Biallelic SLC10A2 variants abolish sodium-coupled bile acid uptake. The 1997 transfection work is unusually informative about how: the L243P and T262M mutant proteins were expressed normally and trafficked normally to the plasma membrane, yet transported no taurocholate. The lesion is therefore in transport function itself, not in protein folding, stability or membrane delivery, which is why it is modelled as a molecular functional defect rather than as a protein-loss node.</div>
 
@@ -4524,6 +4600,7 @@ This pathophysiological event occurs in ileum (UBERON:0002116). UBERON:0002116 i
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4545,6 +4622,7 @@ This pathophysiological event occurs in ileum (UBERON:0002116). UBERON:0002116 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4570,6 +4648,7 @@ This pathophysiological event occurs in ileum (UBERON:0002116). UBERON:0002116 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-ileal-bile-acid-reclamation" data-dismech-node="Failure of Ileal Bile Acid Reclamation" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Ileal Bile Acid Reclamation</div>
+
 
                 <div class="item-desc">Active reabsorption in the terminal ileum is the step that normally recovers the great majority of the bile acid pool on each enterohepatic cycle. Its loss cannot be compensated: the mouse knockout shows that alternative absorptive mechanisms, including passive uptake along the rest of the intestine, do not make up the shortfall.</div>
 
@@ -4673,7 +4752,7 @@ This pathophysiological event occurs in ileum (UBERON:0002116). UBERON:0002116 i
 	                    <div class="crosslink-list">
 
 	                        <div class="crosslink-item">
-	                            <span class="crosslink-meta">Colonic Bile Acid Spillover and Secretory Diarrhoea</span>
+	                            <span class="crosslink-meta">Colonic Bile Acid Spillover and Diarrhoea</span>
 
 
 	                        </div>
@@ -4706,6 +4785,7 @@ This pathophysiological event occurs in ileum (UBERON:0002116). UBERON:0002116 i
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4730,6 +4810,7 @@ This pathophysiological event occurs in ileum (UBERON:0002116). UBERON:0002116 i
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4750,8 +4831,9 @@ This pathophysiological event occurs in ileum (UBERON:0002116). UBERON:0002116 i
 
 	            </div>
 
-            <div class="item-box pathophys-box anchor-target" id="pathophysiology-colonic-bile-acid-spillover-and-secretory-diarrhoea" data-dismech-node="Colonic Bile Acid Spillover and Secretory Diarrhoea" data-dismech-type="pathophysiology">
-                <div class="item-name">Colonic Bile Acid Spillover and Secretory Diarrhoea</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-colonic-bile-acid-spillover-and-diarrhoea" data-dismech-node="Colonic Bile Acid Spillover and Diarrhoea" data-dismech-type="pathophysiology">
+                <div class="item-name">Colonic Bile Acid Spillover and Diarrhoea</div>
+
 
                 <div class="item-desc">Unabsorbed bile acids pass into the colon and watery diarrhoea follows from birth. The colonic secretagogue mechanism - bile acids driving water and electrolyte secretion through cAMP, TGR5 and aquaporin changes - is the standard textbook account, but neither citation on this node establishes it, so the node claims only the delivery and the diarrhoea and leaves the secretory mechanism to be evidenced by a curator who has a source for it. The rat pelvic-irradiation model, in which ileal Asbt is downregulated by radiation rather than by mutation, shows the same redistribution - ileal bile acids fall, colonic and faecal bile acids rise, diarrhoea follows - and is included here as convergent evidence for the mechanism from a different cause of the same transporter loss.</div>
 
@@ -4830,6 +4912,7 @@ This pathophysiological event occurs in colon (UBERON:0001155). UBERON:0001155 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4851,6 +4934,7 @@ This pathophysiological event occurs in colon (UBERON:0001155). UBERON:0001155 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4876,6 +4960,7 @@ This pathophysiological event occurs in colon (UBERON:0001155). UBERON:0001155 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-contracted-bile-acid-pool" data-dismech-node="Contracted Bile Acid Pool" data-dismech-type="pathophysiology">
                 <div class="item-name">Contracted Bile Acid Pool</div>
+
 
                 <div class="item-desc">Bile acids lost to the colon are not returned to the liver, so the circulating pool contracts. In the mouse this is quantified: faecal excretion rises 10- to 20-fold and the pool falls by 80% even though synthesis has increased, and the residue is selectively enriched in cholic acid. Pool contraction is an organism-level state while the compensatory synthetic response is a hepatocyte process, so they are separate nodes with the regulatory step that connects them modelled between them.</div>
 
@@ -4953,6 +5038,7 @@ This pathophysiological event occurs in colon (UBERON:0001155). UBERON:0001155 i
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4975,6 +5061,7 @@ This pathophysiological event occurs in colon (UBERON:0001155). UBERON:0001155 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-fxr-fgf19-signalling-from-the-ileum" data-dismech-node="Loss of FXR-FGF19 Signalling from the Ileum" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of FXR-FGF19 Signalling from the Ileum</div>
+
 
                 <div class="item-desc">The regulatory step that explains why synthesis rises, and the reason the pool and synthesis nodes needed separating. Bile acids taken up by ileal enterocytes normally activate the nuclear receptor FXR, which drives FGF19 production; FGF19 travels in the portal circulation to the hepatocyte and suppresses CYP7A1, the rate-limiting enzyme of bile acid synthesis. When ASBT cannot bring bile acids into the enterocyte, intracellular concentrations never rise, FXR is not activated, FGF19 output collapses, and CYP7A1 is released from inhibition. This is also why the two main diagnostic biomarkers work: low serum FGF19 reads the failed signal directly, and serum C4 is an intermediate of the CYP7A1 reaction that the signal would have suppressed.</div>
 
@@ -5180,6 +5267,7 @@ This pathophysiological event involves decreased fibroblast growth factor recept
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5201,6 +5289,7 @@ This pathophysiological event involves decreased fibroblast growth factor recept
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5226,6 +5315,7 @@ This pathophysiological event involves decreased fibroblast growth factor recept
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cyp7a1-disinhibition-and-compensatory-hepatic-synthesis" data-dismech-node="CYP7A1 Disinhibition and Compensatory Hepatic Synthesis" data-dismech-type="pathophysiology">
                 <div class="item-name">CYP7A1 Disinhibition and Compensatory Hepatic Synthesis</div>
+
 
                 <div class="item-desc">With FGF19 suppression removed, hepatocyte CYP7A1 activity rises and bile acid synthesis increases to replace the losses. Because that synthesis consumes cholesterol, the sustained drain is what lowers plasma cholesterol.</div>
 
@@ -5392,6 +5482,7 @@ This pathophysiological event involves increased bile acid biosynthetic process 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5413,6 +5504,7 @@ This pathophysiological event involves increased bile acid biosynthetic process 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5438,6 +5530,7 @@ This pathophysiological event involves increased bile acid biosynthetic process 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-steatorrhoea-and-fat-malabsorption" data-dismech-node="Steatorrhoea and Fat Malabsorption" data-dismech-type="pathophysiology">
                 <div class="item-name">Steatorrhoea and Fat Malabsorption</div>
+
 
                 <div class="item-desc">A contracted bile acid pool impairs micellar solubilisation of dietary fat, producing steatorrhoea in affected humans. This node is where the mouse and the human diverge, and the divergence is recorded rather than reconciled - see the HUMAN_MODEL_MISMATCH discussion.</div>
 
@@ -5515,6 +5608,7 @@ This pathophysiological event involves increased bile acid biosynthetic process 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5537,6 +5631,7 @@ This pathophysiological event involves increased bile acid biosynthetic process 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fat-soluble-vitamin-malabsorption" data-dismech-node="Fat-Soluble Vitamin Malabsorption" data-dismech-type="pathophysiology">
                 <div class="item-name">Fat-Soluble Vitamin Malabsorption</div>
+
 
                 <div class="item-desc">Impaired micellar solubilisation carries the fat-soluble vitamins A, D, E and K down with dietary fat. This is the arm that can dominate the presentation entirely: in the 2025 genotyped case the vitamin deficiency was the whole illness, producing rickets, a hypocalcaemic seizure in infancy and reduced final height in a patient with normal stools and no steatorrhoea. Lifelong vitamin supplementation, not sequestrant therapy, was what she actually needed.</div>
 
@@ -5606,6 +5701,7 @@ This pathophysiological event involves increased bile acid biosynthetic process 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5627,6 +5723,7 @@ This pathophysiological event involves increased bile acid biosynthetic process 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5652,6 +5749,7 @@ This pathophysiological event involves increased bile acid biosynthetic process 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-plasma-cholesterol" data-dismech-node="Reduced Plasma Cholesterol" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Plasma Cholesterol</div>
+
 
                 <div class="item-desc">Continuous faecal loss of bile acids forces sustained hepatic conversion of cholesterol into bile acids, lowering plasma cholesterol. This is the basis on which partial ASBT inhibition was pursued as a lipid-lowering strategy.</div>
 
@@ -5723,6 +5821,7 @@ This pathophysiological event involves increased bile acid biosynthetic process 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5744,6 +5843,7 @@ This pathophysiological event involves increased bile acid biosynthetic process 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5792,7 +5892,7 @@ This pathophysiological event involves increased bile acid biosynthetic process 
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Bile Acid Sequestrant Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Cholestyramine and colesevelam are the standard therapy for bile acid diarrhoea. There is no controlled-trial evidence in the Mendelian form - the placebo-controlled colesevelam data come from the common acquired condition - but there is genotype-confirmed case evidence, and it points both ways depending on which arm of the disease dominates.\\nIn an infant with the diarrhoeal presentation, colestyramine resolved the diarrhoea and catch-up growth followed. In the patient whose presentation was fat-soluble vitamin deficiency with no diarrhoea, a sequestrant was tried on the strength of that first report and was discontinued for side effects with no effect on vitamin uptake.\\nBoth outcomes follow from the same mechanism. A sequestrant binds luminal bile acids, so it acts on the colonic spillover arm and does nothing for the contracted pool - which is why it helps the diarrhoea and not the vitamin malabsorption. The evidence below is deliberately not one-sided.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"cholestyramine\"]}}, {\"id\": \"CYP7A1 Disinhibition and Compensatory Hepatic Synthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"With FGF19 suppression removed, hepatocyte CYP7A1 activity rises and bile acid synthesis increases to replace the losses. Because that synthesis consumes cholesterol, the sustained drain is what lowers plasma cholesterol.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"bile acid biosynthetic process\"], \"genes\": [\"CYP7A1\"], \"gene_terms\": [{\"label\": \"CYP7A1\", \"id\": \"hgnc:2651\"}]}}, {\"id\": \"Colonic Bile Acid Spillover and Secretory Diarrhoea\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Unabsorbed bile acids pass into the colon and watery diarrhoea follows from birth. The colonic secretagogue mechanism - bile acids driving water and electrolyte secretion through cAMP, TGR5 and aquaporin changes - is the standard textbook account, but neither citation on this node establishes it, so the node claims only the delivery and the diarrhoea and leaves the secretory mechanism to be evidenced by a curator who has a source for it. The rat pelvic-irradiation model, in which ileal Asbt is downregulated by radiation rather than by mutation, shows the same redistribution - ileal bile acids fall, colonic and faecal bile acids rise, diarrhoea follows - and is included here as convergent evidence for the mechanism from a different cause of the same transporter loss.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"colon\"]}}, {\"id\": \"Congenital Watery Diarrhoea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic watery diarrhoea present from birth, the presenting feature of the disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002028\"}}, {\"id\": \"Contracted Bile Acid Pool\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Bile acids lost to the colon are not returned to the liver, so the circulating pool contracts. In the mouse this is quantified: faecal excretion rises 10- to 20-fold and the pool falls by 80% even though synthesis has increased, and the residue is selectively enriched in cholic acid. Pool contraction is an organism-level state while the compensatory synthetic response is a hepatocyte process, so they are separate nodes with the regulatory step that connects them modelled between them.\", \"meta\": {\"evidence_count\": 1, \"animal_models\": [{\"name\": \"Slc10a2-null mouse\", \"species\": \"Mouse\", \"genotype\": \"Slc10a2 homozygous null by targeted deletion\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"The pool falls by 80% despite increased synthesis, and becomes selectively enriched in cholic acid.\"}]}}, {\"id\": \"Failure of Ileal Bile Acid Reclamation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Active reabsorption in the terminal ileum is the step that normally recovers the great majority of the bile acid pool on each enterohepatic cycle. Its loss cannot be compensated: the mouse knockout shows that alternative absorptive mechanisms, including passive uptake along the rest of the intestine, do not make up the shortfall.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"bile acid and bile salt transport\"], \"locations\": [\"ileum\"], \"animal_models\": [{\"name\": \"Slc10a2-null mouse\", \"species\": \"Mouse\", \"genotype\": \"Slc10a2 homozygous null by targeted deletion\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Faecal bile acid excretion rises 10- to 20-fold and is not further increased by a bile acid binding resin, indicating essentially complete failure of active ileal reclamation.\"}]}}, {\"id\": \"Fat-Soluble Vitamin Deficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Deficiency of vitamins A, D, E and K, requiring lifelong supplementation. In at least one genotyped patient this was the presenting and dominant problem, with no diarrhoea or steatorrhoea.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100512\"}}, {\"id\": \"Fat-Soluble Vitamin Malabsorption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired micellar solubilisation carries the fat-soluble vitamins A, D, E and K down with dietary fat. This is the arm that can dominate the presentation entirely: in the 2025 genotyped case the vitamin deficiency was the whole illness, producing rickets, a hypocalcaemic seizure in infancy and reduced final height in a patient with normal stools and no steatorrhoea. Lifelong vitamin supplementation, not sequestrant therapy, was what she actually needed.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Growth Failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Stunting is reported in two independent genotyped patients: extreme stunting in an infant with the diarrhoeal presentation, and a final height of 155.5 cm in the vitamin-deficiency presentation.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0004322\"}}, {\"id\": \"Hypocalcemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Presented as a nonfebrile generalised seizure at ten months of age, which was the patient\u0027s first hospitalisation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002901\"}}, {\"id\": \"Hypocholesterolaemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003146\"}}, {\"id\": \"Lifelong Fat-Soluble Vitamin Supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Continuous replacement of vitamins A, D, E and K. In the one genotyped patient with a documented long-term course this was the therapy that worked and the one she stayed on: her levels dropped markedly whenever she was non-compliant or the dose was reduced. Modelled first among the treatments because, for the vitamin-deficiency presentation, it is not adjunctive - it is the treatment.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Loss of ASBT Bile Acid Transport Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic SLC10A2 variants abolish sodium-coupled bile acid uptake. The 1997 transfection work is unusually informative about how: the L243P and T262M mutant proteins were expressed normally and trafficked normally to the plasma membrane, yet transported no taurocholate. The lesion is therefore in transport function itself, not in protein folding, stability or membrane delivery, which is why it is modelled as a molecular functional defect rather than as a protein-loss node.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"terminal ileal enterocyte\"], \"molecular_functions\": [\"bile acid:sodium symporter activity\"], \"genes\": [\"SLC10A2\"], \"gene_terms\": [{\"label\": \"SLC10A2\", \"id\": \"hgnc:10906\"}], \"locations\": [\"ileum\"]}}, {\"id\": \"Loss of FXR-FGF19 Signalling from the Ileum\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The regulatory step that explains why synthesis rises, and the reason the pool and synthesis nodes needed separating. Bile acids taken up by ileal enterocytes normally activate the nuclear receptor FXR, which drives FGF19 production; FGF19 travels in the portal circulation to the hepatocyte and suppresses CYP7A1, the rate-limiting enzyme of bile acid synthesis. When ASBT cannot bring bile acids into the enterocyte, intracellular concentrations never rise, FXR is not activated, FGF19 output collapses, and CYP7A1 is released from inhibition. This is also why the two main diagnostic biomarkers work: low serum FGF19 reads the failed signal directly, and serum C4 is an intermediate of the CYP7A1 reaction that the signal would have suppressed.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"terminal ileal enterocyte\"], \"biological_processes\": [\"fibroblast growth factor receptor signaling pathway\"], \"genes\": [\"NR1H4\", \"FGF19\"], \"gene_terms\": [{\"label\": \"NR1H4\", \"id\": \"hgnc:7967\"}, {\"label\": \"FGF19\", \"id\": \"hgnc:3675\"}]}}, {\"id\": \"Reduced Plasma Cholesterol\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Continuous faecal loss of bile acids forces sustained hepatic conversion of cholesterol into bile acids, lowering plasma cholesterol. This is the basis on which partial ASBT inhibition was pursued as a lipid-lowering strategy.\", \"meta\": {\"evidence_count\": 2, \"animal_models\": [{\"name\": \"Slc10a2-null mouse\", \"species\": \"Mouse\", \"genotype\": \"Slc10a2 homozygous null by targeted deletion\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"Rather than the reduced plasma cholesterol seen in affected humans, plasma HDL cholesterol was slightly elevated in the null mice, a result the authors themselves flag as unexpected. Hepatic cholesteryl ester content did fall by half, so the hepatic drain is present; it is the plasma readout that does not translate.\"}]}}, {\"id\": \"Rickets\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Consequence of the vitamin D deficiency, radiographically confirmed in infancy in the 2025 case alongside a hypocalcaemic seizure.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002748\"}}, {\"id\": \"SLC10A2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"SLC10A2\"], \"gene_terms\": [{\"label\": \"SLC10A2\", \"id\": \"hgnc:10906\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Slc10a2-null mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Targeted disruption of Slc10a2 by homologous recombination. Homozygous nulls are physically indistinguishable from wild type. The model reproduces the transport lesion with high fidelity but does not reproduce the human malabsorptive illness.\"}, {\"id\": \"Steatorrhoea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002570\"}}, {\"id\": \"Steatorrhoea and Fat Malabsorption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A contracted bile acid pool impairs micellar solubilisation of dietary fat, producing steatorrhoea in affected humans. This node is where the mouse and the human diverge, and the divergence is recorded rather than reconciled - see the HUMAN_MODEL_MISMATCH discussion.\", \"meta\": {\"evidence_count\": 1, \"animal_models\": [{\"name\": \"Slc10a2-null mouse\", \"species\": \"Mouse\", \"genotype\": \"Slc10a2 homozygous null by targeted deletion\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"On a low fat diet the Slc10a2-null mouse does not have steatorrhoea. Faecal neutral sterol excretion rises only 3-fold and intestinal cholesterol absorption falls only 20%, because the smaller cholic-acid-enriched pool is still sufficient to support intestinal lipid absorption.\"}]}}], \"edges\": [{\"source\": \"Loss of ASBT Bile Acid Transport Function\", \"target\": \"Failure of Ileal Bile Acid Reclamation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failure of Ileal Bile Acid Reclamation\", \"target\": \"Colonic Bile Acid Spillover and Secretory Diarrhoea\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failure of Ileal Bile Acid Reclamation\", \"target\": \"Contracted Bile Acid Pool\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Colonic Bile Acid Spillover and Secretory Diarrhoea\", \"target\": \"Congenital Watery Diarrhoea\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Colonic Bile Acid Spillover and Secretory Diarrhoea\", \"target\": \"Growth Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Contracted Bile Acid Pool\", \"target\": \"Loss of FXR-FGF19 Signalling from the Ileum\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Contracted Bile Acid Pool\", \"target\": \"Steatorrhoea and Fat Malabsorption\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Loss of FXR-FGF19 Signalling from the Ileum\", \"target\": \"CYP7A1 Disinhibition and Compensatory Hepatic Synthesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"CYP7A1 Disinhibition and Compensatory Hepatic Synthesis\", \"target\": \"Reduced Plasma Cholesterol\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Steatorrhoea and Fat Malabsorption\", \"target\": \"Steatorrhoea\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Steatorrhoea and Fat Malabsorption\", \"target\": \"Fat-Soluble Vitamin Malabsorption\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fat-Soluble Vitamin Malabsorption\", \"target\": \"Hypocalcemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fat-Soluble Vitamin Malabsorption\", \"target\": \"Growth Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fat-Soluble Vitamin Malabsorption\", \"target\": \"Fat-Soluble Vitamin Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fat-Soluble Vitamin Malabsorption\", \"target\": \"Rickets\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Reduced Plasma Cholesterol\", \"target\": \"Hypocholesterolaemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lifelong Fat-Soluble Vitamin Supplementation\", \"target\": \"Fat-Soluble Vitamin Malabsorption\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Bile Acid Sequestrant Therapy\", \"target\": \"Colonic Bile Acid Spillover and Secretory Diarrhoea\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Slc10a2-null mouse\", \"target\": \"Failure of Ileal Bile Acid Reclamation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Faecal bile acid excretion rises 10- to 20-fold and is not further increased by a bile acid binding resin, indicating essentially complete failure of active ileal reclamation.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\"}, {\"source\": \"Slc10a2-null mouse\", \"target\": \"Contracted Bile Acid Pool\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The pool falls by 80% despite increased synthesis, and becomes selectively enriched in cholic acid.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\"}, {\"source\": \"Slc10a2-null mouse\", \"target\": \"Steatorrhoea and Fat Malabsorption\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"On a low fat diet the Slc10a2-null mouse does not have steatorrhoea. Faecal neutral sterol excretion rises only 3-fold and intestinal cholesterol absorption falls only 20%, because the smaller cholic-acid-enriched pool is still sufficient to support intestinal lipid absorption.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"The mouse fails at exactly the node where the human disease is clinically defined. The most likely reasons are dietary and compositional rather than a difference in the transporter: the mice were studied on a low fat diet, so the residual pool was not stressed, and the selective cholic acid enrichment preserves micelle-forming capacity per unit of pool. The consequence for curation is that this model can be used to support the transport and pool nodes but must not be used to support the fat-malabsorption node, and its silence there is not evidence that human steatorrhoea is doubtful.\"}, {\"source\": \"Slc10a2-null mouse\", \"target\": \"Reduced Plasma Cholesterol\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"Rather than the reduced plasma cholesterol seen in affected humans, plasma HDL cholesterol was slightly elevated in the null mice, a result the authors themselves flag as unexpected. Hepatic cholesteryl ester content did fall by half, so the hepatic drain is present; it is the plasma readout that does not translate.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"Mouse and human lipoprotein physiology differ substantially - mice carry most plasma cholesterol as HDL and lack cholesteryl ester transfer protein - so a plasma cholesterol endpoint is among the least transferable readouts this model could offer. The hepatic cholesteryl ester measurement is the informative one; the plasma value should not be read as evidence against the human phenotype.\"}, {\"source\": \"SLC10A2\", \"target\": \"Loss of ASBT Bile Acid Transport Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Bile Acid Sequestrant Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Cholestyramine and colesevelam are the standard therapy for bile acid diarrhoea. There is no controlled-trial evidence in the Mendelian form - the placebo-controlled colesevelam data come from the common acquired condition - but there is genotype-confirmed case evidence, and it points both ways depending on which arm of the disease dominates.\\nIn an infant with the diarrhoeal presentation, colestyramine resolved the diarrhoea and catch-up growth followed. In the patient whose presentation was fat-soluble vitamin deficiency with no diarrhoea, a sequestrant was tried on the strength of that first report and was discontinued for side effects with no effect on vitamin uptake.\\nBoth outcomes follow from the same mechanism. A sequestrant binds luminal bile acids, so it acts on the colonic spillover arm and does nothing for the contracted pool - which is why it helps the diarrhoea and not the vitamin malabsorption. The evidence below is deliberately not one-sided.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"cholestyramine\"]}}, {\"id\": \"CYP7A1 Disinhibition and Compensatory Hepatic Synthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"With FGF19 suppression removed, hepatocyte CYP7A1 activity rises and bile acid synthesis increases to replace the losses. Because that synthesis consumes cholesterol, the sustained drain is what lowers plasma cholesterol.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"bile acid biosynthetic process\"], \"genes\": [\"CYP7A1\"], \"gene_terms\": [{\"label\": \"CYP7A1\", \"id\": \"hgnc:2651\"}]}}, {\"id\": \"Colonic Bile Acid Spillover and Diarrhoea\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Unabsorbed bile acids pass into the colon and watery diarrhoea follows from birth. The colonic secretagogue mechanism - bile acids driving water and electrolyte secretion through cAMP, TGR5 and aquaporin changes - is the standard textbook account, but neither citation on this node establishes it, so the node claims only the delivery and the diarrhoea and leaves the secretory mechanism to be evidenced by a curator who has a source for it. The rat pelvic-irradiation model, in which ileal Asbt is downregulated by radiation rather than by mutation, shows the same redistribution - ileal bile acids fall, colonic and faecal bile acids rise, diarrhoea follows - and is included here as convergent evidence for the mechanism from a different cause of the same transporter loss.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"colon\"]}}, {\"id\": \"Congenital Watery Diarrhoea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic watery diarrhoea present from birth, the presenting feature of the disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002028\"}}, {\"id\": \"Contracted Bile Acid Pool\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Bile acids lost to the colon are not returned to the liver, so the circulating pool contracts. In the mouse this is quantified: faecal excretion rises 10- to 20-fold and the pool falls by 80% even though synthesis has increased, and the residue is selectively enriched in cholic acid. Pool contraction is an organism-level state while the compensatory synthetic response is a hepatocyte process, so they are separate nodes with the regulatory step that connects them modelled between them.\", \"meta\": {\"evidence_count\": 1, \"animal_models\": [{\"name\": \"Slc10a2-null mouse\", \"species\": \"Mouse\", \"genotype\": \"Slc10a2 homozygous null by targeted deletion\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"The pool falls by 80% despite increased synthesis, and becomes selectively enriched in cholic acid.\"}]}}, {\"id\": \"Failure of Ileal Bile Acid Reclamation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Active reabsorption in the terminal ileum is the step that normally recovers the great majority of the bile acid pool on each enterohepatic cycle. Its loss cannot be compensated: the mouse knockout shows that alternative absorptive mechanisms, including passive uptake along the rest of the intestine, do not make up the shortfall.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"bile acid and bile salt transport\"], \"locations\": [\"ileum\"], \"animal_models\": [{\"name\": \"Slc10a2-null mouse\", \"species\": \"Mouse\", \"genotype\": \"Slc10a2 homozygous null by targeted deletion\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Faecal bile acid excretion rises 10- to 20-fold and is not further increased by a bile acid binding resin, indicating essentially complete failure of active ileal reclamation.\"}]}}, {\"id\": \"Fat-Soluble Vitamin Deficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Deficiency of vitamins A, D, E and K, requiring lifelong supplementation. In at least one genotyped patient this was the presenting and dominant problem, with no diarrhoea or steatorrhoea.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100512\"}}, {\"id\": \"Fat-Soluble Vitamin Malabsorption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired micellar solubilisation carries the fat-soluble vitamins A, D, E and K down with dietary fat. This is the arm that can dominate the presentation entirely: in the 2025 genotyped case the vitamin deficiency was the whole illness, producing rickets, a hypocalcaemic seizure in infancy and reduced final height in a patient with normal stools and no steatorrhoea. Lifelong vitamin supplementation, not sequestrant therapy, was what she actually needed.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Growth Failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Stunting is reported in two independent genotyped patients: extreme stunting in an infant with the diarrhoeal presentation, and a final height of 155.5 cm in the vitamin-deficiency presentation.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0004322\"}}, {\"id\": \"Hypocalcemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Presented as a nonfebrile generalised seizure at ten months of age, which was the patient\u0027s first hospitalisation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002901\"}}, {\"id\": \"Hypocholesterolaemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003146\"}}, {\"id\": \"Lifelong Fat-Soluble Vitamin Supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Continuous replacement of vitamins A, D, E and K. In the one genotyped patient with a documented long-term course this was the therapy that worked and the one she stayed on: her levels dropped markedly whenever she was non-compliant or the dose was reduced. Modelled first among the treatments because, for the vitamin-deficiency presentation, it is not adjunctive - it is the treatment.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Loss of ASBT Bile Acid Transport Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic SLC10A2 variants abolish sodium-coupled bile acid uptake. The 1997 transfection work is unusually informative about how: the L243P and T262M mutant proteins were expressed normally and trafficked normally to the plasma membrane, yet transported no taurocholate. The lesion is therefore in transport function itself, not in protein folding, stability or membrane delivery, which is why it is modelled as a molecular functional defect rather than as a protein-loss node.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"terminal ileal enterocyte\"], \"molecular_functions\": [\"bile acid:sodium symporter activity\"], \"genes\": [\"SLC10A2\"], \"gene_terms\": [{\"label\": \"SLC10A2\", \"id\": \"hgnc:10906\"}], \"locations\": [\"ileum\"]}}, {\"id\": \"Loss of FXR-FGF19 Signalling from the Ileum\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The regulatory step that explains why synthesis rises, and the reason the pool and synthesis nodes needed separating. Bile acids taken up by ileal enterocytes normally activate the nuclear receptor FXR, which drives FGF19 production; FGF19 travels in the portal circulation to the hepatocyte and suppresses CYP7A1, the rate-limiting enzyme of bile acid synthesis. When ASBT cannot bring bile acids into the enterocyte, intracellular concentrations never rise, FXR is not activated, FGF19 output collapses, and CYP7A1 is released from inhibition. This is also why the two main diagnostic biomarkers work: low serum FGF19 reads the failed signal directly, and serum C4 is an intermediate of the CYP7A1 reaction that the signal would have suppressed.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"terminal ileal enterocyte\"], \"biological_processes\": [\"fibroblast growth factor receptor signaling pathway\"], \"genes\": [\"NR1H4\", \"FGF19\"], \"gene_terms\": [{\"label\": \"NR1H4\", \"id\": \"hgnc:7967\"}, {\"label\": \"FGF19\", \"id\": \"hgnc:3675\"}]}}, {\"id\": \"Reduced Plasma Cholesterol\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Continuous faecal loss of bile acids forces sustained hepatic conversion of cholesterol into bile acids, lowering plasma cholesterol. This is the basis on which partial ASBT inhibition was pursued as a lipid-lowering strategy.\", \"meta\": {\"evidence_count\": 2, \"animal_models\": [{\"name\": \"Slc10a2-null mouse\", \"species\": \"Mouse\", \"genotype\": \"Slc10a2 homozygous null by targeted deletion\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"Rather than the reduced plasma cholesterol seen in affected humans, plasma HDL cholesterol was slightly elevated in the null mice, a result the authors themselves flag as unexpected. Hepatic cholesteryl ester content did fall by half, so the hepatic drain is present; it is the plasma readout that does not translate.\"}]}}, {\"id\": \"Rickets\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Consequence of the vitamin D deficiency, radiographically confirmed in infancy in the 2025 case alongside a hypocalcaemic seizure.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002748\"}}, {\"id\": \"SLC10A2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"SLC10A2\"], \"gene_terms\": [{\"label\": \"SLC10A2\", \"id\": \"hgnc:10906\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Slc10a2-null mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Targeted disruption of Slc10a2 by homologous recombination. Homozygous nulls are physically indistinguishable from wild type. The model reproduces the transport lesion with high fidelity but does not reproduce the human malabsorptive illness.\"}, {\"id\": \"Steatorrhoea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002570\"}}, {\"id\": \"Steatorrhoea and Fat Malabsorption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A contracted bile acid pool impairs micellar solubilisation of dietary fat, producing steatorrhoea in affected humans. This node is where the mouse and the human diverge, and the divergence is recorded rather than reconciled - see the HUMAN_MODEL_MISMATCH discussion.\", \"meta\": {\"evidence_count\": 1, \"animal_models\": [{\"name\": \"Slc10a2-null mouse\", \"species\": \"Mouse\", \"genotype\": \"Slc10a2 homozygous null by targeted deletion\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"On a low fat diet the Slc10a2-null mouse does not have steatorrhoea. Faecal neutral sterol excretion rises only 3-fold and intestinal cholesterol absorption falls only 20%, because the smaller cholic-acid-enriched pool is still sufficient to support intestinal lipid absorption.\"}]}}], \"edges\": [{\"source\": \"Loss of ASBT Bile Acid Transport Function\", \"target\": \"Failure of Ileal Bile Acid Reclamation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failure of Ileal Bile Acid Reclamation\", \"target\": \"Colonic Bile Acid Spillover and Diarrhoea\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failure of Ileal Bile Acid Reclamation\", \"target\": \"Contracted Bile Acid Pool\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Colonic Bile Acid Spillover and Diarrhoea\", \"target\": \"Congenital Watery Diarrhoea\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Colonic Bile Acid Spillover and Diarrhoea\", \"target\": \"Growth Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Contracted Bile Acid Pool\", \"target\": \"Loss of FXR-FGF19 Signalling from the Ileum\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Contracted Bile Acid Pool\", \"target\": \"Steatorrhoea and Fat Malabsorption\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Loss of FXR-FGF19 Signalling from the Ileum\", \"target\": \"CYP7A1 Disinhibition and Compensatory Hepatic Synthesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"CYP7A1 Disinhibition and Compensatory Hepatic Synthesis\", \"target\": \"Reduced Plasma Cholesterol\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Steatorrhoea and Fat Malabsorption\", \"target\": \"Steatorrhoea\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Steatorrhoea and Fat Malabsorption\", \"target\": \"Fat-Soluble Vitamin Malabsorption\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fat-Soluble Vitamin Malabsorption\", \"target\": \"Hypocalcemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fat-Soluble Vitamin Malabsorption\", \"target\": \"Growth Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fat-Soluble Vitamin Malabsorption\", \"target\": \"Fat-Soluble Vitamin Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fat-Soluble Vitamin Malabsorption\", \"target\": \"Rickets\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Reduced Plasma Cholesterol\", \"target\": \"Hypocholesterolaemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lifelong Fat-Soluble Vitamin Supplementation\", \"target\": \"Fat-Soluble Vitamin Malabsorption\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Bile Acid Sequestrant Therapy\", \"target\": \"Colonic Bile Acid Spillover and Diarrhoea\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Slc10a2-null mouse\", \"target\": \"Failure of Ileal Bile Acid Reclamation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Faecal bile acid excretion rises 10- to 20-fold and is not further increased by a bile acid binding resin, indicating essentially complete failure of active ileal reclamation.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\"}, {\"source\": \"Slc10a2-null mouse\", \"target\": \"Contracted Bile Acid Pool\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The pool falls by 80% despite increased synthesis, and becomes selectively enriched in cholic acid.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\"}, {\"source\": \"Slc10a2-null mouse\", \"target\": \"Steatorrhoea and Fat Malabsorption\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"On a low fat diet the Slc10a2-null mouse does not have steatorrhoea. Faecal neutral sterol excretion rises only 3-fold and intestinal cholesterol absorption falls only 20%, because the smaller cholic-acid-enriched pool is still sufficient to support intestinal lipid absorption.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"The mouse fails at exactly the node where the human disease is clinically defined. The most likely reasons are dietary and compositional rather than a difference in the transporter: the mice were studied on a low fat diet, so the residual pool was not stressed, and the selective cholic acid enrichment preserves micelle-forming capacity per unit of pool. The consequence for curation is that this model can be used to support the transport and pool nodes but must not be used to support the fat-malabsorption node, and its silence there is not evidence that human steatorrhoea is doubtful.\"}, {\"source\": \"Slc10a2-null mouse\", \"target\": \"Reduced Plasma Cholesterol\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"Rather than the reduced plasma cholesterol seen in affected humans, plasma HDL cholesterol was slightly elevated in the null mice, a result the authors themselves flag as unexpected. Hepatic cholesteryl ester content did fall by half, so the hepatic drain is present; it is the plasma readout that does not translate.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"Mouse and human lipoprotein physiology differ substantially - mice carry most plasma cholesterol as HDL and lack cholesteryl ester transfer protein - so a plasma cholesterol endpoint is among the least transferable readouts this model could offer. The hepatic cholesteryl ester measurement is the informative one; the plasma value should not be read as evidence against the human phenotype.\"}, {\"source\": \"SLC10A2\", \"target\": \"Loss of ASBT Bile Acid Transport Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5813,13 +5913,11 @@ This pathophysiological event involves increased bile acid biosynthetic process 
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Metabolism<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Metabolism<span class="pill-count">(3)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(1)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Growth<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5880,6 +5978,9 @@ This clinical feature is Chronic diarrhoea, annotated with Chronic diarrhea (HP:
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5894,6 +5995,7 @@ This clinical feature is Chronic diarrhoea, annotated with Chronic diarrhea (HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5950,6 +6052,9 @@ This clinical feature is Steatorrhea (HP:0002570). HP:0002570 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5964,6 +6069,7 @@ This clinical feature is Steatorrhea (HP:0002570). HP:0002570 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5996,12 +6102,12 @@ This clinical feature is Steatorrhea (HP:0002570). HP:0002570 is a phenotype fro
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hypocalcemia" data-dismech-node="Hypocalcemia" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypocholesterolaemia" data-dismech-node="Hypocholesterolaemia" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Hypocalcemia
+                        Hypocholesterolaemia
 
 
 
@@ -6010,18 +6116,115 @@ This clinical feature is Steatorrhea (HP:0002570). HP:0002570 is a phenotype fro
 
                     <span class="phenotype-id">
 
+                        <span class="phenotype-term-label">Hypocholesterolemia</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002901" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002901</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003146" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0003146</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypocalcemia (HP:0002901). HP:0002901 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Hypocholesterolemia (HP:0003146). HP:0003146 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:9109432" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9109432" target="_blank">PMID:9109432</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"congenital diarrhea, steatorrhea, interruption of the enterohepatic circulation of bile acids, and reduced plasma cholesterol levels"</div>
+
+
+                <div class="evidence-explanation">Names reduced plasma cholesterol among the defining features.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-fat-soluble-vitamin-deficiency" data-dismech-node="Fat-Soluble Vitamin Deficiency" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Fat-Soluble Vitamin Deficiency
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Decreased circulating vitamin D concentration</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100512" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0100512</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Decreased circulating vitamin D concentration (HP:0100512), qualified as temporality chronic. HP:0100512 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Temporal: CHRONIC</span>
+
+
+
+
+
+
+                    </div>
+
+
+
 
 
 
@@ -6041,6 +6244,79 @@ This clinical feature is Hypocalcemia (HP:0002901). HP:0002901 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The patient was generally asymptomatic while receiving continuous vitamin subsidy."</div>
+
+
+                <div class="evidence-explanation">Establishes both the deficiency and its dependence on continuous replacement. The bound term names vitamin D specifically because HPO has no single fat-soluble-vitamin-deficiency term; the other three vitamins are named in the description rather than given manufactured bindings.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypocalcemia" data-dismech-node="Hypocalcemia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hypocalcemia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002901" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002901</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypocalcemia (HP:0002901). HP:0002901 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40814585" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40814585" target="_blank">PMID:40814585</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6090,15 +6366,18 @@ This clinical feature is Hypocalcemia (HP:0002901). HP:0002901 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002748" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002748</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002748" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002748</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Rickets (HP:0002748). HP:0002748 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6118,6 +6397,7 @@ This clinical feature is Rickets (HP:0002748). HP:0002748 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6169,15 +6449,18 @@ This clinical feature is Rickets (HP:0002748). HP:0002748 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0004322</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0004322</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6197,6 +6480,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6224,6 +6508,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6232,173 +6517,6 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                 <div class="evidence-explanation">Growth failure in a second, independently reported genotyped patient with a different presentation.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hypocholesterolaemia" data-dismech-node="Hypocholesterolaemia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hypocholesterolaemia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Hypocholesterolemia</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003146" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0003146</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hypocholesterolemia (HP:0003146). HP:0003146 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:9109432" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9109432" target="_blank">PMID:9109432</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"congenital diarrhea, steatorrhea, interruption of the enterohepatic circulation of bile acids, and reduced plasma cholesterol levels"</div>
-
-
-                <div class="evidence-explanation">Names reduced plasma cholesterol among the defining features.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-fat-soluble-vitamin-deficiency" data-dismech-node="Fat-Soluble Vitamin Deficiency" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Fat-Soluble Vitamin Deficiency
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Decreased circulating vitamin D concentration</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100512" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0100512</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Decreased circulating vitamin D concentration (HP:0100512), qualified as temporality chronic. HP:0100512 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Temporal: CHRONIC</span>
-
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:40814585" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40814585" target="_blank">PMID:40814585</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The patient was generally asymptomatic while receiving continuous vitamin subsidy."</div>
-
-
-                <div class="evidence-explanation">Establishes both the deficiency and its dependence on continuous replacement. The bound term names vitamin D specifically because HPO has no single fat-soluble-vitamin-deficiency term; the other three vitamins are named in the description rather than given manufactured bindings.</div>
 
 
 
@@ -6484,6 +6602,9 @@ This disease-associated gene is SLC10A2 (hgnc:10906). hgnc:10906 is a gene from 
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive inheritance</span>
@@ -6509,6 +6630,7 @@ This disease-associated gene is SLC10A2 (hgnc:10906). hgnc:10906 is a gene from 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6530,6 +6652,7 @@ This disease-associated gene is SLC10A2 (hgnc:10906). hgnc:10906 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6590,7 +6713,7 @@ This disease-associated gene is SLC10A2 (hgnc:10906). hgnc:10906 is a gene from 
 
     </div>
 
-    <div class="item-desc">The OMIM record MONDO:0013214 xrefs, recorded structurally so the entry&#39;s identity is auditable against the source identifier. This is not `mappings.omim_mappings`: the `DiseaseMappings` class carries only ICD-10-CM, ICD-11, MONDO and NCIT slots, so there is nowhere in `mappings` for an OMIM identity to go.</div>
+    <div class="item-desc">OMIM&#39;s phenotype record for congenital primary bile acid malabsorption. MONDO:0013214 carries it as a database cross-reference, so the two identifiers name the same concept rather than merely adjacent ones.</div>
 
 
 
@@ -6653,6 +6776,31 @@ This treatment is nutritional support (NCIT:C15433). NCIT:C15433 is a clinical i
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Continuous replacement of vitamins A, D, E and K. In the one genotyped patient with a documented long-term course this was the therapy that worked and the one she stayed on: her levels dropped markedly whenever she was non-compliant or the dose was reduced. Modelled first among the treatments because, for the vitamin-deficiency presentation, it is not adjunctive - it is the treatment.</div>
 
 
@@ -6692,6 +6840,7 @@ This treatment is nutritional support (NCIT:C15433). NCIT:C15433 is a clinical i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6777,6 +6926,31 @@ This treatment uses cholestyramine (NCIT:C28929). NCIT:C28929 is a therapeutic a
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Cholestyramine and colesevelam are the standard therapy for bile acid diarrhoea. There is no controlled-trial evidence in the Mendelian form - the placebo-controlled colesevelam data come from the common acquired condition - but there is genotype-confirmed case evidence, and it points both ways depending on which arm of the disease dominates.
 In an infant with the diarrhoeal presentation, colestyramine resolved the diarrhoea and catch-up growth followed. In the patient whose presentation was fat-soluble vitamin deficiency with no diarrhoea, a sequestrant was tried on the strength of that first report and was discontinued for side effects with no effect on vitamin uptake.
 Both outcomes follow from the same mechanism. A sequestrant binds luminal bile acids, so it acts on the colonic spillover arm and does nothing for the contracted pool - which is why it helps the diarrhoea and not the vitamin malabsorption. The evidence below is deliberately not one-sided.</div>
@@ -6789,7 +6963,7 @@ Both outcomes follow from the same mechanism. A sequestrant binds luminal bile a
                         <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
 
                         </span>
-                        <strong style="color: #5b21b6;">Colonic Bile Acid Spillover and Secretory Diarrhoea</strong>
+                        <strong style="color: #5b21b6;">Colonic Bile Acid Spillover and Diarrhoea</strong>
 
                         <span style="color: #7c3aed;"> &mdash; Binds the bile acids delivered to the colon. Deliberately not linked to the vitamin or pool nodes, since it does not act on them - which is exactly the asymmetry the two case outcomes below show.</span>
 
@@ -6821,6 +6995,7 @@ Both outcomes follow from the same mechanism. A sequestrant binds luminal bile a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6842,6 +7017,7 @@ Both outcomes follow from the same mechanism. A sequestrant binds luminal bile a
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -6906,6 +7082,31 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Reducing dietary fat reduces the substrate for steatorrhoea. Listed because it is standard management of fat malabsorption; no SLC10A2-specific evidence was found, and none is claimed.</div>
 
 
@@ -6958,6 +7159,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7005,6 +7207,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7026,6 +7229,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7095,6 +7299,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7116,6 +7321,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7173,6 +7379,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7194,6 +7401,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7396,6 +7604,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7435,6 +7644,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7512,6 +7722,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7574,6 +7785,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7625,6 +7837,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -7750,11 +7963,9 @@ external_assertions:
     external_id: OMIM:613291
     url: https://omim.org/entry/613291
     description: &gt;-
-      The OMIM record MONDO:0013214 xrefs, recorded structurally so the entry&#39;s
-      identity is auditable against the source identifier. This is not
-      `mappings.omim_mappings`: the `DiseaseMappings` class carries only
-      ICD-10-CM, ICD-11, MONDO and NCIT slots, so there is nowhere in `mappings`
-      for an OMIM identity to go.
+      OMIM&#39;s phenotype record for congenital primary bile acid malabsorption.
+      MONDO:0013214 carries it as a database cross-reference, so the two
+      identifiers name the same concept rather than merely adjacent ones.
 prevalence:
   - population: Worldwide
     measure_type: CASES_IN_LITERATURE
@@ -7874,7 +8085,7 @@ pathophysiology:
           id: UBERON:0002116
           label: ileum
     downstream:
-      - target: Colonic Bile Acid Spillover and Secretory Diarrhoea
+      - target: Colonic Bile Acid Spillover and Diarrhoea
       - target: Contracted Bile Acid Pool
     evidence:
       - reference: PMID:12819193
@@ -7903,7 +8114,7 @@ pathophysiology:
           Localises the reclamation step to the terminal ileum and names the
           responsible transporter. Graded OTHER because this is a review article
           rather than a primary study.
-  - name: Colonic Bile Acid Spillover and Secretory Diarrhoea
+  - name: Colonic Bile Acid Spillover and Diarrhoea
     biological_scale: ORGANISM
     description: &gt;-
       Unabsorbed bile acids pass into the colon and watery diarrhoea follows
@@ -8745,7 +8956,7 @@ treatments:
             id: NCIT:C28929
             label: Cholestyramine
     target_mechanisms:
-      - target: Colonic Bile Acid Spillover and Secretory Diarrhoea
+      - target: Colonic Bile Acid Spillover and Diarrhoea
         description: &gt;-
           Binds the bile acids delivered to the colon. Deliberately not linked
           to the vitamin or pool nodes, since it does not act on them - which is
@@ -8873,6 +9084,19 @@ diagnosis:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Primary Bile Acid Malabsorption</strong> · 2026-08-27T23:46:46Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Primary_Bile_Acid_Malabsorption/2026-08-27T234646Z-claude-code-981cef.yaml">View source</a></p>
+                        <p class="research-review-text">New Disease entry for MONDO:0013214, SLC10A2/ASBT deficiency, curated from a claude_code deep-research report at research/Primary_Bile_Acid_Malabsorption-deep-research-claude_code.md. Nothing in kb/ previously covered bile acid malabsorption under any name. Pathophysiology is a six-node chain from loss of ASBT transport function through failed ileal reclamation to two branches: colonic bile acid spillover with secretory diarrhoea and steatorrhoea, and a contracted bile acid pool with compensatory hepatic synthesis and reduced plasma cholesterol. The molecular node is stated as a transport-function defect rather than protein loss because the 1997 transfection work showed the mutant transporter is expressed and trafficked normally yet transports nothing. The Slc10a2-null mouse is curated as an animal_models entry with four modeled_mechanisms links: RECAPITULATES with HIGH fidelity for the reclamation and pool nodes, each with a quantified readout, and FAILS_TO_RECAPITULATE with LOW fidelity for the steatorrhoea and plasma cholesterol nodes, each carrying limitations and REFUTE-graded evidence. A HUMAN_MODEL_MISMATCH discussion attaches to both failing nodes with a proposed high-fat dietary challenge experiment. The mismatch is the substantive finding of this curation: the model reproduces the transport lesion almost completely while failing at the two nodes where the human disease is clinically defined, so it can support the proximal nodes and must not be cited for the distal ones. Top-level notes record that the human evidence rests on one family, that no phenotype carries a frequency for that reason, and that this entry is the congenital SLC10A2 form only, not the far commoner acquired bile acid malabsorption. The genetic block records that A171S is a 28-percent-frequency polymorphism sharing an allele with a pathogenic splice change, so a variant-level reading that did not separate them would mis-assign causality. Validated with just validate, just validate-terms, just count-verified-snippets at 23 of 23, just check-entity-refs, just check-duplicate-keys, and the model-link pytest selection.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -9223,7 +9447,7 @@ diagnosis:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Primary Bile Acid Malabsorption", "mondoId": "MONDO:0013214", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Primary_Bile_Acid_Malabsorption", "yamlRevision": "3ef3124c30cd"};
+        const OS_CONFIG = {"diseaseName": "Primary Bile Acid Malabsorption", "mondoId": "MONDO:0013214", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Primary_Bile_Acid_Malabsorption", "yamlRevision": "06fa191e0ff7"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

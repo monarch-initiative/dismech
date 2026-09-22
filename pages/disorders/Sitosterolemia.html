@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3761,6 +3826,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3945,7 +4017,7 @@
             <a class="stat-link" href="#mappings">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔗</div>
-                <div class="stat-value">1</div>
+                <div class="stat-value">3</div>
                 <div class="stat-label">Mappings</div>
             </div>
             </a>
@@ -4198,6 +4270,86 @@
 
                 </div>
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="mapping-item">
+                    <div class="mapping-title">
+
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0020747" target="_blank" class="missing-ontology-link">MONDO:0020747</a>
+
+
+                        <span class="mapping-label missing-disease-name" title="No DisMech page yet for this disease">sitosterolemia 1</span>
+
+
+                        <span class="curation-gap-badge">Not Yet Curated</span>
+
+
+                    </div>
+                    <div class="tag-list">
+
+                        <span class="tag tag-classification">skos:narrowMatch</span>
+
+
+                        <span class="tag tag-parent">MONDO</span>
+
+
+                    </div>
+
+                    <div class="mapping-notes">MONDO:0020747 (sitosterolemia 1) is MONDO&#39;s gene-stratified subtype for the ABCG8-caused form, already curated here under genetic[].name: ABCG8.</div>
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="mapping-item">
+                    <div class="mapping-title">
+
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0020748" target="_blank" class="missing-ontology-link">MONDO:0020748</a>
+
+
+                        <span class="mapping-label missing-disease-name" title="No DisMech page yet for this disease">sitosterolemia 2</span>
+
+
+                        <span class="curation-gap-badge">Not Yet Curated</span>
+
+
+                    </div>
+                    <div class="tag-list">
+
+                        <span class="tag tag-classification">skos:narrowMatch</span>
+
+
+                        <span class="tag tag-parent">MONDO</span>
+
+
+                    </div>
+
+                    <div class="mapping-notes">MONDO:0020748 (sitosterolemia 2) is MONDO&#39;s gene-stratified subtype for the ABCG5-caused form, already curated here under genetic[].name: ABCG5.</div>
+
+                </div>
+
             </div>
 
 
@@ -4269,6 +4421,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4290,6 +4443,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4395,6 +4549,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4416,6 +4571,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4500,6 +4656,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4521,6 +4678,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4699,6 +4857,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4733,6 +4892,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-g5g8-sterol-efflux-transporter-deficiency" data-dismech-node="G5G8 Sterol-Efflux Transporter Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">G5G8 Sterol-Efflux Transporter Deficiency</div>
+
 
                 <div class="item-desc">Biallelic loss-of-function variants in ABCG5 or ABCG8 abolish the G5G8 heterodimer, a pair of ATP-binding-cassette half-transporters that assemble and traffic to the apical (canalicular/brush-border) membrane of hepatocytes and enterocytes, where they pump cholesterol and plant/shellfish sterols out of the cell into bile and into the intestinal lumen. Because either subunit is required for a functional pump, a defect in either gene inactivates sterol efflux.</div>
 
@@ -5016,6 +5176,7 @@ This pathophysiological event involves decreased ABC-type sterol transporter act
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5038,6 +5199,7 @@ This pathophysiological event involves decreased ABC-type sterol transporter act
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-intestinal-xenosterol-hyperabsorption" data-dismech-node="Intestinal Xenosterol Hyperabsorption" data-dismech-type="pathophysiology">
                 <div class="item-name">Intestinal Xenosterol Hyperabsorption</div>
+
 
                 <div class="item-desc">Without enterocyte G5G8 to pump absorbed sterols back into the lumen, the intestine absorbs both cholesterol and plant/shellfish sterols in an unselective, unrestricted manner. Normally the body excludes ~95% of dietary plant sterols; in sitosterolemia their fractional absorption rises markedly.</div>
 
@@ -5125,6 +5287,7 @@ This pathophysiological event involves enterocyte (CL:0000584). CL:0000584 is a 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5147,6 +5310,7 @@ This pathophysiological event involves enterocyte (CL:0000584). CL:0000584 is a 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-biliary-sterol-excretion" data-dismech-node="Reduced Biliary Sterol Excretion" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Biliary Sterol Excretion</div>
+
 
                 <div class="item-desc">Loss of hepatocyte canalicular G5G8 reduces secretion of cholesterol and plant sterols into bile, removing the principal route by which the liver would otherwise dispose of the excess absorbed xenosterols. Impaired biliary efflux compounds the intestinal hyperabsorption to drive net sterol retention.</div>
 
@@ -5234,6 +5398,7 @@ This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5256,6 +5421,7 @@ This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-plasma-and-tissue-plant-sterol-accumulation" data-dismech-node="Plasma and Tissue Plant Sterol Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Plasma and Tissue Plant Sterol Accumulation</div>
+
 
                 <div class="item-desc">The combination of intestinal hyperabsorption and reduced biliary excretion produces markedly elevated plasma and tissue levels of plant sterols — especially sitosterol, campesterol, and stigmasterol (and their metabolites). This sustained xenosterol accumulation is the central biochemical state of the disease and the hub from which the vascular, cutaneous, and hematologic manifestations branch.</div>
 
@@ -5325,6 +5491,7 @@ This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5346,6 +5513,7 @@ This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5373,6 +5541,7 @@ This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5395,6 +5564,7 @@ This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sterol-intercalation-into-blood-cell-membranes" data-dismech-node="Sterol Intercalation into Blood Cell Membranes" data-dismech-type="pathophysiology">
                 <div class="item-name">Sterol Intercalation into Blood Cell Membranes</div>
+
 
                 <div class="item-desc">Free plant sterols intercalate into the plasma membranes of erythrocytes, platelets, and megakaryocytes, altering membrane sterol composition and biophysics. This membrane remodeling is the proximate cause of the two distinctive hematologic manifestations of sitosterolemia and is reversible when plant-sterol levels are lowered.</div>
 
@@ -5520,6 +5690,7 @@ This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5542,6 +5713,7 @@ This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-megakaryocyte-demarcation-membrane-system-defect" data-dismech-node="Megakaryocyte Demarcation Membrane System Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Megakaryocyte Demarcation Membrane System Defect</div>
+
 
                 <div class="item-desc">Plant-sterol enrichment of the megakaryocyte membrane causes defective megakaryocyte development with deterioration of the demarcation membrane system (the internal membrane reservoir from which platelets are formed) — not a reduction in megakaryocyte numbers or progenitors. Critically, bone-marrow-transplant crossover experiments show the phenotype tracks the recipient: irradiated wild-type mice given Abcg5-null marrow have normal platelets, whereas Abcg5-null mice given wild-type marrow remain affected. The defect is therefore extrinsic — driven by the host plasma plant-sterol environment rather than being cell-intrinsic to the hematopoietic compartment — which is why it reverses when plant sterols are lowered.</div>
 
@@ -5629,6 +5801,7 @@ This pathophysiological event involves megakaryocyte (CL:0000556). CL:0000556 is
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5650,6 +5823,7 @@ This pathophysiological event involves megakaryocyte (CL:0000556). CL:0000556 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5675,6 +5849,7 @@ This pathophysiological event involves megakaryocyte (CL:0000556). CL:0000556 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-macrothrombocytopenia" data-dismech-node="Macrothrombocytopenia" data-dismech-type="pathophysiology">
                 <div class="item-name">Macrothrombocytopenia</div>
+
 
                 <div class="item-desc">The megakaryocyte demarcation-membrane-system defect yields a reduced count of enlarged (giant) platelets — macrothrombocytopenia. In humans this is the platelet component of the &#34;Mediterranean stomatocytosis/macrothrombocytopenia&#34; presentation, and plasma soluble GPIba (a marker of the accompanying platelet passivation) correlates with plasma sitosterol. Because the driver is the plasma plant-sterol burden, the abnormality reverses when plant sterols are lowered. (The parallel sterol-induced platelet hyperreactivity/passivation that explains the bleeding tendency is elaborated in the associated model-mismatch discussion.)</div>
 
@@ -5747,6 +5922,7 @@ This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a ce
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5768,6 +5944,7 @@ This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a ce
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5795,6 +5972,7 @@ This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a ce
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5817,6 +5995,7 @@ This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a ce
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-stomatocytic-hemolysis" data-dismech-node="Stomatocytic Hemolysis" data-dismech-type="pathophysiology">
                 <div class="item-name">Stomatocytic Hemolysis</div>
+
 
                 <div class="item-desc">Enrichment of the erythrocyte membrane with plant sterols alters red-cell shape (stomatocytosis) and reduces cell survival, producing a hemolytic anemia frequently accompanied by splenomegaly. The stomatocytic hemolysis combined with macrothrombocytopenia constitutes the characteristic &#34;Mediterranean stomatocytosis/macrothrombocytopenia&#34; hematologic presentation of the disease.</div>
 
@@ -5889,6 +6068,7 @@ This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5911,6 +6091,7 @@ This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-xanthoma-formation" data-dismech-node="Xanthoma Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Xanthoma Formation</div>
+
 
                 <div class="item-desc">Sterol deposition in tendons and skin produces tendinous and cutaneous xanthomas, the classic clinical sign that historically prompted sterol testing. In children xanthomas can appear even when cholesterol is normal (normolipemic xanthomas), a presentation that should trigger a plant-sterol assay.</div>
 
@@ -5983,6 +6164,7 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6005,6 +6187,7 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-accelerated-atherosclerosis" data-dismech-node="Accelerated Atherosclerosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Accelerated Atherosclerosis</div>
+
 
                 <div class="item-desc">Chronic accumulation of plant sterols and cholesterol drives accelerated atherosclerosis, which can present as premature coronary artery disease, aortic disease, and, in severe childhood-onset cases, premature cardiac death. The phenotype ranges from near-asymptomatic to severe, and the accelerated atherosclerosis is the principal cause of morbidity and mortality.</div>
 
@@ -6077,6 +6260,7 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6141,17 +6325,15 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(5)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Integument<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Integument<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Metabolism<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Constitutional<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(3)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6161,7 +6343,7 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Blood
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">5</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-hemolytic-anemia" data-dismech-node="Hemolytic anemia" data-dismech-type="phenotype">
@@ -6194,6 +6376,9 @@ This clinical feature is Hemolytic anemia (HP:0001878). HP:0001878 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6208,6 +6393,7 @@ This clinical feature is Hemolytic anemia (HP:0001878). HP:0001878 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6235,6 +6421,7 @@ This clinical feature is Hemolytic anemia (HP:0001878). HP:0001878 is a phenotyp
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6243,6 +6430,78 @@ This clinical feature is Hemolytic anemia (HP:0001878). HP:0001878 is a phenotyp
 
 
                 <div class="evidence-explanation">Quantifies the hematologic abnormalities (hemolytic anemia and macrothrombocytopenia) at 25-35% of patients, supporting the frequency band.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-stomatocytosis" data-dismech-node="Stomatocytosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Stomatocytosis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004446" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0004446</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Stomatocytosis (HP:0004446). HP:0004446 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16029460" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16029460" target="_blank">PMID:16029460</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"combines stomatocytic haemolysis with the presence of very large platelets"</div>
+
+
+                <div class="evidence-explanation">Stomatocytes on smear are the erythrocyte-morphology component of the hematologic syndrome.</div>
 
 
 
@@ -6274,15 +6533,18 @@ This clinical feature is Hemolytic anemia (HP:0001878). HP:0001878 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001873" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001873</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001873" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001873</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6305,6 +6567,7 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6313,6 +6576,105 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
                 <div class="evidence-explanation">Supports thrombocytopenia as the platelet-count component of macrothrombocytopenia.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-giant-platelets" data-dismech-node="Giant platelets" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Giant platelets
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001902" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001902</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Giant platelets (HP:0001902). HP:0001902 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29984642" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29984642" target="_blank">PMID:29984642</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the peripheral blood smear is essential and reveals giant platelets and stomatocytes."</div>
+
+
+                <div class="evidence-explanation">Giant platelets are the platelet-morphology component of macrothrombocytopenia.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29984642" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29984642" target="_blank">PMID:29984642</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Hematological abnormalities (hemolytic anemia and macrothrombocytopenia) may be present in 25-35% of patients, in whom it is usually associated with the main clinical features, as occurs in the 70% of the cases."</div>
+
+
+                <div class="evidence-explanation">The 25-35% figure covers macrothrombocytopenia (giant platelets + low count), supporting the frequency band.</div>
 
 
 
@@ -6342,15 +6704,18 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001892" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001892</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001892" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001892</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal bleeding (HP:0001892). HP:0001892 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6370,6 +6735,7 @@ This clinical feature is Abnormal bleeding (HP:0001892). HP:0001892 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6421,15 +6787,18 @@ This clinical feature is Abnormal bleeding (HP:0001892). HP:0001892 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005181" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0005181</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005181" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0005181</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Premature coronary artery atherosclerosis (HP:0005181). HP:0005181 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6449,6 +6818,7 @@ This clinical feature is Premature coronary artery atherosclerosis (HP:0005181).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6473,6 +6843,7 @@ This clinical feature is Premature coronary artery atherosclerosis (HP:0005181).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6515,15 +6886,18 @@ This clinical feature is Premature coronary artery atherosclerosis (HP:0005181).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001744" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001744</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001744" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001744</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6543,6 +6917,7 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6567,6 +6942,7 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6599,7 +6975,7 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Integument
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-tendon-and-cutaneous-xanthomas" data-dismech-node="Tendon and cutaneous xanthomas" data-dismech-type="phenotype">
@@ -6618,10 +6994,10 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010874" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0010874</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010874" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0010874</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Tendinous xanthomatosis, annotated with Tendon xanthomatosis (HP:0010874), qualified as childhood onset. HP:0010874 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6661,6 +7037,9 @@ This clinical feature is Tendinous xanthomatosis, annotated with Tendon xanthoma
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6675,6 +7054,7 @@ This clinical feature is Tendinous xanthomatosis, annotated with Tendon xanthoma
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6702,6 +7082,7 @@ This clinical feature is Tendinous xanthomatosis, annotated with Tendon xanthoma
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6710,6 +7091,109 @@ This clinical feature is Tendinous xanthomatosis, annotated with Tendon xanthoma
 
 
                 <div class="evidence-explanation">GeneReviews documents childhood-onset tendon xanthomas.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-tuberous-planar-xanthomas" data-dismech-node="Tuberous (planar) xanthomas" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Tuberous (planar) xanthomas
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Tuberous xanthoma</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031290" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0031290</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Tuberous xanthoma (HP:0031290), qualified as childhood onset. HP:0031290 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">
+        Onset: CHILDHOOD</span>
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23556150" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23556150" target="_blank">PMID:23556150</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Tendon xanthomas or tuberous (i.e., planar) xanthomas that can occur in childhood and in unusual locations (heels, knees, elbows, and buttocks)"</div>
+
+
+                <div class="evidence-explanation">GeneReviews documents tuberous (planar) xanthomas in childhood and in unusual locations.</div>
 
 
 
@@ -6748,15 +7232,18 @@ This clinical feature is Tendinous xanthomatosis, annotated with Tendon xanthoma
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003124" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0003124</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003124" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0003124</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypercholesterolemia (HP:0003124). HP:0003124 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6776,6 +7263,7 @@ This clinical feature is Hypercholesterolemia (HP:0003124). HP:0003124 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6818,15 +7306,18 @@ This clinical feature is Hypercholesterolemia (HP:0003124). HP:0003124 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002910</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002910</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Elevated circulating hepatic transaminase concentration (HP:0002910). HP:0002910 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6846,6 +7337,7 @@ This clinical feature is Elevated circulating hepatic transaminase concentration
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6897,15 +7389,18 @@ This clinical feature is Elevated circulating hepatic transaminase concentration
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002829</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0002829</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6925,6 +7420,7 @@ This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6952,6 +7448,7 @@ This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6960,276 +7457,6 @@ This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from
 
 
                 <div class="evidence-explanation">GeneReviews notes arthritis/arthralgias are seen only sometimes, supporting an OCCASIONAL rather than FREQUENT band.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">3</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-tuberous-planar-xanthomas" data-dismech-node="Tuberous (planar) xanthomas" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Tuberous (planar) xanthomas
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Tuberous xanthoma</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0031290" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0031290</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Tuberous xanthoma (HP:0031290), qualified as childhood onset. HP:0031290 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">
-        Onset: CHILDHOOD</span>
-
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:23556150" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23556150" target="_blank">PMID:23556150</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Tendon xanthomas or tuberous (i.e., planar) xanthomas that can occur in childhood and in unusual locations (heels, knees, elbows, and buttocks)"</div>
-
-
-                <div class="evidence-explanation">GeneReviews documents tuberous (planar) xanthomas in childhood and in unusual locations.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-stomatocytosis" data-dismech-node="Stomatocytosis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Stomatocytosis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004446" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0004446</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Stomatocytosis (HP:0004446). HP:0004446 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:16029460" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16029460" target="_blank">PMID:16029460</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"combines stomatocytic haemolysis with the presence of very large platelets"</div>
-
-
-                <div class="evidence-explanation">Stomatocytes on smear are the erythrocyte-morphology component of the hematologic syndrome.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-giant-platelets" data-dismech-node="Giant platelets" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Giant platelets
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001902" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001902</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Giant platelets (HP:0001902). HP:0001902 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:29984642" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29984642" target="_blank">PMID:29984642</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"the peripheral blood smear is essential and reveals giant platelets and stomatocytes."</div>
-
-
-                <div class="evidence-explanation">Giant platelets are the platelet-morphology component of macrothrombocytopenia.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:29984642" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29984642" target="_blank">PMID:29984642</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Hematological abnormalities (hemolytic anemia and macrothrombocytopenia) may be present in 25-35% of patients, in whom it is usually associated with the main clinical features, as occurs in the 70% of the cases."</div>
-
-
-                <div class="evidence-explanation">The 25-35% figure covers macrothrombocytopenia (giant platelets + low count), supporting the frequency band.</div>
 
 
 
@@ -7317,6 +7544,9 @@ This disease-associated gene is ABCG5 (hgnc:13886). hgnc:13886 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7331,6 +7561,7 @@ This disease-associated gene is ABCG5 (hgnc:13886). hgnc:13886 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7388,6 +7619,9 @@ This disease-associated gene is ABCG8 (hgnc:13887). hgnc:13887 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7402,6 +7636,7 @@ This disease-associated gene is ABCG8 (hgnc:13887). hgnc:13887 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7426,6 +7661,7 @@ This disease-associated gene is ABCG8 (hgnc:13887). hgnc:13887 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7530,6 +7766,31 @@ This treatment uses ezetimibe (CHEBI:49040). CHEBI:49040 is a therapeutic agent 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Ezetimibe, a cholesterol-absorption inhibitor (NPC1L1 antagonist), lowers intestinal absorption of both cholesterol and plant sterols, producing significant and progressive reductions in plasma plant sterols. In animal models and patients it also reverses the macrothrombocytopenia, tying the hematologic disease to the plant-sterol burden. It is a mainstay of therapy.</div>
 
 
@@ -7572,6 +7833,7 @@ This treatment uses ezetimibe (CHEBI:49040). CHEBI:49040 is a therapeutic agent 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7593,6 +7855,7 @@ This treatment uses ezetimibe (CHEBI:49040). CHEBI:49040 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7657,6 +7920,31 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Dietary restriction of both cholesterol and plant sterols is a first-line intervention. Foods rich in plant sterols (vegetable oils, wheat germ, nuts, seeds, avocado, margarine, chocolate) and shellfish sterols are limited. Importantly, plant-stanol-fortified margarines and products marketed to lower cholesterol in the general population are contraindicated in sitosterolemia, because affected patients cannot excrete the stanols and their accumulation is exacerbated — an &#34;agents to avoid&#34; caveat unique to this disorder.</div>
 
 
@@ -7699,6 +7987,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7720,6 +8009,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7784,6 +8074,31 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Partial ileal bypass surgery, which interrupts enterohepatic sterol recycling, may be considered as a last resort in patients who respond poorly to maximal dietary and pharmacologic therapy.</div>
 
 
@@ -7805,6 +8120,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7890,6 +8206,31 @@ This treatment uses bile acid sequestrant (NCIT:C98148). NCIT:C98148 is a therap
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Bile acid sequestrants (e.g., cholestyramine, colestimide, colesevelam) interrupt enterohepatic sterol recycling and, together with a low-cholesterol diet, dramatically lower the hypercholesterolemia seen in sitosterolemia.</div>
 
 
@@ -7911,6 +8252,7 @@ This treatment uses bile acid sequestrant (NCIT:C98148). NCIT:C98148 is a therap
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7974,6 +8316,31 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">HMG-CoA reductase inhibitors (statins), the standard therapy for familial hypercholesterolemia, are largely ineffective in sitosterolemia because the disease is driven by sterol hyperabsorption rather than endogenous synthesis. The lack of statin response is a key discriminator from homozygous familial hypercholesterolemia and should prompt a plant-sterol assay.</div>
 
 
@@ -7995,6 +8362,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -8059,6 +8427,31 @@ This treatment is clinical chemistry assessment, annotated with Blood Chemistry 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Recommended surveillance begins at diagnosis on an annual basis: plasma plant sterols and cholesterol, xanthoma burden, CBC and platelet count, and liver transaminases; long-standing untreated patients also undergo noninvasive imaging to exclude coronary and carotid plaque.</div>
 
 
@@ -8083,6 +8476,7 @@ This treatment is clinical chemistry assessment, annotated with Blood Chemistry 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8104,6 +8498,7 @@ This treatment is clinical chemistry assessment, annotated with Blood Chemistry 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8249,6 +8644,7 @@ This treatment is clinical chemistry assessment, annotated with Blood Chemistry 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8288,6 +8684,7 @@ This treatment is clinical chemistry assessment, annotated with Blood Chemistry 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8390,6 +8787,7 @@ This treatment is clinical chemistry assessment, annotated with Blood Chemistry 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8411,6 +8809,7 @@ This treatment is clinical chemistry assessment, annotated with Blood Chemistry 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8501,6 +8900,7 @@ This treatment is clinical chemistry assessment, annotated with Blood Chemistry 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8572,6 +8972,7 @@ This treatment is clinical chemistry assessment, annotated with Blood Chemistry 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8680,6 +9081,22 @@ mappings:
     mapping_justification: &gt;-
       MONDO:0008863 (sitosterolemia) is the exact disease concept; its
       definition names biallelic ABCG5/ABCG8 variants as the cause.
+  - term:
+      id: MONDO:0020747
+      label: sitosterolemia 1
+    mapping_predicate: skos:narrowMatch
+    mapping_source: MONDO
+    mapping_justification: &gt;-
+      MONDO:0020747 (sitosterolemia 1) is MONDO&#39;s gene-stratified subtype for
+      the ABCG8-caused form, already curated here under genetic[].name: ABCG8.
+  - term:
+      id: MONDO:0020748
+      label: sitosterolemia 2
+    mapping_predicate: skos:narrowMatch
+    mapping_source: MONDO
+    mapping_justification: &gt;-
+      MONDO:0020748 (sitosterolemia 2) is MONDO&#39;s gene-stratified subtype for
+      the ABCG5-caused form, already curated here under genetic[].name: ABCG5.
 references:
 - reference: PMID:23556150
   title: &#34;Sitosterolemia.&#34;
@@ -9810,6 +10227,25 @@ datasets: []
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Review response: address ai4c-reviewer feedback (PR #7101)</strong> · 2026-07-30T00:09:01Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Sitosterolemia/2026-07-30T000901Z-claude-code-7dcc51.yaml">View source</a></p>
+                        <p class="research-review-text">Addressed two rounds of automated ai4c-reviewer feedback on PR #7101. Round 1 (commit 3f751e82): corrected a CRITICAL factual inversion (the bone-marrow-transplant crossover in PMID:18156627 shows the phenotype tracks the recipient, so the megakaryocyte defect is extrinsic/host-plasma-sterol-driven, not cell-intrinsic) and anchored it to the crossover-result quote; split the bundled &#39;Defective Megakaryopoiesis and Macrothrombocytopenia&#39; node into two atomic nodes by biological scale (Megakaryocyte Demarcation Membrane System Defect [CELLULAR] -&gt; Macrothrombocytopenia [ORGANISM]); mined the GeneReviews Surveillance subsection into a monitoring entry; added hepatic involvement (HP:0002910 elevated transaminases + the GeneReviews &#39;idiopathic liver disease&#39; quote); enriched ABCG8 genetics with the recurrent W361X allele; and addressed suggestions (tuberous xanthoma, stigmasterol, human sGPIbA correlation split, splenomegaly band support, childhood onset, statin non-response REFUTE treatment). Round 2 (commit 296da0bf): matched the top-level references title to the cached PubMed title to fix a reference-validation title mismatch. Round 3 (this change): flipped the discussion&#39;s PMID:23926302 sGPIbA human-correlation evidence to HUMAN_CLINICAL (it quotes human patient data); changed the surveillance therapeutic_modality to OTHER; added a stigmasterol GeneReviews evidence item; added 25-35% band-specific frequency support to hemolytic anemia and giant platelets and dropped the unsupported band on stomatocytosis; added evidence to the new DMS-&gt;macrothrombocytopenia edge; and removed curation meta-commentary from the ABCG8 notes (recorded here instead). Curation decision recorded per reviewer request: the DR-surfaced founder-allele carrier frequencies (Old Order Amish p.Gly574Arg ~4%, Hutterite p.Ser107Ter ~8%, Kosrae ~13%) were NOT asserted in the entry because they could not be verified against a cached primary-source quote (the GeneReviews bookshelf abstract does not contain them and PubMed searches did not surface a clean quotable source); only the verifiable recurrent W361X ABCG8 allele (PMID:16029460) was added, per the anti-hallucination SOP. Validated: schema, term validation (--labels), 67/67 snippets exact, folded-hyphen, pathograph fully connected (10 nodes).
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Sitosterolemia (ABCG5/ABCG8 / G5G8 sterol-efflux deficiency)</strong> · 2026-07-29T19:28:24Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Sitosterolemia/2026-07-29T192824Z-claude-code-a35b4d.yaml">View source</a></p>
+                        <p class="research-review-text">New de-novo entry for sitosterolemia (phytosterolemia; MONDO:0008863), the autosomal recessive ABCG5/ABCG8 (G5G8) sterol-efflux transporter deficiency. Deep research via the claude_code provider (research/Sitosterolemia-deep-research-claude_code.md). GeneReviews baseline incorporated: the chapter &#34;Sitosterolemia&#34; (PMID:23556150) is tagged in the top-level references block and mined for evidence (inheritance, diagnostic criteria, premature-atherosclerosis sequelae, the plant-stanol &#34;agents to avoid&#34; contraindication, partial-ileal-bypass last-resort surgery, and the arthralgia frequency band). Nine atomic (unbundled) pathophysiology nodes model G5G8 transporter deficiency -&gt; intestinal xenosterol hyperabsorption + reduced biliary sterol excretion -&gt; plasma/tissue plant-sterol accumulation, branching into three arms: xanthoma formation, accelerated atherosclerosis, and a mechanistically detailed hematologic arm (sterol intercalation into blood-cell membranes -&gt; defective megakaryopoiesis/macrothrombocytopenia and stomatocytic hemolysis). 10 phenotypes, ABCG5/ABCG8 genetics with ancestry skew, AR inheritance, biochemical plasma sitosterol/campesterol readout wired to the two FDA surrogate-endpoint rows (FDA-SE-adult-noncancer-037, FDA-SE-pediatric-noncancer-026, updated NEEDS_CURATION -&gt; CURATED_DISMECH_MAPPING), two diagnostics (GC-MS plant-sterol assay, ABCG5/ABCG8 sequencing), treatments (ezetimibe with target_mechanisms, dietary sterol restriction with the plant-stanol contraindication, bile acid sequestrant, partial ileal bypass surgery), unknown-prevalence record, ENDOCRINOLOGY_METABOLISM + GENETICS_ENVIRONMENT_DISEASE classification, and a discussions section (KNOWLEDGE_GAP on phenotypic heterogeneity; INTERPRETATION on FH/ITP misdiagnosis pitfall and statin non-response; HUMAN_MODEL_MISMATCH on the murine platelet-passivation mechanism with proposed_experiments). Note: this disorder file was lost when PR #2585 merged only into an abandoned codex feature branch, leaving the two FDA rows dangling as NEEDS_CURATION on main; this entry restores the disease and resolves those rows. An internal red-team review pass (dismech-pr-review) was run before PR: it surfaced the GeneReviews chapter (added), corrected the arthralgia frequency FREQUENT -&gt; OCCASIONAL, reclassified the PMID:29984642 review evidence HUMAN_CLINICAL -&gt; OTHER, and upgraded the transporter molecular-function term GO:0140359 -&gt; GO:0034041 (ABC-type sterol transporter activity). Validated: linkml schema, term validation (--labels), all 53 evidence snippets verified as exact substrings, folded-hyphen check, pathograph fully connected (9 nodes), regulatory-endpoint + FDA surrogate tests pass, compliance 93.8%.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -10243,7 +10679,7 @@ datasets: []
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Sitosterolemia", "mondoId": "MONDO:0008863", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Sitosterolemia", "yamlRevision": "4bccb4a66ae2"};
+        const OS_CONFIG = {"diseaseName": "Sitosterolemia", "mondoId": "MONDO:0008863", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Sitosterolemia", "yamlRevision": "4b8e6335f2d0"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

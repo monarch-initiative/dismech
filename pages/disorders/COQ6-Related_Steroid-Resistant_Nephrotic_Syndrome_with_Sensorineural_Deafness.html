@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4108,6 +4180,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4299,6 +4372,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-coq6-loss-of-function" data-dismech-node="Biallelic COQ6 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic COQ6 Loss of Function</div>
 
+
                 <div class="item-desc">Homozygous or compound heterozygous COQ6 variants. Missense alleles impair the enzyme&#39;s substrate access channel; nonsense alleles truncate the protein and are associated with the lethal infantile end of the spectrum.</div>
 
 
@@ -4351,6 +4425,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4373,6 +4448,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-deficient-c5-ring-hydroxylation-in-coq10-biosynthesis" data-dismech-node="Deficient C5-Ring Hydroxylation in CoQ10 Biosynthesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Deficient C5-Ring Hydroxylation in CoQ10 Biosynthesis</div>
+
 
                 <div class="item-desc">COQ6 is a flavoprotein using FAD as cofactor that hydroxylates the benzene ring of the ubiquinone precursor at position C5. Structural work identifies a substrate access channel, and blocking it computationally predicted the loss of activity that was then confirmed in vivo.</div>
 
@@ -4532,6 +4608,7 @@ This pathophysiological event involves FAD binding (GO:0071949). GO:0071949 is a
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4553,6 +4630,7 @@ This pathophysiological event involves FAD binding (GO:0071949). GO:0071949 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4578,6 +4656,7 @@ This pathophysiological event involves FAD binding (GO:0071949). GO:0071949 is a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-coenzyme-q10-deficiency" data-dismech-node="Coenzyme Q10 Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Coenzyme Q10 Deficiency</div>
+
 
                 <div class="item-desc">Reduced cellular coenzyme Q10, the polyisoprenylated benzoquinone lipid that carries electrons in the mitochondrial respiratory chain. This is the node the treatment acts on, by supplying the end product exogenously.</div>
 
@@ -4685,6 +4764,7 @@ This pathophysiological event involves decreased oxidative phosphorylation (GO:0
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4707,6 +4787,7 @@ This pathophysiological event involves decreased oxidative phosphorylation (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-podocyte-injury-and-apoptosis" data-dismech-node="Podocyte Injury and Apoptosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Podocyte Injury and Apoptosis</div>
+
 
                 <div class="item-desc">Podocyte apoptosis is the demonstrated cellular consequence, and it is partially reversible by coenzyme Q10 in both podocyte cell lines and zebrafish - which is the experiment that links the deficiency causally to the cell death rather than merely correlating them. Knockdown work fills in part of the route: loss of COQ6 raises reactive oxygen species and disorganizes the F-actin cytoskeleton before apoptosis, which matters because podocyte function depends on maintaining that cytoskeletal architecture at the filtration slit.</div>
 
@@ -4831,6 +4912,7 @@ This pathophysiological event involves podocyte (CL:0000653). CL:0000653 is a ce
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4852,6 +4934,7 @@ This pathophysiological event involves podocyte (CL:0000653). CL:0000653 is a ce
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4877,6 +4960,7 @@ This pathophysiological event involves podocyte (CL:0000653). CL:0000653 is a ce
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-stria-vascularis-dysfunction" data-dismech-node="Stria Vascularis Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Stria Vascularis Dysfunction</div>
+
 
                 <div class="item-desc">COQ6 is expressed in stria vascularis cells of the inner ear. The co-occurrence of renal and cochlear disease is not coincidental but follows the expression pattern of the enzyme.</div>
 
@@ -4951,6 +5035,7 @@ This pathophysiological event occurs in stria vascularis of cochlear duct (UBERO
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4973,6 +5058,7 @@ This pathophysiological event occurs in stria vascularis of cochlear duct (UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-optic-nerve-involvement" data-dismech-node="Optic Nerve Involvement" data-dismech-type="pathophysiology">
                 <div class="item-name">Optic Nerve Involvement</div>
+
 
                 <div class="item-desc">Optic atrophy with visual impairment, reported in a subset and added to the recognized phenotype after the oto-renal core. Unlike the hearing arm, it responded to a hydrophilic CoQ10 analogue.</div>
 
@@ -5011,6 +5097,7 @@ This pathophysiological event occurs in stria vascularis of cochlear duct (UBERO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5033,6 +5120,7 @@ This pathophysiological event occurs in stria vascularis of cochlear duct (UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-focal-segmental-glomerulosclerosis" data-dismech-node="Focal Segmental Glomerulosclerosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Focal Segmental Glomerulosclerosis</div>
+
 
                 <div class="item-desc">The histological lesion underlying the nephrotic syndrome, and the reason it progresses rather than remitting.</div>
 
@@ -5086,6 +5174,7 @@ This pathophysiological event occurs in stria vascularis of cochlear duct (UBERO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5108,6 +5197,7 @@ This pathophysiological event occurs in stria vascularis of cochlear duct (UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-steroid-resistant-nephrotic-syndrome" data-dismech-node="Steroid-Resistant Nephrotic Syndrome" data-dismech-type="pathophysiology">
                 <div class="item-name">Steroid-Resistant Nephrotic Syndrome</div>
+
 
                 <div class="item-desc">Proteinuria, hypoalbuminemia and oedema that do not respond to corticosteroids, and in a reported case did not respond to a calcineurin inhibitor either, before remitting completely on coenzyme Q10.</div>
 
@@ -5146,6 +5236,7 @@ This pathophysiological event occurs in stria vascularis of cochlear duct (UBERO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5168,6 +5259,7 @@ This pathophysiological event occurs in stria vascularis of cochlear duct (UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-sensorineural-hearing-loss" data-dismech-node="Progressive Sensorineural Hearing Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Sensorineural Hearing Loss</div>
+
 
                 <div class="item-desc">Generally documented after the renal diagnosis, and progressive. Partially responsive to CoQ10 in a genotype-dependent way.</div>
 
@@ -5203,6 +5295,7 @@ This pathophysiological event occurs in stria vascularis of cochlear duct (UBERO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5274,15 +5367,13 @@ This pathophysiological event occurs in stria vascularis of cochlear duct (UBERO
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Genitourinary<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Genitourinary<span class="pill-count">(4)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Metabolism<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(1)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Growth<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Other<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5345,6 +5436,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407), qualifie
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5359,6 +5453,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407), qualifie
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5424,6 +5519,9 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5438,6 +5536,7 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5470,8 +5569,156 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Genitourinary
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">4</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-steroid-resistant-nephrotic-syndrome" data-dismech-node="Steroid-Resistant Nephrotic Syndrome" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Steroid-Resistant Nephrotic Syndrome
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000100" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0000100</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Nephrotic syndrome (HP:0000100). HP:0000100 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36124066" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36124066" target="_blank">PMID:36124066</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the cardinal phenotypes are steroid-resistant nephrotic syndrome (SRNS), which inevitably progresses to kidney failure, and sensorineural hearing loss (SNHL)"</div>
+
+
+                <div class="evidence-explanation">Names the two cardinal phenotypes.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-focal-segmental-glomerulosclerosis" data-dismech-node="Focal Segmental Glomerulosclerosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Focal Segmental Glomerulosclerosis
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000097" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0000097</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Focal segmental glomerulosclerosis (HP:0000097). HP:0000097 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36124066" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36124066" target="_blank">PMID:36124066</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Histologically, SRNS presents principally as focal segmental glomerulosclerosis (FSGS) inevitably leading to chronic kidney disease (CKD)"</div>
+
+
+                <div class="evidence-explanation">Identifies the predominant histology.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-progression-to-kidney-failure" data-dismech-node="Progression to Kidney Failure" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -5491,10 +5738,10 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000083" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0000083</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000083" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0000083</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Renal insufficiency (HP:0000083), qualified as course progressive. HP:0000083 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5523,6 +5770,9 @@ This clinical feature is Renal insufficiency (HP:0000083), qualified as course p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5537,6 +5787,7 @@ This clinical feature is Renal insufficiency (HP:0000083), qualified as course p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5579,15 +5830,18 @@ This clinical feature is Renal insufficiency (HP:0000083), qualified as course p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0000093</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000093</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5607,6 +5861,7 @@ This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5658,15 +5913,18 @@ This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001942" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001942</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001942" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001942</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Metabolic acidosis (HP:0001942). HP:0001942 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5686,6 +5944,7 @@ This clinical feature is Metabolic acidosis (HP:0001942). HP:0001942 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5728,15 +5987,18 @@ This clinical feature is Metabolic acidosis (HP:0001942). HP:0001942 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003073" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0003073</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003073" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0003073</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypoalbuminemia (HP:0003073). HP:0003073 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5756,6 +6018,7 @@ This clinical feature is Hypoalbuminemia (HP:0003073). HP:0003073 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5807,15 +6070,18 @@ This clinical feature is Hypoalbuminemia (HP:0003073). HP:0003073 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001252</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5835,6 +6101,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5888,15 +6155,18 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001510</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001510</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5919,6 +6189,7 @@ This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5927,155 +6198,6 @@ This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype fr
 
 
                 <div class="evidence-explanation">Names growth retardation among the presenting features of the lethal infantile form.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-7">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-steroid-resistant-nephrotic-syndrome" data-dismech-node="Steroid-Resistant Nephrotic Syndrome" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Steroid-Resistant Nephrotic Syndrome
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000100" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000100</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Nephrotic syndrome (HP:0000100). HP:0000100 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:36124066" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36124066" target="_blank">PMID:36124066</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"the cardinal phenotypes are steroid-resistant nephrotic syndrome (SRNS), which inevitably progresses to kidney failure, and sensorineural hearing loss (SNHL)"</div>
-
-
-                <div class="evidence-explanation">Names the two cardinal phenotypes.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-focal-segmental-glomerulosclerosis" data-dismech-node="Focal Segmental Glomerulosclerosis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Focal Segmental Glomerulosclerosis
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000097" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000097</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Focal segmental glomerulosclerosis (HP:0000097). HP:0000097 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:36124066" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36124066" target="_blank">PMID:36124066</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Histologically, SRNS presents principally as focal segmental glomerulosclerosis (FSGS) inevitably leading to chronic kidney disease (CKD)"</div>
-
-
-                <div class="evidence-explanation">Identifies the predominant histology.</div>
 
 
 
@@ -6163,6 +6285,9 @@ This disease-associated gene is COQ6 (hgnc:20233). hgnc:20233 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6177,6 +6302,7 @@ This disease-associated gene is COQ6 (hgnc:20233). hgnc:20233 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6209,6 +6335,12 @@ This disease-associated gene is COQ6 (hgnc:20233). hgnc:20233 is a gene from the
         c.249C&gt;G (p.Tyr83Ter)
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Nonsense allele producing a truncated protein. Reported in trans with p.Gln461Ter in two Chinese siblings who presented with severe metabolic acidosis and died in early infancy.</div>
@@ -6264,6 +6396,7 @@ This disease-associated gene is COQ6 (hgnc:20233). hgnc:20233 is a gene from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6293,6 +6426,12 @@ This disease-associated gene is COQ6 (hgnc:20233). hgnc:20233 is a gene from the
         c.1381C&gt;T (p.Gln461Ter)
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">The second nonsense allele in the same family, in trans with p.Tyr83Ter.</div>
@@ -6345,6 +6484,7 @@ This disease-associated gene is COQ6 (hgnc:20233). hgnc:20233 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6454,6 +6594,31 @@ This treatment uses coenzyme Q10 (CHEBI:46245). CHEBI:46245 is a therapeutic age
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Supplies the missing end product, bypassing the biosynthetic block rather than correcting it. Benefit is strongly dependent on how early it is started, because it cannot reverse established glomerular scarring or lost cochlear function.</div>
 
 
@@ -6484,6 +6649,7 @@ This treatment uses coenzyme Q10 (CHEBI:46245). CHEBI:46245 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6534,6 +6700,7 @@ This treatment uses coenzyme Q10 (CHEBI:46245). CHEBI:46245 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6581,6 +6748,7 @@ This treatment uses coenzyme Q10 (CHEBI:46245). CHEBI:46245 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6624,6 +6792,7 @@ This treatment uses coenzyme Q10 (CHEBI:46245). CHEBI:46245 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6645,6 +6814,7 @@ This treatment uses coenzyme Q10 (CHEBI:46245). CHEBI:46245 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6709,6 +6879,31 @@ This treatment is cochlear device implantation, annotated with Surgical Procedur
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Device</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">For hearing not preserved by early CoQ10, with outcomes reported as generally favourable and sustained.</div>
 
 
@@ -6748,6 +6943,7 @@ This treatment is cochlear device implantation, annotated with Surgical Procedur
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6812,6 +7008,31 @@ This treatment is renal dialysis, annotated with Dialysis (NCIT:C15221). NCIT:C1
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Device</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Extracorporeal solute and fluid clearance once the renal arm reaches kidney failure. It substitutes for excretory function indefinitely rather than correcting anything, and it is where a reported child went immediately at diagnosis, before transplantation became possible.</div>
 
 
@@ -6851,6 +7072,7 @@ This treatment is renal dialysis, annotated with Dialysis (NCIT:C15221). NCIT:C1
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6915,6 +7137,31 @@ This treatment is kidney transplantation, annotated with Organ Transplantation (
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">The definitive treatment for the renal arm, and the endpoint the rest of the plan exists to avoid. Post-transplant recurrence of nephrotic syndrome is low in monogenic SRNS, because the lesion is in the podocyte genome and the graft podocytes are someone else&#39;s - which makes transplantation curative for this arm in a way it is not for immune-mediated nephrotic syndrome. It does nothing for the biosynthetic defect, so the auditory and any neurological arms continue after a successful graft.</div>
 
 
@@ -6954,6 +7201,7 @@ This treatment is kidney transplantation, annotated with Organ Transplantation (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7039,6 +7287,31 @@ This treatment uses idebenone (CHEBI:31687). CHEBI:31687 is a therapeutic agent 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">A hydrophilic short-chain coenzyme Q10 analogue. Its interest here is that it acts on the arm oral CoQ10 does not reach: optical symptoms improved on it, while hearing loss did not - a clean per-arm dissociation within a single drug in the same patients.</div>
 
 
@@ -7069,6 +7342,7 @@ This treatment uses idebenone (CHEBI:31687). CHEBI:31687 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7119,6 +7393,7 @@ This treatment uses idebenone (CHEBI:31687). CHEBI:31687 is a therapeutic agent 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7159,6 +7434,7 @@ This treatment uses idebenone (CHEBI:31687). CHEBI:31687 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7267,6 +7543,7 @@ This treatment uses idebenone (CHEBI:31687). CHEBI:31687 is a therapeutic agent 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7291,6 +7568,7 @@ This treatment uses idebenone (CHEBI:31687). CHEBI:31687 is a therapeutic agent 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7312,6 +7590,7 @@ This treatment uses idebenone (CHEBI:31687). CHEBI:31687 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7404,6 +7683,7 @@ This treatment uses idebenone (CHEBI:31687). CHEBI:31687 is a therapeutic agent 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7469,6 +7749,7 @@ This treatment uses idebenone (CHEBI:31687). CHEBI:31687 is a therapeutic agent 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7490,6 +7771,7 @@ This treatment uses idebenone (CHEBI:31687). CHEBI:31687 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7627,6 +7909,7 @@ This treatment uses idebenone (CHEBI:31687). CHEBI:31687 is a therapeutic agent 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7752,6 +8035,7 @@ This treatment uses idebenone (CHEBI:31687). CHEBI:31687 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9100,6 +9384,19 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: COQ6-Related Steroid-Resistant Nephrotic Syndrome with Sensorineural Deafness</strong> · 2026-08-27T19:30:26Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/COQ6-Related_Steroid-Resistant_Nephrotic_Syndrome/2026-08-27T193026Z-claude-code-308d44.yaml">View source</a></p>
+                        <p class="research-review-text">Curated COQ6-related SRNS with SNHL (MONDO:0013836) from a claude_code deep-research report plus the GeneReviews primary CoQ10 deficiency overview PMID:28125198. Eight pathophysiology nodes, one connected component. The entry treats steroid resistance as part of the causal chain rather than as an adjective in the name: the lesion is a biosynthetic deficiency, so immunosuppression has nothing to act on, and an INTERPRETATION discussion draws out the clinical consequence that resistance should prompt a metabolic question rather than escalation. Tissue selectivity is curated from the localization result showing COQ6 in podocytes and stria vascularis, which is why an oto-renal phenotype rather than a general mitochondrial one. CoQ10 replacement carries three target_mechanisms with different effects: BYPASSES the deficiency node, RESTORES the nephrotic syndrome, MODULATES the hearing loss at a 42.9% response rate graded PARTIAL. A KNOWLEDGE_GAP records that genotype and treatment timing are both offered as explanations for variable response and no reported series separates them. Two corrections to my own prior: the claim issue predicted the deafness would generally not reverse, but the source reports stabilization or improvement in nearly half, so the entry follows the source; and GO:0006744 was initially placed in molecular_functions when it is a biological process, caught by term validation and moved, with GO:0004497 and GO:0071949 used for the monooxygenase and FAD-binding functions. PMID:26808124 is cited twice on one node with different evidence_source values because one sentence reports biochemistry and the other molecular dynamics. Validation: 22/22 snippets verified plus an independent raw-substring re-check; schema, terms, entity-refs, duplicate-keys and reference titles all pass.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

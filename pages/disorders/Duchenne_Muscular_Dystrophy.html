@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4223,6 +4295,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4404,6 +4477,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5281,6 +5355,7 @@ This readout is measured by extracellular matrix immunostaining.</span>
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5302,6 +5377,7 @@ This readout is measured by extracellular matrix immunostaining.</span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5354,6 +5430,7 @@ This readout is measured by extracellular matrix immunostaining.</span>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dmd-loss-of-function-variants" data-dismech-node="DMD Loss-of-Function Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">DMD Loss-of-Function Variants</div>
+
 
                 <div class="item-desc">Duchenne muscular dystrophy is caused by pathogenic variants in the X-linked DMD gene that abolish or severely reduce functional dystrophin. Out-of-frame deletions, duplications, nonsense, frameshift, and splice-disrupting variants typically produce the Duchenne phenotype, whereas in-frame variants that preserve partially functional dystrophin more often produce Becker or intermediate dystrophinopathy.</div>
 
@@ -5468,6 +5545,7 @@ This pathophysiological event involves decreased DMD (hgnc:2928). hgnc:2928 is a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5489,6 +5567,7 @@ This pathophysiological event involves decreased DMD (hgnc:2928). hgnc:2928 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5514,6 +5593,7 @@ This pathophysiological event involves decreased DMD (hgnc:2928). hgnc:2928 is a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-exon-skipping-amenable-dmd-pre-mrna-processing-vulnerability" data-dismech-node="Exon-Skipping-Amenable DMD Pre-mRNA Processing Vulnerability" data-dismech-type="pathophysiology">
                 <div class="item-name">Exon-Skipping-Amenable DMD Pre-mRNA Processing Vulnerability</div>
+
 
                 <div class="item-desc">A molecularly defined subset of DMD genotypes has a genomic reading-frame lesion for which controlled skipping of a specific additional exon during pre-mRNA processing can restore a productive transcript. Basal splice-site use need not itself be abnormal. The exon required depends on the patient&#39;s deletion pattern: current ASOs target exon 45, exon 51, or exon 53 only in amenable genotypes. This is a treatment-specific RNA vulnerability, not a claim that every person with DMD is eligible for exon-skipping therapy.</div>
 
@@ -5642,6 +5722,7 @@ This pathophysiological event involves RNA splicing (GO:0008380). GO:0008380 is 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5663,6 +5744,7 @@ This pathophysiological event involves RNA splicing (GO:0008380). GO:0008380 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5688,6 +5770,7 @@ This pathophysiological event involves RNA splicing (GO:0008380). GO:0008380 is 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dmd-aso-directed-exon-skipping" data-dismech-node="DMD ASO-Directed Exon Skipping" data-dismech-type="pathophysiology">
                 <div class="item-name">DMD ASO-Directed Exon Skipping</div>
+
 
                 <div class="item-desc">In a patient with a matching exon-45-, exon-51-, or exon-53-skipping-amenable genotype, administration of the exon-specific steric ASO occludes the chosen DMD pre-mRNA element and causes the spliceosome to omit that exon. This is a treatment effector state and is not present without administration of the matched ASO.</div>
 
@@ -5816,6 +5899,7 @@ This pathophysiological event involves RNA splicing (GO:0008380). GO:0008380 is 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5837,6 +5921,7 @@ This pathophysiological event involves RNA splicing (GO:0008380). GO:0008380 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5862,6 +5947,7 @@ This pathophysiological event involves RNA splicing (GO:0008380). GO:0008380 is 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-restored-in-frame-dmd-transcript-and-dystrophin-expression" data-dismech-node="Restored In-Frame DMD Transcript and Dystrophin Expression" data-dismech-type="pathophysiology">
                 <div class="item-name">Restored In-Frame DMD Transcript and Dystrophin Expression</div>
+
 
                 <div class="item-desc">In a genotype-matched patient receiving an exon-skipping ASO, the induced splice junction restores the DMD reading frame and permits expression of a shorter dystrophin protein. This treatment-conditioned molecular consequence applies only to the exon-45-, exon-51-, or exon-53-amenable subgroups and does not imply restoration of full-length dystrophin.</div>
 
@@ -5979,6 +6065,7 @@ This pathophysiological event involves increased translation (GO:0006412). GO:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6001,6 +6088,7 @@ This pathophysiological event involves increased translation (GO:0006412). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cns-dystrophin-isoform-deficiency" data-dismech-node="CNS Dystrophin Isoform Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">CNS Dystrophin Isoform Deficiency</div>
+
 
                 <div class="item-desc">DMD variants affecting distal, brain-expressed dystrophin isoforms such as Dp140 contribute to the neurodevelopmental and cognitive component of Duchenne muscular dystrophy, distinct from the skeletal-muscle sarcolemmal fragility mechanism.
 </div>
@@ -6188,6 +6276,7 @@ This pathophysiological event involves decreased cognitive process, annotated wi
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6211,6 +6300,7 @@ This pathophysiological event involves decreased cognitive process, annotated wi
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dystrophin-deficiency" data-dismech-node="Dystrophin Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Dystrophin Deficiency</div>
+
 
                 <div class="item-desc">Mutations in the DMD gene cause absent or dysfunctional dystrophin protein. Dystrophin links the cytoskeleton to the extracellular matrix in muscle fibers and cardiomyocytes, providing structural stability during contraction.</div>
 
@@ -6411,6 +6501,7 @@ This pathophysiological event involves decreased Plasma Membrane Organization (G
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6432,6 +6523,7 @@ This pathophysiological event involves decreased Plasma Membrane Organization (G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6457,6 +6549,7 @@ This pathophysiological event involves decreased Plasma Membrane Organization (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dystrophin-glycoprotein-complex-destabilization" data-dismech-node="Dystrophin-Glycoprotein Complex Destabilization" data-dismech-type="pathophysiology">
                 <div class="item-name">Dystrophin-Glycoprotein Complex Destabilization</div>
+
 
                 <div class="item-desc">The dystrophin-glycoprotein complex normally stabilizes cardiac and skeletal muscle sarcolemma by coupling the cytoskeleton, plasma membrane, and extracellular matrix. Dystrophin loss destabilizes this complex and leaves striated muscle cells vulnerable to contraction-associated membrane damage.</div>
 
@@ -6620,6 +6713,7 @@ This pathophysiological event involves decreased Plasma Membrane Organization (G
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6642,6 +6736,7 @@ This pathophysiological event involves decreased Plasma Membrane Organization (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sarcolemmal-fragility" data-dismech-node="Sarcolemmal Fragility" data-dismech-type="pathophysiology">
                 <div class="item-name">Sarcolemmal Fragility</div>
+
 
                 <div class="item-desc">Unprotected sarcolemma undergoes contraction-induced microtears and loss of membrane integrity, releasing intracellular enzymes and creating the entry point for downstream calcium injury.</div>
 
@@ -6805,6 +6900,7 @@ This pathophysiological event involves decreased Plasma Membrane Organization (G
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6827,6 +6923,7 @@ This pathophysiological event involves decreased Plasma Membrane Organization (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-calcium-influx" data-dismech-node="Calcium Influx" data-dismech-type="pathophysiology">
                 <div class="item-name">Calcium Influx</div>
+
 
                 <div class="item-desc">Calcium enters dystrophin-deficient muscle cells through damaged membrane, contributing to hypercontraction, protease activation, and downstream myofiber necrosis.</div>
 
@@ -6990,6 +7087,7 @@ This pathophysiological event involves increased Calcium Ion Transport Into Cyto
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7012,6 +7110,7 @@ This pathophysiological event involves increased Calcium Ion Transport Into Cyto
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitochondrial-dysfunction" data-dismech-node="Mitochondrial Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Mitochondrial Dysfunction</div>
+
 
                 <div class="item-desc">Pathological cytosolic calcium (and ROS) overload is buffered by mitochondria until mitochondrial calcium overload triggers opening of the mitochondrial permeability transition pore (mPTP), causing mitochondrial depolarization, swelling, and loss of ATP-generating capacity. Mitochondrial dysfunction amplifies the calcium-injury cascade between calcium influx and myofiber death and is a recognized therapeutic target in DMD.</div>
 
@@ -7201,6 +7300,7 @@ This pathophysiological event involves decreased ATP Biosynthetic Process (GO:00
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7222,6 +7322,7 @@ This pathophysiological event involves decreased ATP Biosynthetic Process (GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7247,6 +7348,7 @@ This pathophysiological event involves decreased ATP Biosynthetic Process (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-trpc-soce-mediated-calcium-entry" data-dismech-node="TRPC/SOCE-mediated Calcium Entry" data-dismech-type="pathophysiology">
                 <div class="item-name">TRPC/SOCE-mediated Calcium Entry</div>
+
 
                 <div class="item-desc">A parallel pathologic calcium entry route in dystrophic muscle operating through transient receptor potential canonical (TRPC) cation channels and STIM1-ORAI1 store-operated calcium entry (SOCE) complexes. Genetic studies in mice show that activation of these channels alone is sufficient to recapitulate the dystrophic phenotype, and that inhibiting them ameliorates pathology in mdx and delta-sarcoglycan-deficient models. This mechanism operates downstream of the unstable sarcolemma but independently of direct membrane rupture as a route of calcium influx.</div>
 
@@ -7436,6 +7538,7 @@ This pathophysiological event involves increased Calcium Ion Transmembrane Trans
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7457,6 +7560,7 @@ This pathophysiological event involves increased Calcium Ion Transmembrane Trans
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7484,6 +7588,7 @@ This pathophysiological event involves increased Calcium Ion Transmembrane Trans
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7506,6 +7611,7 @@ This pathophysiological event involves increased Calcium Ion Transmembrane Trans
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-myofiber-necrosis" data-dismech-node="Myofiber Necrosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Myofiber Necrosis</div>
+
 
                 <div class="item-desc">Repeated contraction-associated membrane injury causes skeletal myofiber necrosis, releasing damage signals that initiate inflammatory remodeling and repeated repair attempts.</div>
 
@@ -7601,6 +7707,7 @@ This pathophysiological event involves Skeletal Muscle Fiber, annotated with cel
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7623,6 +7730,7 @@ This pathophysiological event involves Skeletal Muscle Fiber, annotated with cel
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failed-satellite-cell-regeneration" data-dismech-node="Failed Satellite Cell Regeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Failed Satellite Cell Regeneration</div>
+
 
                 <div class="item-desc">Satellite-cell proliferation attempts to repair ongoing dystrophic injury, but repeated necrosis outpaces regenerative capacity and leaves muscle loss progressively irreversible.</div>
 
@@ -7743,6 +7851,7 @@ This pathophysiological event involves Skeletal Muscle Satellite Stem Cell (CL:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7765,6 +7874,7 @@ This pathophysiological event involves Skeletal Muscle Satellite Stem Cell (CL:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-muscle-inflammation" data-dismech-node="Chronic Muscle Inflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic Muscle Inflammation</div>
+
 
                 <div class="item-desc">Necrotic dystrophic muscle releases damage signals that recruit macrophages and amplify cytokine-mediated injury. Persistent inflammation links the primary membrane defect to fibrotic remodeling.</div>
 
@@ -7910,6 +8020,7 @@ This pathophysiological event involves increased Inflammatory Response (GO:00069
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7932,6 +8043,7 @@ This pathophysiological event involves increased Inflammatory Response (GO:00069
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fibrofatty-muscle-replacement" data-dismech-node="Fibrofatty Muscle Replacement" data-dismech-type="pathophysiology">
                 <div class="item-name">Fibrofatty Muscle Replacement</div>
+
 
                 <div class="item-desc">Chronic dystrophic injury activates fibroblasts and myofibroblast-like remodeling programs, depositing extracellular matrix and replacing functional muscle with fibrotic and fatty tissue. This tissue-level remodeling causes calf pseudohypertrophy and reduces contractile reserve.</div>
 
@@ -8141,6 +8253,7 @@ This pathophysiological event involves increased Extracellular Matrix Organizati
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8163,6 +8276,7 @@ This pathophysiological event involves increased Extracellular Matrix Organizati
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-muscle-degeneration" data-dismech-node="Progressive Muscle Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Muscle Degeneration</div>
+
 
                 <div class="item-desc">Without dystrophin, muscle fibers are susceptible to contraction-induced damage. Repeated cycles of degeneration and regeneration exhaust satellite cell pools, leading to fibrosis and fatty replacement of muscle tissue.</div>
 
@@ -8366,6 +8480,7 @@ This pathophysiological event involves decreased Skeletal Muscle Contraction (GO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8388,6 +8503,7 @@ This pathophysiological event involves decreased Skeletal Muscle Contraction (GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-respiratory-muscle-weakness" data-dismech-node="Respiratory Muscle Weakness" data-dismech-type="pathophysiology">
                 <div class="item-name">Respiratory Muscle Weakness</div>
+
 
                 <div class="item-desc">Progressive dystrophic degeneration of diaphragm and intercostal skeletal muscle reduces ventilation, cough effectiveness, and airway clearance, creating the respiratory-insufficiency branch of DMD.</div>
 
@@ -8513,6 +8629,7 @@ This pathophysiological event involves decreased Skeletal Muscle Contraction (GO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8535,6 +8652,7 @@ This pathophysiological event involves decreased Skeletal Muscle Contraction (GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiac-myocyte-injury" data-dismech-node="Cardiac Myocyte Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiac Myocyte Injury</div>
+
 
                 <div class="item-desc">Dystrophin deficiency in cardiomyocytes destabilizes the DGC, exposing the myocardium to membrane injury, calcium stress, and myocyte degeneration.</div>
 
@@ -8660,6 +8778,7 @@ This pathophysiological event involves decreased Cardiac Muscle Contraction (GO:
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8681,6 +8800,7 @@ This pathophysiological event involves decreased Cardiac Muscle Contraction (GO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8706,6 +8826,7 @@ This pathophysiological event involves decreased Cardiac Muscle Contraction (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-myocardial-fibrosis" data-dismech-node="Myocardial Fibrosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Myocardial Fibrosis</div>
+
 
                 <div class="item-desc">Recurrent cardiomyocyte injury and connective-tissue remodeling produce myocardial fibrosis, stiffening the myocardium and contributing to DMD cardiomyopathy.</div>
 
@@ -8861,6 +8982,7 @@ This pathophysiological event involves increased Extracellular Matrix Organizati
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8933,11 +9055,9 @@ This pathophysiological event involves increased Extracellular Matrix Organizati
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Musculoskeletal<span class="pill-count">(6)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Nervous System<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Nervous System<span class="pill-count">(7)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Respiratory<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Other<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -8979,6 +9099,9 @@ This clinical feature is Dilated Cardiomyopathy (HP:0001644). HP:0001644 is a ph
                     </div>
 
 
+
+
+
                     <div class="item-desc">Dilated cardiomyopathy develops in nearly all patients by late teens</div>
 
 
@@ -8998,6 +9121,7 @@ This clinical feature is Dilated Cardiomyopathy (HP:0001644). HP:0001644 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9025,6 +9149,7 @@ This clinical feature is Dilated Cardiomyopathy (HP:0001644). HP:0001644 is a ph
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9046,6 +9171,7 @@ This clinical feature is Dilated Cardiomyopathy (HP:0001644). HP:0001644 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9110,6 +9236,9 @@ This clinical feature is Calf Pseudohypertrophy, annotated with Calf muscle pseu
                     </div>
 
 
+
+
+
                     <div class="item-desc">Fatty and fibrous tissue replacement gives appearance of enlarged calves</div>
 
 
@@ -9129,6 +9258,7 @@ This clinical feature is Calf Pseudohypertrophy, annotated with Calf muscle pseu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9153,6 +9283,7 @@ This clinical feature is Calf Pseudohypertrophy, annotated with Calf muscle pseu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9201,7 +9332,7 @@ This clinical feature is Calf Pseudohypertrophy, annotated with Calf muscle pseu
 
                     <span class="phenotype-id">
 
-                        <span class="phenotype-term-label">Elevated circulating creatine kinase concentration</span>
+                        <span class="phenotype-term-label">Elevated circulating creatine kinase activity</span>
 
 
 
@@ -9211,10 +9342,13 @@ This clinical feature is Calf Pseudohypertrophy, annotated with Calf muscle pseu
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-62">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Elevated Creatine Kinase, annotated with Elevated circulating creatine kinase concentration (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Elevated Creatine Kinase, annotated with Elevated circulating creatine kinase activity (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Often 10-100x normal, detectable from birth</div>
@@ -9239,6 +9373,7 @@ This clinical feature is Elevated Creatine Kinase, annotated with Elevated circu
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9260,6 +9395,7 @@ This clinical feature is Elevated Creatine Kinase, annotated with Elevated circu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9322,6 +9458,9 @@ This clinical feature is Progressive Muscle Weakness (HP:0003323). HP:0003323 is
                     </div>
 
 
+
+
+
                     <div class="item-desc">Proximal muscles affected first, onset typically 2-5 years</div>
 
 
@@ -9341,6 +9480,7 @@ This clinical feature is Progressive Muscle Weakness (HP:0003323). HP:0003323 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9365,6 +9505,7 @@ This clinical feature is Progressive Muscle Weakness (HP:0003323). HP:0003323 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9418,6 +9559,9 @@ This clinical feature is Gowers Sign (HP:0003391). HP:0003391 is a phenotype fro
                     </div>
 
 
+
+
+
                     <div class="item-desc">Using hands to push up from floor due to proximal weakness</div>
 
 
@@ -9437,6 +9581,7 @@ This clinical feature is Gowers Sign (HP:0003391). HP:0003391 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9493,6 +9638,9 @@ This clinical feature is Proximal Muscle Weakness (HP:0003701). HP:0003701 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9507,6 +9655,7 @@ This clinical feature is Proximal Muscle Weakness (HP:0003701). HP:0003701 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9563,6 +9712,9 @@ This clinical feature is Skeletal Muscle Atrophy (HP:0003202). HP:0003202 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9577,6 +9729,7 @@ This clinical feature is Skeletal Muscle Atrophy (HP:0003202). HP:0003202 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9633,6 +9786,9 @@ This clinical feature is Flexion Contracture (HP:0001371). HP:0001371 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9647,6 +9803,7 @@ This clinical feature is Flexion Contracture (HP:0001371). HP:0001371 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9703,6 +9860,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9717,6 +9877,7 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9749,8 +9910,84 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">5</span>
+                    <span class="cat-count">7</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-loss-of-ambulation" data-dismech-node="Loss of ambulation" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Loss of ambulation
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002505" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-69">HP:0002505</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-69">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Loss of ambulation (HP:0002505). HP:0002505 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Major functional milestone in DMD progression; glucocorticoid treatment delays loss of walking ability.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39182149" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39182149" target="_blank">PMID:39182149</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The median age at loss of ambulation was 2.5 years later in DMD patients who received glucocorticoid treatment."</div>
+
+
+                <div class="evidence-explanation">Large dystrophinopathy cohort reports loss of ambulation as a treatment-sensitive DMD progression milestone.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-motor-delay" data-dismech-node="Motor Delay" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -9766,15 +10003,18 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-69">HP:0001270</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-70">HP:0001270</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-69">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-70">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Motor Delay (HP:0001270). HP:0001270 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Orphanet records this phenotype as Very frequent (99-80%), but this entry does not normalize that frequency band pending primary-literature support.</div>
@@ -9796,6 +10036,7 @@ This clinical feature is Motor Delay (HP:0001270). HP:0001270 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9838,15 +10079,18 @@ This clinical feature is Motor Delay (HP:0001270). HP:0001270 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002515" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-70">HP:0002515</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002515" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-71">HP:0002515</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-70">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-71">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Waddling Gait (HP:0002515). HP:0002515 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9866,6 +10110,7 @@ This clinical feature is Waddling Gait (HP:0002515). HP:0002515 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9906,15 +10151,18 @@ This clinical feature is Waddling Gait (HP:0002515). HP:0002515 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-71">HP:0000750</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-72">HP:0000750</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-71">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-72">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Delayed Speech and Language Development (HP:0000750). HP:0000750 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Orphanet records this phenotype as Very frequent (99-80%), but this entry does not normalize that frequency band pending primary-literature support.</div>
@@ -9936,6 +10184,7 @@ This clinical feature is Delayed Speech and Language Development (HP:0000750). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9976,15 +10225,18 @@ This clinical feature is Delayed Speech and Language Development (HP:0000750). H
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-72">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-73">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-72">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-73">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global Developmental Delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Orphanet records this phenotype as Very frequent (99-80%), but this entry does not normalize that frequency band pending primary-literature support.</div>
@@ -10009,6 +10261,7 @@ This clinical feature is Global Developmental Delay (HP:0001263). HP:0001263 is 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10017,6 +10270,80 @@ This clinical feature is Global Developmental Delay (HP:0001263). HP:0001263 is 
 
 
                 <div class="evidence-explanation">Orphanet records global developmental delay as a DMD phenotype and supplies a very-frequent frequency band; the frequency band is kept as source context rather than a normalized dismech assertion here.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-specific-learning-disability" data-dismech-node="Specific Learning Disability" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Specific Learning Disability
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001328" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-74">HP:0001328</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-74">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Specific Learning Disability (HP:0001328). HP:0001328 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Orphanet records this phenotype as Very frequent (99-80%), but this entry does not normalize that frequency band pending primary-literature support.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:98896" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:98896" target="_blank">ORPHA:98896</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0001328 | Specific learning disability | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records specific learning disability as a DMD phenotype and supplies a very-frequent frequency band; the frequency band is kept as source context rather than a normalized dismech assertion here.</div>
 
 
 
@@ -10046,15 +10373,18 @@ This clinical feature is Global Developmental Delay (HP:0001263). HP:0001263 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-73">HP:0100543</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-75">HP:0100543</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-73">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-75">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cognitive Impairment (HP:0100543). HP:0100543 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Orphanet records this phenotype as Very frequent (99-80%), but this entry does not normalize that frequency band pending primary-literature support.</div>
@@ -10076,6 +10406,7 @@ This clinical feature is Cognitive Impairment (HP:0100543). HP:0100543 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10127,15 +10458,18 @@ This clinical feature is Cognitive Impairment (HP:0100543). HP:0100543 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-74">HP:0002093</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-76">HP:0002093</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-74">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-76">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Respiratory Insufficiency (HP:0002093). HP:0002093 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Due to respiratory muscle weakness, main cause of death</div>
@@ -10157,6 +10491,7 @@ This clinical feature is Respiratory Insufficiency (HP:0002093). HP:0002093 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10184,6 +10519,7 @@ This clinical feature is Respiratory Insufficiency (HP:0002093). HP:0002093 is a
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10192,157 +10528,6 @@ This clinical feature is Respiratory Insufficiency (HP:0002093). HP:0002093 is a
 
 
                 <div class="evidence-explanation">Orphanet classifies respiratory insufficiency as a very frequent DMD phenotype.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-7">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-loss-of-ambulation" data-dismech-node="Loss of ambulation" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Loss of ambulation
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002505" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-75">HP:0002505</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-75">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Loss of ambulation (HP:0002505). HP:0002505 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Major functional milestone in DMD progression; glucocorticoid treatment delays loss of walking ability.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:39182149" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39182149" target="_blank">PMID:39182149</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The median age at loss of ambulation was 2.5 years later in DMD patients who received glucocorticoid treatment."</div>
-
-
-                <div class="evidence-explanation">Large dystrophinopathy cohort reports loss of ambulation as a treatment-sensitive DMD progression milestone.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-specific-learning-disability" data-dismech-node="Specific Learning Disability" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Specific Learning Disability
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001328" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-76">HP:0001328</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-76">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Specific Learning Disability (HP:0001328). HP:0001328 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Orphanet records this phenotype as Very frequent (99-80%), but this entry does not normalize that frequency band pending primary-literature support.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:98896" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:98896" target="_blank">ORPHA:98896</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0001328 | Specific learning disability | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records specific learning disability as a DMD phenotype and supplies a very-frequent frequency band; the frequency band is kept as source context rather than a normalized dismech assertion here.</div>
 
 
 
@@ -10432,6 +10617,9 @@ This disease-associated gene is DMD (hgnc:2928). hgnc:2928 is a gene from the HU
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">X-linked recessive</span>
@@ -10457,6 +10645,7 @@ This disease-associated gene is DMD (hgnc:2928). hgnc:2928 is a gene from the HU
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10478,6 +10667,7 @@ This disease-associated gene is DMD (hgnc:2928). hgnc:2928 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10513,6 +10703,7 @@ This disease-associated gene is DMD (hgnc:2928). hgnc:2928 is a gene from the HU
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -10532,11 +10723,17 @@ This variant is in DMD (hgnc:2928). hgnc:2928 is a gene from the HUGO Gene Nomen
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">loss of function variant</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Duchenne-associated deletions, duplications, nonsense variants, frameshifts, and splice variants commonly disrupt the DMD reading frame and produce prematurely truncated or dysfunctional dystrophin.</div>
@@ -10592,6 +10789,7 @@ This variant is in DMD (hgnc:2928). hgnc:2928 is a gene from the HUGO Gene Nomen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10624,6 +10822,7 @@ This variant is in DMD (hgnc:2928). hgnc:2928 is a gene from the HUGO Gene Nomen
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -10643,11 +10842,17 @@ This variant is in DMD (hgnc:2928). hgnc:2928 is a gene from the HUGO Gene Nomen
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">copy number loss</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Multiexon or single-exon deletions are the most frequent DMD mutation class and often cause Duchenne disease when they disrupt the reading frame.</div>
@@ -10703,6 +10908,7 @@ This variant is in DMD (hgnc:2928). hgnc:2928 is a gene from the HUGO Gene Nomen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10735,6 +10941,7 @@ This variant is in DMD (hgnc:2928). hgnc:2928 is a gene from the HUGO Gene Nomen
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -10754,11 +10961,17 @@ This variant is in DMD (hgnc:2928). hgnc:2928 is a gene from the HUGO Gene Nomen
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">copy number gain</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">DMD exon duplications are a recurrent copy-number class. Their clinical effect depends on transcript structure and whether the duplication disrupts the reading frame.</div>
@@ -10814,6 +11027,7 @@ This variant is in DMD (hgnc:2928). hgnc:2928 is a gene from the HUGO Gene Nomen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10846,6 +11060,7 @@ This variant is in DMD (hgnc:2928). hgnc:2928 is a gene from the HUGO Gene Nomen
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -10865,11 +11080,17 @@ This variant is in DMD (hgnc:2928). hgnc:2928 is a gene from the HUGO Gene Nomen
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">sequence variant</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Nonsense, frameshift, splice-site, and other small sequence variants account for the remaining major DMD mutation class and can cause the Duchenne phenotype when they truncate or destabilize dystrophin.</div>
@@ -10922,6 +11143,7 @@ This variant is in DMD (hgnc:2928). hgnc:2928 is a gene from the HUGO Gene Nomen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10988,6 +11210,9 @@ This disease-associated gene is LTBP4 (hgnc:6717). hgnc:6717 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -11002,6 +11227,7 @@ This disease-associated gene is LTBP4 (hgnc:6717). hgnc:6717 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11085,6 +11311,7 @@ This disease-associated gene is LTBP4 (hgnc:6717). hgnc:6717 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11109,6 +11336,7 @@ This disease-associated gene is LTBP4 (hgnc:6717). hgnc:6717 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11130,6 +11358,7 @@ This disease-associated gene is LTBP4 (hgnc:6717). hgnc:6717 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11245,6 +11474,20 @@ This treatment uses deflazacort (CHEBI:135720). CHEBI:135720 is a therapeutic ag
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Prednisone or deflazacort to slow muscle degeneration and prolong ambulation.</div>
 
 
@@ -11269,6 +11512,7 @@ This treatment uses deflazacort (CHEBI:135720). CHEBI:135720 is a therapeutic ag
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11290,6 +11534,7 @@ This treatment uses deflazacort (CHEBI:135720). CHEBI:135720 is a therapeutic ag
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11392,6 +11637,20 @@ This treatment uses beta-adrenergic antagonist (NCIT:C29576). NCIT:C29576 is a t
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">ACE inhibitors and beta-blockers for cardiomyopathy prevention and treatment.</div>
 
 
@@ -11416,6 +11675,7 @@ This treatment uses beta-adrenergic antagonist (NCIT:C29576). NCIT:C29576 is a t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11437,6 +11697,7 @@ This treatment uses beta-adrenergic antagonist (NCIT:C29576). NCIT:C29576 is a t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11496,6 +11757,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -11573,6 +11848,89 @@ This treatment uses eteplirsen (NCIT:C171739). NCIT:C171739 is a therapeutic age
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Antisense oligonucleotide</span>
+
+
+        <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Splice modulation (exon skipping)</span>
+
+
+        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Delivery: Unformulated (free uptake)</span>
+
+
+        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Targeting: Unconjugated</span>
+
+
+        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Chemistry: Morpholino (PMO)</span>
+
+    </div>
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">RNA target:</strong>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        DMD
+
+
+    <a href="https://bioregistry.io/hgnc:2928" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-92">hgnc:2928</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-92">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this treatment base-pairs with the transcript of this gene
+This treatment base-pairs with the transcript of DMD (hgnc:2928). hgnc:2928 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        <span class="tag" style="background: #f3e8ff; color: #6b21a8;">DMD pre-mRNA</span>
+
+
+        <span class="tag" style="background: #f3e8ff; color: #6b21a8;">exon 51</span>
+
+    </div>
+
+
+
+
+
                 <div class="item-desc">Phosphorodiamidate morpholino antisense oligonucleotide that induces skipping of DMD exon 51, restoring the reading frame in patients with deletions amenable to exon 51 skipping and producing internally truncated but functional dystrophin.</div>
 
 
@@ -11603,6 +11961,7 @@ This treatment uses eteplirsen (NCIT:C171739). NCIT:C171739 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11649,6 +12008,7 @@ This treatment uses eteplirsen (NCIT:C171739). NCIT:C171739 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11677,7 +12037,7 @@ This treatment uses eteplirsen (NCIT:C171739). NCIT:C171739 is a therapeutic age
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-92">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-92">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-93">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-93">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -11718,16 +12078,99 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C175077" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-93">NCIT:C175077</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C175077" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-94">NCIT:C175077</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-93">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-94">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses golodirsen (NCIT:C175077). NCIT:C175077 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Antisense oligonucleotide</span>
+
+
+        <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Splice modulation (exon skipping)</span>
+
+
+        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Delivery: Unformulated (free uptake)</span>
+
+
+        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Targeting: Unconjugated</span>
+
+
+        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Chemistry: Morpholino (PMO)</span>
+
+    </div>
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">RNA target:</strong>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        DMD
+
+
+    <a href="https://bioregistry.io/hgnc:2928" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-95">hgnc:2928</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-95">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this treatment base-pairs with the transcript of this gene
+This treatment base-pairs with the transcript of DMD (hgnc:2928). hgnc:2928 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        <span class="tag" style="background: #f3e8ff; color: #6b21a8;">DMD pre-mRNA</span>
+
+
+        <span class="tag" style="background: #f3e8ff; color: #6b21a8;">exon 53</span>
+
+    </div>
+
+
 
 
 
@@ -11761,6 +12204,7 @@ This treatment uses golodirsen (NCIT:C175077). NCIT:C175077 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11807,6 +12251,7 @@ This treatment uses golodirsen (NCIT:C175077). NCIT:C175077 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11835,7 +12280,7 @@ This treatment uses golodirsen (NCIT:C175077). NCIT:C175077 is a therapeutic age
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-94">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-94">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-96">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-96">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -11876,16 +12321,99 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C170393" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-95">NCIT:C170393</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C170393" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-97">NCIT:C170393</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-95">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-97">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses viltolarsen (NCIT:C170393). NCIT:C170393 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Antisense oligonucleotide</span>
+
+
+        <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Splice modulation (exon skipping)</span>
+
+
+        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Delivery: Unformulated (free uptake)</span>
+
+
+        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Targeting: Unconjugated</span>
+
+
+        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Chemistry: Morpholino (PMO)</span>
+
+    </div>
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">RNA target:</strong>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        DMD
+
+
+    <a href="https://bioregistry.io/hgnc:2928" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-98">hgnc:2928</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-98">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this treatment base-pairs with the transcript of this gene
+This treatment base-pairs with the transcript of DMD (hgnc:2928). hgnc:2928 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        <span class="tag" style="background: #f3e8ff; color: #6b21a8;">DMD pre-mRNA</span>
+
+
+        <span class="tag" style="background: #f3e8ff; color: #6b21a8;">exon 53</span>
+
+    </div>
+
+
 
 
 
@@ -11922,6 +12450,7 @@ This treatment uses viltolarsen (NCIT:C170393). NCIT:C170393 is a therapeutic ag
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11943,6 +12472,7 @@ This treatment uses viltolarsen (NCIT:C170393). NCIT:C170393 is a therapeutic ag
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11989,6 +12519,7 @@ This treatment uses viltolarsen (NCIT:C170393). NCIT:C170393 is a therapeutic ag
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12017,7 +12548,7 @@ This treatment uses viltolarsen (NCIT:C170393). NCIT:C170393 is a therapeutic ag
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-96">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-96">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-99">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-99">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -12058,16 +12589,99 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C169830" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-97">NCIT:C169830</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C169830" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-100">NCIT:C169830</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-97">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-100">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses casimersen (NCIT:C169830). NCIT:C169830 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Antisense oligonucleotide</span>
+
+
+        <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Splice modulation (exon skipping)</span>
+
+
+        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Delivery: Unformulated (free uptake)</span>
+
+
+        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Targeting: Unconjugated</span>
+
+
+        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Chemistry: Morpholino (PMO)</span>
+
+    </div>
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">RNA target:</strong>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        DMD
+
+
+    <a href="https://bioregistry.io/hgnc:2928" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-101">hgnc:2928</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-101">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this treatment base-pairs with the transcript of this gene
+This treatment base-pairs with the transcript of DMD (hgnc:2928). hgnc:2928 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        <span class="tag" style="background: #f3e8ff; color: #6b21a8;">DMD pre-mRNA</span>
+
+
+        <span class="tag" style="background: #f3e8ff; color: #6b21a8;">exon 45</span>
+
+    </div>
+
+
 
 
 
@@ -12101,6 +12715,7 @@ This treatment uses casimersen (NCIT:C169830). NCIT:C169830 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12147,6 +12762,7 @@ This treatment uses casimersen (NCIT:C169830). NCIT:C169830 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12175,7 +12791,7 @@ This treatment uses casimersen (NCIT:C169830). NCIT:C169830 is a therapeutic age
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-98">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-98">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-102">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-102">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -12216,16 +12832,30 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_94805" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-99">CHEBI:94805</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_94805" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-103">CHEBI:94805</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-99">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-103">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses ataluren, annotated with 3-[5-(2-fluorophenyl)-1,2,4-oxadiazol-3-yl]benzoic acid (CHEBI:94805). CHEBI:94805 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -12250,6 +12880,7 @@ This treatment uses ataluren, annotated with 3-[5-(2-fluorophenyl)-1,2,4-oxadiaz
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12281,7 +12912,7 @@ This treatment uses ataluren, annotated with 3-[5-(2-fluorophenyl)-1,2,4-oxadiaz
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-100">gene therapy<span class="pill-tip" role="tooltip" id="pill-tip-100">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-104">gene therapy<span class="pill-tip" role="tooltip" id="pill-tip-104">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -12309,6 +12940,31 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Gene therapy</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -12344,6 +13000,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12390,6 +13047,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12414,6 +13072,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12435,6 +13094,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12466,7 +13126,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-101">fast skeletal muscle myosin allosteric inhibitor<span class="pill-tip" role="tooltip" id="pill-tip-101">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-105">fast skeletal muscle myosin allosteric inhibitor<span class="pill-tip" role="tooltip" id="pill-tip-105">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is fast skeletal muscle myosin allosteric inhibitor, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -12494,6 +13154,20 @@ This treatment is fast skeletal muscle myosin allosteric inhibitor, annotated wi
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -12529,6 +13203,7 @@ This treatment is fast skeletal muscle myosin allosteric inhibitor, annotated wi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12575,6 +13250,7 @@ This treatment is fast skeletal muscle myosin allosteric inhibitor, annotated wi
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -12599,6 +13275,7 @@ This treatment is fast skeletal muscle myosin allosteric inhibitor, annotated wi
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -12620,6 +13297,7 @@ This treatment is fast skeletal muscle myosin allosteric inhibitor, annotated wi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12653,7 +13331,7 @@ This treatment is fast skeletal muscle myosin allosteric inhibitor, annotated wi
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-102">multidisciplinary disease management and surveillance<span class="pill-tip" role="tooltip" id="pill-tip-102">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-106">multidisciplinary disease management and surveillance<span class="pill-tip" role="tooltip" id="pill-tip-106">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is multidisciplinary disease management and surveillance, annotated with Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -12686,6 +13364,20 @@ This treatment is multidisciplinary disease management and surveillance, annotat
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Standardized, anticipatory multidisciplinary management framework per the 2018 DMD Care Considerations update (Birnkrant et al., Lancet Neurol), the revision of the 2010 care considerations. Part 1 covers diagnosis and neuromuscular, rehabilitation, endocrine (growth, puberty, and adrenal insufficiency), and gastrointestinal (including nutrition and dysphagia) management, with newly added domains of primary care and emergency management, endocrine management, and transitions of care across the lifespan. Coordinated, proactive surveillance across these domains aims to address the needs of patients with prolonged survival and to improve quality of life. Parts 2 and 3 (respiratory, cardiac, bone health, orthopaedic, and psychosocial management) are companion publications.</div>
 
 
@@ -12707,6 +13399,7 @@ This treatment is multidisciplinary disease management and surveillance, annotat
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12734,6 +13427,7 @@ This treatment is multidisciplinary disease management and surveillance, annotat
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12755,6 +13449,7 @@ This treatment is multidisciplinary disease management and surveillance, annotat
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12786,7 +13481,7 @@ This treatment is multidisciplinary disease management and surveillance, annotat
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-103">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-103">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-107">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-107">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -12819,6 +13514,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Botulinum toxin injections are contraindicated. Succinylcholine and inhalational anesthetics should be avoided due to susceptibility to malignant hyperthermia or malignant hyperthermia-like reactions.</div>
 
 
@@ -12840,6 +13549,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12939,6 +13649,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13017,6 +13728,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13155,6 +13867,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13233,6 +13946,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13317,6 +14031,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13341,6 +14056,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -13362,6 +14078,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13430,6 +14147,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13506,6 +14224,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13561,6 +14280,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13620,6 +14340,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -13673,6 +14394,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13890,6 +14612,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14178,6 +14901,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -14219,6 +14943,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14264,6 +14989,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14518,6 +15244,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -14562,6 +15289,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -14583,6 +15311,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14628,6 +15357,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14903,6 +15633,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -14944,6 +15675,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14989,6 +15721,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -16395,7 +17128,7 @@ phenotypes:
     preferred_term: Elevated Creatine Kinase
     term:
       id: HP:0003236
-      label: Elevated circulating creatine kinase concentration
+      label: Elevated circulating creatine kinase activity
   evidence:
   - reference: PMID:34626608
     reference_title: &#34;Creatine kinase test diagnostic accuracy in neonatal screening for Duchenne Muscular Dystrophy: A systematic review.&#34;
@@ -17438,8 +18171,8 @@ treatments:
     of DMD exon 51, restoring the reading frame in patients with deletions amenable
     to exon 51 skipping and producing internally truncated but functional dystrophin.
   therapeutic_modality: ANTISENSE_OLIGONUCLEOTIDE
-  aso_details:
-    aso_mechanism: SPLICE_MODULATION_EXON_SKIPPING
+  oligonucleotide_details:
+    oligonucleotide_mechanism: SPLICE_MODULATION_EXON_SKIPPING
     target_gene:
       preferred_term: DMD
       term:
@@ -17447,8 +18180,9 @@ treatments:
         label: DMD
     target_transcript: DMD pre-mRNA
     target_exon: exon 51
-    aso_chemistry: PHOSPHORODIAMIDATE_MORPHOLINO
+    oligonucleotide_chemistry: PHOSPHORODIAMIDATE_MORPHOLINO
     conjugation: UNCONJUGATED
+    delivery_platform: UNFORMULATED
   treatment_term:
     preferred_term: Pharmacotherapy
     term:
@@ -17490,8 +18224,8 @@ treatments:
     of DMD exon 53, restoring the reading frame in patients with deletions amenable
     to exon 53 skipping.
   therapeutic_modality: ANTISENSE_OLIGONUCLEOTIDE
-  aso_details:
-    aso_mechanism: SPLICE_MODULATION_EXON_SKIPPING
+  oligonucleotide_details:
+    oligonucleotide_mechanism: SPLICE_MODULATION_EXON_SKIPPING
     target_gene:
       preferred_term: DMD
       term:
@@ -17499,8 +18233,9 @@ treatments:
         label: DMD
     target_transcript: DMD pre-mRNA
     target_exon: exon 53
-    aso_chemistry: PHOSPHORODIAMIDATE_MORPHOLINO
+    oligonucleotide_chemistry: PHOSPHORODIAMIDATE_MORPHOLINO
     conjugation: UNCONJUGATED
+    delivery_platform: UNFORMULATED
   treatment_term:
     preferred_term: Pharmacotherapy
     term:
@@ -17542,8 +18277,8 @@ treatments:
     of DMD exon 53, restoring the reading frame in patients with deletions amenable
     to exon 53 skipping.
   therapeutic_modality: ANTISENSE_OLIGONUCLEOTIDE
-  aso_details:
-    aso_mechanism: SPLICE_MODULATION_EXON_SKIPPING
+  oligonucleotide_details:
+    oligonucleotide_mechanism: SPLICE_MODULATION_EXON_SKIPPING
     target_gene:
       preferred_term: DMD
       term:
@@ -17551,8 +18286,9 @@ treatments:
         label: DMD
     target_transcript: DMD pre-mRNA
     target_exon: exon 53
-    aso_chemistry: PHOSPHORODIAMIDATE_MORPHOLINO
+    oligonucleotide_chemistry: PHOSPHORODIAMIDATE_MORPHOLINO
     conjugation: UNCONJUGATED
+    delivery_platform: UNFORMULATED
   treatment_term:
     preferred_term: Pharmacotherapy
     term:
@@ -17609,8 +18345,8 @@ treatments:
     of DMD exon 45, restoring the reading frame in patients with deletions amenable
     to exon 45 skipping and producing internally truncated but functional dystrophin.
   therapeutic_modality: ANTISENSE_OLIGONUCLEOTIDE
-  aso_details:
-    aso_mechanism: SPLICE_MODULATION_EXON_SKIPPING
+  oligonucleotide_details:
+    oligonucleotide_mechanism: SPLICE_MODULATION_EXON_SKIPPING
     target_gene:
       preferred_term: DMD
       term:
@@ -17618,8 +18354,9 @@ treatments:
         label: DMD
     target_transcript: DMD pre-mRNA
     target_exon: exon 45
-    aso_chemistry: PHOSPHORODIAMIDATE_MORPHOLINO
+    oligonucleotide_chemistry: PHOSPHORODIAMIDATE_MORPHOLINO
     conjugation: UNCONJUGATED
+    delivery_platform: UNFORMULATED
   treatment_term:
     preferred_term: Pharmacotherapy
     term:
@@ -18154,6 +18891,8 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -19101,7 +19840,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Duchenne Muscular Dystrophy", "mondoId": "MONDO:0010679", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Duchenne_Muscular_Dystrophy", "yamlRevision": "4e722b4d2afe"};
+        const OS_CONFIG = {"diseaseName": "Duchenne Muscular Dystrophy", "mondoId": "MONDO:0010679", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Duchenne_Muscular_Dystrophy", "yamlRevision": "4d992b1d8948"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

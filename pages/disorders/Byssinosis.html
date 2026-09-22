@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4252,6 +4324,7 @@ The natural history is counterintuitive and is the clinically important part. Ac
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4273,6 +4346,7 @@ The natural history is counterintuitive and is the clinically important part. Ac
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4371,6 +4445,7 @@ The natural history is counterintuitive and is the clinically important part. Ac
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4392,6 +4467,7 @@ The natural history is counterintuitive and is the clinically important part. Ac
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4457,6 +4533,7 @@ The natural history is counterintuitive and is the clinically important part. Ac
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4478,6 +4555,7 @@ The natural history is counterintuitive and is the clinically important part. Ac
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4779,6 +4857,7 @@ This matters practically rather than just taxonomically. Every control measure a
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-inhalation-of-endotoxin-contaminated-vegetable-dust" data-dismech-node="Inhalation of Endotoxin-Contaminated Vegetable Dust" data-dismech-type="pathophysiology">
                 <div class="item-name">Inhalation of Endotoxin-Contaminated Vegetable Dust</div>
 
+
                 <div class="item-desc">Mechanical opening, carding and spinning of raw cotton, flax, hemp or sisal aerosolizes respirable dust carrying gram-negative bacterial endotoxin acquired during field growth, harvest and storage, together with plant bract and trash material. Exposure is concentrated in carding and opening rooms.</div>
 
 
@@ -4904,6 +4983,7 @@ This pathophysiological event occurs in bronchus (UBERON:0002185). UBERON:000218
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4925,6 +5005,7 @@ This pathophysiological event occurs in bronchus (UBERON:0002185). UBERON:000218
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4950,6 +5031,7 @@ This pathophysiological event occurs in bronchus (UBERON:0002185). UBERON:000218
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-endotoxin-sensing-by-cd14-and-tlr4" data-dismech-node="Endotoxin Sensing by CD14 and TLR4" data-dismech-type="pathophysiology">
                 <div class="item-name">Endotoxin Sensing by CD14 and TLR4</div>
+
 
                 <div class="item-desc">Inhaled endotoxin is recognized by the CD14/TLR4/MD-2 receptor complex on airway macrophages and bronchial epithelium, activating NF-kappaB-driven pro-inflammatory transcription. Human evidence for this step in byssinosis specifically is genetic rather than histological: variants in CD14 and TLR4 shift the inflammatory-mediator response to organic dust endotoxin.</div>
 
@@ -5137,6 +5219,7 @@ This pathophysiological event involves increased toll-like receptor 4 signaling 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5158,6 +5241,7 @@ This pathophysiological event involves increased toll-like receptor 4 signaling 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5183,6 +5267,7 @@ This pathophysiological event involves increased toll-like receptor 4 signaling 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-non-endotoxin-dust-constituent-activity" data-dismech-node="Non-Endotoxin Dust Constituent Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Non-Endotoxin Dust Constituent Activity</div>
+
 
                 <div class="item-desc">A constituent of cotton dust other than endotoxin contributes to the acute airway response. Bract-derived tannin is the usual candidate, though the complement assay below excludes it for that branch specifically. Cotton bract and cotton dust extracts with low measured endotoxin provoke large falls in expiratory flow and heighten methacholine responsiveness in healthy volunteers, and cotton dust activates complement without that activation tracking endotoxin content.</div>
 
@@ -5272,6 +5357,7 @@ This pathophysiological event involves increased complement activation (GO:00069
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5293,6 +5379,7 @@ This pathophysiological event involves increased complement activation (GO:00069
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5320,6 +5407,7 @@ This pathophysiological event involves increased complement activation (GO:00069
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5344,6 +5432,7 @@ This pathophysiological event involves increased complement activation (GO:00069
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-airway-cytokine-release-and-neutrophil-recruitment" data-dismech-node="Airway Cytokine Release and Neutrophil Recruitment" data-dismech-type="pathophysiology">
                 <div class="item-name">Airway Cytokine Release and Neutrophil Recruitment</div>
+
 
                 <div class="item-desc">Activated macrophages and epithelium release IL-6, IL-8 and other neutrophil chemoattractants, recruiting neutrophils into the airway lumen and bronchial mucosa and establishing a self-amplifying inflammatory response.</div>
 
@@ -5507,6 +5596,7 @@ This pathophysiological event involves increased production of molecular mediato
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5529,6 +5619,7 @@ This pathophysiological event involves increased production of molecular mediato
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pulmonary-mast-cell-histamine-accumulation-and-release" data-dismech-node="Pulmonary Mast Cell Histamine Accumulation and Release" data-dismech-type="pathophysiology">
                 <div class="item-name">Pulmonary Mast Cell Histamine Accumulation and Release</div>
+
 
                 <div class="item-desc">Cotton and flax dust potentiate histamine formation or accumulation in the lung, possibly by recruiting mast cells and by inhibiting histamine-degrading enzyme activity. Histamine accumulated during an exposure-free interval is proposed to be released on re-exposure, which is the leading mechanistic account of why symptoms peak on the first working day after a break.</div>
 
@@ -5672,6 +5763,7 @@ This pathophysiological event involves increased mast cell degranulation (GO:004
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5693,6 +5785,7 @@ This pathophysiological event involves increased mast cell degranulation (GO:004
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5720,6 +5813,7 @@ This pathophysiological event involves increased mast cell degranulation (GO:004
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5744,6 +5838,7 @@ This pathophysiological event involves increased mast cell degranulation (GO:004
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-acute-bronchoconstriction-and-cross-shift-airflow-decline" data-dismech-node="Acute Bronchoconstriction and Cross-Shift Airflow Decline" data-dismech-type="pathophysiology">
                 <div class="item-name">Acute Bronchoconstriction and Cross-Shift Airflow Decline</div>
+
 
                 <div class="item-desc">Neutrophilic inflammation, mast-cell histamine and direct smooth-muscle contraction converge on acute airway narrowing, measurable as a fall in FEV1 across a work shift or across the working week and experienced as chest tightness. Reversible in itself, and it attenuates with continued exposure — but its magnitude and frequency predict the irreversible loss below, which is why it is modelled as feeding the chronic node rather than resolving.</div>
 
@@ -5891,6 +5986,7 @@ This pathophysiological event involves increased muscle contraction (GO:0006936)
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5912,6 +6008,7 @@ This pathophysiological event involves increased muscle contraction (GO:0006936)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5937,6 +6034,7 @@ This pathophysiological event involves increased muscle contraction (GO:0006936)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-exposure-tolerance-across-the-working-week" data-dismech-node="Exposure Tolerance Across the Working Week" data-dismech-type="pathophysiology">
                 <div class="item-name">Exposure Tolerance Across the Working Week</div>
+
 
                 <div class="item-desc">With continued exposure the acute cross-shift and cross-week falls shrink in magnitude — over the first working week, and further over the first year of employment. This tolerance is what produces the Monday pattern: the response is largest after a break and smaller on subsequent days. Crucially it is tolerance of the acute response only, and does not indicate that the underlying process has stopped.</div>
 
@@ -5975,6 +6073,7 @@ This pathophysiological event involves increased muscle contraction (GO:0006936)
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5996,6 +6095,7 @@ This pathophysiological event involves increased muscle contraction (GO:0006936)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6021,6 +6121,7 @@ This pathophysiological event involves increased muscle contraction (GO:0006936)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-airway-inflammation-and-remodeling" data-dismech-node="Chronic Airway Inflammation and Remodeling" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic Airway Inflammation and Remodeling</div>
+
 
                 <div class="item-desc">Sustained low-grade airway inflammation from repeated exposure drives structural change — chronic bronchitis and small-airway narrowing. This is the arm that carries the disease from a reversible daily response to a fixed deficit, and it is driven by cumulative past exposure rather than by recent exposure.</div>
 
@@ -6137,6 +6238,7 @@ This pathophysiological event occurs in bronchiole (UBERON:0002186). UBERON:0002
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6159,6 +6261,7 @@ This pathophysiological event occurs in bronchiole (UBERON:0002186). UBERON:0002
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-airflow-obstruction-and-accelerated-fev1-loss" data-dismech-node="Chronic Airflow Obstruction and Accelerated FEV1 Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic Airflow Obstruction and Accelerated FEV1 Loss</div>
+
 
                 <div class="item-desc">Fixed, non-reversible airflow obstruction with an accelerated annual decline in FEV1 — about 10 mL/year above baseline attributable to cotton dust, plus a further increment scaled to the size of earlier acute drops. Past cumulative endotoxin exposure predicts this decline while recent exposure predicts current symptoms, so the chronic and acute phases are measurably decoupled rather than two views of one process.</div>
 
@@ -6222,6 +6325,7 @@ This pathophysiological event occurs in bronchiole (UBERON:0002186). UBERON:0002
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6246,6 +6350,7 @@ This pathophysiological event occurs in bronchiole (UBERON:0002186). UBERON:0002
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6267,6 +6372,7 @@ This pathophysiological event occurs in bronchiole (UBERON:0002186). UBERON:0002
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6334,11 +6440,9 @@ This pathophysiological event occurs in bronchiole (UBERON:0002186). UBERON:0002
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Respiratory<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Respiratory<span class="pill-count">(6)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Constitutional<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(4)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6348,8 +6452,314 @@ This pathophysiological event occurs in bronchiole (UBERON:0002186). UBERON:0002
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Respiratory
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">6</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-airway-hyperresponsiveness" data-dismech-node="Airway hyperresponsiveness" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Airway hyperresponsiveness
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0032933" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0032933</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Airway hyperresponsiveness (HP:0032933). HP:0032933 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16179819" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16179819" target="_blank">PMID:16179819</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"All subjects enhanced their MCh response following CBE or CDE."</div>
+
+
+                <div class="evidence-explanation">Every subject showed increased methacholine responsiveness after cotton extract challenge, which is the direct measurement of this phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-chronic-bronchitis" data-dismech-node="Chronic bronchitis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Chronic bronchitis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004469" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0004469</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chronic bronchitis (HP:0004469), qualified as temporality chronic. HP:0004469 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Temporal: CHRONIC</span>
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20797932" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20797932" target="_blank">PMID:20797932</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Recent endotoxin exposure was significantly associated with byssinosis, chronic bronchitis, and chronic cough."</div>
+
+
+                <div class="evidence-explanation">Associates chronic bronchitis specifically with recent endotoxin exposure in the 25-year cohort.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-reduced-forced-expiratory-volume-in-one-second" data-dismech-node="Reduced forced expiratory volume in one second" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Reduced forced expiratory volume in one second
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0032342" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0032342</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Reduced forced expiratory volume in one second (HP:0032342). HP:0032342 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17975204" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17975204" target="_blank">PMID:17975204</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Exposure to cotton dust was associated with a 10 ml/year decrement in 5-year annualized FEV(1) decline."</div>
+
+
+                <div class="evidence-explanation">Quantifies the dust-attributable FEV1 decrement against a silk-worker reference group.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-reduced-fev1-fvc-ratio" data-dismech-node="Reduced FEV1/FVC ratio" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Reduced FEV1/FVC ratio
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030877" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0030877</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Reduced FEV1/FVC ratio (HP:0030877). HP:0030877 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36717255" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36717255" target="_blank">PMID:36717255</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Values of FEV1/forced vital capacity ratio below the lower limit of normality on postbronchodilator test were considered as &#39;chronic airflow obstruction&#39; (CAO)."</div>
+
+
+                <div class="evidence-explanation">Defines the obstructive criterion used in a contemporary survey, including the post-bronchodilator requirement that makes it a fixed rather than reversible finding.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-wheezing" data-dismech-node="Wheezing" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6365,15 +6775,18 @@ This pathophysiological event occurs in bronchiole (UBERON:0002186). UBERON:0002
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030828" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0030828</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030828" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0030828</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Wheezing (HP:0030828). HP:0030828 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6396,6 +6809,7 @@ This clinical feature is Wheezing (HP:0030828). HP:0030828 is a phenotype from t
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6437,15 +6851,18 @@ This clinical feature is Wheezing (HP:0030828). HP:0030828 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002094</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002094</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6465,6 +6882,7 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6489,6 +6907,7 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6540,15 +6959,18 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031352" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0031352</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031352" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0031352</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Chest tightness (HP:0031352). HP:0031352 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">The frequency is OBLIGATE by definition, not by observation. Note the denominator distinction this entry keeps: the systematic-review range of 4-58% for chest tightness is prevalence among *exposed textile workers* and is curated under `prevalence:`, not as a frequency among cases. Reading that range as a case frequency would be a denominator error.</div>
@@ -6573,6 +6995,7 @@ This clinical feature is Chest tightness (HP:0031352). HP:0031352 is a phenotype
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6581,305 +7004,6 @@ This clinical feature is Chest tightness (HP:0031352). HP:0031352 is a phenotype
 
 
                 <div class="evidence-explanation">The original grading definition, in which work-related chest tightness on Mondays is the criterion that establishes byssinosis. OBLIGATE follows from this being the case definition rather than from a measured case series: a patient without it is not graded as having the disease.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">4</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-airway-hyperresponsiveness" data-dismech-node="Airway hyperresponsiveness" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Airway hyperresponsiveness
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0032933" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0032933</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Airway hyperresponsiveness (HP:0032933). HP:0032933 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:16179819" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16179819" target="_blank">PMID:16179819</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"All subjects enhanced their MCh response following CBE or CDE."</div>
-
-
-                <div class="evidence-explanation">Every subject showed increased methacholine responsiveness after cotton extract challenge, which is the direct measurement of this phenotype.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-chronic-bronchitis" data-dismech-node="Chronic bronchitis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Chronic bronchitis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004469" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0004469</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Chronic bronchitis (HP:0004469), qualified as temporality chronic. HP:0004469 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Temporal: CHRONIC</span>
-
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20797932" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20797932" target="_blank">PMID:20797932</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Recent endotoxin exposure was significantly associated with byssinosis, chronic bronchitis, and chronic cough."</div>
-
-
-                <div class="evidence-explanation">Associates chronic bronchitis specifically with recent endotoxin exposure in the 25-year cohort.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-reduced-forced-expiratory-volume-in-one-second" data-dismech-node="Reduced forced expiratory volume in one second" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Reduced forced expiratory volume in one second
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0032342" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0032342</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Reduced forced expiratory volume in one second (HP:0032342). HP:0032342 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:17975204" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17975204" target="_blank">PMID:17975204</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Exposure to cotton dust was associated with a 10 ml/year decrement in 5-year annualized FEV(1) decline."</div>
-
-
-                <div class="evidence-explanation">Quantifies the dust-attributable FEV1 decrement against a silk-worker reference group.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-reduced-fev1-fvc-ratio" data-dismech-node="Reduced FEV1/FVC ratio" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Reduced FEV1/FVC ratio
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030877" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0030877</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Reduced FEV1/FVC ratio (HP:0030877). HP:0030877 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:36717255" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36717255" target="_blank">PMID:36717255</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Values of FEV1/forced vital capacity ratio below the lower limit of normality on postbronchodilator test were considered as &#39;chronic airflow obstruction&#39; (CAO)."</div>
-
-
-                <div class="evidence-explanation">Defines the obstructive criterion used in a contemporary survey, including the post-bronchodilator requirement that makes it a fixed rather than reversible finding.</div>
 
 
 
@@ -6971,6 +7095,9 @@ This disease-associated gene is TNF (hgnc:11892). hgnc:11892 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6985,6 +7112,7 @@ This disease-associated gene is TNF (hgnc:11892). hgnc:11892 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7009,6 +7137,7 @@ This disease-associated gene is TNF (hgnc:11892). hgnc:11892 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7070,6 +7199,9 @@ This disease-associated gene is LTA (hgnc:6709). hgnc:6709 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7084,6 +7216,7 @@ This disease-associated gene is LTA (hgnc:6709). hgnc:6709 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7108,6 +7241,7 @@ This disease-associated gene is LTA (hgnc:6709). hgnc:6709 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7153,6 +7287,9 @@ This disease-associated gene is LTA (hgnc:6709). hgnc:6709 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7167,6 +7304,7 @@ This disease-associated gene is LTA (hgnc:6709). hgnc:6709 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7194,6 +7332,7 @@ This disease-associated gene is LTA (hgnc:6709). hgnc:6709 is a gene from the HU
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7215,6 +7354,7 @@ This disease-associated gene is LTA (hgnc:6709). hgnc:6709 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7276,6 +7416,9 @@ This disease-associated gene is TLR4 (hgnc:11850). hgnc:11850 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7290,6 +7433,7 @@ This disease-associated gene is TLR4 (hgnc:11850). hgnc:11850 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7314,6 +7458,7 @@ This disease-associated gene is TLR4 (hgnc:11850). hgnc:11850 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7375,6 +7520,9 @@ This disease-associated gene is CD14 (hgnc:1628). hgnc:1628 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7389,6 +7537,7 @@ This disease-associated gene is CD14 (hgnc:1628). hgnc:1628 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7472,6 +7621,31 @@ This treatment is occupational exposure reduction, annotated with Therapeutic Pr
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Engineering dust control in opening, carding and spinning, with medical removal or job transfer for affected workers. The only intervention that addresses the cause. It halts the acute response and slows further decline, but does not recover the fixed deficit already accrued — which is the practical consequence of the acute and chronic arms being decoupled.</div>
 
 
@@ -7505,6 +7679,7 @@ This treatment is occupational exposure reduction, annotated with Therapeutic Pr
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7547,6 +7722,7 @@ This treatment is occupational exposure reduction, annotated with Therapeutic Pr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7632,6 +7808,31 @@ This treatment uses bronchodilator (NCIT:C319). NCIT:C319 is a therapeutic agent
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Inhaled bronchodilators for the reversible component of airflow obstruction. Symptomatic only, and by definition ineffective against the fixed post-bronchodilator obstruction that defines the chronic arm.</div>
 
 
@@ -7674,6 +7875,7 @@ This treatment uses bronchodilator (NCIT:C319). NCIT:C319 is a therapeutic agent
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7820,6 +8022,7 @@ This environmental factor is exposure to cotton dust (ECTO:7000148). ECTO:700014
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7841,6 +8044,7 @@ This environmental factor is exposure to cotton dust (ECTO:7000148). ECTO:700014
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7892,6 +8096,7 @@ This environmental factor is exposure to cotton dust (ECTO:7000148). ECTO:700014
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7972,6 +8177,7 @@ This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7993,6 +8199,7 @@ This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8044,6 +8251,7 @@ This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8119,6 +8327,7 @@ This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8202,6 +8411,7 @@ This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8261,6 +8471,7 @@ This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8282,6 +8493,7 @@ This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8343,6 +8555,7 @@ This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8364,6 +8577,7 @@ This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8523,6 +8737,7 @@ This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8562,6 +8777,7 @@ This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10174,6 +10390,217 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Create: Byssinosis</strong> · 2026-09-03T14:56:26Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Byssinosis/2026-09-03T145626Z-claude-code-3f6ff1.yaml">View source</a></p>
+                        <p class="research-review-text">Created kb/disorders/Byssinosis.yaml de novo (MONDO:0006688).
+
+Duplicate preflight: git grep over origin/main kb/ for MONDO:0006688, &#34;byssinosis&#34;,
+&#34;cotton dust&#34; and &#34;brown lung&#34; returned nothing; stubs/ had no match; GitHub PR and issue
+searches across all states returned zero.
+
+Deep research: claude_code provider only. 275s, 26 turns, 19 web searches, ~$1.38, 31
+citations. As with the Coal Workers Pneumoconiosis run, the report carried no
+reference_validation or term_validation frontmatter block, so both were retro-fitted.
+References: 17/17 resolved, 0 unresolved, 0 off topic (12 scored on topic, 5 undecided for
+lack of an abstract). Terms: 37/37 resolved, 2 named as a different term and 2 worth a
+second look, all four benign paraphrases.
+
+This report was substantially more careful than the CWP one. It marked each causal step as
+demonstrated or inferred, flagged two of its own suggested GO terms as &#34;n/a&#34;, and stated
+plainly that no byssinosis-specific omics dataset exists. Its term suggestions were mostly
+right. Two were not, and only a direct OAK sweep caught them:
+  CL:0005006 offered as &#34;basal cell of respiratory epithelium&#34; -&gt; CL calls it ionocyte.
+    Not used. The entry binds CL:0002328 bronchial epithelial cell instead.
+  UBERON:0003126 described as &#34;trachea/bronchus tree&#34; -&gt; UBERON calls it trachea. The
+    entry binds UBERON:0002185 bronchus and UBERON:0002186 bronchiole.
+The term validator flagged neither, because both sat inside parenthetical alternatives its
+name extraction does not reach — the same blind spot that hid HP:0002105 (Hemoptysis,
+offered as &#34;Restrictive ventilatory defect&#34;) in the CWP report. Every binding in this entry
+was re-derived from OAK. HP:0025428 &#34;Bronchospasm&#34; was checked and rejected as obsolete.
+
+Citations: the report cites by URL and PMC id. Five PMC ids were converted via the PMC ID
+Converter and cited as PMIDs. PubMed searches added the primary sources the report did not
+name, including the 20-year Shanghai cotton/silk cohort papers and the original Schilling
+grading study.
+
+Two substantive curation decisions, both about not overstating the mechanism.
+
+First, the endotoxin hypothesis is modelled as contested rather than settled. The skeleton
+originally asserted endotoxin as the causative agent. PMID:16179819 challenged 21 healthy
+subjects with cotton bract and cotton dust extracts measured at 5.71 and 31.88 EU/mg and
+saw ~70% falls in MEF40%(P) in 18 and 17 of them plus universally enhanced methacholine
+responsiveness; the deep-research report independently notes that complement activation by
+cotton dust does not track endotoxin concentration. A large effect from little endotoxin
+argues for a second agent. The entry therefore carries two mechanistic_hypotheses —
+endotoxin_model (CANONICAL) and non_endotoxin_constituent_model (EMERGING) — with the
+initiating node&#39;s downstream edges opting into the respective groups, plus a KNOWLEDGE_GAP
+discussion on the identity of the non-endotoxin constituent. Bract tannin is named as the
+literature&#39;s candidate only, not as a demonstrated agent.
+
+Second, the natural history is modelled as two decoupled arms rather than one dose-response.
+Acute cross-shift responses appear within the first working week of first exposure and then
+attenuate with continued exposure (PMID:17693783, a tolerance effect in the authors&#39; own
+words), yet their magnitude and frequency predict irreversible long-term FEV1 loss
+(PMID:17975204: 10 mL/year attributable to cotton dust, plus 1.5 mL/year per 10 mL of
+cross-shift drop, over 20 years against a silk-worker reference group). PMID:20797932 shows
+past cumulative endotoxin predicts the chronic deficit while recent exposure predicts
+current symptoms. So the entry carries a separate `Exposure Tolerance Across the Working
+Week` node as a modifier, and the acute node feeds both tolerance and the chronic node.
+
+Content: 2 subtypes (acute reversible, chronic fixed), a 9-node pathophysiology chain, 6
+phenotypes (all graph-connected), 1 environmental exposure bound to ECTO:7000148 with a
+TRIGGERS mechanism link, 3 modifier genes (TNF, LTA, CD14), 2 prevalence records, 1
+definitions entry, 1 diagnosis entry, 1 animal model, 2 treatments, 1 discussion. Graph:
+22 nodes, 20 edges, 0 orphan targets.
+
+TNF is curated as MODIFIER here but SUSCEPTIBILITY on Coal Workers Pneumoconiosis. That is
+deliberate and recorded in the entry&#39;s notes: the byssinosis studies measure rate of FEV1
+decline in exposed workers, the CWP studies measure case-control odds. The difference is in
+what was measured, not the biology.
+
+The Schilling grading is curated as a `definitions` entry citing Roach &amp; Schilling 1960
+(PMID:14437722) directly rather than a secondary description of it. Its validation_status
+records that the scale is the reference standard while noting that WHO symptom-only versus
+Schilling symptom-plus-FEV1 criteria gave 3% and 4% on the same 2,031-worker cohort, so the
+criterion choice moves the answer.
+
+Deliberate omissions:
+  - No datasets block. GEO searches for &#34;byssinosis&#34;, &#34;cotton dust lung&#34; and &#34;endotoxin
+    airway textile&#34; each returned zero series, matching the report&#39;s own statement that no
+    byssinosis-specific single-cell, spatial or multi-omics dataset exists.
+  - No IARC carcinogen group. IARC has not classified cotton dust in a group this entry
+    would be entitled to assert, and byssinosis is not a neoplastic outcome.
+  - ILO item 2.1.7 (occupational asthma) not claimed, only 2.1.6. Byssinosis is not a
+    sensitizer-driven asthma and its Monday pattern is the opposite of a progressive
+    sensitization course.
+  - No GeneReviews baseline; a purely acquired occupational disease.
+  - hazard_agent_type is BIOLOGICAL rather than CHEMICAL, unlike the mineral-dust
+    exposures on silicosis and CWP, because the operative agent on the canonical model is
+    bacterial endotoxin and the dust is plant material.
+
+Validation: `just validate` and `just validate-disorders` both pass with 58/58 snippets
+verified. check-entity-refs, check-causal-targets, check-duplicate-keys, check-enum-values,
+check-qualifier-terms and check-qualifier-terms-online all OK. Whole-KB content gates
+report no new violations except check-title-snippets, whose 2 findings are in
+Meckel_Diverticulum.yaml and Pouchitis.yaml — pre-existing, untouched by this branch, and
+independently confirmed as pre-existing by the reviewer on PR #10697. Compliance 85.2%
+(Coal Workers Pneumoconiosis 84.9%, Silicosis 79.4%, Asbestosis 88.6%).
+
+Committed on branch claude/byssinosis-curation rather than the session&#39;s designated branch,
+with the user&#39;s explicit approval, because the designated branch&#39;s PR (#10697) was in the
+merge queue and pushing to it would have ejected it.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Address PR #10732 review findings</strong> · 2026-09-03T14:56:26Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Byssinosis/2026-09-03T145626Z-claude-code-3f6ff1.yaml">View source</a></p>
+                        <p class="research-review-text">The automated reviewer returned REQUEST_CHANGES on PR #10732 with seven IMPORTANT
+findings and no CRITICAL ones. All seven were verified against the reference caches
+before acting, and all were correct. Most were under-consumption of material this PR
+had already fetched.
+
+1. Dyspnea was missing from phenotypes. Breathlessness is half the Schilling grade-1
+   criterion (&#34;Chest tightness and/or breathlessness on Mondays only&#34;), and the
+   shortness-of-breath prevalence snippet was being spent on Wheezing as INDIRECT
+   evidence where it fitted badly. Added Dyspnea (HP:0002094, already cached), moved
+   that snippet onto it as DIRECT evidence with frequency FREQUENT, trimmed the
+   Wheezing snippet to the clause that actually supports wheeze, and wired Dyspnea
+   downstream of Acute Bronchoconstriction so all 7 phenotypes are now connected.
+
+2. TLR4 was absent from genetic: while CD14 from the same paper was present, even
+   though the mechanism node is named &#34;Endotoxin Sensing by CD14 and TLR4&#34; and cited
+   the TLR4 genotype result twice. Added TLR4 (hgnc:11850) as a MODIFIER with the
+   IL-6/ECP genotype result and the study&#39;s own conclusion, carrying the same cohort
+   caveat as CD14.
+
+3. GO:0006956 complement activation was bound with a directional modifier and the
+   node&#39;s own notes admitted no primary source had been retrieved. A PubMed search
+   found one: PMID:6617618, an in vitro assay showing cotton mill dust extract
+   activates complement by both classical and alternative pathways AND that
+   &#34;endotoxin is not the principal complement-activating component, as complement
+   activation could not be correlated to endotoxin concentrations&#34;. That is stronger
+   than the binding needed — it is independent mechanistic support for the
+   non-endotoxin hypothesis. Both sentences are now cited and the apologetic note
+   replaced.
+
+4. A snippet ended mid-word at &#34;potentiati&#34;. Trimmed to a clause boundary.
+
+5. Chest tightness carried frequency: FREQUENT supported by &#34;Prevalence of chest
+   tightness ranged between 4% and 58%&#34; — prevalence among exposed workers, not
+   frequency among cases. Since chest tightness IS the case definition, the frequency
+   is OBLIGATE by definition; changed, with a note saying it is definitional rather
+   than observed. The 4-58% range moved to prevalence: as its own record, where the
+   denominator is right, with a notes line naming the denominator distinction.
+
+6. Ten of 22 cached references were uncited, including both full-text fetches. Two
+   are now consumed:
+   - PMID:23361196 (upgraded to full text in this PR) supplies the two REFUTE-
+     direction observations the EMERGING non-endotoxin hypothesis needed: no
+     dose-response between bract-extract endotoxin content and FEV1 drop, and
+     endotoxin failing to reproduce the tracheal smooth-muscle contraction cotton
+     dust causes. It also sources the new smoking record.
+   - PMID:23527081 is the largest genetic dataset in the reference set and the only
+     one with a byssinosis-relevant endpoint rather than a blood cytokine. Added as a
+     locus-level genetic record (rs1910047, rs9469089, genetic risk score
+     P trend = 3.01e-18, gene-by-endotoxin interaction). Deliberately no gene_term:
+     the leads are rsIDs near TBX3/TBX5 and RNF5/MHC, and an association near a gene
+     is not evidence that gene carries the effect. The reviewer described this study
+     as genome-wide; it is a gene-centric panel (Illumina Human CVD BeadChip), which
+     the record&#39;s notes say, since it changes what the negative space means.
+
+7. Bronchodilator Therapy bound generic NCIT:C15986 with no therapeutic_agent. Added
+   NCIT:C319 Bronchodilator.
+
+Non-blocking suggestions also acted on: the mast cell histamine node had no incoming
+edge and is now reached directly from dust inhalation (PMID:6722048), so the pathograph
+is one connected component; smoking added as an environmental record bound to
+ECTO:0100003 with a MODULATES link onto the chronic-decline node. MODULATES rather
+than EXACERBATES because the source describes additive interaction, and the same review
+notes that poor smoking adjustment confounds much of the older literature — which is a
+reason to model smoking explicitly rather than leave it out.
+
+Two reference attributions were wrong in the first pass of these fixes and were caught
+by the validator&#39;s title check before pushing: the Schilling criterion was attributed
+to PMID:12554839 when it belongs to PMID:14437722, and the mast cell recruitment quote
+to PMID:6202313 when it belongs to PMID:6722048.
+
+Suggestions not taken: PGF2a as a distinct bronchoconstriction node, and EPHX1 in
+genetic:. Both are single mentions in the deep-research report without a retrieved
+primary source, and adding them would repeat the uncited-binding defect finding 3 was
+about.
+
+A second pass finished finding 6 rather than leaving it half-done. Of the ten uncited
+cached references, three were assessed individually:
+  - DOI:10.1080/109158101753253054 was added to the mast cell histamine node. It is
+    the only human study in the reference set pairing raised blood histamine with
+    simultaneous measured obstruction across central, large and peripheral airways in
+    exposed workers, which is exactly the translational weakness of a node otherwise
+    resting on 1984 proposals and guinea pig lung measurements. The article has no
+    PubMed record (checked via the PMC ID Converter), so it is DOI-keyed; DOI: is in
+    skip_prefixes and therefore not snippet-checked by the gating validator, so it was
+    verified separately with `just count-verified-snippets --unskip-prefix DOI`
+    (74/74). Both facts are recorded in the node notes.
+  - PMID:4689794 (&#34;Byssinosis: a study of 10,133 textile workers&#34;) has a title-only
+    cache with no abstract body, so nothing can be quoted from it. Quoting its title
+    would trip check-title-snippets. Not usable as it stands.
+  - PMID:8722109 is a general review of animal models for organic dust reactions
+    across cotton, hay, silage, grain and compost, not a byssinosis model. Too
+    unspecific to add as a second animal_models entry without overclaiming.
+
+Validation after this pass: just validate and just validate-disorders both pass with
+73/73 snippets verified by the gating validator (up from 58) and 74/74 including the
+DOI-keyed item. All offline and whole-KB gates OK. All 7 phenotypes graph-connected.
+Compliance 85.6%, up from 83.6%.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

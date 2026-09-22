@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4120,6 +4192,7 @@ Two limits should be read alongside all of this. Everything above rests on one f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4144,6 +4217,7 @@ Two limits should be read alongside all of this. Everything above rests on one f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4165,6 +4239,7 @@ Two limits should be read alongside all of this. Everything above rests on one f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4231,6 +4306,7 @@ This is a modifier relationship, not digenic inheritance, and is deliberately no
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4255,6 +4331,7 @@ This is a modifier relationship, not digenic inheritance, and is deliberately no
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4276,6 +4353,7 @@ This is a modifier relationship, not digenic inheritance, and is deliberately no
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4382,6 +4460,7 @@ What would settle it is a manipulation rather than a correlation: lower SPRY2 in
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4406,6 +4485,7 @@ What would settle it is a manipulation rather than a correlation: lower SPRY2 in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4427,6 +4507,7 @@ What would settle it is a manipulation rather than a correlation: lower SPRY2 in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4512,6 +4593,7 @@ The evidence does not yet distinguish those. In the zebrafish assay the suppress
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4536,6 +4618,7 @@ The evidence does not yet distinguish those. In the zebrafish assay the suppress
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4572,6 +4655,7 @@ The evidence does not yet distinguish those. In the zebrafish assay the suppress
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gab1-p-gly116glu-hypomorphic-ph-domain-variant" data-dismech-node="GAB1 p.Gly116Glu Hypomorphic PH-Domain Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">GAB1 p.Gly116Glu Hypomorphic PH-Domain Variant</div>
+
 
                 <div class="item-desc">GAB1 c.347G&gt;A in constitutive exon 2 substitutes glutamate for a conserved glycine at residue 116, inside the pleckstrin homology domain of the adapter. The allele is absent from Pakistani and Indian control chromosomes and from 1000 Genomes, NHLBI-ESP and ExAC, and eight in silico tools call it deleterious.
 The important qualifier is that it is hypomorphic rather than null. Homozygous deletion of the sequence encoding the GAB1 PH domain is embryonic lethal in mice, and gab1 knockdown produces severe developmental defects and lethality in zebrafish, so a complete loss of function could not present as isolated deafness. Residual GAB1 activity is what restricts the phenotype to the ear.</div>
@@ -4687,6 +4771,7 @@ This pathophysiological event involves GAB1 (hgnc:4066). hgnc:4066 is a gene fro
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4708,6 +4793,7 @@ This pathophysiological event involves GAB1 (hgnc:4066). hgnc:4066 is a gene fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4735,6 +4821,7 @@ This pathophysiological event involves GAB1 (hgnc:4066). hgnc:4066 is a gene fro
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4759,6 +4846,7 @@ This pathophysiological event involves GAB1 (hgnc:4066). hgnc:4066 is a gene fro
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-phosphoinositide-binding-by-the-gab1-ph-domain" data-dismech-node="Reduced Phosphoinositide Binding by the GAB1 PH Domain" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Phosphoinositide Binding by the GAB1 PH Domain</div>
+
 
                 <div class="item-desc">The PH domain is how GAB1 reaches the membrane: it binds phosphoinositides, principally PtdIns(3,4,5)P3, positioning the adapter where activated receptor tyrosine kinases can phosphorylate it. In an overlay assay against a phosphoinositide array, the p.Gly116Glu PH domain bound PtdIns(3,4,5)P3 about 42% less than wild type, with smaller reductions against PtdIns(4,5)P2, PtdIns(3)P and PtdIns(4)P. The qualitative binding preference is unchanged - it is the amount, not the specificity, that falls.</div>
 
@@ -4925,6 +5013,7 @@ This pathophysiological event involves decreased phosphatidylinositol binding (G
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4946,6 +5035,7 @@ This pathophysiological event involves decreased phosphatidylinositol binding (G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4973,6 +5063,7 @@ This pathophysiological event involves decreased phosphatidylinositol binding (G
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4995,6 +5086,7 @@ This pathophysiological event involves decreased phosphatidylinositol binding (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-met-hgf-signaling" data-dismech-node="Dysregulated MET/HGF Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysregulated MET/HGF Signaling</div>
+
 
                 <div class="item-desc">GAB1 is the adapter for MET, the hepatocyte growth factor receptor, and this pathway is already established in human deafness from the other direction: noncoding HGF variants cause DFNB39, a MET variant is associated with DFNB97, and SHP2 and SPRY2 deficits cause hearing loss in humans and mice respectively.
 In lymphoblastoid lines from family PK-2, 37 HGF-signaling genes were profiled. MET, AKT3, hRAS, STAT1, FAS-R, RAC1, C3G, RAP-1a, GRB2, SHC, EGR1, JAK1 and ELK1 were all down more than two-fold and PI3K was up - but in deaf and non-penetrant homozygotes alike. That is the signature of the GAB1 genotype, and by construction it cannot be what distinguishes the two clinical outcomes.</div>
@@ -5173,6 +5265,7 @@ This pathophysiological event involves decreased hepatocyte growth factor recept
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5194,6 +5287,7 @@ This pathophysiological event involves decreased hepatocyte growth factor recept
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5219,6 +5313,7 @@ This pathophysiological event involves decreased hepatocyte growth factor recept
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-spry2-upregulation" data-dismech-node="SPRY2 Upregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">SPRY2 Upregulation</div>
+
 
                 <div class="item-desc">Of the 37 MET/HGF pathway transcripts profiled, SPRY2 was the only one that differed between deaf and non-penetrant homozygotes: significantly upregulated in the deaf, and not upregulated in normal-hearing individuals carrying both the GAB1 variant and the METTL13 suppressor. SPROUTY2 is a negative regulator within this pathway and its loss causes hearing loss in mice, so a change in its level is a plausible effector rather than a bystander.
 The suppression acts here. METTL13 coimmunoprecipitates with both GAB1 and SPROUTY2 and the three form a tripartite complex, so the modifier protein is physically positioned where the one discriminating transcript is controlled. The authors describe this as a plausible mechanism of suppression; whether normalising SPRY2 is what rescues hearing, or is a marker of something else the complex does, is not established.</div>
@@ -5353,6 +5448,7 @@ This pathophysiological event involves METTL13 (hgnc:24248). hgnc:24248 is a gen
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5374,6 +5470,7 @@ This pathophysiological event involves METTL13 (hgnc:24248). hgnc:24248 is a gen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5401,6 +5498,7 @@ This pathophysiological event involves METTL13 (hgnc:24248). hgnc:24248 is a gen
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5423,6 +5521,7 @@ This pathophysiological event involves METTL13 (hgnc:24248). hgnc:24248 is a gen
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-spiral-ganglion-neuron-and-cochlear-supporting-cell-dysfunction" data-dismech-node="Spiral Ganglion Neuron and Cochlear Supporting Cell Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Spiral Ganglion Neuron and Cochlear Supporting Cell Dysfunction</div>
+
 
                 <div class="item-desc">Where GAB1 is expressed in the inner ear constrains what kind of disease DFNB26 can be. All of the expression data below are from mouse. A Gab1 LacZ reporter in mouse cochlea at P0 labels supporting cells of the organ of Corti, spiral ganglion neurons, stria vascularis, spiral prominence, internal and external sulcus cells, spiral limbus and Reissner&#39;s membrane - and explicitly not the inner or outer hair cells. GAB1 and METTL13 colocalise with a neurofilament marker in mouse cochlear whole mounts, in spiral ganglion neuronal cell bodies and in the fibres innervating the hair cells.
 So the lesion is placed in the neural and supporting-cell compartment rather than in the mechanotransduction apparatus. This is an expression-based inference: no cochlear histology or physiology from a GAB1 p.Gly116Glu model has been reported, and the node should be read as localising the pathway rather than as a demonstrated cellular pathology.</div>
@@ -5539,6 +5638,7 @@ This pathophysiological event involves organ of Corti supporting cell (CL:000249
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5563,6 +5663,7 @@ This pathophysiological event involves organ of Corti supporting cell (CL:000249
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5584,6 +5685,7 @@ This pathophysiological event involves organ of Corti supporting cell (CL:000249
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5651,38 +5753,20 @@ This pathophysiological event involves organ of Corti supporting cell (CL:000249
             </div>
 
 
-            <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Ear<span class="pill-count">(1)</span></button>
+            <div class="item-box phenotype-box anchor-target" id="phenotype-profound-prelingual-sensorineural-hearing-loss" data-dismech-node="Profound Prelingual Sensorineural Hearing Loss" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Profound Prelingual Sensorineural Hearing Loss
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(1)</span></button>
-
-                <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
-            </div>
+                    <span class="phenotype-freq">OBLIGATE</span>
 
 
-            <details class="phenotype-category-group" id="pheno-cat-1">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Ear
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-profound-prelingual-sensorineural-hearing-loss" data-dismech-node="Profound Prelingual Sensorineural Hearing Loss" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Profound Prelingual Sensorineural Hearing Loss
-
-                        <span class="phenotype-freq">OBLIGATE</span>
-
-
+                    <span class="phenotype-category">Auditory</span>
 
 
 
 
                     <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Profound sensorineural hearing impairment</span>
-
 
 
 
@@ -5694,10 +5778,13 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Profound sensorineural hearing impairment (HP:0011476). HP:0011476 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
 
 
-                    <div class="item-desc">Graded OBLIGATE as definitional rather than as a counted proportion. It is the phenotype that defines an affected individual in the only reported family; homozygotes without it are recorded as non-penetrant, and they are the subject of the modifier arm of this entry.</div>
+
+
+
+                <div class="item-desc">Graded OBLIGATE as definitional rather than as a counted proportion. It is the phenotype that defines an affected individual in the only reported family; homozygotes without it are recorded as non-penetrant, and they are the subject of the modifier arm of this entry.</div>
 
 
 
@@ -5716,6 +5803,7 @@ This clinical feature is Profound sensorineural hearing impairment (HP:0011476).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5743,6 +5831,7 @@ This clinical feature is Profound sensorineural hearing impairment (HP:0011476).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5764,30 +5853,19 @@ This clinical feature is Profound sensorineural hearing impairment (HP:0011476).
 
 
 
-                </div>
+            </div>
 
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-prelingual-onset" data-dismech-node="Prelingual Onset" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Prelingual Onset
+            <div class="item-box phenotype-box anchor-target" id="phenotype-prelingual-onset" data-dismech-node="Prelingual Onset" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Prelingual Onset
 
 
+                    <span class="phenotype-category">Auditory</span>
 
 
 
 
                     <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Prelingual sensorineural hearing impairment</span>
-
 
 
 
@@ -5799,10 +5877,13 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Prelingual sensorineural hearing impairment (HP:0000399). HP:0000399 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
 
 
-                    <div class="item-desc">This entry is deliberately not wired into the causal graph and is deliberately not folded into Profound Prelingual Sensorineural Hearing Loss as an onset descriptor.
+
+
+
+                <div class="item-desc">This entry is deliberately not wired into the causal graph and is deliberately not folded into Profound Prelingual Sensorineural Hearing Loss as an onset descriptor.
 It is not a separate consequence of any pathophysiology node - it is the timing axis of the same clinical event - so there is no edge any source supports, and CLAUDE.md&#39;s rule for that case is to leave it disconnected and say so here rather than invent one.
 It is kept as its own phenotype only so that HP:0000399 stays queryable alongside the severity term HP:0011476 on the main phenotype; a phenotype carries one term, so the two axes cannot share an entry. Folding it into an onset: block instead would mean choosing an OnsetEnum value, and both sources say only &#34;prelingual&#34;, which does not distinguish congenital from neonatal or infantile onset. Asserting CONGENITAL would be more specific than the literature.</div>
 
@@ -5823,6 +5904,7 @@ It is kept as its own phenotype only so that HP:0000399 stays queryable alongsid
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5847,34 +5929,8 @@ It is kept as its own phenotype only so that HP:0000399 stays queryable alongsid
 
 
 
-                </div>
+            </div>
 
-            </details>
-
-            <script>
-            (function() {
-                // TOC pill click: expand target group and scroll to it
-                document.querySelectorAll('.pheno-toc-pill').forEach(function(pill) {
-                    pill.addEventListener('click', function() {
-                        var target = document.getElementById(pill.dataset.target);
-                        if (target) {
-                            target.open = true;
-                            target.scrollIntoView({behavior: 'smooth', block: 'start'});
-                        }
-                    });
-                });
-                // Expand/collapse all toggle
-                var btn = document.getElementById('phenoToggleAll');
-                if (btn) {
-                    btn.addEventListener('click', function() {
-                        var groups = document.querySelectorAll('.phenotype-category-group');
-                        var anyOpen = Array.from(groups).some(function(g) { return g.open; });
-                        groups.forEach(function(g) { g.open = !anyOpen; });
-                        btn.textContent = anyOpen ? 'Expand all' : 'Collapse all';
-                    });
-                }
-            })();
-            </script>
 
         </div>
 
@@ -5919,6 +5975,9 @@ This disease-associated gene is GAB1 (hgnc:4066). hgnc:4066 is a gene from the H
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
@@ -5944,6 +6003,7 @@ This disease-associated gene is GAB1 (hgnc:4066). hgnc:4066 is a gene from the H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5965,6 +6025,7 @@ This disease-associated gene is GAB1 (hgnc:4066). hgnc:4066 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5997,6 +6058,12 @@ This disease-associated gene is GAB1 (hgnc:4066). hgnc:4066 is a gene from the H
         c.347G&gt;A (p.Gly116Glu)
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Homozygous missense substitution in constitutive exon 2, replacing a conserved glycine in the PH domain. Predicted deleterious by all eight tools applied, absent from population databases, and shown biochemically to reduce phosphoinositide binding.</div>
@@ -6051,6 +6118,9 @@ This disease-associated gene is METTL13 (hgnc:24248). hgnc:24248 is a gene from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (8 references)
@@ -6065,6 +6135,7 @@ This disease-associated gene is METTL13 (hgnc:24248). hgnc:24248 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6092,6 +6163,7 @@ This disease-associated gene is METTL13 (hgnc:24248). hgnc:24248 is a gene from 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6113,6 +6185,7 @@ This disease-associated gene is METTL13 (hgnc:24248). hgnc:24248 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6147,6 +6220,12 @@ This disease-associated gene is METTL13 (hgnc:24248). hgnc:24248 is a gene from 
         c.1631G&gt;A (p.Arg544Gln)
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Heterozygous dominant suppressor allele at DFNM1. Present in every non-penetrant homozygote of family PK-2 and absent from every deaf member.
@@ -6228,6 +6307,31 @@ This treatment is cochlear device implantation, annotated with Surgical Procedur
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Device</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Prelingual severe-to-profound sensorineural hearing loss is the standard indication for cochlear implantation, and that is the management this phenotype attracts. No DFNB26-specific implant outcome has been reported, and the localisation of GAB1 expression to spiral ganglion neurons rather than hair cells is a reason to ask whether neural substrate is intact in this genotype rather than to assume it - but no data address that either way, so nothing here should be read as a genotype-specific recommendation.</div>
 
 
@@ -6296,6 +6400,31 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Counselling for this family is unusually delicate, because a recessive genotype that normally carries a high recurrence risk is modified by an unlinked dominant allele. Recurrence risk depends on the METTL13 genotype as well as the GAB1 one, and a non-penetrant homozygote is a carrier of a fully penetrant risk for offspring who do not inherit the suppressor.</div>
 
 
@@ -6317,6 +6446,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6392,6 +6522,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6413,6 +6544,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6467,6 +6599,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6541,6 +6674,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6794,6 +6928,7 @@ This experimental model concerns METTL13 (hgnc:24248). hgnc:24248 is a gene from
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6835,6 +6970,7 @@ This experimental model concerns METTL13 (hgnc:24248). hgnc:24248 is a gene from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6881,6 +7017,7 @@ This experimental model concerns METTL13 (hgnc:24248). hgnc:24248 is a gene from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8016,6 +8153,61 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Literature base. A PubMed sweep run on 2026-09-04 covered GAB1 crossed with hearing loss and deafness, DFNB26, DFNM1, METTL13, METTL13 crossed with deafness, and METTL13 crossed with eEF1A. The two clinical papers on this disease remain the two cited here - no third family and no independent replication has been published. The sweep did close a real gap on the modifier side: METTL13&#39;s enzymatic activity, described as merely predicted in the 2018 JCI paper, was characterised later that same year (PMID:30143613) and independently in 2019 (PMID:30612740), and both are now cited. PMID:39062623 (MAP3K1/DFNB128) surfaces on a GAB1-deafness query but concerns a different locus and is not cited. A falcon deep-research report was also generated and is committed at research/Autosomal_Recessive_Nonsyndromic_Hearing_Loss_26-deep-research-falcon.md. No curation was drawn from it, and its relevance profile says why: the validator scored only 1 of its 5 verified references as on topic. Five of its twelve numbered citations are the same 2018 JCI paper already cited here as PMID:29408807; the remainder are adjacent-locus deafness papers - Mujtaba 2015 on MET/DFNB97, Faridi 2024 on MAP3K1/DFNB128 (which is PMID:39062623, the paper this sweep had already examined and declined), and the Naz and Friedman growth-factor review - plus an Open Targets query. None reports on DFNB26. The manual sweep therefore remains the working literature base for this entry, and the report serves as a retrieval check that surfaced nothing it had missed.
+Reference cache duplication. references_cache/DOI_10.1172_JCI97350.md and references_cache/DOI_10.1172_jci97350.md are the same article in two DOI casings. Both are present deliberately: the deep-research citation list emits the lowercase form and the fetcher keys on the literal string, so removing either one would make reference validation non-deterministic. This is not a stray duplicate.
+GeneReviews. PMID:20301607, the Genetic Hearing Loss Overview, is cached and is tagged GeneReviews in four sibling hearing-loss entries (ADNSHL_41, Auditory_Neuropathy, COL11A2_Hearing_Loss and X-linked_Nonsyndromic_Hearing_Loss), but it is deliberately not tagged here. Its cached record is abstract-only - the body is the chapter&#39;s six-point statement of scope and nothing more - and contains no occurrence of GAB1, METTL13, DFNB26 or DFNM1, so tagging it would produce a tagged-but-not-mined reference. There is no GAB1-specific GeneReviews chapter. This paragraph records the negative so it is auditable rather than looking like an omission, following the pattern in kb/disorders/Autosomal_Dominant_Nonsyndromic_Hearing_Loss_2B.yaml.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Review round 2: reconcile notes with the committed deep-research artifact</strong> · 2026-09-04T17:15:57Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Autosomal_Recessive_Nonsyndromic_Hearing_Loss_26/2026-09-04T171557Z-claude-code-5eaf17.yaml">View source</a></p>
+                        <p class="research-review-text">Addressed the CHANGES_REQUESTED review of 2026-09-04T08:10Z on PR #10904, which found one new blocking item introduced by the previous round&#39;s fix.
+
+IMPORTANT (fixed). The notes: literature-base paragraph still said no deep-research provider report was generated, which commit 5e3db82 in this same PR falsified by adding research/Autosomal_Recessive_Nonsyndromic_Hearing_Loss_26-deep-research-falcon.md. Rewrote that sentence to name the report and say what was taken from it, which is nothing, with the reason: the validator scored 1 of 5 verified references as on topic. The paragraph now records the composition behind that number - five of the report&#39;s twelve numbered citations are the same 2018 JCI paper already cited as PMID:29408807, and the rest are adjacent-locus deafness papers (Mujtaba 2015 MET/DFNB97; Faridi 2024 MAP3K1/DFNB128, verified via NCBI esummary to be PMID:39062623, the paper the manual sweep had already declined; the Naz and Friedman growth-factor review) plus an Open Targets query. None reports on DFNB26. The manual sweep therefore remains the working literature base and the report serves as a retrieval check. The rest of the paragraph was kept intact. The prior round&#39;s history record was left untouched; history is append-only.
+
+SUGGESTION (taken). Recorded the c.1631G&gt;A / c.1634G&gt;A nomenclature discrepancy in the METTL13 variant description, with the counts checked against the cache: PMID:29408807 prints c.1631G&gt;A eight times (Sanger results, Table 2 against NM_015935, Figure 1E exon 6 legend) and c.1634G&gt;A twice (zebrafish rescue narrative and discussion). The entry uses c.1631G&gt;A, which is the form the sequence-level results carry.
+
+SUGGESTION (taken). Recorded in notes why references_cache/DOI_10.1172_JCI97350.md and references_cache/DOI_10.1172_jci97350.md both exist: the deep-research citation list emits the lowercase DOI and the fetcher keys on the literal string, so both are needed for deterministic reference validation.
+
+SUGGESTION (declined, with the reasoning recorded in the item&#39;s explanation). The reviewer noted the snippet at the hypomorphic-allele item spans an in-vitro lipid-binding assay and a zebrafish rescue in one sentence. It cannot be split: it is a single sentence and no contiguous substring carries the hypomorphic conclusion without the cross-arm attribution. Both arms are already carried separately with their own grades in this entry - the quantified PIP-array result as IN_VITRO in the same node, the zebrafish morphant rescue as MODEL_ORGANISM under the METTL13 modifier - so nothing is lost. The explanation now states that the sentence is a cross-arm synthesis and that it is graded on the biochemical arm.
+
+Preserved. The METTL13 suppressor remains relationship_type: MODIFIER rather than digenic, with HP:0010984 left unbound. The MT13-C / MT13-N assignment established in the previous round is unchanged: p.Arg544Gln sits in MT13-C, which targets the eEF1A N terminus, while MT13-N is the Lys55 methyltransferase.
+
+Validation. just validate, validate-terms, count-verified-snippets (51/51), check-entity-refs, check-duplicate-keys, check-causal-targets, check-enum-values, check-qualifier-terms all pass on the file. Whole-KB check-folded-hyphens, check-title-snippets, check-snippet-length and check-snippet-grading report no new divergences. No cache CSV or references_cache file changed in this round.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Review round 1: address CHANGES_REQUESTED on PR #10904</strong> · 2026-09-04T06:38:07Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Autosomal_Recessive_Nonsyndromic_Hearing_Loss_26/2026-09-04T063807Z-claude-code-4e3774.yaml">View source</a></p>
+                        <p class="research-review-text">Addressed the four IMPORTANT findings and four suggestions in the automated review of PR #10904.
+
+Fixed:
+- METTL13 enzymatic activity (finding 2). The curator prose asserting that METTL13&#39;s predicted activities have never been demonstrated was outdated and is rewritten. PMID:30143613 (Jakobsson et al., Nat Commun 2018) and PMID:30612740 (Liu et al., Cell 2019) were fetched and are now cited on the METTL13 genetic entry and in the knowledge-gap discussion. The 2018 JCI snippet is unchanged and is retained as the historical baseline, with an explanation saying it has been superseded.
+- The review&#39;s domain assignment is wrong in one detail and the entry does not repeat it. The review states p.Arg544Gln falls in &#39;MTase13-C, the eEF1A-Lys55 methyltransferase domain&#39;. Jakobsson assigns the Lys55 activity to MT13-N and the eEF1A N-terminal activity to MT13-C, and Liu independently shows residues 1-401 suffice for Lys55 methylation while the C-terminal domain is dispensable for it. Arg544 sits in MT13-C (crystallised core residues 470-699), so the candidate activity for the suppressor is eEF1A N-terminal methylation, not Lys55 methylation.
+- evidence_source consistency (finding 3). Three items quoting the lymphoblastoid RT-PCR panel were regraded HUMAN_CLINICAL -&gt; IN_VITRO; four items quoting authorial framing, future work, a therapeutic proposal and explicit speculation were regraded HUMAN_CLINICAL -&gt; OTHER. Each explanation now says why.
+- references block and GeneReviews decision (finding 4). Added a references: block for the four cited papers and a top-level notes paragraph recording that PMID:20301607 is not tagged, because its cached record is abstract-only and contains no GAB1/METTL13/DFNB26/DFNM1 content.
+- Fourteen-vs-thirteen count (suggestion 5). The discussion rationale said thirteen; the source lists thirteen downregulated plus PI3K upregulated. Corrected to fourteen with the breakdown.
+- Mouse provenance (suggestion 8). The spiral-ganglion node description now says the LacZ reporter and colocalisation data are mouse.
+- Cochlear implantation (suggestion 7). Neither cached paper mentions implantation (verified by searching both records), so no evidence item was manufactured; a notes field records the search and the absence.
+- Prelingual Onset (suggestion 6). Kept as its own phenotype and the disconnection made explicit in notes: it is the timing axis of the same clinical event rather than a separate consequence, so no source supports an edge; folding it into an onset: block would require choosing an OnsetEnum value, and both sources say only &#39;prelingual&#39;, which does not distinguish congenital from neonatal or infantile.
+
+Declined:
+- No deep-research artifact was added (finding 1). CLAUDE.md forbids hand-writing markdown into research/, and no provider recipe was available. A manual PubMed sweep was run instead (GAB1 x hearing loss/deafness, DFNB26, DFNM1, METTL13, METTL13 x deafness, METTL13 x eEF1A) and is recorded in the entry&#39;s top-level notes. It confirmed no third family and no independent replication of the disease association, and it surfaced the two METTL13 papers that finding 2 turns on.
+
+The METTL13 MODIFIER-not-digenic modelling and the unbound HP:0010984 are unchanged; the review endorsed both.
+
+Validation: just validate (51/51 snippets verified), validate-terms, validate-disorders, check-entity-refs, check-duplicate-keys, check-causal-targets, check-enum-values, check-qualifier-terms, check-folded-hyphens, check-title-snippets, check-snippet-length, check-snippet-grading all pass.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

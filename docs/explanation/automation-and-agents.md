@@ -112,8 +112,8 @@ PRs: `curation-scanner`, `literature-scan`, `preprint-scan`,
 
 **PR lifecycle** — `claude-code-review` (automated review on every PR),
 `post-review-agent` (acts on editorial review comments), `pr-shepherd` (unsticks
-stalled bot-authored PRs and deterministically merges ready PRs, including weekly
-compliance PRs, through one common closing controller).
+stalled unassigned PRs by any author, repairs additive cache conflicts, and
+deterministically merges ready PRs through one common closing controller).
 
 **Interactive agents** — `claude.yml` and `dragon-ai.yml` respond to `@`-mentions
 on issues, PRs, and review comments (`dragon-ai.yml` is summoned as `@ai4c-agent`;
@@ -198,6 +198,56 @@ because CI validation must be deterministic, but written *only* by their
 generating tool.
 
 ---
+
+## Recovering failed review Actions
+
+`pr-shepherd` runs `scripts/retry_failed_reviews.py` in an independent
+`retry-reviews` job on every scheduled or manual run. It uses no model, has its
+own retry budget, and still runs if the agent job is skipped or fails.
+Human authorship, human assignment, draft status and PR age do not exclude a
+review retry. Assignment remains a hold on automatic merging, not reviewing.
+
+The controller discovers failed/timed-out `claude-code-review.yml` runs within
+GitHub's 30-day rerun window and invokes `gh run rerun RUN_ID --failed`.
+It never creates a replacement dispatch, changes a branch, or alters a review.
+Cancelled and intentionally skipped runs, missing reviews with no existing run,
+and successful workflows that forgot to post a verdict are separate recovery
+cases. Generated PRs whose review was deliberately skipped are not retried.
+
+Before retrying, it checks the latest run attempt, that the PR is open, that a
+PR-event run still matches the current head, that no newer/active review exists,
+and that the reviewer has not already posted an approval or changes-requested
+verdict for that head. An old changes-requested verdict does not block recovery
+of a failed review of a new commit. Manual-triggered workflows retain their PR
+input and use their existing `gh pr checkout` step to review the current branch.
+
+Backoff is measured from the latest attempt's completion: 1 hour after the first
+failure, 6 after the second, then 24 hours. `review_retry_delay_hours` sets a
+minimum delay and `max_review_retries` caps retries per sweep (default 5; 0
+disables recovery). The common `dry_run` and optional `pr_number` inputs apply.
+Setting `review_retry_delay_hours` to 0 explicitly bypasses the backoff.
+The retry cap and backoff bound repeated usage-limit failures; this does not
+automatically repair credentials or detect an account-wide quota reset.
+
+Review run names include the PR number. Older manual runs without that metadata
+are resolved from the existing guard/environment log output. Unresolvable
+failed runs are reported and deferred; an unresolvable active run defers the
+sweep to avoid duplicating a review already underway. Every retry/defer/skip
+appears in the Actions summary, without PR comment spam. API errors do not
+authorize retries. Discovery subdivides time ranges above the Actions API's
+1000-result limit rather than silently dropping older failures.
+
+The summary leads with the number of rerun requests accepted and the configured
+limit, then links to the restarted PRs and workflow runs. Accepted means GitHub
+accepted the restart request, not that the review completed or passed. PRs deferred
+at the limit have not been queued; the next sweep reconsiders them with fresh
+checks. Historical skips and PR-lookup diagnostics are in expandable sections.
+Diagnostic counts are messages, not unique PRs: a run can have both a lookup
+error and a deferral. Dry runs explicitly say that no requests were issued.
+
+```bash
+just review-retry-preview
+```
 
 ## Review states and merge state
 
@@ -284,33 +334,177 @@ pass.
 `reviewDecision == APPROVED` · **no human assignees** ·
 `mergeable == MERGEABLE` · `mergeStateStatus == CLEAN` · every status check
 passing (stricter than `CLEAN`, which only covers *required* checks) ·
-created more than **3 days** ago · targeting `main`. Author identity, head-branch
-prefix, draft status, and exact ancestry with current `main` are not eligibility
-criteria. A known bot/agent assignee is routing metadata rather than a human hold.
+created more than **3 days** ago · targeting `main` ·
+**fewer than `--ejection-strike-limit` (default 2) `failed_checks` removals
+from the merge queue since the head commit was last written**. Author identity,
+head-branch prefix, draft status, and exact ancestry with current `main` are not
+eligibility criteria. A known bot/agent assignee is routing metadata rather than
+a human hold.
+
+That last criterion is the **ejection hold**, and it is the one criterion with no
+trace on the PR page. A queue ejection is otherwise invisible to eligibility: the
+PR stays open and approved, so the next sweep re-enqueues it, it fails again, and
+the loop repeats — #9852 went round three times in fifteen hours, failing every
+speculative stack behind it each time (#10988). A *single* ejection is
+deliberately not a hold, because ejection does not imply fault: a PR ahead in the
+stack can poison it, and a third-party outage can fail it. What triggers the hold
+is repetition against unchanged content. The count is keyed on the head commit's
+`committedDate`, so any push resets it to zero, and a lookup failure fails open.
 
 Draft state is metadata, not a hold. An otherwise eligible draft is marked
 ready immediately before a complete re-read of the merge guards. If the attempt
 does not merge, its original draft state is restored.
 
-The agent-tending shortlist is authorized by verified author identity, not by a
-head-branch naming convention. In particular, a human-authored `claude/` branch
-does not become agent-tendable, while an allowlisted bot-authored PR may use any
-head name outside the separately managed `auto/` lanes. This deliberately
-replaces the older `claude/` prefix heuristic with the boundary the guardrail
-actually means: never modify a human-authored PR.
+### Inactive PR assignments
+
+The independent `assignment-inactivity` job releases abandoned assignment holds
+without asking a model to judge whether a PR is active. It runs on every shepherd
+schedule, including controller-only hours, and covers every open assigned PR,
+including human-authored PRs and drafts.
+
+1. After **seven days** without a comment or commit from a current assignee,
+   post one reminder tagging both the author and the assignees.
+2. At **fourteen days since the last assignee activity**, remove the assignment
+   if the reminder is still unanswered. The reminder does not start a new clock.
+3. Any current assignee's comment or commit resets the clock. A later week of
+   inactivity starts a new reminder cycle, and unassignment becomes due fourteen
+   days after that new activity.
+
+PR comments (including edits), inline review comments, submitted reviews, and
+commits whose author or committer GitHub identity matches a current assignee
+count as activity. Commit activity uses the timestamp of the matching identity:
+a bot rebasing an old assignee-authored commit does not refresh the owner's clock.
+Comments from other people, CI, and the reminder itself do not extend a hold.
+For several assignees, activity from any one keeps the joint assignment alive.
+Adding, removing, or re-adding an assignee starts a new ownership period, so an
+old reminder cannot remove a new assignment.
+
+The reminder is recorded in a machine-readable footer on the bot's comment;
+only reminders posted by the verified `ai4c-agent[bot]` identity are accepted.
+This avoids duplicate reminders on repeated sweeps. A PR that was already
+inactive for fourteen days receives a reminder first and can be unassigned on
+the next sweep if no assignee responds. The current schedule is hourly, so the
+existing overdue backlog may get only about an hour's notice; there is no extra
+grace period measured from the reminder. A copied marker in someone else's
+comment cannot authorize unassignment.
+
+The job reads all pages of assignment events, comments, reviews, and PR commits,
+then rereads them immediately before either write. Closed PRs, new activity,
+changed assignment or head, and incomplete or unavailable history prevent the
+write. GitHub's PR-commit endpoint is capped at 250 commits; larger PRs are
+deferred rather than being judged inactive from partial history. The job uses
+trusted default-branch Python with no PR checkout or dependencies. Its separate
+App token has only pull-request write permission and is used only to post the
+reminder or remove the inspected assignees. Runs serialize with one another.
+
+`max_assignment_actions` is a shared budget of 10 reminders and releases per run;
+`0` disables the job's actions. `dry_run` and `pr_number` also apply. To preview
+locally:
+
+```bash
+uv run python scripts/expire_pr_assignments.py --repo monarch-initiative/dismech --dry-run
+```
+
+The summary distinguishes assigned PRs found, PRs inspected, actions, deferrals,
+and errors. Changed or incomplete histories are reported as deferrals without
+failing the job. API and other unexpected failures fail the job; CLI errors
+include the exit code without exposing command arguments or response bodies.
+Releasing an assignment does not close or merge the PR or change reviews. It
+makes an otherwise eligible PR available for repair regardless of its author;
+the repair jobs' remaining lifecycle and branch-ownership guards still apply.
+
+### Tending abandoned PRs and repairing cache conflicts
+
+The shepherd owns eligible abandoned code and documentation PRs as well as
+curation PRs. Python changes in `src/`, `scripts/`, and `tests/` are ordinary
+repair work: diagnose the review finding or CI failure, make a focused fix,
+and run the relevant tests. Earlier shepherd comments calling those files
+"outside curation scope" do not block recovery. The shortlist puts unresolved
+`CHANGES_REQUESTED` reviews first, then conflicts under any review state, then
+approved red/blocked PRs and missing reviews. Within each group it considers
+the oldest updated PR first. An approved, clean branch belongs to the closer
+even when behind main; freshness alone must not trigger another push and review.
+
+Author identity does not affect repair eligibility. The shepherd may repair
+unassigned PRs from humans or bots, including a human-authored `claude/` branch.
+The shortlist requires an open PR targeting `main` with no assignees and a head
+in this repository, outside the separately managed `auto/` lanes. GitHub's
+`isCrossRepository` must be explicitly false; fork heads and missing or unknown
+head-repository metadata are excluded. The agent rechecks this before checking
+out or executing PR code and before pushing. Assignment is the deterministic
+active-work hold. For unassigned PRs, the agent assesses recent activity and
+discussion to avoid duplicating an ongoing repair; there is no fixed PR-age
+cutoff for repair. Earlier comments refusing human-authored work do not block
+recovery.
 
 That tending restriction is intentionally narrower than deterministic merge
 eligibility. The LLM lane may decline to edit an assigned or `auto/` PR while
 the fixed controller can still merge it after the waiting period; mutation
 authority and merge eligibility are separate policies.
 
+The independent `repair-caches` job runs trusted main code before the agent
+shortlist is built, including during controller-only hourly runs. Its default
+budget is three repairs, adjustable with `max_cache_repairs`; `0` disables it.
+`dry_run` and `pr_number` apply to this job too. It observes the same assignment,
+lifecycle, and head-repository guards as the agent regardless of author:
+`isCrossRepository` must be explicitly false. It also defers while checks
+reported on the PR are unfinished. It never marks ready, approves, or merges a
+PR into main.
+
+Agent tending waits for this run's cache job. Cache sweeps serialize with
+`cancel-in-progress: false`, so an earlier sweep can add queueing time before
+this run's own repair job, whose execution is limited to 20 minutes. A delayed
+shepherd may therefore be waiting on cache repair, not stalled in the agent.
+The agent still runs after a failed or timed-out repair job; cancellation stops it.
+
+The first supported formats are exactly `cache/<prefix>/terms.csv` and
+`cache/enums/*.csv`. A generated directory name alone is not authorization to
+discard content. The job only unions **unchanged source rows plus additions**:
+every ancestor row must remain identical on both branches, and a CURIE present
+on both sides must have identical fields, including timestamps. The existing
+structural validator checks the CSVs, then serialization is checked by parsing
+it back. Labels, timestamps and memberships are never invented. Reference
+markdown, hierarchy caches, other generated artifacts, competing values,
+deletions, mode changes, renames, and mixed source conflicts remain agent work.
+Root-level cache JSON changes are rejected using tree metadata before merge
+planning, so the retired dataset cache is never opened or changed. A deletion
+already on trusted main is carried forward if the PR left the file unchanged
+or also deleted it. PRs that modified it still need their delete/edit conflict
+resolved by keeping the deletion.
+
+The controller does not check out PR files or run their code, generators,
+dependencies, or tests. Git computes the ordinary merge in its object database;
+a private index replaces only supported conflicting CSV blobs. All remaining
+paths and modes must exactly match Git's merge result. Conflicts must match the
+same path in the sole ancestor and both tips, and case-colliding results are
+rejected. Only after the entire plan succeeds can it create a two-parent merge
+commit, with the original PR head first and the inspected main tip second.
+
+Before publication it rechecks assignment, state, branch, head repository and
+SHA, checks, and main. Publication uses an explicit expected-head lease **and**
+verifies that the new commit fast-forwards that head. The lease is compare-and-swap;
+the ancestry check forbids history rewriting. This also rejects a concurrent
+rewind or branch deletion, which an ordinary push would miss. Tests exercise
+forward-update, rewind, and deletion races against real disposable remotes.
+The writer token is exposed only to this final Git push; all discovery and
+planning subprocesses receive the read token. Every result is recorded in the
+run summary. The push starts fresh CI and review. A deferred repair remains
+eligible for the shepherd; deterministic refusal is not abandonment.
+
+Preview without changing any remote PR (Git 2.38+ and Python 3.12+):
+
+```bash
+python scripts/repair_generated_cache_conflicts.py --repo monarch-initiative/dismech --dry-run
+```
+
 The closing controller runs on a fresh runner, separate from the LLM job, and
 uses a read-only token for discovery plus a dedicated write token only for its
 fixed transitions. The controller runs hourly; under the active `slow` cron
 profile, the costlier agent tending job runs every four hours on a separate
 concurrency lane (hourly in the faster profiles) and receives a ranked shortlist
-capped at three times its action budget. The controller acts on at most one PR
-per run. Before that request it performs the final PR-state read and pins the
+capped at three times its action budget. The merge controller enqueues up to its
+configured budget when a queue is active, or directly merges at most one PR per
+run otherwise. Before each request it performs the final PR-state read and pins the
 operation to the verified head SHA. The active queue tests the latest-main
 combination as a temporary merge group. If that queue is disabled, the repo's
 loose required-check policy intentionally permits the already-green PR to merge
@@ -432,6 +626,14 @@ that opportunity rather than as an arbitrary cooling-off period.
 
 > **To stop a PR being auto-merged, assign it to a human or leave a
 > `CHANGES_REQUESTED` review.** Draft status does not block it.
+
+There is a third hold, which nobody chooses: a PR held back by the **ejection
+hold** above. Unlike assignment and `CHANGES_REQUESTED`, it leaves no label,
+review, or assignee — its only trace is a `SKIP` line naming the strike count,
+inside the run summary's collapsed `Skipped N near-miss PR(s)` block. So an
+approved, green, days-old PR that is not merging and has neither a human
+assignee nor a requested-changes review has one remaining explanation, and the
+run summary is where to look for it. A push clears it.
 
 Preview what the next sweep would do, read-only: `just auto-merge-preview`.
 

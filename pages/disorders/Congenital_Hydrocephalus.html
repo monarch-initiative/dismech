@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4239,6 +4311,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4306,6 +4379,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4447,6 +4521,7 @@ This subtype is caused by variation in L1CAM (hgnc:6470). hgnc:6470 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4468,6 +4543,7 @@ This subtype is caused by variation in L1CAM (hgnc:6470). hgnc:6470 is a gene fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4558,6 +4634,7 @@ This subtype is caused by variation in CCDC88C (hgnc:19967). hgnc:19967 is a gen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4579,6 +4656,7 @@ This subtype is caused by variation in CCDC88C (hgnc:19967). hgnc:19967 is a gen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4669,6 +4747,7 @@ This subtype is caused by variation in MPDZ (hgnc:7208). hgnc:7208 is a gene fro
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4690,6 +4769,7 @@ This subtype is caused by variation in MPDZ (hgnc:7208). hgnc:7208 is a gene fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4780,6 +4860,7 @@ This subtype is caused by variation in WDR81 (hgnc:26600). hgnc:26600 is a gene 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4842,6 +4923,7 @@ This subtype is caused by variation in WDR81 (hgnc:26600). hgnc:26600 is a gene 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4883,7 +4965,7 @@ This subtype is caused by variation in WDR81 (hgnc:26600). hgnc:26600 is a gene 
 
                     </div>
 
-                    <div class="item-desc">Hydrocephalus accompanying the Dandy-Walker malformation (vermian hypoplasia, cystic dilatation of the fourth ventricle, enlarged posterior fossa). The obstruction is distal — at the level of the fourth ventricle and its outflow tracts — rather than at the aqueduct, and a single shunt controlling both ventricle and cyst is generally effective. Outcome is governed more by the associated malformations and the degree of vermian involvement than by the hydrocephalus itself.</div>
+                    <div class="item-desc">Hydrocephalus accompanying the Dandy-Walker malformation (vermian hypoplasia, cystic dilatation of the fourth ventricle, enlarged posterior fossa). The obstruction is distal — at the level of the fourth ventricle and its outflow tracts — rather than at the aqueduct, and a single shunt controlling both ventricle and cyst is generally effective. Outcome is governed more by the associated malformations and the degree of vermian involvement than by the hydrocephalus itself. This subtype deliberately carries only the CSF-diversion behaviour: the malformation itself, its ZIC1/ZIC4 and FOXC1 developmental mechanism, and the without-hydrocephalus form are curated as kb/disorders/Dandy-Walker_Syndrome.yaml (MONDO:0009072), which holds MONDO:0017110 as a subtype for the same reason this entry does. The two entries cut one concept along different axes - by hydrocephalus aetiology here, by malformation there - and neither should grow a copy of the other&#39;s content.</div>
 
 
 
@@ -4903,6 +4985,7 @@ This subtype is caused by variation in WDR81 (hgnc:26600). hgnc:26600 is a gene 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4927,6 +5010,7 @@ This subtype is caused by variation in WDR81 (hgnc:26600). hgnc:26600 is a gene 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4994,6 +5078,7 @@ This subtype is caused by variation in WDR81 (hgnc:26600). hgnc:26600 is a gene 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5015,6 +5100,7 @@ This subtype is caused by variation in WDR81 (hgnc:26600). hgnc:26600 is a gene 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5082,6 +5168,7 @@ This subtype is caused by variation in WDR81 (hgnc:26600). hgnc:26600 is a gene 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5103,6 +5190,7 @@ This subtype is caused by variation in WDR81 (hgnc:26600). hgnc:26600 is a gene 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5383,6 +5471,7 @@ This subtype is caused by variation in WDR81 (hgnc:26600). hgnc:26600 is a gene 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5525,6 +5614,7 @@ This subtype is caused by variation in WDR81 (hgnc:26600). hgnc:26600 is a gene 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5546,6 +5636,7 @@ This subtype is caused by variation in WDR81 (hgnc:26600). hgnc:26600 is a gene 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5729,6 +5820,7 @@ This subtype is caused by variation in WDR81 (hgnc:26600). hgnc:26600 is a gene 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5753,6 +5845,7 @@ This subtype is caused by variation in WDR81 (hgnc:26600). hgnc:26600 is a gene 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5774,6 +5867,7 @@ This subtype is caused by variation in WDR81 (hgnc:26600). hgnc:26600 is a gene 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5898,6 +5992,7 @@ This subtype is caused by variation in WDR81 (hgnc:26600). hgnc:26600 is a gene 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5922,6 +6017,7 @@ This subtype is caused by variation in WDR81 (hgnc:26600). hgnc:26600 is a gene 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5943,6 +6039,7 @@ This subtype is caused by variation in WDR81 (hgnc:26600). hgnc:26600 is a gene 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6074,6 +6171,7 @@ This subtype is caused by variation in WDR81 (hgnc:26600). hgnc:26600 is a gene 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6202,6 +6300,7 @@ This subtype is caused by variation in WDR81 (hgnc:26600). hgnc:26600 is a gene 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6236,6 +6335,7 @@ This subtype is caused by variation in WDR81 (hgnc:26600). hgnc:26600 is a gene 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-genetic-disruption-of-ventricular-zone-neural-stem-cell-fate" data-dismech-node="Genetic Disruption of Ventricular Zone Neural Stem Cell Fate" data-dismech-type="pathophysiology">
                 <div class="item-name">Genetic Disruption of Ventricular Zone Neural Stem Cell Fate</div>
+
 
                 <div class="item-desc">Damaging de novo and transmitted variants in genes that govern the fate of ventricular-zone neural stem cells — TRIM71, SMARCC1, PTCH1 and duplication of its ligand SHH, plus a longer list emerging from larger cohorts — are found in a substantial minority of sporadic, neurosurgically treated congenital hydrocephalus. These are not CSF-handling genes: every one of them is required for neural tube development and regulates neural stem cell fate, which is what makes this arm mechanistically distinct from the obstruction arm rather than merely another route into it.</div>
 
@@ -6589,6 +6689,7 @@ This pathophysiological event occurs in brain ventricle (UBERON:0004086). UBERON
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6610,6 +6711,7 @@ This pathophysiological event occurs in brain ventricle (UBERON:0004086). UBERON
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6635,6 +6737,7 @@ This pathophysiological event occurs in brain ventricle (UBERON:0004086). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-l1cam-mediated-neural-adhesion-and-axon-guidance-failure" data-dismech-node="L1CAM-Mediated Neural Adhesion and Axon Guidance Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">L1CAM-Mediated Neural Adhesion and Axon Guidance Failure</div>
+
 
                 <div class="item-desc">Loss-of-function variants in L1CAM remove a neural recognition molecule of the immunoglobulin superfamily required for intercellular adhesion, neuronal migration, axon guidance and fasciculation. The consequence is a set of structural malformations — corticospinal tract hypoplasia or aplasia, callosal abnormality, and obstruction of CSF flow most commonly at the aqueduct — rather than a primary defect of CSF secretion or absorption.</div>
 
@@ -6909,6 +7012,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6930,6 +7034,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6955,6 +7060,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuroepithelial-planar-polarity-and-apical-constriction-failure" data-dismech-node="Neuroepithelial Planar Polarity and Apical Constriction Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Neuroepithelial Planar Polarity and Apical Constriction Failure</div>
+
 
                 <div class="item-desc">The autosomal recessive arm converges on the planar-polarity and apical constriction machinery of the ventricular neuroepithelium. CCDC88C encodes DAPLE, a Dishevelled-binding protein that contributes to ependymal planar polarity by inhibiting non-canonical Wnt signalling and that physically interacts with MPDZ (a multi-PDZ apical junction scaffold) and CRB2; the three cooperate to promote apical cell constriction during neurulation. The node is named for apical constriction rather than for junctional disruption on the strength of its own negative evidence: in the human CRB2 fetal cases, PAR-complex components and tight- and adherens-junction molecules were normally localized, so the lesion is not a generalized loss of apicobasal polarity. What it produces is frank malformation of the ependymal-lined channels (atresia and forking) with periventricular neuronal heterotopia.</div>
 
@@ -7363,6 +7469,7 @@ This pathophysiological event occurs in brain ventricle (UBERON:0004086). UBERON
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7384,6 +7491,7 @@ This pathophysiological event occurs in brain ventricle (UBERON:0004086). UBERON
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7411,6 +7519,7 @@ This pathophysiological event occurs in brain ventricle (UBERON:0004086). UBERON
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7435,6 +7544,7 @@ This pathophysiological event occurs in brain ventricle (UBERON:0004086). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ependymal-motile-cilia-beat-dysfunction-and-loss-of-directional-csf-flow" data-dismech-node="Ependymal Motile Cilia Beat Dysfunction and Loss of Directional CSF Flow" data-dismech-type="pathophysiology">
                 <div class="item-name">Ependymal Motile Cilia Beat Dysfunction and Loss of Directional CSF Flow</div>
+
 
                 <div class="item-desc">Multiciliated ependymal cells line the ventricular wall and generate directional CSF movement by coordinated ciliary beating. When intracellular and intercellular rotational alignment of the basal bodies is lost — as in compound ablation of the Dishevelled genes, the same non-canonical Wnt effectors that DAPLE regulates — the cilia are present and the cells differentiate normally, but the flow they generate is significantly slower, and hydrocephalus follows. This node is curated with an explicit caveat: the supporting mechanistic evidence is murine, human motile ciliopathies infrequently cause hydrocephalus, and the entry does not treat cilia-driven flow as the primary determinant of human fetal ventricular volume (see the HUMAN_MODEL_MISMATCH discussion).</div>
 
@@ -7700,6 +7810,7 @@ This pathophysiological event occurs in brain ventricle (UBERON:0004086). UBERON
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7721,6 +7832,7 @@ This pathophysiological event occurs in brain ventricle (UBERON:0004086). UBERON
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7748,6 +7860,7 @@ This pathophysiological event occurs in brain ventricle (UBERON:0004086). UBERON
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7770,6 +7883,7 @@ This pathophysiological event occurs in brain ventricle (UBERON:0004086). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aqueductal-stenosis-atresia-and-forking" data-dismech-node="Aqueductal Stenosis, Atresia and Forking" data-dismech-type="pathophysiology">
                 <div class="item-name">Aqueductal Stenosis, Atresia and Forking</div>
+
 
                 <div class="item-desc">Narrowing, atresia or forking of the cerebral aqueduct is the single most common structural lesion in hydrocephalus that is otherwise confined to the brain, and it is the classic proximal obstruction. In CCDC88C-related disease the lesion is not a plug but a developmental malformation: multifocal atresia-forking, with the residual channel replaced by rosettes of ependymal cells, extending beyond the aqueduct into the central canal of the medulla. Note that aqueductal patency at autopsy does not exclude the subtype — an affected 20-week fetus in one CCDC88C family had a patent aqueduct despite MRI evidence of obstruction.</div>
 
@@ -7946,6 +8060,7 @@ This pathophysiological event occurs in midbrain cerebral aqueduct (UBERON:00022
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7967,6 +8082,7 @@ This pathophysiological event occurs in midbrain cerebral aqueduct (UBERON:00022
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7992,6 +8108,7 @@ This pathophysiological event occurs in midbrain cerebral aqueduct (UBERON:00022
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neural-tube-defect-with-chiari-ii-hindbrain-herniation-and-small-posterior-fossa" data-dismech-node="Neural Tube Defect with Chiari II Hindbrain Herniation and Small Posterior Fossa" data-dismech-type="pathophysiology">
                 <div class="item-name">Neural Tube Defect with Chiari II Hindbrain Herniation and Small Posterior Fossa</div>
+
 
                 <div class="item-desc">In open neural tube defects the hindbrain deformity and the hydrocephalus share a single embryological origin. Under the McLone-Knepper unified theory the open neural tube prevents the embryonic ventricular system from distending; without that distension the posterior fossa never reaches normal size, and the cerebellum, fourth ventricle and medulla are displaced caudally. The resulting Chiari II configuration obstructs CSF egress at the fourth ventricular outflow and foramen magnum — a distal, not proximal, obstruction. This entry cross-references, and deliberately does not absorb, the separate spina bifida cystica disease entity.</div>
 
@@ -8134,6 +8251,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8155,6 +8273,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8182,6 +8301,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8204,6 +8324,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-intraventricular-haemorrhage-and-choroid-plexus-inflammatory-activation" data-dismech-node="Intraventricular Haemorrhage and Choroid Plexus Inflammatory Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Intraventricular Haemorrhage and Choroid Plexus Inflammatory Activation</div>
+
 
                 <div class="item-desc">Intraventricular blood — germinal matrix haemorrhage of prematurity, or cryptic prenatal microhaemorrhage detectable only as hemosiderin-laden macrophages within a structurally normal aqueduct — activates a Toll-like receptor 4 and NF-kB-dependent inflammatory response in the choroid plexus epithelium. This is an inflammatory rather than a mechanical lesion, and it is why post-haemorrhagic hydrocephalus is curated as more than an obstructed or scarred absorption surface.</div>
 
@@ -8353,6 +8474,7 @@ This pathophysiological event occurs in choroid plexus (UBERON:0001886). UBERON:
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8374,6 +8496,7 @@ This pathophysiological event occurs in choroid plexus (UBERON:0001886). UBERON:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8399,6 +8522,7 @@ This pathophysiological event occurs in choroid plexus (UBERON:0001886). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-choroid-plexus-csf-hypersecretion" data-dismech-node="Choroid Plexus CSF Hypersecretion" data-dismech-type="pathophysiology">
                 <div class="item-name">Choroid Plexus CSF Hypersecretion</div>
+
 
                 <div class="item-desc">The choroid plexus epithelium secretes more fluid than any other epithelium. In a rat model of post-haemorrhagic hydrocephalus, TLR4-dependent activation of the Ste20-type stress kinase SPAK phosphorylates and stimulates the apical NKCC1 cotransporter, producing an approximately three-fold, bumetanide-sensitive increase in CSF secretion — so on that evidence the secretion rate rises rather than the absorption surface simply failing. Scope caveat, and it is the same discipline applied to the cilia and perivascular-clearance nodes: the entire SPAK-NKCC1 chain here is rodent, and no human measurement of post-haemorrhagic CSF hypersecretion is curated in this entry. The node carries a HUMAN_MODEL_MISMATCH discussion for that reason. It remains the node with the clearest pharmacological handle in the entry, and it is the mechanistic rationale for choroid plexus cauterization as a component of endoscopic treatment.</div>
 
@@ -8625,6 +8749,7 @@ This pathophysiological event occurs in choroid plexus (UBERON:0001886). UBERON:
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8646,6 +8771,7 @@ This pathophysiological event occurs in choroid plexus (UBERON:0001886). UBERON:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8671,6 +8797,7 @@ This pathophysiological event occurs in choroid plexus (UBERON:0001886). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-csf-absorption-and-perivascular-clearance" data-dismech-node="Impaired CSF Absorption and Perivascular Clearance" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired CSF Absorption and Perivascular Clearance</div>
+
 
                 <div class="item-desc">The distal, non-obstructive route to ventricular enlargement: CSF is produced normally but cannot be translocated out of the craniospinal compartment. In the familiar bulk-flow model this is failure at the arachnoid granulations, but up to a third of CSF leaves the skull along cranial nerve sheaths into the lymphatic system, and CSF has been shown to move along paravascular pathways into the parenchyma and thence to the systemic circulation. This entry deliberately does NOT declare conforms_to against the glymphatic_dysfunction module here. Conformance is a structural assertion that tooling reads as satisfied, and the honest state of the evidence does not support it: the source literature states plainly that whether disturbances of the lymphatic exit pathway contribute to human hydrocephalus is not known, and the module itself carries an unresolved convective-versus-diffusive controversy. The relationship is recorded as a KNOWLEDGE_GAP discussion attached to this node instead, which is where a claim this uncertain belongs.</div>
 
@@ -8856,6 +8983,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8877,6 +9005,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8904,6 +9033,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8926,6 +9056,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-fetal-neuro-gliogenesis-and-brain-dysgenesis" data-dismech-node="Impaired Fetal Neuro-Gliogenesis and Brain Dysgenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Fetal Neuro-Gliogenesis and Brain Dysgenesis</div>
+
 
                 <div class="item-desc">The parallel, non-plumbing arm. Multiple congenital hydrocephalus genes are regulators of neural stem cell biology and converge on human transcriptional networks and cell types specific to fetal neuro-gliogenesis. On this reading, the enlarged ventricle in a subset of patients is a read-out of periventricular brain that was never properly built, rather than of fluid pushed against an obstruction. The prediction is clinical and testable: CSF diversion should not normalize outcome in these patients, and indeed poor neurodevelopmental outcomes and persistent ventriculomegaly after surgery are what motivated the search.</div>
 
@@ -9196,6 +9327,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9217,6 +9349,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9242,6 +9375,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-ventricular-dilatation-and-raised-intracranial-pressure" data-dismech-node="Progressive Ventricular Dilatation and Raised Intracranial Pressure" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Ventricular Dilatation and Raised Intracranial Pressure</div>
+
 
                 <div class="item-desc">The convergent node of the entry: active distension of the ventricular system, reached from proximal obstruction (aqueduct), distal obstruction (fourth ventricular outflow, foramen magnum), CSF hypersecretion, failed absorption, or — on the competing reading — primary brain dysgenesis. Progressive distension raises intracranial pressure, which in the infant with open sutures presents as accelerating head growth, a full fontanelle and splayed sutures before it presents as classical intracranial hypertension.</div>
 
@@ -9436,6 +9570,7 @@ This pathophysiological event occurs in telencephalic ventricle (UBERON:0002285)
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9457,6 +9592,7 @@ This pathophysiological event occurs in telencephalic ventricle (UBERON:0002285)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9482,6 +9618,7 @@ This pathophysiological event occurs in telencephalic ventricle (UBERON:0002285)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neurodevelopmental-impairment-and-periventricular-white-matter-injury" data-dismech-node="Neurodevelopmental Impairment and Periventricular White Matter Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Neurodevelopmental Impairment and Periventricular White Matter Injury</div>
+
 
                 <div class="item-desc">The clinical end state: motor, cognitive, visual and epileptic sequelae on a background of periventricular white matter compromise. Crucially, this node is reached by both hypothesis arms, and the entry does not assume CSF diversion reverses it — ventriculoperitoneal shunting does not address a genetic cause, carries high complication rates, and yields only marginal improvement of neurocognitive deficits.</div>
 
@@ -9575,6 +9712,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9596,6 +9734,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9663,13 +9802,13 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Head and Neck<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Head and Neck<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Musculoskeletal<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Limbs<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(7)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(10)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -9679,8 +9818,80 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dandy-walker-malformation" data-dismech-node="Dandy-Walker Malformation" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Dandy-Walker Malformation
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001305" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-57">HP:0001305</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dandy-Walker malformation (HP:0001305). HP:0001305 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21928031" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21928031" target="_blank">PMID:21928031</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Further confusion is added by the inclusion, in some classification, of different malformations with different prognosis and therapeutic strategy under the same label of &#34;Dandy-Walker&#34;."</div>
+
+
+                <div class="evidence-explanation">States the classification hazard that governs how this phenotype must be read: the &#34;Dandy-Walker&#34; label has been applied to malformations with different prognosis and treatment, so the subtype boundary is a curation decision rather than a given.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-large-fontanelles" data-dismech-node="Large Fontanelles" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -9696,15 +9907,18 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000239" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-57">HP:0000239</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000239" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-58">HP:0000239</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Large fontanelles (HP:0000239). HP:0000239 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9724,6 +9938,7 @@ This clinical feature is Large fontanelles (HP:0000239). HP:0000239 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9764,15 +9979,18 @@ This clinical feature is Large fontanelles (HP:0000239). HP:0000239 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000256" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-58">HP:0000256</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000256" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-59">HP:0000256</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9792,6 +10010,7 @@ This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9823,6 +10042,114 @@ This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype fr
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Limbs
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-adducted-thumbs" data-dismech-node="Adducted Thumbs" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Adducted Thumbs
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001181" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-60">HP:0001181</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Adducted thumb (HP:0001181). HP:0001181 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24932902" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24932902" target="_blank">PMID:24932902</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Of those mutation-positive patients, 98% had abnormalities of the corpus callosum, 98% had hypoplasia or aplasia of the corticospinal tracts, 90% had aqueductal stenosis, and 88% had adducted thumbs."</div>
+
+
+                <div class="evidence-explanation">Quantifies adducted thumbs at 88% of L1CAM-mutation-positive autopsy cases, supporting the VERY_FREQUENT band for this subtype.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301657" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301657" target="_blank">PMID:20301657</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Males with HSAS are born with severe hydrocephalus, adducted thumbs, and spasticity; intellectual disability is severe."</div>
+
+
+                <div class="evidence-explanation">GeneReviews confirmation that adducted thumbs are part of the defining HSAS presentation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
                     <span class="cat-count">1</span>
                 </summary>
@@ -9841,10 +10168,10 @@ This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-59">HP:0001257</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-61">HP:0001257</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Spasticity (HP:0001257), qualified as course progressive. HP:0001257 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9873,6 +10200,9 @@ This clinical feature is Spasticity (HP:0001257), qualified as course progressiv
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9887,6 +10217,7 @@ This clinical feature is Spasticity (HP:0001257), qualified as course progressiv
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9915,11 +10246,11 @@ This clinical feature is Spasticity (HP:0001257), qualified as course progressiv
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-3">
+            <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">7</span>
+                    <span class="cat-count">10</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-hydrocephalus" data-dismech-node="Hydrocephalus" data-dismech-type="phenotype">
@@ -9936,15 +10267,18 @@ This clinical feature is Spasticity (HP:0001257), qualified as course progressiv
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-60">HP:0000238</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-62">HP:0000238</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9964,6 +10298,7 @@ This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10004,15 +10339,18 @@ This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002119" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-61">HP:0002119</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002119" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-63">HP:0002119</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-63">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10035,6 +10373,7 @@ This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotyp
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10043,6 +10382,78 @@ This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotyp
 
 
                 <div class="evidence-explanation">Establishes prenatal ventriculomegaly as the presenting finding and gives its gestational timing. Evidence source is OTHER (scoping review).</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-aqueductal-stenosis" data-dismech-node="Aqueductal Stenosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Aqueductal Stenosis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002410" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-64">HP:0002410</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-64">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Aqueductal stenosis (HP:0002410). HP:0002410 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24932902" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24932902" target="_blank">PMID:24932902</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Of those mutation-positive patients, 98% had abnormalities of the corpus callosum, 98% had hypoplasia or aplasia of the corticospinal tracts, 90% had aqueductal stenosis, and 88% had adducted thumbs."</div>
+
+
+                <div class="evidence-explanation">Autopsy series quantifying aqueductal stenosis in L1CAM-mutation-positive patients.</div>
 
 
 
@@ -10072,15 +10483,18 @@ This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001273" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-62">HP:0001273</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001273" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-65">HP:0001273</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-62">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-65">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal corpus callosum morphology (HP:0001273). HP:0001273 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10100,6 +10514,7 @@ This clinical feature is Abnormal corpus callosum morphology (HP:0001273). HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10140,15 +10555,18 @@ This clinical feature is Abnormal corpus callosum morphology (HP:0001273). HP:00
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-63">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-66">HP:0001249</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-63">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-66">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10168,6 +10586,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10208,15 +10627,18 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0032388" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-64">HP:0032388</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0032388" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-67">HP:0032388</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-64">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-67">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Periventricular nodular heterotopia (HP:0032388). HP:0032388 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10239,6 +10661,7 @@ This clinical feature is Periventricular nodular heterotopia (HP:0032388). HP:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10247,6 +10670,150 @@ This clinical feature is Periventricular nodular heterotopia (HP:0032388). HP:00
 
 
                 <div class="evidence-explanation">Direct neuropathological observation of periventricular heterotopia in the CCDC88C subtype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-chiari-type-ii-malformation" data-dismech-node="Chiari Type II Malformation" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Chiari Type II Malformation
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0025660" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-68">HP:0025660</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-68">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chiari type II malformation (HP:0025660). HP:0025660 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21306277" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21306277" target="_blank">PMID:21306277</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Nearly all infants who are born with myelomeningocele have the Arnold–Chiari II malformation, which includes a constellation of anomalies that include hindbrain herniation (downward displacement of the medulla, fourth ventricle, and cerebellum into the spinal canal), brain-stem abnormalities,..."</div>
+
+
+                <div class="evidence-explanation">States both the near-universal co-occurrence with myelomeningocele and the anatomical content of the malformation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-myelomeningocele" data-dismech-node="Myelomeningocele" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Myelomeningocele
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002475" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-69">HP:0002475</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-69">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Myelomeningocele (HP:0002475). HP:0002475 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24932902" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24932902" target="_blank">PMID:24932902</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The vast majority of patients with neural tube defects have hydrocephalus."</div>
+
+
+                <div class="evidence-explanation">Establishes the tight association between open neural tube defect and hydrocephalus that this phenotype records.</div>
 
 
 
@@ -10276,15 +10843,18 @@ This clinical feature is Periventricular nodular heterotopia (HP:0032388). HP:00
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002516" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-65">HP:0002516</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002516" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-70">HP:0002516</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-65">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-70">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Increased intracranial pressure (HP:0002516). HP:0002516 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10304,6 +10874,7 @@ This clinical feature is Increased intracranial pressure (HP:0002516). HP:000251
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10346,15 +10917,18 @@ This clinical feature is Increased intracranial pressure (HP:0002516). HP:000251
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-66">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-71">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-66">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-71">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10374,6 +10948,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10401,6 +10976,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10409,381 +10985,6 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                 <div class="evidence-explanation">Attributes epilepsy risk to the hydrocephalus aetiology rather than to shunting, and identifies haemorrhage as the highest-risk subtype — which is why this phenotype is not curated as a treatment complication.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">5</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-aqueductal-stenosis" data-dismech-node="Aqueductal Stenosis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Aqueductal Stenosis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002410" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-67">HP:0002410</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-67">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Aqueductal stenosis (HP:0002410). HP:0002410 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:24932902" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24932902" target="_blank">PMID:24932902</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Of those mutation-positive patients, 98% had abnormalities of the corpus callosum, 98% had hypoplasia or aplasia of the corticospinal tracts, 90% had aqueductal stenosis, and 88% had adducted thumbs."</div>
-
-
-                <div class="evidence-explanation">Autopsy series quantifying aqueductal stenosis in L1CAM-mutation-positive patients.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-adducted-thumbs" data-dismech-node="Adducted Thumbs" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Adducted Thumbs
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001181" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-68">HP:0001181</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-68">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Adducted thumb (HP:0001181). HP:0001181 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:24932902" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24932902" target="_blank">PMID:24932902</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Of those mutation-positive patients, 98% had abnormalities of the corpus callosum, 98% had hypoplasia or aplasia of the corticospinal tracts, 90% had aqueductal stenosis, and 88% had adducted thumbs."</div>
-
-
-                <div class="evidence-explanation">Quantifies adducted thumbs at 88% of L1CAM-mutation-positive autopsy cases, supporting the VERY_FREQUENT band for this subtype.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20301657" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301657" target="_blank">PMID:20301657</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Males with HSAS are born with severe hydrocephalus, adducted thumbs, and spasticity; intellectual disability is severe."</div>
-
-
-                <div class="evidence-explanation">GeneReviews confirmation that adducted thumbs are part of the defining HSAS presentation.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-chiari-type-ii-malformation" data-dismech-node="Chiari Type II Malformation" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Chiari Type II Malformation
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0025660" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-69">HP:0025660</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-69">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Chiari type II malformation (HP:0025660). HP:0025660 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:21306277" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21306277" target="_blank">PMID:21306277</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Nearly all infants who are born with myelomeningocele have the Arnold–Chiari II malformation, which includes a constellation of anomalies that include hindbrain herniation (downward displacement of the medulla, fourth ventricle, and cerebellum into the spinal canal), brain-stem abnormalities,..."</div>
-
-
-                <div class="evidence-explanation">States both the near-universal co-occurrence with myelomeningocele and the anatomical content of the malformation.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-myelomeningocele" data-dismech-node="Myelomeningocele" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Myelomeningocele
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002475" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-70">HP:0002475</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-70">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Myelomeningocele (HP:0002475). HP:0002475 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:24932902" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24932902" target="_blank">PMID:24932902</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The vast majority of patients with neural tube defects have hydrocephalus."</div>
-
-
-                <div class="evidence-explanation">Establishes the tight association between open neural tube defect and hydrocephalus that this phenotype records.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-dandy-walker-malformation" data-dismech-node="Dandy-Walker Malformation" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Dandy-Walker Malformation
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001305" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-71">HP:0001305</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-71">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Dandy-Walker malformation (HP:0001305). HP:0001305 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:21928031" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21928031" target="_blank">PMID:21928031</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Further confusion is added by the inclusion, in some classification, of different malformations with different prognosis and therapeutic strategy under the same label of &#34;Dandy-Walker&#34;."</div>
-
-
-                <div class="evidence-explanation">States the classification hazard that governs how this phenotype must be read: the &#34;Dandy-Walker&#34; label has been applied to malformations with different prognosis and treatment, so the subtype boundary is a curation decision rather than a given.</div>
 
 
 
@@ -10871,6 +11072,9 @@ This disease-associated gene is L1CAM (hgnc:6470). hgnc:6470 is a gene from the 
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">X-linked</span>
@@ -10893,6 +11097,7 @@ This disease-associated gene is L1CAM (hgnc:6470). hgnc:6470 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10950,6 +11155,9 @@ This disease-associated gene is CCDC88C (hgnc:19967). hgnc:19967 is a gene from 
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal Recessive</span>
@@ -10972,6 +11180,7 @@ This disease-associated gene is CCDC88C (hgnc:19967). hgnc:19967 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11029,6 +11238,9 @@ This disease-associated gene is MPDZ (hgnc:7208). hgnc:7208 is a gene from the H
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal Recessive</span>
@@ -11051,6 +11263,7 @@ This disease-associated gene is MPDZ (hgnc:7208). hgnc:7208 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11108,6 +11321,9 @@ This disease-associated gene is WDR81 (hgnc:26600). hgnc:26600 is a gene from th
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal Recessive</span>
@@ -11155,6 +11371,9 @@ This disease-associated gene is TRIM71 (hgnc:32669). hgnc:32669 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -11169,6 +11388,7 @@ This disease-associated gene is TRIM71 (hgnc:32669). hgnc:32669 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11228,6 +11448,9 @@ This disease-associated gene is SMARCC1 (hgnc:11104). hgnc:11104 is a gene from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -11242,6 +11465,7 @@ This disease-associated gene is SMARCC1 (hgnc:11104). hgnc:11104 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11301,6 +11525,9 @@ This disease-associated gene is PTCH1 (hgnc:9585). hgnc:9585 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -11315,6 +11542,7 @@ This disease-associated gene is PTCH1 (hgnc:9585). hgnc:9585 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11339,6 +11567,7 @@ This disease-associated gene is PTCH1 (hgnc:9585). hgnc:9585 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11396,6 +11625,9 @@ This disease-associated gene is AP1S2 (hgnc:560). hgnc:560 is a gene from the HU
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">X-linked</span>
@@ -11418,6 +11650,7 @@ This disease-associated gene is AP1S2 (hgnc:560). hgnc:560 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11475,6 +11708,9 @@ This disease-associated gene is FOXJ1 (hgnc:3816). hgnc:3816 is a gene from the 
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal Dominant</span>
@@ -11500,6 +11736,7 @@ This disease-associated gene is FOXJ1 (hgnc:3816). hgnc:3816 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11521,6 +11758,7 @@ This disease-associated gene is FOXJ1 (hgnc:3816). hgnc:3816 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11578,6 +11816,9 @@ This disease-associated gene is CRB2 (hgnc:18688). hgnc:18688 is a gene from the
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal Recessive</span>
@@ -11603,6 +11844,7 @@ This disease-associated gene is CRB2 (hgnc:18688). hgnc:18688 is a gene from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11624,6 +11866,7 @@ This disease-associated gene is CRB2 (hgnc:18688). hgnc:18688 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11707,6 +11950,31 @@ This treatment is ventriculoperitoneal shunt placement (NCIT:C168483). NCIT:C168
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">The conventional treatment: surgical diversion of CSF from the ventricle to the peritoneal cavity. It reliably relieves raised intracranial pressure and generally produces a greater reduction in ventricular size than endoscopic treatment, but it creates lifelong shunt dependence with a substantial revision and infection burden, and — importantly for this entry — it does not address a genetic cause and yields only marginal improvement in neurocognitive deficits.</div>
 
 
@@ -11737,6 +12005,7 @@ This treatment is ventriculoperitoneal shunt placement (NCIT:C168483). NCIT:C168
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11780,6 +12049,7 @@ This treatment is ventriculoperitoneal shunt placement (NCIT:C168483). NCIT:C168
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11844,6 +12114,31 @@ This treatment is endoscopic third ventriculostomy, annotated with Third Ventric
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">The shunt-free alternative: an endoscopic stoma in the floor of the third ventricle diverts CSF flow, and cauterization of the choroid plexus reduces CSF production. It is technically harder than shunting and fails more often in the first months, but virtually all its failures occur within six months, after which the risk is low — a decisive advantage where urgent shunt-revision surgery is not reliably available. In a randomized trial in Ugandan infants with post-infectious hydrocephalus, cognitive outcomes at 12 months did not differ significantly from ventriculoperitoneal shunting. Uniquely among the treatments here, its cauterization component acts on the CSF hypersecretion node rather than only on the fluid already accumulated.</div>
 
 
@@ -11874,6 +12169,7 @@ This treatment is endoscopic third ventriculostomy, annotated with Third Ventric
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11920,6 +12216,7 @@ This treatment is endoscopic third ventriculostomy, annotated with Third Ventric
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11941,6 +12238,7 @@ This treatment is endoscopic third ventriculostomy, annotated with Third Ventric
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12005,6 +12303,31 @@ This treatment is neurosurgical procedure (NCIT:C15656). NCIT:C15656 is a clinic
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">In utero closure of the open neural tube defect before 26 weeks of gestation. In the MOMS randomized trial it roughly halved the rate of shunt placement by 12 months and improved hindbrain herniation, at the cost of increased preterm delivery and uterine dehiscence. Mechanistically this is the only treatment in the entry that acts on the *upstream* trigger rather than on the accumulated fluid: closing the defect restores the embryonic ventricular pressure whose absence produces the Chiari II configuration.</div>
 
 
@@ -12035,6 +12358,7 @@ This treatment is neurosurgical procedure (NCIT:C15656). NCIT:C15656 is a clinic
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12081,6 +12405,7 @@ This treatment is neurosurgical procedure (NCIT:C15656). NCIT:C15656 is a clinic
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12102,6 +12427,7 @@ This treatment is neurosurgical procedure (NCIT:C15656). NCIT:C15656 is a clinic
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12166,6 +12492,31 @@ This treatment is cerebrospinal fluid diversion (NCIT:C93208). NCIT:C93208 is a 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Intervening at a low rather than a high ventriculomegaly threshold in preterm infants with progressive post-haemorrhagic ventricular dilatation. In a post hoc analysis of a multicentre randomized trial, the low-threshold strategy was associated with lower odds of death or severe neurodevelopmental disability. Curated with the trial&#39;s own caveat: this was a post hoc analysis and the primary comparison did not reach significance.</div>
 
 
@@ -12196,6 +12547,7 @@ This treatment is cerebrospinal fluid diversion (NCIT:C93208). NCIT:C93208 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12239,6 +12591,7 @@ This treatment is cerebrospinal fluid diversion (NCIT:C93208). NCIT:C93208 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12306,6 +12659,7 @@ This treatment is cerebrospinal fluid diversion (NCIT:C93208). NCIT:C93208 is a 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12354,6 +12708,7 @@ This treatment is cerebrospinal fluid diversion (NCIT:C93208). NCIT:C93208 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12411,6 +12766,7 @@ This treatment is cerebrospinal fluid diversion (NCIT:C93208). NCIT:C93208 is a 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12459,6 +12815,7 @@ This treatment is cerebrospinal fluid diversion (NCIT:C93208). NCIT:C93208 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12537,6 +12894,7 @@ This treatment is cerebrospinal fluid diversion (NCIT:C93208). NCIT:C93208 is a 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12561,6 +12919,7 @@ This treatment is cerebrospinal fluid diversion (NCIT:C93208). NCIT:C93208 is a 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12582,6 +12941,7 @@ This treatment is cerebrospinal fluid diversion (NCIT:C93208). NCIT:C93208 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12643,6 +13003,7 @@ This treatment is cerebrospinal fluid diversion (NCIT:C93208). NCIT:C93208 is a 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12664,6 +13025,7 @@ This treatment is cerebrospinal fluid diversion (NCIT:C93208). NCIT:C93208 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12718,6 +13080,7 @@ This treatment is cerebrospinal fluid diversion (NCIT:C93208). NCIT:C93208 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12801,6 +13164,7 @@ This treatment is cerebrospinal fluid diversion (NCIT:C93208). NCIT:C93208 is a 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12860,6 +13224,7 @@ This treatment is cerebrospinal fluid diversion (NCIT:C93208). NCIT:C93208 is a 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12915,6 +13280,7 @@ This treatment is cerebrospinal fluid diversion (NCIT:C93208). NCIT:C93208 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13202,6 +13568,7 @@ This clinical trial targets Hydrocephalus (HP:0000238). HP:0000238 is a phenotyp
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13294,6 +13661,7 @@ This clinical trial targets Myelomeningocele (HP:0002475). HP:0002475 is a pheno
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13366,6 +13734,7 @@ This clinical trial targets Ventriculomegaly (HP:0002119). HP:0002119 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13511,6 +13880,7 @@ This clinical trial targets Ventriculomegaly (HP:0002119). HP:0002119 is a pheno
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -13550,6 +13920,7 @@ This clinical trial targets Ventriculomegaly (HP:0002119). HP:0002119 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13689,6 +14060,7 @@ This clinical trial targets Ventriculomegaly (HP:0002119). HP:0002119 is a pheno
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -13728,6 +14100,7 @@ This clinical trial targets Ventriculomegaly (HP:0002119). HP:0002119 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14029,7 +14402,14 @@ has_subtypes:
     its outflow tracts — rather than at the aqueduct, and a single shunt
     controlling both ventricle and cyst is generally effective. Outcome is
     governed more by the associated malformations and the degree of vermian
-    involvement than by the hydrocephalus itself.
+    involvement than by the hydrocephalus itself. This subtype deliberately
+    carries only the CSF-diversion behaviour: the malformation itself, its
+    ZIC1/ZIC4 and FOXC1 developmental mechanism, and the without-hydrocephalus
+    form are curated as kb/disorders/Dandy-Walker_Syndrome.yaml
+    (MONDO:0009072), which holds MONDO:0017110 as a subtype for the same reason
+    this entry does. The two entries cut one concept along different axes - by
+    hydrocephalus aetiology here, by malformation there - and neither should
+    grow a copy of the other&#39;s content.
   evidence:
   - reference: PMID:21928031
     reference_title: &#34;Hydrocephalus in Dandy-Walker malformation.&#34;
@@ -16923,6 +17303,31 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Congenital Hydrocephalus (MONDO:0016349)</strong> · 2026-08-20T14:47:07Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Congenital_Hydrocephalus/2026-08-20T144707Z-claude-code-1cfbb4.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo curation of congenital hydrocephalus (MONDO:0016349) for issue #8958 (CURATE_ROOT_WITH_SUBTYPES).
+
+Structure: eight has_subtypes covering the axis named in the issue - HSAS (L1CAM, MONDO:0010611), HYC1 (CCDC88C, MONDO:0009360), HYC2 (MPDZ, MONDO:0014085), HYC3 (WDR81, MONDO:0054794), Chiari II-associated (myelomeningocele), Dandy-Walker-associated (MONDO:0017110), post-haemorrhagic and post-infectious. Twelve pathophysiology nodes converge on a shared central effector node (Progressive Ventricular Dilatation and Raised Intracranial Pressure).
+
+Two competing mechanistic_hypotheses are curated rather than blended: csf_dynamics_model (CANONICAL, the International Hydrocephalus Working Group definition) and neural_stem_cell_dysgenesis_model (EMERGING, Furey 2018 / Jin 2020). They predict different things about what CSF diversion can achieve, so causal edges opt into one group or the other and an OPEN_QUESTION discussion records the unresolved case-assignment problem.
+
+Module conformance is declared at three nodes: ciliopathy_dysfunction#Planar Cell Polarity and Non-Canonical Wnt Disruption, ciliopathy_dysfunction#Motile Cilia Beat Dysfunction, and glymphatic_dysfunction#Impaired Perivascular CSF-ISF Exchange and Solute Clearance. Both cilia links are bounded by a HUMAN_MODEL_MISMATCH discussion anchored on PMID:36341771 (human motile ciliopathies infrequently cause hydrocephalus; human ventriculomegaly begins before ependymal cilia mature). The glymphatic link is bounded by a KNOWLEDGE_GAP discussion quoting the source&#39;s own statement that whether perivascular/lymphatic efflux disturbance participates in human hydrocephalus is not yet known; the link asserts the anatomical route, not settled causal mechanism, and inherits the module&#39;s unresolved convective-versus-diffusive controversy.
+
+Deep research: falcon (research/Congenital_Hydrocephalus-deep-research-falcon.md; 11/11 references resolved, confabulation_rate 0.0, no unresolved or off-topic references). just preflight-dr returned SKIP because MONDO records no causal gene (RO:0004003) for this umbrella term, so the manual CLAUDE.md section 2b fallback was run: runoak -i sqlite:obo:mondo info MONDO:0016349 -O obo confirmed the definition, OMIMPS:236600, Orphanet:2185 and NCIT:C98876 with no rival eponym or synonym pointing elsewhere, and the report&#39;s top gene mentions (L1CAM=16, SMARCC1=12, MPDZ=9, CCDC88C=9, TRIM71=9) match the canonical congenital hydrocephalus gene set. No NEC detected. The falcon report cited DOIs rather than PMIDs and was used as leads only; every evidence item in the entry was independently anchored on a PMID fetched with just fetch-reference and read against the cached text.
+
+Curation discipline notes: one initially drafted evidence item quoted the CRB2 paper&#39;s title and was replaced with two abstract sentences stating findings. A PARTIAL evidence item was deliberately retained on the planar-polarity node recording that apicobasal polarity and junctional molecules were NORMAL in the CRB2 fetal cases, so the node is not read as asserting generalized loss of ependymal polarity. WDR81 carries no evidence block (CLAUDE.md SOP option C) because no primary gene-discovery snippet was verified.
+
+Validation run in this session: just validate (schema + terms + references) passed; just count-verified-snippets reports 98/98 verified against cached references; just validate-terms passed; just check-duplicate-keys passed; scripts/check_snippet_length.py --against-ref origin/main, scripts/check_folded_hyphens.py and scripts/check_title_snippets.py all passed; just validate-disorders passed over the changed file.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -17598,7 +18003,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Congenital Hydrocephalus", "mondoId": "MONDO:0016349", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Congenital_Hydrocephalus", "yamlRevision": "21298971199d"};
+        const OS_CONFIG = {"diseaseName": "Congenital Hydrocephalus", "mondoId": "MONDO:0016349", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Congenital_Hydrocephalus", "yamlRevision": "25264fd42843"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

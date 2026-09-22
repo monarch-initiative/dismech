@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4223,6 +4295,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-desmosomal-disruption" data-dismech-node="Desmosomal Disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">Desmosomal Disruption</div>
 
+
                 <div class="item-desc">Loss-of-function mutations in PKP2 destabilize the cardiac desmosome, the principal cell-cell adhesion structure at cardiomyocyte intercalated discs. Plakophilin-2 normally links desmosomal cadherins to the intermediate filament cytoskeleton. Loss of PKP2 causes failure of mechanical coupling between cardiomyocytes, particularly under conditions of hemodynamic stress.</div>
 
 
@@ -4457,6 +4530,7 @@ This pathophysiological event occurs in heart right ventricle (UBERON:0002080). 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4479,6 +4553,7 @@ This pathophysiological event occurs in heart right ventricle (UBERON:0002080). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-wnt-beta-catenin-signaling-suppression" data-dismech-node="Wnt/Beta-Catenin Signaling Suppression" data-dismech-type="pathophysiology">
                 <div class="item-name">Wnt/Beta-Catenin Signaling Suppression</div>
+
 
                 <div class="item-desc">Desmosomal disruption causes nuclear translocation of plakoglobin, which competitively inhibits beta-catenin-mediated canonical Wnt signaling through Tcf/Lef1 transcription factors. Suppression of Wnt signaling upregulates adipogenic and fibrogenic gene expression programs, driving the characteristic fibrofatty replacement of myocardium.</div>
 
@@ -4604,6 +4679,7 @@ This pathophysiological event involves increased fat cell differentiation (GO:00
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4626,6 +4702,7 @@ This pathophysiological event involves increased fat cell differentiation (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gap-junction-remodeling" data-dismech-node="Gap Junction Remodeling" data-dismech-type="pathophysiology">
                 <div class="item-name">Gap Junction Remodeling</div>
+
 
                 <div class="item-desc">Loss of PKP2 leads to secondary reduction in connexin43 (Cx43) expression and abnormal localization at intercalated discs. Gap junction loss impairs electrical coupling between cardiomyocytes, creating the arrhythmogenic substrate that precedes structural disease.</div>
 
@@ -4767,6 +4844,7 @@ This pathophysiological event involves decreased gap junction assembly (GO:00162
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4789,6 +4867,7 @@ This pathophysiological event involves decreased gap junction assembly (GO:00162
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fibrofatty-replacement" data-dismech-node="Fibrofatty Replacement" data-dismech-type="pathophysiology">
                 <div class="item-name">Fibrofatty Replacement</div>
+
 
                 <div class="item-desc">Progressive replacement of right ventricular myocardium with fibroadipocytic tissue is the pathological hallmark of PKP2-related ARVC. This results from cardiomyocyte death due to mechanical uncoupling, combined with Wnt-suppression-driven adipogenic differentiation of cardiac progenitor cells. The right ventricle is preferentially affected due to its thinner wall and greater mechanical stress.</div>
 
@@ -4960,6 +5039,7 @@ This pathophysiological event occurs in myocardium (UBERON:0002349). UBERON:0002
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4982,6 +5062,7 @@ This pathophysiological event occurs in myocardium (UBERON:0002349). UBERON:0002
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ventricular-arrhythmias" data-dismech-node="Ventricular Arrhythmias" data-dismech-type="pathophysiology">
                 <div class="item-name">Ventricular Arrhythmias</div>
+
 
                 <div class="item-desc">Ventricular tachycardia and ventricular fibrillation arise from the combined effects of gap junction remodeling (electrical uncoupling) and fibrofatty replacement creating re-entrant circuits. Arrhythmias may occur in the concealed phase before overt structural disease, driven by electrical remodeling alone.</div>
 
@@ -5065,6 +5146,7 @@ This pathophysiological event occurs in myocardium (UBERON:0002349). UBERON:0002
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5087,6 +5169,7 @@ This pathophysiological event occurs in myocardium (UBERON:0002349). UBERON:0002
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-right-ventricular-dysfunction" data-dismech-node="Right Ventricular Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Right Ventricular Dysfunction</div>
+
 
                 <div class="item-desc">Progressive fibrofatty replacement of the right ventricular wall leads to right ventricular dilatation, wall motion abnormalities, and eventual right heart failure. Some patients also develop left ventricular involvement, though PKP2 mutation carriers are less likely to develop left ventricular damage than non-PKP2 ARVC.</div>
 
@@ -5177,6 +5260,7 @@ This pathophysiological event occurs in heart right ventricle (UBERON:0002080). 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5199,6 +5283,7 @@ This pathophysiological event occurs in heart right ventricle (UBERON:0002080). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sudden-cardiac-death" data-dismech-node="Sudden Cardiac Death" data-dismech-type="pathophysiology">
                 <div class="item-name">Sudden Cardiac Death</div>
+
 
                 <div class="item-desc">Sudden cardiac death from ventricular fibrillation is the most feared complication, particularly affecting young athletes. Exercise increases right ventricular wall stress and accelerates disease progression, explaining the strong association between vigorous exercise and sudden death in ARVC.</div>
 
@@ -5234,6 +5319,7 @@ This pathophysiological event occurs in heart right ventricle (UBERON:0002080). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5299,34 +5385,18 @@ This pathophysiological event occurs in heart right ventricle (UBERON:0002080). 
             </div>
 
 
-            <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(9)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(2)</span></button>
-
-                <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
-            </div>
+            <div class="item-box phenotype-box anchor-target" id="phenotype-ventricular-tachycardia" data-dismech-node="Ventricular Tachycardia" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Ventricular Tachycardia
 
 
-            <details class="phenotype-category-group" id="pheno-cat-1">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Cardiovascular
-                    <span class="cat-count">9</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-ventricular-tachycardia" data-dismech-node="Ventricular Tachycardia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Ventricular Tachycardia
-
-
+                    <span class="phenotype-category">Cardiovascular</span>
 
 
 
 
                     <span class="phenotype-id">
-
 
 
 
@@ -5338,7 +5408,10 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Ventricular tachycardia (HP:0004756). HP:0004756 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -5358,6 +5431,7 @@ This clinical feature is Ventricular tachycardia (HP:0004756). HP:0004756 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5382,19 +5456,19 @@ This clinical feature is Ventricular tachycardia (HP:0004756). HP:0004756 is a p
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-right-ventricular-dilatation" data-dismech-node="Right Ventricular Dilatation" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Right Ventricular Dilatation
+            <div class="item-box phenotype-box anchor-target" id="phenotype-right-ventricular-dilatation" data-dismech-node="Right Ventricular Dilatation" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Right Ventricular Dilatation
 
 
+                    <span class="phenotype-category">Cardiovascular</span>
 
 
 
 
                     <span class="phenotype-id">
-
 
 
 
@@ -5406,7 +5480,10 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Right ventricular dilatation (HP:0005133). HP:0005133 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -5426,6 +5503,7 @@ This clinical feature is Right ventricular dilatation (HP:0005133). HP:0005133 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5450,21 +5528,19 @@ This clinical feature is Right ventricular dilatation (HP:0005133). HP:0005133 i
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-fibrofatty-replacement-of-rv-myocardium" data-dismech-node="Fibrofatty Replacement of RV Myocardium" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Fibrofatty Replacement of RV Myocardium
+            <div class="item-box phenotype-box anchor-target" id="phenotype-fibrofatty-replacement-of-rv-myocardium" data-dismech-node="Fibrofatty Replacement of RV Myocardium" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Fibrofatty Replacement of RV Myocardium
 
 
+                    <span class="phenotype-category">Cardiovascular</span>
 
 
 
 
                     <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Fibrofatty replacement of right ventricular myocardium</span>
-
 
 
 
@@ -5476,7 +5552,10 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Fibrofatty replacement of right ventricular myocardium (HP:0034364). HP:0034364 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -5496,6 +5575,7 @@ This clinical feature is Fibrofatty replacement of right ventricular myocardium 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5520,19 +5600,19 @@ This clinical feature is Fibrofatty replacement of right ventricular myocardium 
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-sudden-cardiac-death" data-dismech-node="Sudden Cardiac Death" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Sudden Cardiac Death
+            <div class="item-box phenotype-box anchor-target" id="phenotype-sudden-cardiac-death" data-dismech-node="Sudden Cardiac Death" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Sudden Cardiac Death
 
 
+                    <span class="phenotype-category">Cardiovascular</span>
 
 
 
 
                     <span class="phenotype-id">
-
 
 
 
@@ -5544,7 +5624,10 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Sudden cardiac death (HP:0001645). HP:0001645 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -5564,6 +5647,7 @@ This clinical feature is Sudden cardiac death (HP:0001645). HP:0001645 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5588,19 +5672,19 @@ This clinical feature is Sudden cardiac death (HP:0001645). HP:0001645 is a phen
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-t-wave-inversion" data-dismech-node="T-wave Inversion" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        T-wave Inversion
+            <div class="item-box phenotype-box anchor-target" id="phenotype-t-wave-inversion" data-dismech-node="T-wave Inversion" data-dismech-type="phenotype">
+                <div class="item-name">
+                    T-wave Inversion
 
 
+                    <span class="phenotype-category">Cardiovascular</span>
 
 
 
 
                     <span class="phenotype-id">
-
 
 
 
@@ -5612,7 +5696,10 @@ Relation: this clinical feature is this phenotype
 This clinical feature is T-wave inversion (HP:0010872). HP:0010872 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -5632,6 +5719,7 @@ This clinical feature is T-wave inversion (HP:0010872). HP:0010872 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5656,13 +5744,14 @@ This clinical feature is T-wave inversion (HP:0010872). HP:0010872 is a phenotyp
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-syncope" data-dismech-node="Syncope" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Syncope
+            <div class="item-box phenotype-box anchor-target" id="phenotype-epsilon-wave" data-dismech-node="Epsilon Wave" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Epsilon Wave
 
 
+                    <span class="phenotype-category">Cardiovascular</span>
 
 
 
@@ -5671,297 +5760,18 @@ This clinical feature is T-wave inversion (HP:0010872). HP:0010872 is a phenotyp
 
 
 
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001279" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001279</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0034304" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0034304</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Syncope (HP:0001279). HP:0001279 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:18662195" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18662195" target="_blank">PMID:18662195</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Two patients presented with syncope, and two with the sudden death of a young adult sibling, which were found at autopsy to have ARVC."</div>
-
-
-                <div class="evidence-explanation">Syncope was documented among patients with PKP-2 mutation-positive ARVC.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-palpitations" data-dismech-node="Palpitations" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Palpitations
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001962" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001962</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Palpitations (HP:0001962). HP:0001962 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:24817548" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24817548" target="_blank">PMID:24817548</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Patients with AC typically present between the second and the fourth decade of life with palpitations, lightheadedness, or syncope due to ventricular ectopy or (monomorphic) ventricular tachycardia (VT) with left bundle branch block (LBBB) morphology"</div>
-
-
-                <div class="evidence-explanation">The broader ARVC/AC literature supports palpitations as a presenting symptom caused by ventricular ectopy or tachycardia; PKP2 is a major desmosomal cause of ARVC.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-congestive-heart-failure" data-dismech-node="Congestive Heart Failure" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Congestive Heart Failure
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001635</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:34191271" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34191271" target="_blank">PMID:34191271</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Patients carrying a PKP2 mutation were younger at diagnosis (p = 0.003), more often had negative T waves in V1-V3 (p = 0.01), had higher left ventricular ejection fraction (p = 0.04), and were less likely to present symptoms of heart failure (p = 0.01)"</div>
-
-
-                <div class="evidence-explanation">PKP2 carriers have better preserved LV function and lower heart failure rates.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-right-ventricular-cardiomyopathy" data-dismech-node="Right Ventricular Cardiomyopathy" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Right Ventricular Cardiomyopathy
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011663" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0011663</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Right ventricular cardiomyopathy (HP:0011663). HP:0011663 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:15489853" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15489853" target="_blank">PMID:15489853</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Arrhythmogenic right ventricular cardiomyopathy (ARVC) is associated with fibrofatty replacement of cardiac myocytes, ventricular tachyarrhythmias and sudden cardiac death."</div>
-
-
-                <div class="evidence-explanation">This establishes the right-ventricular cardiomyopathy phenotype for PKP2-related ARVC.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-epsilon-wave" data-dismech-node="Epsilon Wave" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Epsilon Wave
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0034304" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0034304</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
 This clinical feature is Epsilon wave (HP:0034304). HP:0034304 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -5981,6 +5791,7 @@ This clinical feature is Epsilon wave (HP:0034304). HP:0034304 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6005,13 +5816,14 @@ This clinical feature is Epsilon wave (HP:0034304). HP:0034304 is a phenotype fr
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-premature-ventricular-contraction" data-dismech-node="Premature Ventricular Contraction" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Premature Ventricular Contraction
+            <div class="item-box phenotype-box anchor-target" id="phenotype-premature-ventricular-contraction" data-dismech-node="Premature Ventricular Contraction" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Premature Ventricular Contraction
 
 
+                    <span class="phenotype-category">Cardiovascular</span>
 
 
 
@@ -6020,16 +5832,18 @@ This clinical feature is Epsilon wave (HP:0034304). HP:0034304 is a phenotype fr
 
 
 
+    <a href="http://purl.obolibrary.org/obo/HP_0006682" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0006682</a>
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006682" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0006682</a>
 
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Premature ventricular contraction (HP:0006682). HP:0006682 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -6049,6 +5863,7 @@ This clinical feature is Premature ventricular contraction (HP:0006682). HP:0006
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6073,34 +5888,296 @@ This clinical feature is Premature ventricular contraction (HP:0006682). HP:0006
 
 
 
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-syncope" data-dismech-node="Syncope" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Syncope
+
+
+                    <span class="phenotype-category">Cardiovascular</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001279" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001279</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Syncope (HP:0001279). HP:0001279 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
                 </div>
 
-            </details>
 
-            <script>
-            (function() {
-                // TOC pill click: expand target group and scroll to it
-                document.querySelectorAll('.pheno-toc-pill').forEach(function(pill) {
-                    pill.addEventListener('click', function() {
-                        var target = document.getElementById(pill.dataset.target);
-                        if (target) {
-                            target.open = true;
-                            target.scrollIntoView({behavior: 'smooth', block: 'start'});
-                        }
-                    });
-                });
-                // Expand/collapse all toggle
-                var btn = document.getElementById('phenoToggleAll');
-                if (btn) {
-                    btn.addEventListener('click', function() {
-                        var groups = document.querySelectorAll('.phenotype-category-group');
-                        var anyOpen = Array.from(groups).some(function(g) { return g.open; });
-                        groups.forEach(function(g) { g.open = !anyOpen; });
-                        btn.textContent = anyOpen ? 'Expand all' : 'Collapse all';
-                    });
-                }
-            })();
-            </script>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18662195" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18662195" target="_blank">PMID:18662195</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Two patients presented with syncope, and two with the sudden death of a young adult sibling, which were found at autopsy to have ARVC."</div>
+
+
+                <div class="evidence-explanation">Syncope was documented among patients with PKP-2 mutation-positive ARVC.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-palpitations" data-dismech-node="Palpitations" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Palpitations
+
+
+                    <span class="phenotype-category">Cardiovascular</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001962" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001962</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Palpitations (HP:0001962). HP:0001962 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24817548" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24817548" target="_blank">PMID:24817548</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Patients with AC typically present between the second and the fourth decade of life with palpitations, lightheadedness, or syncope due to ventricular ectopy or (monomorphic) ventricular tachycardia (VT) with left bundle branch block (LBBB) morphology"</div>
+
+
+                <div class="evidence-explanation">The broader ARVC/AC literature supports palpitations as a presenting symptom caused by ventricular ectopy or tachycardia; PKP2 is a major desmosomal cause of ARVC.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-congestive-heart-failure" data-dismech-node="Congestive Heart Failure" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Congestive Heart Failure
+
+
+                    <span class="phenotype-category">Cardiovascular</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001635</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34191271" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34191271" target="_blank">PMID:34191271</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Patients carrying a PKP2 mutation were younger at diagnosis (p = 0.003), more often had negative T waves in V1-V3 (p = 0.01), had higher left ventricular ejection fraction (p = 0.04), and were less likely to present symptoms of heart failure (p = 0.01)"</div>
+
+
+                <div class="evidence-explanation">PKP2 carriers have better preserved LV function and lower heart failure rates.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-right-ventricular-cardiomyopathy" data-dismech-node="Right Ventricular Cardiomyopathy" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Right Ventricular Cardiomyopathy
+
+
+                    <span class="phenotype-category">Cardiovascular</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011663" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0011663</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Right ventricular cardiomyopathy (HP:0011663). HP:0011663 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15489853" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15489853" target="_blank">PMID:15489853</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Arrhythmogenic right ventricular cardiomyopathy (ARVC) is associated with fibrofatty replacement of cardiac myocytes, ventricular tachyarrhythmias and sudden cardiac death."</div>
+
+
+                <div class="evidence-explanation">This establishes the right-ventricular cardiomyopathy phenotype for PKP2-related ARVC.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
 
         </div>
 
@@ -6145,6 +6222,9 @@ This disease-associated gene is PKP2 (hgnc:9024). hgnc:9024 is a gene from the H
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
@@ -6167,6 +6247,7 @@ This disease-associated gene is PKP2 (hgnc:9024). hgnc:9024 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6194,6 +6275,7 @@ This disease-associated gene is PKP2 (hgnc:9024). hgnc:9024 is a gene from the H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6215,6 +6297,7 @@ This disease-associated gene is PKP2 (hgnc:9024). hgnc:9024 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6300,6 +6383,20 @@ This treatment is beta-blocker pharmacotherapy, annotated with Pharmacotherapy (
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Beta-blockers (sotalol, metoprolol) are first-line antiarrhythmic therapy to suppress ventricular arrhythmias and reduce adrenergic stimulation.</div>
 
 
@@ -6346,6 +6443,31 @@ This treatment is implantable cardioverter-defibrillator placement, annotated wi
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -6402,6 +6524,20 @@ This treatment is avoid excessive exercise, annotated with Lifestyle Therapy (NC
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Avoidance of competitive and high-intensity endurance exercise is recommended as vigorous exercise accelerates disease progression by increasing right ventricular wall stress and promoting desmosomal disruption.</div>
 
 
@@ -6448,6 +6584,20 @@ This treatment is antiarrhythmic pharmacotherapy, annotated with Pharmacotherapy
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -6504,6 +6654,31 @@ This treatment is heart transplantation, annotated with Organ Transplantation (N
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Cardiac transplantation is indicated for end-stage biventricular failure refractory to medical therapy. Combined endpoint of death or heart transplant was less frequent in PKP2 carriers than non-PKP2 ARVC patients.</div>
 
 
@@ -6525,6 +6700,7 @@ This treatment is heart transplantation, annotated with Organ Transplantation (N
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7466,6 +7642,8 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

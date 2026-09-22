@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4215,6 +4287,7 @@ A diagnostic caution that follows from the antigen being known: SPD-type IgA pem
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4236,6 +4309,7 @@ A diagnostic caution that follows from the antigen being known: SPD-type IgA pem
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4301,6 +4375,7 @@ A diagnostic caution that follows from the antigen being known: SPD-type IgA pem
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4322,6 +4397,7 @@ A diagnostic caution that follows from the antigen being known: SPD-type IgA pem
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4635,6 +4711,13 @@ This is why the adhesion node is graded PROVISIONAL while the neutrophil node is
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-iga-autoantibody-production-against-keratinocyte-cell-surface" data-dismech-node="IgA Autoantibody Production Against Keratinocyte Cell Surface" data-dismech-type="pathophysiology">
                 <div class="item-name">IgA Autoantibody Production Against Keratinocyte Cell Surface</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The initiating event, and the one that defines the disease: production of IgA autoantibodies binding the keratinocyte cell surface. The isotype is the diagnostic criterion - IgA pemphigus is defined by tissue-bound and circulating IgA antibodies where the other three pemphigus variants are defined by IgG.
 What triggers the autoantibody response is not known. The association with IgA monoclonal gammopathy (9.5 percent of reported patients) and with IgA multiple myeloma is the strongest clue available, and in the myeloma cases the antibody titre tracks the plasma-cell clone: treating the myeloma with daratumumab, lenalidomide and dexamethasone cleared both the skin lesions and the anti-desmoglein and anti-desmocollin IgA ELISAs.</div>
 
@@ -4758,6 +4841,7 @@ This pathophysiological event involves dysregulated immunoglobulin production (G
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4779,6 +4863,7 @@ This pathophysiological event involves dysregulated immunoglobulin production (G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4804,6 +4889,13 @@ This pathophysiological event involves dysregulated immunoglobulin production (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-iga-deposition-in-the-epidermal-intercellular-space" data-dismech-node="IgA Deposition in the Epidermal Intercellular Space" data-dismech-type="pathophysiology">
                 <div class="item-name">IgA Deposition in the Epidermal Intercellular Space</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Bound IgA in the intercellular space between keratinocytes, demonstrable by direct immunofluorescence in essentially every patient - 97 percent of the systematic review&#39;s cohort, with the remaining 3 percent diagnosed on indirect immunofluorescence or ELISA instead.
 The level at which it deposits is what separates the subtypes: the upper epidermis in the SPD type, the entire epidermis in the IEN type. Note the asymmetry with circulating antibody - only 66.7 percent of patients had detectable circulating IgA intercellular antibodies, so a negative serum does not exclude the disease and biopsy with direct immunofluorescence is the test that matters.</div>
@@ -4917,6 +5009,7 @@ This pathophysiological event occurs in epidermis, annotated with skin epidermis
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4938,6 +5031,7 @@ This pathophysiological event occurs in epidermis, annotated with skin epidermis
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4963,6 +5057,13 @@ This pathophysiological event occurs in epidermis, annotated with skin epidermis
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fcalphari-cross-linking-on-neutrophils" data-dismech-node="FcalphaRI Cross-Linking on Neutrophils" data-dismech-type="pathophysiology">
                 <div class="item-name">FcalphaRI Cross-Linking on Neutrophils</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The step that makes the isotype matter, and the reason this disease is neutrophilic where the IgG pemphigus variants are not. FcalphaRI (CD89) is the IgA Fc receptor, expressed on neutrophils, eosinophils, monocytes and several macrophage subsets. Cross-linking it with IgA immune complexes sets off superoxide production, cytokine release, phagocytosis, degranulation and NET release - and, critically, release of the chemoattractant leukotriene B4, which recruits further neutrophils in a positive feedback loop.
 That loop is useful against IgA-opsonised bacteria, where it self-terminates when the organism is cleared. Against a fixed autoantigen in the epidermis it does not terminate, which is the account this entry curates of why the inflammation is sustained.
@@ -5126,6 +5227,7 @@ This pathophysiological event involves increased IgA receptor activity (GO:00197
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5147,6 +5249,7 @@ This pathophysiological event involves increased IgA receptor activity (GO:00197
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5174,6 +5277,7 @@ This pathophysiological event involves increased IgA receptor activity (GO:00197
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5196,6 +5300,13 @@ This pathophysiological event involves increased IgA receptor activity (GO:00197
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-desmosomal-cell-cell-adhesion" data-dismech-node="Impaired Desmosomal Cell-Cell Adhesion" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Desmosomal Cell-Cell Adhesion</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">In SPD-type disease the antibody&#39;s target is desmocollin 1, a desmosomal cadherin that with the desmogleins holds keratinocytes together, so the expected consequence is loss of intercellular adhesion. That expectation is the standard account of the disease and it is what makes it a pemphigus.
 Graded PROVISIONAL deliberately, because the pathogenicity of anti-desmocollin autoantibodies is not established the way anti-desmoglein pathogenicity is. A 2023 review of the question puts it plainly: beyond a few in vitro and in vivo studies there is currently no clear evidence that anti-Dsc autoantibodies are pathogenic, in contrast to the well-established significance of the anti-Dsg ones. The antigen is identified; the causal step from binding it to blistering is inferred.</div>
@@ -5366,6 +5477,7 @@ This pathophysiological event involves decreased cell adhesion molecule binding 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5387,6 +5499,7 @@ This pathophysiological event involves decreased cell adhesion molecule binding 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5412,6 +5525,13 @@ This pathophysiological event involves decreased cell adhesion molecule binding 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neutrophil-recruitment-into-the-epidermis" data-dismech-node="Neutrophil Recruitment into the Epidermis" data-dismech-type="pathophysiology">
                 <div class="item-name">Neutrophil Recruitment into the Epidermis</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The step that makes this disease pustular rather than bullous, and the one that follows from the isotype. Histology shows extensive neutrophilic infiltration of the epidermis - confined to the upper part in the SPD type, through all layers in the IEN type - with the acantholysis, where present, slight.
 That inversion of emphasis relative to IgG pemphigus is the mechanistic signature: in pemphigus vulgaris the acantholysis is the lesion and neutrophils are incidental, here the neutrophils are the lesion and the acantholysis is a minor finding.</div>
@@ -5563,6 +5683,7 @@ This pathophysiological event occurs in epidermis, annotated with skin epidermis
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5584,6 +5705,7 @@ This pathophysiological event occurs in epidermis, annotated with skin epidermis
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5609,6 +5731,13 @@ This pathophysiological event occurs in epidermis, annotated with skin epidermis
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-intraepidermal-pustule-and-vesicle-formation" data-dismech-node="Intraepidermal Pustule and Vesicle Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Intraepidermal Pustule and Vesicle Formation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The lesion. Neutrophil accumulation with slight acantholysis produces intraepidermal pustules and vesicles, which clinically appear as flaccid vesiculopustules on annular or circinate erythematous plaques, characteristically in the axillae and groin but capable of involving the whole trunk and scalp.</div>
 
@@ -5699,6 +5828,7 @@ This pathophysiological event occurs in axilla (UBERON:0009472). UBERON:0009472 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5744,7 +5874,7 @@ This pathophysiological event occurs in axilla (UBERON:0009472). UBERON:0009472 
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acantholysis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Loss of keratinocyte cohesion. It is present but slight - reviews describe a few acantholytic cells within the pustules - and one case report states outright that acantholysis is not a feature of IgA pemphigus, unlike pemphigus vulgaris.\\nCurated as OCCASIONAL and flagged in a discussion rather than smoothed over, because the sources genuinely disagree about whether it is present at all, and because that disagreement bears directly on whether the desmocollin antibody is doing what the disease name implies.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0100792\"}}, {\"id\": \"Annular and Circinate Plaques\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ring-shaped or arcuate erythematous plaques with vesicles and pustules at the advancing edge, in about two-thirds of patients. Together with the vesiculopustular eruption this is the presentation the systematic review proposes should raise the diagnosis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0025528\"}}, {\"id\": \"Dapsone\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The drug of choice, and mechanistically apt: dapsone\u0027s anti-inflammatory action is on neutrophil function, which is the effector arm of this disease rather than an incidental feature of it. Oral dapsone and corticosteroids were the two commonest treatments across the entire reported literature.\\nIt is not reliably effective. A minority of patients do not clear on it, and recalcitrant disease is well enough recognised to have a second-line list - colchicine, sulfapyridine, acitretin - and reported failures even of those.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"dapsone\"]}}, {\"id\": \"FcalphaRI Cross-Linking on Neutrophils\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The step that makes the isotype matter, and the reason this disease is neutrophilic where the IgG pemphigus variants are not. FcalphaRI (CD89) is the IgA Fc receptor, expressed on neutrophils, eosinophils, monocytes and several macrophage subsets. Cross-linking it with IgA immune complexes sets off superoxide production, cytokine release, phagocytosis, degranulation and NET release - and, critically, release of the chemoattractant leukotriene B4, which recruits further neutrophils in a positive feedback loop.\\nThat loop is useful against IgA-opsonised bacteria, where it self-terminates when the organism is cleared. Against a fixed autoantigen in the epidermis it does not terminate, which is the account this entry curates of why the inflammation is sustained.\\nThe evidence is not disease-specific to IgA pemphigus: it is receptor biology, established in human neutrophils and in a linear IgA bullous disease mouse model, and applied here to a disease that shares the isotype and the neutrophil-rich histology. That is stated rather than glossed, because the node is graded ESTABLISHED on the strength of the receptor work rather than on any IgA pemphigus experiment.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neutrophil\"], \"biological_processes\": [\"Fc receptor mediated stimulatory signaling pathway\"], \"molecular_functions\": [\"IgA receptor activity\"], \"role\": \"central_effector\"}}, {\"id\": \"IgA Autoantibody Production Against Keratinocyte Cell Surface\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating event, and the one that defines the disease: production of IgA autoantibodies binding the keratinocyte cell surface. The isotype is the diagnostic criterion - IgA pemphigus is defined by tissue-bound and circulating IgA antibodies where the other three pemphigus variants are defined by IgG.\\nWhat triggers the autoantibody response is not known. The association with IgA monoclonal gammopathy (9.5 percent of reported patients) and with IgA multiple myeloma is the strongest clue available, and in the myeloma cases the antibody titre tracks the plasma-cell clone: treating the myeloma with daratumumab, lenalidomide and dexamethasone cleared both the skin lesions and the anti-desmoglein and anti-desmocollin IgA ELISAs.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"IgA plasma cell\"], \"biological_processes\": [\"immunoglobulin production\"], \"role\": \"trigger\"}}, {\"id\": \"IgA Deposition in the Epidermal Intercellular Space\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Bound IgA in the intercellular space between keratinocytes, demonstrable by direct immunofluorescence in essentially every patient - 97 percent of the systematic review\u0027s cohort, with the remaining 3 percent diagnosed on indirect immunofluorescence or ELISA instead.\\nThe level at which it deposits is what separates the subtypes: the upper epidermis in the SPD type, the entire epidermis in the IEN type. Note the asymmetry with circulating antibody - only 66.7 percent of patients had detectable circulating IgA intercellular antibodies, so a negative serum does not exclude the disease and biopsy with direct immunofluorescence is the test that matters.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"role\": \"central_effector\", \"locations\": [\"epidermis\"]}}, {\"id\": \"Impaired Desmosomal Cell-Cell Adhesion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In SPD-type disease the antibody\u0027s target is desmocollin 1, a desmosomal cadherin that with the desmogleins holds keratinocytes together, so the expected consequence is loss of intercellular adhesion. That expectation is the standard account of the disease and it is what makes it a pemphigus.\\nGraded PROVISIONAL deliberately, because the pathogenicity of anti-desmocollin autoantibodies is not established the way anti-desmoglein pathogenicity is. A 2023 review of the question puts it plainly: beyond a few in vitro and in vivo studies there is currently no clear evidence that anti-Dsc autoantibodies are pathogenic, in contrast to the well-established significance of the anti-Dsg ones. The antigen is identified; the causal step from binding it to blistering is inferred.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"calcium-dependent cell-cell adhesion\"], \"molecular_functions\": [\"cell adhesion molecule binding\"], \"role\": \"effector\"}}, {\"id\": \"Intraepidermal Pustule and Vesicle Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The lesion. Neutrophil accumulation with slight acantholysis produces intraepidermal pustules and vesicles, which clinically appear as flaccid vesiculopustules on annular or circinate erythematous plaques, characteristically in the axillae and groin but capable of involving the whole trunk and scalp.\", \"meta\": {\"evidence_count\": 1, \"role\": \"consequence\", \"locations\": [\"axilla\"]}}, {\"id\": \"Neutrophil Recruitment into the Epidermis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The step that makes this disease pustular rather than bullous, and the one that follows from the isotype. Histology shows extensive neutrophilic infiltration of the epidermis - confined to the upper part in the SPD type, through all layers in the IEN type - with the acantholysis, where present, slight.\\nThat inversion of emphasis relative to IgG pemphigus is the mechanistic signature: in pemphigus vulgaris the acantholysis is the lesion and neutrophils are incidental, here the neutrophils are the lesion and the acantholysis is a minor finding.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neutrophil\"], \"biological_processes\": [\"neutrophil chemotaxis\"], \"role\": \"central_effector\", \"locations\": [\"epidermis\"]}}, {\"id\": \"Predominantly Epidermal Neutrophilic Infiltrate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The defining histological finding: neutrophils within the epidermis, upper layers in SPD type and mid or full thickness in IEN type.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0031235\"}}, {\"id\": \"Pruritus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Itch, reported in about two-thirds of patients and prominent enough that the eruption is routinely described as pruritic. It is a substantive part of the disease burden rather than an incidental symptom, since the skin lesions themselves are rarely life-threatening.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000989\"}}, {\"id\": \"Pustules\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sterile pustules, present in three-quarters of reported patients. Their prominence, relative to the frank bullae of IgG pemphigus, is the clinical expression of the neutrophil-dominant mechanism.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0200039\"}}, {\"id\": \"Systemic Corticosteroids\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The other commonly used first-line agent, usually alongside dapsone. The reported evidence is practice rather than trial: no controlled comparison of any treatment in this disease exists.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"TNF-alpha Inhibition\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Reported once, for dapsone-recalcitrant disease: a 50-year-old man who had responded poorly to dapsone cleared on adalimumab. A single case, so it is curated as an option of last resort rather than an established second line - but it is mechanistically coherent, since TNF-alpha blockade suppresses the neutrophilic inflammation that drives the lesions.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"adalimumab\"]}}, {\"id\": \"Treatment of an Underlying IgA Plasma Cell Dyscrasia\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Where an IgA myeloma is present, treating it treats the skin. In the reported case daratumumab, lenalidomide and dexamethasone cleared both the lesions and the anti-desmoglein and anti-desmocollin IgA ELISAs.\\nThis is the only reported treatment that acts on the autoantibody\u0027s source rather than on the downstream inflammation, which is why it is curated separately from the immunosuppressants. It applies to a small minority.\\ntherapeutic_modality is OTHER rather than MONOCLONAL_ANTIBODY: daratumumab is one of three components, and the regimen as given also contains an immunomodulatory small molecule and a corticosteroid. Tagging the whole regimen by its antibody component would misclassify it. All three agents are bound individually instead.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"daratumumab\", \"lenalidomide\", \"dexamethasone\"]}}, {\"id\": \"Vesicles\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Flaccid vesicles, the commonest reported lesion at 80.8 percent of patients in the systematic review.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0200037\"}}], \"edges\": [{\"source\": \"IgA Autoantibody Production Against Keratinocyte Cell Surface\", \"target\": \"IgA Deposition in the Epidermal Intercellular Space\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"IgA Deposition in the Epidermal Intercellular Space\", \"target\": \"Impaired Desmosomal Cell-Cell Adhesion\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"IgA Deposition in the Epidermal Intercellular Space\", \"target\": \"FcalphaRI Cross-Linking on Neutrophils\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"FcalphaRI Cross-Linking on Neutrophils\", \"target\": \"Neutrophil Recruitment into the Epidermis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Desmosomal Cell-Cell Adhesion\", \"target\": \"Intraepidermal Pustule and Vesicle Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Desmosomal Cell-Cell Adhesion\", \"target\": \"Acantholysis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The edge that carries this entry\u0027s central uncertainty into the graph. If anti-desmocollin IgA is pathogenic, this is how acantholysis arises; the node it leaves is graded PROVISIONAL for exactly that reason, and the phenotype it reaches is curated OCCASIONAL with a source that denies it occurs at all.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neutrophil Recruitment into the Epidermis\", \"target\": \"Intraepidermal Pustule and Vesicle Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neutrophil Recruitment into the Epidermis\", \"target\": \"Predominantly Epidermal Neutrophilic Infiltrate\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intraepidermal Pustule and Vesicle Formation\", \"target\": \"Vesicles\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intraepidermal Pustule and Vesicle Formation\", \"target\": \"Pustules\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intraepidermal Pustule and Vesicle Formation\", \"target\": \"Annular and Circinate Plaques\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intraepidermal Pustule and Vesicle Formation\", \"target\": \"Pruritus\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dapsone\", \"target\": \"Neutrophil Recruitment into the Epidermis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Systemic Corticosteroids\", \"target\": \"Neutrophil Recruitment into the Epidermis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"TNF-alpha Inhibition\", \"target\": \"Neutrophil Recruitment into the Epidermis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Treatment of an Underlying IgA Plasma Cell Dyscrasia\", \"target\": \"IgA Autoantibody Production Against Keratinocyte Cell Surface\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acantholysis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Loss of keratinocyte cohesion. It is present but slight - reviews describe a few acantholytic cells within the pustules - and one case report states outright that acantholysis is not a feature of IgA pemphigus, unlike pemphigus vulgaris.\\nCurated as OCCASIONAL and flagged in a discussion rather than smoothed over, because the sources genuinely disagree about whether it is present at all, and because that disagreement bears directly on whether the desmocollin antibody is doing what the disease name implies.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0100792\"}}, {\"id\": \"Annular and Circinate Plaques\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ring-shaped or arcuate erythematous plaques with vesicles and pustules at the advancing edge, in about two-thirds of patients. Together with the vesiculopustular eruption this is the presentation the systematic review proposes should raise the diagnosis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0025528\"}}, {\"id\": \"Dapsone\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The drug of choice, and mechanistically apt: dapsone\u0027s anti-inflammatory action is on neutrophil function, which is the effector arm of this disease rather than an incidental feature of it. Oral dapsone and corticosteroids were the two commonest treatments across the entire reported literature.\\nIt is not reliably effective. A minority of patients do not clear on it, and recalcitrant disease is well enough recognised to have a second-line list - colchicine, sulfapyridine, acitretin - and reported failures even of those.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"dapsone\"]}}, {\"id\": \"FcalphaRI Cross-Linking on Neutrophils\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The step that makes the isotype matter, and the reason this disease is neutrophilic where the IgG pemphigus variants are not. FcalphaRI (CD89) is the IgA Fc receptor, expressed on neutrophils, eosinophils, monocytes and several macrophage subsets. Cross-linking it with IgA immune complexes sets off superoxide production, cytokine release, phagocytosis, degranulation and NET release - and, critically, release of the chemoattractant leukotriene B4, which recruits further neutrophils in a positive feedback loop.\\nThat loop is useful against IgA-opsonised bacteria, where it self-terminates when the organism is cleared. Against a fixed autoantigen in the epidermis it does not terminate, which is the account this entry curates of why the inflammation is sustained.\\nThe evidence is not disease-specific to IgA pemphigus: it is receptor biology, established in human neutrophils and in a linear IgA bullous disease mouse model, and applied here to a disease that shares the isotype and the neutrophil-rich histology. That is stated rather than glossed, because the node is graded ESTABLISHED on the strength of the receptor work rather than on any IgA pemphigus experiment.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neutrophil\"], \"biological_processes\": [\"Fc receptor mediated stimulatory signaling pathway\"], \"molecular_functions\": [\"IgA receptor activity\"], \"role\": \"central_effector\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"IgA Autoantibody Production Against Keratinocyte Cell Surface\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating event, and the one that defines the disease: production of IgA autoantibodies binding the keratinocyte cell surface. The isotype is the diagnostic criterion - IgA pemphigus is defined by tissue-bound and circulating IgA antibodies where the other three pemphigus variants are defined by IgG.\\nWhat triggers the autoantibody response is not known. The association with IgA monoclonal gammopathy (9.5 percent of reported patients) and with IgA multiple myeloma is the strongest clue available, and in the myeloma cases the antibody titre tracks the plasma-cell clone: treating the myeloma with daratumumab, lenalidomide and dexamethasone cleared both the skin lesions and the anti-desmoglein and anti-desmocollin IgA ELISAs.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"IgA plasma cell\"], \"biological_processes\": [\"immunoglobulin production\"], \"role\": \"trigger\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"IgA Deposition in the Epidermal Intercellular Space\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Bound IgA in the intercellular space between keratinocytes, demonstrable by direct immunofluorescence in essentially every patient - 97 percent of the systematic review\u0027s cohort, with the remaining 3 percent diagnosed on indirect immunofluorescence or ELISA instead.\\nThe level at which it deposits is what separates the subtypes: the upper epidermis in the SPD type, the entire epidermis in the IEN type. Note the asymmetry with circulating antibody - only 66.7 percent of patients had detectable circulating IgA intercellular antibodies, so a negative serum does not exclude the disease and biopsy with direct immunofluorescence is the test that matters.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"role\": \"central_effector\", \"locations\": [\"epidermis\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Impaired Desmosomal Cell-Cell Adhesion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In SPD-type disease the antibody\u0027s target is desmocollin 1, a desmosomal cadherin that with the desmogleins holds keratinocytes together, so the expected consequence is loss of intercellular adhesion. That expectation is the standard account of the disease and it is what makes it a pemphigus.\\nGraded PROVISIONAL deliberately, because the pathogenicity of anti-desmocollin autoantibodies is not established the way anti-desmoglein pathogenicity is. A 2023 review of the question puts it plainly: beyond a few in vitro and in vivo studies there is currently no clear evidence that anti-Dsc autoantibodies are pathogenic, in contrast to the well-established significance of the anti-Dsg ones. The antigen is identified; the causal step from binding it to blistering is inferred.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"calcium-dependent cell-cell adhesion\"], \"molecular_functions\": [\"cell adhesion molecule binding\"], \"role\": \"effector\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Intraepidermal Pustule and Vesicle Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The lesion. Neutrophil accumulation with slight acantholysis produces intraepidermal pustules and vesicles, which clinically appear as flaccid vesiculopustules on annular or circinate erythematous plaques, characteristically in the axillae and groin but capable of involving the whole trunk and scalp.\", \"meta\": {\"evidence_count\": 1, \"role\": \"consequence\", \"locations\": [\"axilla\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Neutrophil Recruitment into the Epidermis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The step that makes this disease pustular rather than bullous, and the one that follows from the isotype. Histology shows extensive neutrophilic infiltration of the epidermis - confined to the upper part in the SPD type, through all layers in the IEN type - with the acantholysis, where present, slight.\\nThat inversion of emphasis relative to IgG pemphigus is the mechanistic signature: in pemphigus vulgaris the acantholysis is the lesion and neutrophils are incidental, here the neutrophils are the lesion and the acantholysis is a minor finding.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neutrophil\"], \"biological_processes\": [\"neutrophil chemotaxis\"], \"role\": \"central_effector\", \"locations\": [\"epidermis\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Predominantly Epidermal Neutrophilic Infiltrate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The defining histological finding: neutrophils within the epidermis, upper layers in SPD type and mid or full thickness in IEN type.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0031235\"}}, {\"id\": \"Pruritus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Itch, reported in about two-thirds of patients and prominent enough that the eruption is routinely described as pruritic. It is a substantive part of the disease burden rather than an incidental symptom, since the skin lesions themselves are rarely life-threatening.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000989\"}}, {\"id\": \"Pustules\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sterile pustules, present in three-quarters of reported patients. Their prominence, relative to the frank bullae of IgG pemphigus, is the clinical expression of the neutrophil-dominant mechanism.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0200039\"}}, {\"id\": \"Systemic Corticosteroids\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The other commonly used first-line agent, usually alongside dapsone. The reported evidence is practice rather than trial: no controlled comparison of any treatment in this disease exists.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"TNF-alpha Inhibition\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Reported once, for dapsone-recalcitrant disease: a 50-year-old man who had responded poorly to dapsone cleared on adalimumab. A single case, so it is curated as an option of last resort rather than an established second line - but it is mechanistically coherent, since TNF-alpha blockade suppresses the neutrophilic inflammation that drives the lesions.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"adalimumab\"]}}, {\"id\": \"Treatment of an Underlying IgA Plasma Cell Dyscrasia\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Where an IgA myeloma is present, treating it treats the skin. In the reported case daratumumab, lenalidomide and dexamethasone cleared both the lesions and the anti-desmoglein and anti-desmocollin IgA ELISAs.\\nThis is the only reported treatment that acts on the autoantibody\u0027s source rather than on the downstream inflammation, which is why it is curated separately from the immunosuppressants. It applies to a small minority.\\ntherapeutic_modality is OTHER rather than MONOCLONAL_ANTIBODY: daratumumab is one of three components, and the regimen as given also contains an immunomodulatory small molecule and a corticosteroid. Tagging the whole regimen by its antibody component would misclassify it. All three agents are bound individually instead.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"daratumumab\", \"lenalidomide\", \"dexamethasone\"]}}, {\"id\": \"Vesicles\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Flaccid vesicles, the commonest reported lesion at 80.8 percent of patients in the systematic review.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0200037\"}}], \"edges\": [{\"source\": \"IgA Autoantibody Production Against Keratinocyte Cell Surface\", \"target\": \"IgA Deposition in the Epidermal Intercellular Space\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"IgA Deposition in the Epidermal Intercellular Space\", \"target\": \"Impaired Desmosomal Cell-Cell Adhesion\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"IgA Deposition in the Epidermal Intercellular Space\", \"target\": \"FcalphaRI Cross-Linking on Neutrophils\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"FcalphaRI Cross-Linking on Neutrophils\", \"target\": \"Neutrophil Recruitment into the Epidermis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Desmosomal Cell-Cell Adhesion\", \"target\": \"Intraepidermal Pustule and Vesicle Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Desmosomal Cell-Cell Adhesion\", \"target\": \"Acantholysis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The edge that carries this entry\u0027s central uncertainty into the graph. If anti-desmocollin IgA is pathogenic, this is how acantholysis arises; the node it leaves is graded PROVISIONAL for exactly that reason, and the phenotype it reaches is curated OCCASIONAL with a source that denies it occurs at all.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neutrophil Recruitment into the Epidermis\", \"target\": \"Intraepidermal Pustule and Vesicle Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neutrophil Recruitment into the Epidermis\", \"target\": \"Predominantly Epidermal Neutrophilic Infiltrate\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intraepidermal Pustule and Vesicle Formation\", \"target\": \"Vesicles\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intraepidermal Pustule and Vesicle Formation\", \"target\": \"Pustules\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intraepidermal Pustule and Vesicle Formation\", \"target\": \"Annular and Circinate Plaques\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intraepidermal Pustule and Vesicle Formation\", \"target\": \"Pruritus\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dapsone\", \"target\": \"Neutrophil Recruitment into the Epidermis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Systemic Corticosteroids\", \"target\": \"Neutrophil Recruitment into the Epidermis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"TNF-alpha Inhibition\", \"target\": \"Neutrophil Recruitment into the Epidermis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Treatment of an Underlying IgA Plasma Cell Dyscrasia\", \"target\": \"IgA Autoantibody Production Against Keratinocyte Cell Surface\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5763,11 +5893,13 @@ This pathophysiological event occurs in axilla (UBERON:0009472). UBERON:0009472 
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Immune<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Integument<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Immune<span class="pill-count">(2)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Integument<span class="pill-count">(4)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5776,15 +5908,15 @@ This pathophysiological event occurs in axilla (UBERON:0009472). UBERON:0009472 
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Immune
+                    Blood
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-pustules" data-dismech-node="Pustules" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-iga-monoclonal-gammopathy" data-dismech-node="IgA Monoclonal Gammopathy" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Pustules
+                        IgA Monoclonal Gammopathy
 
-                        <span class="phenotype-freq">FREQUENT</span>
+                        <span class="phenotype-freq">OCCASIONAL</span>
 
 
 
@@ -5793,15 +5925,17 @@ This pathophysiological event occurs in axilla (UBERON:0009472). UBERON:0009472 
 
                     <span class="phenotype-id">
 
+                        <span class="phenotype-term-label">IgA heavy chain paraproteinemia</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0200039" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0200039</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0020194" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0020194</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Pustule (HP:0200039). HP:0200039 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is IgA heavy chain paraproteinemia (HP:0020194). HP:0020194 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5810,9 +5944,12 @@ This clinical feature is Pustule (HP:0200039). HP:0200039 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -5827,14 +5964,40 @@ This clinical feature is Pustule (HP:0200039). HP:0200039 is a phenotype from th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"Most patients presented with vesicles (80.8%), pustules (75.0%), and circinate plaques (63.6%)."</div>
+                <div class="evidence-snippet">"IgA gammopathy and ulcerative colitis were associated with IgA pemphigus in 9.5% and 6.6% patients, respectively."</div>
 
 
-                <div class="evidence-explanation">Pustule frequency in the pooled cohort.</div>
+                <div class="evidence-explanation">The frequency of the paraproteinaemia association in the pooled cohort. The quoted figure is for IgA gammopathy generally, which is what HP:0020194 names; myeloma is the malignant end of that spectrum and is much rarer, at seven reported cases.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35838241" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35838241" target="_blank">PMID:35838241</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Literature review revealed associations between SPD-type and IgA κ chain in IgA pemphigus and MM, and that in most cases the onset or diagnosis of MM was simultaneous or occurred after the diagnosis of IgA pemphigus."</div>
+
+
+                <div class="evidence-explanation">The temporal relationship, which is what makes surveillance after an IgA pemphigus diagnosis worthwhile.</div>
 
 
 
@@ -5855,15 +6018,15 @@ This clinical feature is Pustule (HP:0200039). HP:0200039 is a phenotype from th
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Integument
-                    <span class="cat-count">2</span>
+                    Digestive
+                    <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-vesicles" data-dismech-node="Vesicles" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-ulcerative-colitis" data-dismech-node="Ulcerative Colitis" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Vesicles
+                        Ulcerative Colitis
 
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
+                        <span class="phenotype-freq">OCCASIONAL</span>
 
 
 
@@ -5872,20 +6035,21 @@ This clinical feature is Pustule (HP:0200039). HP:0200039 is a phenotype from th
 
                     <span class="phenotype-id">
 
-                        <span class="phenotype-term-label">Skin vesicle</span>
 
 
 
-
-    <a href="http://purl.obolibrary.org/obo/HP_0200037" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0200037</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100279" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0100279</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Skin vesicle (HP:0200037). HP:0200037 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Ulcerative colitis (HP:0100279). HP:0100279 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5908,84 +6072,15 @@ This clinical feature is Skin vesicle (HP:0200037). HP:0200037 is a phenotype fr
 
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Most patients presented with vesicles (80.8%), pustules (75.0%), and circinate plaques (63.6%)."</div>
-
-
-                <div class="evidence-explanation">Frequencies of the three cardinal lesions across 137 reported patients.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-pruritus" data-dismech-node="Pruritus" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Pruritus
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000989</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Pruritus (HP:0000989). HP:0000989 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31812619" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31812619" target="_blank">PMID:31812619</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"Pruritus was present in 65.6% of reported patients."</div>
+                <div class="evidence-snippet">"IgA gammopathy and ulcerative colitis were associated with IgA pemphigus in 9.5% and 6.6% patients, respectively."</div>
 
 
-                <div class="evidence-explanation">Itch frequency in the pooled cohort.</div>
+                <div class="evidence-explanation">The frequency of the association in the pooled cohort.</div>
 
 
 
@@ -6006,13 +6101,13 @@ This clinical feature is Pruritus (HP:0000989). HP:0000989 is a phenotype from t
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">5</span>
+                    Immune
+                    <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-annular-and-circinate-plaques" data-dismech-node="Annular and Circinate Plaques" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pustules" data-dismech-node="Pustules" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Annular and Circinate Plaques
+                        Pustules
 
                         <span class="phenotype-freq">FREQUENT</span>
 
@@ -6023,20 +6118,21 @@ This clinical feature is Pruritus (HP:0000989). HP:0000989 is a phenotype from t
 
                     <span class="phenotype-id">
 
-                        <span class="phenotype-term-label">Annular cutaneous lesion</span>
 
 
 
+    <a href="http://purl.obolibrary.org/obo/HP_0200039" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0200039</a>
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025528" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0025528</a>
 
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Annular cutaneous lesion (HP:0025528). HP:0025528 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Pustule (HP:0200039). HP:0200039 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6059,14 +6155,15 @@ This clinical feature is Annular cutaneous lesion (HP:0025528). HP:0025528 is a 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"The diagnosis of IgA pemphigus may be considered in patients presenting with vesiculopustular eruption and circinate plaques with truncal and extremity involvement."</div>
+                <div class="evidence-snippet">"Most patients presented with vesicles (80.8%), pustules (75.0%), and circinate plaques (63.6%)."</div>
 
 
-                <div class="evidence-explanation">The review&#39;s own diagnostic recommendation, which is what marks this phenotype as diagnostic.</div>
+                <div class="evidence-explanation">Pustule frequency in the pooled cohort.</div>
 
 
 
@@ -6098,15 +6195,18 @@ This clinical feature is Annular cutaneous lesion (HP:0025528). HP:0025528 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031235" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0031235</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031235" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0031235</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Predominantly epidermal neutrophilic infiltrate (HP:0031235). HP:0031235 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6129,6 +6229,7 @@ This clinical feature is Predominantly epidermal neutrophilic infiltrate (HP:003
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6137,6 +6238,241 @@ This clinical feature is Predominantly epidermal neutrophilic infiltrate (HP:003
 
 
                 <div class="evidence-explanation">The histological hallmark. Graded OTHER because it is a review&#39;s synthesis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Integument
+                    <span class="cat-count">4</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-vesicles" data-dismech-node="Vesicles" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Vesicles
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Skin vesicle</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0200037" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0200037</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Skin vesicle (HP:0200037). HP:0200037 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31812619" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31812619" target="_blank">PMID:31812619</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Most patients presented with vesicles (80.8%), pustules (75.0%), and circinate plaques (63.6%)."</div>
+
+
+                <div class="evidence-explanation">Frequencies of the three cardinal lesions across 137 reported patients.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-annular-and-circinate-plaques" data-dismech-node="Annular and Circinate Plaques" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Annular and Circinate Plaques
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Annular cutaneous lesion</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0025528" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0025528</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Annular cutaneous lesion (HP:0025528). HP:0025528 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31812619" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31812619" target="_blank">PMID:31812619</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The diagnosis of IgA pemphigus may be considered in patients presenting with vesiculopustular eruption and circinate plaques with truncal and extremity involvement."</div>
+
+
+                <div class="evidence-explanation">The review&#39;s own diagnostic recommendation, which is what marks this phenotype as diagnostic.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pruritus" data-dismech-node="Pruritus" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Pruritus
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000989</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pruritus (HP:0000989). HP:0000989 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31812619" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31812619" target="_blank">PMID:31812619</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Pruritus was present in 65.6% of reported patients."</div>
+
+
+                <div class="evidence-explanation">Itch frequency in the pooled cohort.</div>
 
 
 
@@ -6168,15 +6504,18 @@ This clinical feature is Predominantly epidermal neutrophilic infiltrate (HP:003
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100792" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0100792</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100792" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0100792</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Acantholysis (HP:0100792). HP:0100792 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6196,6 +6535,7 @@ This clinical feature is Acantholysis (HP:0100792). HP:0100792 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6223,6 +6563,7 @@ This clinical feature is Acantholysis (HP:0100792). HP:0100792 is a phenotype fr
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6231,172 +6572,6 @@ This clinical feature is Acantholysis (HP:0100792). HP:0100792 is a phenotype fr
 
 
                 <div class="evidence-explanation">Directly contradicts the phenotype as curated, and kept rather than omitted because the fact that a 2024 case report makes the claim is itself evidence that the point is unsettled in this literature. Two other cited sources describe acantholytic cells and one describes acantholytic blisters, so the flat denial is not supportable on its own. NO_EVIDENCE is deliberate and is the weakest part of this item. REFUTE would read better as direction, but on a phenotypes[] item it is also a publication decision: it maps to an HPOA NOT qualifier, so it would assert to downstream consumers that IgA pemphigus does not feature acantholysis - a claim this very explanation argues against. Grading it SUPPORT is worse still, and is what the retired WRONG_STATEMENT value silently did here. NO_EVIDENCE publishes nothing while leaving the source, the quote and this reasoning visible. The substantive disagreement is carried by the phenotype description and by discussions[1].</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-iga-monoclonal-gammopathy" data-dismech-node="IgA Monoclonal Gammopathy" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        IgA Monoclonal Gammopathy
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">IgA heavy chain paraproteinemia</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0020194" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0020194</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is IgA heavy chain paraproteinemia (HP:0020194). HP:0020194 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31812619" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31812619" target="_blank">PMID:31812619</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"IgA gammopathy and ulcerative colitis were associated with IgA pemphigus in 9.5% and 6.6% patients, respectively."</div>
-
-
-                <div class="evidence-explanation">The frequency of the paraproteinaemia association in the pooled cohort. The quoted figure is for IgA gammopathy generally, which is what HP:0020194 names; myeloma is the malignant end of that spectrum and is much rarer, at seven reported cases.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:35838241" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35838241" target="_blank">PMID:35838241</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Literature review revealed associations between SPD-type and IgA κ chain in IgA pemphigus and MM, and that in most cases the onset or diagnosis of MM was simultaneous or occurred after the diagnosis of IgA pemphigus."</div>
-
-
-                <div class="evidence-explanation">The temporal relationship, which is what makes surveillance after an IgA pemphigus diagnosis worthwhile.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-ulcerative-colitis" data-dismech-node="Ulcerative Colitis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Ulcerative Colitis
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100279" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0100279</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Ulcerative colitis (HP:0100279). HP:0100279 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31812619" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31812619" target="_blank">PMID:31812619</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"IgA gammopathy and ulcerative colitis were associated with IgA pemphigus in 9.5% and 6.6% patients, respectively."</div>
-
-
-                <div class="evidence-explanation">The frequency of the association in the pooled cohort.</div>
 
 
 
@@ -6522,6 +6697,31 @@ This treatment uses dapsone (CHEBI:4325). CHEBI:4325 is a therapeutic agent from
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">The drug of choice, and mechanistically apt: dapsone&#39;s anti-inflammatory action is on neutrophil function, which is the effector arm of this disease rather than an incidental feature of it. Oral dapsone and corticosteroids were the two commonest treatments across the entire reported literature.
 It is not reliably effective. A minority of patients do not clear on it, and recalcitrant disease is well enough recognised to have a second-line list - colchicine, sulfapyridine, acitretin - and reported failures even of those.</div>
 
@@ -6565,6 +6765,7 @@ It is not reliably effective. A minority of patients do not clear on it, and rec
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6586,6 +6787,7 @@ It is not reliably effective. A minority of patients do not clear on it, and rec
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6650,6 +6852,31 @@ This treatment is systemic corticosteroid therapy (NCIT:C122080). NCIT:C122080 i
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">The other commonly used first-line agent, usually alongside dapsone. The reported evidence is practice rather than trial: no controlled comparison of any treatment in this disease exists.</div>
 
 
@@ -6689,6 +6916,7 @@ This treatment is systemic corticosteroid therapy (NCIT:C122080). NCIT:C122080 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6791,6 +7019,31 @@ This treatment uses isotretinoin (NCIT:C603). NCIT:C603 is a therapeutic agent f
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Retinoids appear in this literature in two guises and it is worth keeping them apart. Etretinate combined with dapsone improved a well-characterised SPD-type case, and acitretin is on the standard recalcitrant-disease list. But isotretinoin at 25 mg daily with prednisone achieved only a slight effect after six months in a reported IEN-type case with anti-desmoglein IgA - so the class is not uniformly useful, and the one clear failure was in the subtype whose antigen is unknown.</div>
 
 
@@ -6815,6 +7068,7 @@ This treatment uses isotretinoin (NCIT:C603). NCIT:C603 is a therapeutic agent f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6836,6 +7090,7 @@ This treatment uses isotretinoin (NCIT:C603). NCIT:C603 is a therapeutic agent f
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -6921,6 +7176,31 @@ This treatment uses adalimumab (NCIT:C65216). NCIT:C65216 is a therapeutic agent
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Monoclonal antibody</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Reported once, for dapsone-recalcitrant disease: a 50-year-old man who had responded poorly to dapsone cleared on adalimumab. A single case, so it is curated as an option of last resort rather than an established second line - but it is mechanistically coherent, since TNF-alpha blockade suppresses the neutrophilic inflammation that drives the lesions.</div>
 
 
@@ -6960,6 +7240,7 @@ This treatment uses adalimumab (NCIT:C65216). NCIT:C65216 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7079,6 +7360,31 @@ This treatment uses dexamethasone (NCIT:C422). NCIT:C422 is a therapeutic agent 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Where an IgA myeloma is present, treating it treats the skin. In the reported case daratumumab, lenalidomide and dexamethasone cleared both the lesions and the anti-desmoglein and anti-desmocollin IgA ELISAs.
 This is the only reported treatment that acts on the autoantibody&#39;s source rather than on the downstream inflammation, which is why it is curated separately from the immunosuppressants. It applies to a small minority.
 therapeutic_modality is OTHER rather than MONOCLONAL_ANTIBODY: daratumumab is one of three components, and the regimen as given also contains an immunomodulatory small molecule and a corticosteroid. Tagging the whole regimen by its antibody component would misclassify it. All three agents are bound individually instead.</div>
@@ -7120,6 +7426,7 @@ therapeutic_modality is OTHER rather than MONOCLONAL_ANTIBODY: daratumumab is on
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7195,6 +7502,7 @@ therapeutic_modality is OTHER rather than MONOCLONAL_ANTIBODY: daratumumab is on
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7250,6 +7558,7 @@ Desmocollin ELISAs are the part that is not universally available, and their abs
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7302,6 +7611,7 @@ The association is strongest for the SPD subtype and for IgA kappa light chains,
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7380,6 +7690,7 @@ Mean age at presentation was 51.5 years with a standard deviation of 21.0, and t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7401,6 +7712,7 @@ Mean age at presentation was 51.5 years with a standard deviation of 21.0, and t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7486,6 +7798,7 @@ Mean age at presentation was 51.5 years with a standard deviation of 21.0, and t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7538,6 +7851,7 @@ Mean age at presentation was 51.5 years with a standard deviation of 21.0, and t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9041,6 +9355,45 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Curated from a Perplexity deep-research report plus independent PubMed searching. The report supplied narrative framing only. Its reference-validation section reported 5 of 5 citations resolving with 4 of 5 on topic; its term-validation section reported zero terms checked, because the report offered no ontology CURIEs at all - which is a different failure from the mislabelled CURIEs seen in the other reports in this batch, and means the section&#39;s clean result carries no information. All bindings here were resolved against the committed term caches and OLS.
+No GeneReviews chapter applies; this is an acquired autoimmune disease, not a Mendelian one, so Step 3b of the initiate-new-disorder-creation skill does not apply.
+The FcalphaRI (CD89) node added in review is the mechanistic bridge between the isotype and the neutrophil infiltrate. Its evidence is receptor biology from human neutrophils and a linear IgA bullous disease mouse model rather than from IgA pemphigus patients, and the node says so: the disease shares the isotype and the neutrophil-rich histology, which is the basis for applying it here.
+A note on two evidence gradings that are unusual and deliberate. The retinoid treatment carries a REFUTE item, and the acantholysis phenotype keeps a contradicting source as NO_EVIDENCE so that it publishes no HPOA annotation. Both record sources that contradict the claim they attach to. They are kept rather than dropped because in a literature this small - 137 reported patients across 119 publications - a single contradicting source is a meaningful fraction of what is known, and hiding it would make the entry look more settled than the field is.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: IgA Pemphigus (MONDO:0034127)</strong> · 2026-08-29T06:58:23Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/IgA_Pemphigus/2026-08-29T065823Z-claude-code-d338d9.yaml">View source</a></p>
+                        <p class="research-review-text">New disorder entry for IgA pemphigus, the pemphigus variant in which the autoantibody isotype is IgA rather than IgG.
+
+Lump/split decision. Curated as one Disease with two has_subtypes entries, SPD type and IEN type, rather than as two diseases or as a subtype of an existing pemphigus entry. The shared IgA-plus-neutrophil mechanism is what distinguishes the disease from the IgG pemphigus variants already in the KB, and it is shared by both subtypes; what differs between them is the target antigen and the level of the epidermis involved. The decision is recorded as revisitable in a discussion, because published cases keep failing to fit the two-type scheme and one review has proposed replacing it with an IgA pemphigus spectrum.
+
+Curation inputs. One Perplexity deep-research run, committed alongside, plus independent PubMed E-utilities searching. Its reference_validation block reported 5 of 5 citations resolving with 4 of 5 on topic. Its term_validation block reported zero terms checked, because the report offered no ontology CURIEs at all. That is a different failure from the mislabelled CURIEs the other reports in this batch produced, and it means the clean term-validation result carries no information - worth recording, because a reader skimming for needs_review would see a clean section and conclude the opposite.
+
+No GeneReviews chapter applies; this is an acquired autoimmune disease.
+
+Structure. Five pathophysiology nodes: IgA autoantibody production against the keratinocyte cell surface, IgA deposition in the epidermal intercellular space, then two parallel effector branches - impaired desmosomal cell-cell adhesion and neutrophil recruitment into the epidermis - converging on intraepidermal pustule and vesicle formation.
+
+The grading of those two branches is the substantive curation judgement in this entry. The neutrophil branch is ESTABLISHED; the adhesion branch is PROVISIONAL. Desmocollin 1 is securely established as the SPD-type autoantigen by a clean transfection experiment, but a 2023 review concludes there is no clear evidence that anti-desmocollin autoantibodies are pathogenic, in contrast to the well-established anti-desmoglein ones. The histology points the same way: acantholysis is slight where present, and the dominant finding is neutrophilic. So the alternative reading - that the IgA acts mainly by recruiting neutrophils and the adhesion molecule it binds is a marker rather than the mechanism - is not excluded by anything cited here, and the grading says so.
+
+Two evidence gradings are unusual and deliberate. The acantholysis phenotype carries a WRONG_STATEMENT item, from a 2024 case report stating flatly that acantholysis is not a feature of IgA pemphigus, which two other cited sources contradict. The retinoid treatment carries a REFUTE item, an isotretinoin-plus-prednisone regimen achieving only a slight effect after six months. Both are kept rather than dropped because in a literature of 137 reported patients across 119 publications, one contradicting source is a meaningful fraction of what is known.
+
+Two discussions, both KNOWLEDGE_GAP: whether the two-type classification survives the atypical cases, and whether anti-desmocollin antibodies are pathogenic at all.
+
+A diagnostic point carried in has_subtypes and in differential_diagnoses: SPD-type IgA pemphigus is clinically and histopathologically indistinguishable from classical subcorneal pustular dermatosis, and in the largest cohort all thirteen classical SPD cases were immunologically negative and could not be told apart on any other grounds. Immunofluorescence is the only discriminator.
+
+Validation. Schema validation passed on the first run; 36 of 36 evidence snippets verified against cached primary references; term validation, duplicate-key, entity-ref and snippet-grading checks all pass. One reference validation warning is environmental rather than a content problem: the validator attempted a full-text download from derm101.com and got a TLS error; the snippet in question verified against the cached abstract.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

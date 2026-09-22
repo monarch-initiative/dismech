@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4146,6 +4218,23 @@
 
             </div>
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">IUIS Category</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="IUIS 2022 IEI classification (Tangye et al., PMID:35748970), Table 4 &#34;Diseases of immune dysregulation&#34;, section 6 &#34;Autoimmune Lymphoproliferative Syndrome (ALPS, Canale-Smith)&#34; — the FADD deficiency row. IUIS places FADD deficiency with the ALPS group because FADD is the adaptor of the FAS death-inducing signalling complex and patients share the ALPS biomarker profile, even though the clinical picture extends well beyond ALPS.">immune dysregulation</span>
+
+                </div>
+
+            </div>
+
         </div>
 
 
@@ -4217,6 +4306,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4238,6 +4328,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4383,6 +4474,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4404,6 +4496,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4528,6 +4621,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4562,6 +4656,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-fadd-loss-of-function" data-dismech-node="Biallelic FADD Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic FADD Loss of Function</div>
+
 
                 <div class="item-desc">FADD is a small bipartite adaptor: a death effector domain that recruits procaspase-8 and -10, and a death domain that binds the death domain of a ligated receptor. It carries no catalytic activity of its own, so the disease is a failure of assembly rather than of enzymology. The reported disease alleles reduce steady-state FADD protein rather than abolishing it, which matters because complete Fadd loss is embryonic lethal in mice — surviving patients are therefore expected to retain residual function.</div>
 
@@ -4666,6 +4761,7 @@ This pathophysiological event involves FADD (hgnc:3573). hgnc:3573 is a gene fro
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4687,6 +4783,7 @@ This pathophysiological event involves FADD (hgnc:3573). hgnc:3573 is a gene fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4712,6 +4809,7 @@ This pathophysiological event involves FADD (hgnc:3573). hgnc:3573 is a gene fro
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-death-receptor-apoptotic-signalling" data-dismech-node="Impaired Death-Receptor Apoptotic Signalling" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Death-Receptor Apoptotic Signalling</div>
+
 
                 <div class="item-desc">FADD is obligate for assembling the death-inducing signalling complex downstream of FAS and other death-domain receptors: its death domain engages the receptor, its death effector domain recruits procaspase-8 and -10, and caspase activation follows. Losing the adaptor breaks the chain at the nucleation step, so no amount of receptor ligation produces apoptosis.</div>
 
@@ -4837,6 +4935,7 @@ This pathophysiological event involves decreased extrinsic apoptotic signaling p
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4858,6 +4957,7 @@ This pathophysiological event involves decreased extrinsic apoptotic signaling p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4883,6 +4983,7 @@ This pathophysiological event involves decreased extrinsic apoptotic signaling p
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-activation-induced-lymphocyte-apoptosis" data-dismech-node="Failure of Activation-Induced Lymphocyte Apoptosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Activation-Induced Lymphocyte Apoptosis</div>
+
 
                 <div class="item-desc">Lymphocytes that fail to undergo activation-induced death accumulate, and the readout is the ALPS biomarker panel: expanded circulating double-negative T cells, raised soluble Fas ligand, interleukin-10 and vitamin B12. What is notable is what does not follow. Patients do not develop the massive lymphadenopathy, splenomegaly and autoimmune cytopenias that define clinical ALPS — the biology is shared, the clinical syndrome is not, and the cited source explicitly separates FADD deficiency from ALPS-FAS on that basis.</div>
 
@@ -5052,6 +5153,7 @@ This pathophysiological event involves decreased extrinsic apoptotic signaling p
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5074,6 +5176,7 @@ This pathophysiological event involves decreased extrinsic apoptotic signaling p
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-fas-independent-fadd-functions" data-dismech-node="Loss of Fas-Independent FADD Functions" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Fas-Independent FADD Functions</div>
+
 
                 <div class="item-desc">The founding study reported that the patients&#39; FADD mutation impairs Fas-independent signalling as well, and traced two of the disease&#39;s most consequential features to that arm rather than to apoptosis: the bacterial infections to functional hyposplenism, and the viral infections to impaired interferon immunity. This node is what separates FADD deficiency from the ALPS spectrum mechanistically, not just clinically.</div>
 
@@ -5193,6 +5296,7 @@ This pathophysiological event involves decreased type I interferon-mediated sign
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5214,6 +5318,7 @@ This pathophysiological event involves decreased type I interferon-mediated sign
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5239,6 +5344,7 @@ This pathophysiological event involves decreased type I interferon-mediated sign
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-functional-hyposplenism" data-dismech-node="Functional Hyposplenism" data-dismech-type="pathophysiology">
                 <div class="item-name">Functional Hyposplenism</div>
+
 
                 <div class="item-desc">The spleen is present but does not work. The practical consequence is the one that follows from any hyposplenic state — susceptibility to invasive infection with encapsulated organisms — and the practical marker is Howell-Jolly bodies on the blood film, which is why this is worth curating as its own node rather than folding into the immunodeficiency.</div>
 
@@ -5308,6 +5414,7 @@ This pathophysiological event involves decreased type I interferon-mediated sign
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5330,6 +5437,7 @@ This pathophysiological event involves decreased type I interferon-mediated sign
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-interferon-immunity" data-dismech-node="Impaired Interferon Immunity" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Interferon Immunity</div>
+
 
                 <div class="item-desc">The antiviral arm. FADD participates in innate antiviral signalling independently of its apoptotic role, and its loss leaves patients susceptible to severe viral disease alongside the bacterial susceptibility from hyposplenism.</div>
 
@@ -5429,6 +5537,7 @@ This pathophysiological event involves decreased type I interferon-mediated sign
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5450,6 +5559,7 @@ This pathophysiological event involves decreased type I interferon-mediated sign
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5475,6 +5585,7 @@ This pathophysiological event involves decreased type I interferon-mediated sign
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-recurrent-severe-infection" data-dismech-node="Recurrent Severe Infection" data-dismech-type="pathophysiology">
                 <div class="item-name">Recurrent Severe Infection</div>
+
 
                 <div class="item-desc">Severe bacterial and viral disease, arriving by two mechanistically distinct routes that converge on the same clinical picture. Febrile infection is also the trigger for the encephalopathic crises, so infection is both a consequence of the immune defect and the precipitant of the neurological one.</div>
 
@@ -5528,6 +5639,7 @@ This pathophysiological event involves decreased type I interferon-mediated sign
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5550,6 +5662,7 @@ This pathophysiological event involves decreased type I interferon-mediated sign
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-recurrent-febrile-encephalopathic-crises" data-dismech-node="Recurrent Febrile Encephalopathic Crises" data-dismech-type="pathophysiology">
                 <div class="item-name">Recurrent Febrile Encephalopathic Crises</div>
+
 
                 <div class="item-desc">Stereotyped, recurrent episodes of febrile encephalopathy with refractory seizures, which in one family met the criteria for febrile infection-related epilepsy syndrome. These crises carry much of the disorder&#39;s mortality and are what most distinguishes it from the ALPS spectrum clinically. The FIRES observation is doubly interesting: it supplies a genetic cause for a syndrome usually of unknown aetiology, and it points at a cell-death regulatory pathway rather than at a channel.</div>
 
@@ -5619,6 +5732,7 @@ This pathophysiological event involves decreased type I interferon-mediated sign
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5640,6 +5754,7 @@ This pathophysiological event involves decreased type I interferon-mediated sign
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5707,13 +5822,19 @@ This pathophysiological event involves decreased type I interferon-mediated sign
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Digestive<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(9)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Eye<span class="pill-count">(2)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Immune<span class="pill-count">(3)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Metabolism<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Nervous System<span class="pill-count">(3)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5722,742 +5843,9 @@ This pathophysiological event involves decreased type I interferon-mediated sign
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Cardiovascular
+                    Blood
                     <span class="cat-count">2</span>
                 </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-lymphadenopathy" data-dismech-node="Lymphadenopathy" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Lymphadenopathy
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0002716</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32350755" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32350755" target="_blank">PMID:32350755</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"but also recurrent febrile episodes with encephalopathy and seizures, variable degrees of lymphadenopathy"</div>
-
-
-                <div class="evidence-explanation">Documents lymphadenopathy and its variability, which is why no frequency band is assigned.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-heart-morphology" data-dismech-node="Abnormal heart morphology" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Abnormal heart morphology
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0001627</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:21109225" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21109225" target="_blank">PMID:21109225</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"recurrent hepatopathy and encephalopathy, and cardiac malformations"</div>
-
-
-                <div class="evidence-explanation">Documents cardiac malformation in the founding kindred.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:35243129" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35243129" target="_blank">PMID:35243129</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"characterized by recurrent infections, encephalopathy, cardiac abnormalities, and short life expectancy"</div>
-
-
-                <div class="evidence-explanation">Independent restatement of cardiac abnormality as a core feature of the disorder.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Digestive
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hepatic-failure" data-dismech-node="Hepatic failure" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hepatic failure
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001399" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0001399</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hepatic failure (HP:0001399), qualified as temporality recurrent. HP:0001399 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Temporal: RECURRENT</span>
-
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:21109225" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21109225" target="_blank">PMID:21109225</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"severe bacterial and viral disease, recurrent hepatopathy and encephalopathy"</div>
-
-
-                <div class="evidence-explanation">Classified PARTIAL: the source reports recurrent hepatopathy, which is broader than hepatic failure specifically; the bound term is the closest available and is deliberately noted as such.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Nervous System
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-encephalopathy" data-dismech-node="Encephalopathy" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Encephalopathy
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001298" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001298</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Encephalopathy (HP:0001298), qualified as temporality recurrent. HP:0001298 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Temporal: RECURRENT</span>
-
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:21109225" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21109225" target="_blank">PMID:21109225</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"severe bacterial and viral disease, recurrent hepatopathy and encephalopathy, and cardiac malformations"</div>
-
-
-                <div class="evidence-explanation">Lists recurrent encephalopathy among the defining features of the founding kindred.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32350755" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32350755" target="_blank">PMID:32350755</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"but also recurrent febrile episodes with encephalopathy and seizures"</div>
-
-
-                <div class="evidence-explanation">Independent confirmation, and the source for the febrile trigger.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-cerebral-atrophy" data-dismech-node="Cerebral atrophy" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Cerebral atrophy
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002059" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0002059</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Cerebral atrophy (HP:0002059). HP:0002059 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38752438" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38752438" target="_blank">PMID:38752438</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"known to cause ultrarare forms of autosomal recessive immunodeficiency that could be associated with variable degrees of lymphoproliferation, cerebral atrophy, and cardiac abnormalities"</div>
-
-
-                <div class="evidence-explanation">Names cerebral atrophy as one of the recognized accompaniments of FADD deficiency, with the hedged phrasing (&#34;could be associated with variable degrees of&#34;) that the source itself uses.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32350755" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32350755" target="_blank">PMID:32350755</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"variable degrees of lymphadenopathy or splenomeg- aly, cerebral atrophy, and structural cardiac abnormalities"</div>
-
-
-                <div class="evidence-explanation">An independent review of the previously described patients listing cerebral atrophy among their features. The hyphenation is how the text extracts from the cached PDF.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">9</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-bacterial-infections" data-dismech-node="Recurrent bacterial infections" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Recurrent bacterial infections
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002718" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0002718</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Recurrent bacterial infections (HP:0002718), qualified as temporality recurrent. HP:0002718 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Temporal: RECURRENT</span>
-
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:21109225" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21109225" target="_blank">PMID:21109225</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"biological features of ALPS were found in the context of severe bacterial and viral disease"</div>
-
-
-                <div class="evidence-explanation">Documents severe bacterial disease as part of the presenting syndrome.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-viral-infections" data-dismech-node="Recurrent viral infections" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Recurrent viral infections
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004429" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0004429</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Recurrent viral infections (HP:0004429), qualified as temporality recurrent. HP:0004429 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Temporal: RECURRENT</span>
-
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:21109225" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21109225" target="_blank">PMID:21109225</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"viral infections result from impaired interferon immunity"</div>
-
-
-                <div class="evidence-explanation">Documents viral susceptibility and its attributed mechanism.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-status-epilepticus" data-dismech-node="Status epilepticus" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Status epilepticus
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002133" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002133</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Status epilepticus (HP:0002133), qualified as temporality recurrent. HP:0002133 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Temporal: RECURRENT</span>
-
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38752438" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38752438" target="_blank">PMID:38752438</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"a nuclear family with recurrent febrile-related encephalopathy with refractory de novo Status Epilepticus"</div>
-
-
-                <div class="evidence-explanation">Documents recurrent refractory status epilepticus in an affected family.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-howell-jolly-bodies" data-dismech-node="Howell-Jolly bodies" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6473,15 +5861,18 @@ This clinical feature is Status epilepticus (HP:0002133), qualified as temporali
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0032550" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0032550</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0032550" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0032550</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Howell-Jolly bodies (HP:0032550). HP:0032550 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6501,6 +5892,7 @@ This clinical feature is Howell-Jolly bodies (HP:0032550). HP:0032550 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6541,15 +5933,18 @@ This clinical feature is Howell-Jolly bodies (HP:0032550). HP:0032550 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002851" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002851</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002851" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0002851</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Increased double-negative T cell number (HP:0002851). HP:0002851 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6569,6 +5964,7 @@ This clinical feature is Increased double-negative T cell number (HP:0002851). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6595,9 +5991,18 @@ This clinical feature is Increased double-negative T cell number (HP:0002851). H
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-circulating-interleukin-10-concentration" data-dismech-node="Increased circulating interleukin 10 concentration" data-dismech-type="phenotype">
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Cardiovascular
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-lymphadenopathy" data-dismech-node="Lymphadenopathy" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Increased circulating interleukin 10 concentration
+                        Lymphadenopathy
 
 
 
@@ -6609,15 +6014,18 @@ This clinical feature is Increased double-negative T cell number (HP:0002851). H
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033199" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0033199</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0002716</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Increased circulating interleukin 10 concentration (HP:0033199). HP:0033199 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6640,14 +6048,15 @@ This clinical feature is Increased circulating interleukin 10 concentration (HP:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"elevated soluble Fas ligand, IL-10, and vitamin B12"</div>
+                <div class="evidence-snippet">"but also recurrent febrile episodes with encephalopathy and seizures, variable degrees of lymphadenopathy"</div>
 
 
-                <div class="evidence-explanation">Reports the raised interleukin-10 in the biomarker panel.</div>
+                <div class="evidence-explanation">Documents lymphadenopathy and its variability, which is why no frequency band is assigned.</div>
 
 
 
@@ -6663,9 +6072,9 @@ This clinical feature is Increased circulating interleukin 10 concentration (HP:
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-elevated-circulating-vitamin-b12-concentration" data-dismech-node="Elevated circulating vitamin B12 concentration" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-heart-morphology" data-dismech-node="Abnormal heart morphology" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Elevated circulating vitamin B12 concentration
+                        Abnormal heart morphology
 
 
 
@@ -6677,12 +6086,12 @@ This clinical feature is Increased circulating interleukin 10 concentration (HP:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_6000016" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:6000016</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001627</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Elevated circulating vitamin B12 concentration (HP:6000016). HP:6000016 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6691,16 +6100,19 @@ This clinical feature is Elevated circulating vitamin B12 concentration (HP:6000
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:32350755" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:21109225" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32350755" target="_blank">PMID:32350755</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21109225" target="_blank">PMID:21109225</a>
                     </span>
 
 
@@ -6708,14 +6120,40 @@ This clinical feature is Elevated circulating vitamin B12 concentration (HP:6000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"elevated soluble Fas ligand, IL-10, and vitamin B12"</div>
+                <div class="evidence-snippet">"recurrent hepatopathy and encephalopathy, and cardiac malformations"</div>
 
 
-                <div class="evidence-explanation">Reports the raised vitamin B12 in the biomarker panel.</div>
+                <div class="evidence-explanation">Documents cardiac malformation in the founding kindred.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35243129" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35243129" target="_blank">PMID:35243129</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"characterized by recurrent infections, encephalopathy, cardiac abnormalities, and short life expectancy"</div>
+
+
+                <div class="evidence-explanation">Independent restatement of cardiac abnormality as a core feature of the disorder.</div>
 
 
 
@@ -6730,6 +6168,114 @@ This clinical feature is Elevated circulating vitamin B12 concentration (HP:6000
 
 
                 </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Digestive
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hepatic-failure" data-dismech-node="Hepatic failure" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hepatic failure
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001399" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001399</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hepatic failure (HP:0001399), qualified as temporality recurrent. HP:0001399 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Temporal: RECURRENT</span>
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21109225" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21109225" target="_blank">PMID:21109225</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"severe bacterial and viral disease, recurrent hepatopathy and encephalopathy"</div>
+
+
+                <div class="evidence-explanation">Classified PARTIAL: the source reports recurrent hepatopathy, which is broader than hepatic failure specifically; the bound term is the closest available and is deliberately noted as such.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Eye
+                    <span class="cat-count">2</span>
+                </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-cystoid-macular-edema" data-dismech-node="Cystoid macular edema" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6745,15 +6291,18 @@ This clinical feature is Elevated circulating vitamin B12 concentration (HP:6000
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011505" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0011505</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011505" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0011505</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cystoid macular edema (HP:0011505). HP:0011505 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6773,6 +6322,7 @@ This clinical feature is Cystoid macular edema (HP:0011505). HP:0011505 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6813,15 +6363,18 @@ This clinical feature is Cystoid macular edema (HP:0011505). HP:0011505 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007917" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0007917</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007917" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0007917</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Tractional retinal detachment (HP:0007917). HP:0007917 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6844,6 +6397,7 @@ This clinical feature is Tractional retinal detachment (HP:0007917). HP:0007917 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6852,6 +6406,659 @@ This clinical feature is Tractional retinal detachment (HP:0007917). HP:0007917 
 
 
                 <div class="evidence-explanation">Documents the progression to detachment in the reported case.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Immune
+                    <span class="cat-count">3</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-bacterial-infections" data-dismech-node="Recurrent bacterial infections" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Recurrent bacterial infections
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002718" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002718</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Recurrent bacterial infections (HP:0002718), qualified as temporality recurrent. HP:0002718 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Temporal: RECURRENT</span>
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21109225" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21109225" target="_blank">PMID:21109225</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"biological features of ALPS were found in the context of severe bacterial and viral disease"</div>
+
+
+                <div class="evidence-explanation">Documents severe bacterial disease as part of the presenting syndrome.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-viral-infections" data-dismech-node="Recurrent viral infections" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Recurrent viral infections
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004429" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0004429</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Recurrent viral infections (HP:0004429), qualified as temporality recurrent. HP:0004429 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Temporal: RECURRENT</span>
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21109225" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21109225" target="_blank">PMID:21109225</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"viral infections result from impaired interferon immunity"</div>
+
+
+                <div class="evidence-explanation">Documents viral susceptibility and its attributed mechanism.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-circulating-interleukin-10-concentration" data-dismech-node="Increased circulating interleukin 10 concentration" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Increased circulating interleukin 10 concentration
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033199" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0033199</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Increased circulating interleukin 10 concentration (HP:0033199). HP:0033199 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32350755" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32350755" target="_blank">PMID:32350755</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"elevated soluble Fas ligand, IL-10, and vitamin B12"</div>
+
+
+                <div class="evidence-explanation">Reports the raised interleukin-10 in the biomarker panel.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-6">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Metabolism
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-elevated-circulating-vitamin-b12-concentration" data-dismech-node="Elevated circulating vitamin B12 concentration" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Elevated circulating vitamin B12 concentration
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_6000016" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:6000016</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Elevated circulating vitamin B12 concentration (HP:6000016). HP:6000016 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32350755" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32350755" target="_blank">PMID:32350755</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"elevated soluble Fas ligand, IL-10, and vitamin B12"</div>
+
+
+                <div class="evidence-explanation">Reports the raised vitamin B12 in the biomarker panel.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-7">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Nervous System
+                    <span class="cat-count">3</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-encephalopathy" data-dismech-node="Encephalopathy" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Encephalopathy
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001298" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001298</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Encephalopathy (HP:0001298), qualified as temporality recurrent. HP:0001298 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Temporal: RECURRENT</span>
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21109225" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21109225" target="_blank">PMID:21109225</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"severe bacterial and viral disease, recurrent hepatopathy and encephalopathy, and cardiac malformations"</div>
+
+
+                <div class="evidence-explanation">Lists recurrent encephalopathy among the defining features of the founding kindred.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32350755" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32350755" target="_blank">PMID:32350755</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"but also recurrent febrile episodes with encephalopathy and seizures"</div>
+
+
+                <div class="evidence-explanation">Independent confirmation, and the source for the febrile trigger.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-status-epilepticus" data-dismech-node="Status epilepticus" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Status epilepticus
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002133" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002133</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Status epilepticus (HP:0002133), qualified as temporality recurrent. HP:0002133 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Temporal: RECURRENT</span>
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38752438" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38752438" target="_blank">PMID:38752438</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"a nuclear family with recurrent febrile-related encephalopathy with refractory de novo Status Epilepticus"</div>
+
+
+                <div class="evidence-explanation">Documents recurrent refractory status epilepticus in an affected family.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cerebral-atrophy" data-dismech-node="Cerebral atrophy" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Cerebral atrophy
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002059" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002059</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cerebral atrophy (HP:0002059). HP:0002059 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38752438" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38752438" target="_blank">PMID:38752438</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"known to cause ultrarare forms of autosomal recessive immunodeficiency that could be associated with variable degrees of lymphoproliferation, cerebral atrophy, and cardiac abnormalities"</div>
+
+
+                <div class="evidence-explanation">Names cerebral atrophy as one of the recognized accompaniments of FADD deficiency, with the hedged phrasing (&#34;could be associated with variable degrees of&#34;) that the source itself uses.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32350755" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32350755" target="_blank">PMID:32350755</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"variable degrees of lymphadenopathy or splenomeg- aly, cerebral atrophy, and structural cardiac abnormalities"</div>
+
+
+                <div class="evidence-explanation">An independent review of the previously described patients listing cerebral atrophy among their features. The hyphenation is how the text extracts from the cached PDF.</div>
 
 
 
@@ -6941,6 +7148,9 @@ This disease-associated gene is FADD (hgnc:3573). hgnc:3573 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (6 references)
@@ -6955,6 +7165,7 @@ This disease-associated gene is FADD (hgnc:3573). hgnc:3573 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6982,6 +7193,7 @@ This disease-associated gene is FADD (hgnc:3573). hgnc:3573 is a gene from the H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7003,6 +7215,7 @@ This disease-associated gene is FADD (hgnc:3573). hgnc:3573 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7088,6 +7301,31 @@ This treatment is immunoglobulin therapy (NCIT:C62710). NCIT:C62710 is a clinica
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Protein replacement</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Subcutaneous immunoglobulin replacement, given at 400 mg/kg/month in the one report that describes its use, directed at the impaired antibody responses — absent isohaemagglutinins and suboptimal anti-pneumococcal titres despite repeated conjugate vaccination — rather than at the apoptosis defect. It substitutes for the antibody the patient cannot make; it does not correct FADD function, and no series has evaluated it.</div>
 
 
@@ -7118,6 +7356,7 @@ This treatment is immunoglobulin therapy (NCIT:C62710). NCIT:C62710 is a clinica
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7164,6 +7403,7 @@ This treatment is immunoglobulin therapy (NCIT:C62710). NCIT:C62710 is a clinica
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7185,6 +7425,7 @@ This treatment is immunoglobulin therapy (NCIT:C62710). NCIT:C62710 is a clinica
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7248,6 +7489,31 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Antipneumococcal antibiotic prophylaxis is recommended on the strength of the functional hyposplenism, which is what puts these patients at risk of overwhelming encapsulated-organism sepsis. It is recorded here as a recommendation rather than as established practice: in the single report that describes it, the family declined it and the recommendation was still under discussion at the time of writing.</div>
 
 
@@ -7278,6 +7544,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7321,6 +7588,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7385,6 +7653,31 @@ This treatment is hematopoietic cell transplantation (NCIT:C15431). NCIT:C15431 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Cell therapy</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Transplantation has been performed in a small number of reported patients and is the only intervention that could replace the FADD-deficient haematopoietic compartment. Two limits are explicit in the literature and are the reason this is not curated as established management: outcomes in the transplanted patients diverged sharply, and the non-haematopoietic manifestations — the encephalopathic crises, the cardiac malformation, the hepatopathy — arise in tissues a graft does not replace, so whether transplantation affects them is unknown.</div>
 
 
@@ -7415,6 +7708,7 @@ This treatment is hematopoietic cell transplantation (NCIT:C15431). NCIT:C15431 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7461,6 +7755,7 @@ This treatment is hematopoietic cell transplantation (NCIT:C15431). NCIT:C15431 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7482,6 +7777,7 @@ This treatment is hematopoietic cell transplantation (NCIT:C15431). NCIT:C15431 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7546,6 +7842,31 @@ This treatment is immunomodulation therapy (NCIT:C116540). NCIT:C116540 is a cli
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Early immunomodulatory treatment is argued for on mechanistic grounds in the family whose presentation was recurrent febrile infection-related epilepsy syndrome: if the encephalopathic crises reflect dysregulated cell-mediated inflammation rather than infection itself, immunomodulation is the rational target. This is an argument from mechanism, not a result — no trial, series, or controlled comparison exists in FADD deficiency.</div>
 
 
@@ -7576,6 +7897,7 @@ This treatment is immunomodulation therapy (NCIT:C116540). NCIT:C116540 is a cli
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7619,6 +7941,7 @@ This treatment is immunomodulation therapy (NCIT:C116540). NCIT:C116540 is a cli
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7686,6 +8009,7 @@ This treatment is immunomodulation therapy (NCIT:C116540). NCIT:C116540 is a cli
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7707,6 +8031,7 @@ This treatment is immunomodulation therapy (NCIT:C116540). NCIT:C116540 is a cli
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7775,6 +8100,7 @@ This treatment is immunomodulation therapy (NCIT:C116540). NCIT:C116540 is a cli
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7865,6 +8191,7 @@ This treatment is immunomodulation therapy (NCIT:C116540). NCIT:C116540 is a cli
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7886,6 +8213,7 @@ This treatment is immunomodulation therapy (NCIT:C116540). NCIT:C116540 is a cli
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7976,6 +8304,7 @@ This treatment is immunomodulation therapy (NCIT:C116540). NCIT:C116540 is a cli
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7997,6 +8326,7 @@ This treatment is immunomodulation therapy (NCIT:C116540). NCIT:C116540 is a cli
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8065,6 +8395,7 @@ This treatment is immunomodulation therapy (NCIT:C116540). NCIT:C116540 is a cli
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8089,6 +8420,7 @@ This treatment is immunomodulation therapy (NCIT:C116540). NCIT:C116540 is a cli
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8110,6 +8442,7 @@ This treatment is immunomodulation therapy (NCIT:C116540). NCIT:C116540 is a cli
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8160,6 +8493,7 @@ This treatment is immunomodulation therapy (NCIT:C116540). NCIT:C116540 is a cli
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8231,6 +8565,7 @@ This treatment is immunomodulation therapy (NCIT:C116540). NCIT:C116540 is a cli
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8252,6 +8587,7 @@ This treatment is immunomodulation therapy (NCIT:C116540). NCIT:C116540 is a cli
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8334,6 +8670,7 @@ This treatment is immunomodulation therapy (NCIT:C116540). NCIT:C116540 is a cli
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8535,6 +8872,7 @@ This experimental model concerns FADD (hgnc:3573). hgnc:3573 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8574,6 +8912,7 @@ This experimental model concerns FADD (hgnc:3573). hgnc:3573 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8618,6 +8957,7 @@ This experimental model concerns FADD (hgnc:3573). hgnc:3573 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8797,6 +9137,7 @@ This experimental model concerns FADD (hgnc:3573). hgnc:3573 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8839,6 +9180,7 @@ This experimental model concerns FADD (hgnc:3573). hgnc:3573 is a gene from the 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -8885,6 +9227,7 @@ This experimental model concerns FADD (hgnc:3573). hgnc:3573 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8906,6 +9249,7 @@ This experimental model concerns FADD (hgnc:3573). hgnc:3573 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8983,6 +9327,26 @@ classifications:
       lymphocyte-apoptosis defect are the defining axis, even though the
       encephalopathic crises carry much of the mortality. Harrison&#39;s does not
       list FADD deficiency by name; this is a mechanism-based placement.
+  iuis_category:
+    classification_value: immune dysregulation
+    notes: &gt;-
+      IUIS 2022 IEI classification (Tangye et al., PMID:35748970), Table 4
+      &#34;Diseases of immune dysregulation&#34;, section 6 &#34;Autoimmune
+      Lymphoproliferative Syndrome (ALPS, Canale-Smith)&#34; — the FADD deficiency
+      row. IUIS places FADD deficiency with the ALPS group because FADD is the
+      adaptor of the FAS death-inducing signalling complex and patients share
+      the ALPS biomarker profile, even though the clinical picture extends
+      well beyond ALPS.
+    evidence:
+    - reference: PMID:35748970
+      reference_title: &#34;Human Inborn Errors of Immunity: 2022 Update on the Classification from the International Union of Immunological Societies Expert Committee.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;FADD deficiency FADD AR 602457&#34;
+      explanation: &gt;-
+        The quoted Table 4 row (ALPS section) lists FADD deficiency with its
+        gene, inheritance and OMIM number, establishing its membership in the
+        IUIS &#34;diseases of immune dysregulation&#34; category.
 inheritance:
 - name: Autosomal recessive inheritance
   description: &gt;-
@@ -9526,7 +9890,6 @@ pathophysiology:
         Establishes cerebral atrophy as a feature of the disorder. Classified
         INDIRECT because it does not establish the causal ordering this edge
         proposes.
-
 
 phenotypes:
 - name: Recurrent bacterial infections
@@ -10854,6 +11217,95 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">On the treatments block. No FADD-specific therapy has been evaluated in any series, so every entry is scoped to what a cited source actually reports: immunoglobulin replacement and antibiotic prophylaxis are recorded as administered and as recommended-but-declined respectively, in one patient each; transplantation is recorded as performed in a small number of patients with the authors&#39; own hedge about curative threshold quoted rather than paraphrased; and immunomodulation is recorded as an argument from mechanism with no reported outcome. Three of the four carry supports: PARTIAL for that reason. Antiseizure treatment is not curated — the reported patients receive it, but no cited source in this entry states so in quotable form.
+Hematopoietic transplantation in FADD deficiency is also described in Savic et al. 2015 (PMID:25794656), which is why that reference is listed below. It is not cited as evidence anywhere in this entry: the record caches with content_type unavailable and a zero-length body, so nothing in it can be quoted. The transplantation claims rest on PMID:32350755, which reviews those same patients in text that is available.
+Functional hyposplenism has no HP term. HPO was searched directly rather than inferred from the research report&#39;s suggestion: the only spleen-function hits are HP:0001746 Asplenia, which is anatomical absence and is wrong here (the reported patients have a spleen — PMID:35243129 notes Howell-Jolly bodies &#34;despite the presence of a spleen&#34;), and HP:0001971 Hypersplenism, which the report offered and which is the clinical opposite. So the hyposplenic state is described in prose and the ontology binding is carried by Howell-Jolly bodies (HP:0032550), the objective marker of it. The parent of the Hypersplenism term, HP:0025409 Abnormal spleen physiology, was also considered and passed over: it is the one spleen-function term that is neither inverted nor anatomical, but Hypersplenism is its only descendant, so it carries almost no information beyond the prose — and binding a near-vacuous parent alongside the specific finding that is already curated would add noise rather than precision. Soluble Fas ligand is handled the same way and for the same reason: a direct HPO search for &#34;Fas&#34; returns no relevant term.
+A note on this entry&#39;s deep-research report. Its NEC preflight passed and all 9 references resolved, but seven of its suggested ontology terms were wrong on checking against OLS4, several dangerously: HP:0001971 was offered for &#34;functional abnormality of the spleen&#34; but is Hypersplenism; HP:0031913 was offered for Howell-Jolly bodies but is Rhombencephalosynapsis; HP:0011146 was offered for encephalopathy but is Dialeptic seizure; HP:0040218 was offered for double-negative T lymphocytosis but is Reduced total natural killer cell count; HP:0040214 was offered for elevated vitamin B12 but is Abnormal circulating insulin concentration. The report also asserted that &#34;no somatic FADD variants have been implicated&#34;, which PMID:37793571 directly contradicts — that paper reports homozygous FADD mutations arising by uniparental disomy in the double-negative T cells of four unrelated patients. The somatic route is curated in the genetic section and in a dedicated diagnosis entry.
+Phenotype connectivity is 10 of 14, and the four unwired ones are unwired on purpose. Abnormal heart morphology, hepatic failure, cystoid macular oedema and tractional retinal detachment are all well evidenced as features of the disorder, but no source places them downstream of any node in this pathograph. For the cardiac phenotype the nearest thing to a mechanism is the Tie2-cre endothelial mouse curated below, and that link is deliberately held at fidelity LOW with the causal claim about human cardiac malformation explicitly refused — drawing a pathograph edge would make the assertion the model link declines to make. The ocular findings rest on a single 2022 patient, and the hepatopathy has no proposed mechanism at all in the cited literature. An edge in this graph is a causal claim; four phenotypes with no such claim available are better left visibly unconnected than wired on plausibility.
+No `datasets:` block: no disease-specific dataset was identified for this disorder.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: FADD-Related Immunodeficiency</strong> · 2026-08-24T16:30:25Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/FADD-related_Immunodeficiency/2026-08-24T163025Z-claude-code-7f6100.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo creation of the FADD-related immunodeficiency entry, MONDO:0013408,
+claimed via issue #9388.
+
+Deep research: `just research-disorder claude_code`. NEC preflight PASS (FADD
+dominant at 78 mentions; report OMIM 613759 matches the MONDO xref). All 9
+references resolved and needs_review was not set, though only 6 of 9 were
+scored on topic (the remainder undecided rather than off topic).
+
+The report was nonetheless not trusted for terms or for factual claims, and
+both reservations paid off.
+
+Seven of its suggested ontology terms were wrong on checking against OLS4,
+several of them dangerously: HP:0001971 was offered for &#34;functional abnormality
+of the spleen&#34; but is Hypersplenism, the clinical opposite of the hyposplenism
+this disease actually has; HP:0031913 was offered for Howell-Jolly bodies but is
+Rhombencephalosynapsis; HP:0011146 was offered for encephalopathy but is
+Dialeptic seizure; HP:0040218 was offered for double-negative T lymphocytosis
+but is Reduced total natural killer cell count; HP:0040214 was offered for
+elevated vitamin B12 but is Abnormal circulating insulin concentration;
+HP:0025580 was offered for vitreoretinopathy but is Abnormal right atrium
+morphology; HP:0025406 was offered for isohemagglutinins but is Asthenia. The
+correct terms were substituted (HP:0032550, HP:0001298, HP:0002851, HP:6000016).
+
+The report also asserted that &#34;no somatic FADD variants have been implicated&#34;.
+That is contradicted by PMID:37793571, which reports homozygous FADD mutations
+arising by uniparental disomy in the double-negative T cells of four unrelated
+patients carrying a germline monoallelic mutation inherited from a healthy
+parent. The somatic second-hit route is curated in the genetic section and given
+its own diagnosis entry, because sequencing peripheral blood can miss it.
+
+Content: 9-node pathograph deliberately built as two parallel arms out of the
+trigger, following the founding study&#39;s own framing - a Fas-dependent arm
+(impaired DISC assembly, failure of activation-induced lymphocyte apoptosis,
+ALPS-like biomarkers) and a Fas-independent arm (functional hyposplenism to
+bacterial infection, impaired interferon immunity to viral infection), converging
+on recurrent severe infection and the febrile encephalopathic crises. 14
+phenotypes, genetic, prevalence, progression, 2 diagnosis entries, an ALPS
+differential, the conditional Fadd knockout mouse, and 2 discussions.
+
+No `treatments:` block was curated. No FADD-specific therapy has been evaluated
+in any series; asserting supportive management as curated treatments would
+attach clinical convention to an evidence base that does not exist for this
+disorder. The decision is recorded in notes.
+
+Functional hyposplenism has no HP term, and the nearest-sounding candidate is
+its clinical opposite, so the state is described in prose and the binding is
+carried by Howell-Jolly bodies. This follows the review skill&#39;s rule that no
+term beats a misleading one.
+
+Discussions: a HUMAN_MODEL_MISMATCH on the necroptosis arm - mouse epithelial
+Fadd deletion causes MLKL-dependent necroptosis and colitis, which human
+patients do not have - with two competing explanations (hypomorphic human
+alleles versus a genuine species difference) and an experiment that would
+separate them; and a KNOWLEDGE_GAP on why febrile infection precipitates the
+encephalopathic crises, which bears on whether immunomodulation is rational.
+
+Curation corrections during the run: a title-quoting snippet for PMID:32350755
+was replaced with a real content quote once the cached PDF was read; a snippet
+broken by a stripped `[1]` citation marker was re-cut; and a four-word snippet
+was extended past the length gate. PMID:37199216 caches as content_type
+&#34;unavailable&#34; with no abstract, so it is carried as a top-level reference
+pointer only and is never used as an evidence source.
+
+Validation run and read: `just validate` (schema, terms, 58/58 snippets
+verified); the six ungated CI gates all clean; `just check-snippet-boundaries`
+and `just check-not4curation` clean; `just validate-disorders` over the changed
+file. Weighted compliance 96.1%.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -11354,7 +11806,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "FADD-Related Immunodeficiency", "mondoId": "MONDO:0013408", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "FADD-Related_Immunodeficiency", "yamlRevision": "f77ef4e799c6"};
+        const OS_CONFIG = {"diseaseName": "FADD-Related Immunodeficiency", "mondoId": "MONDO:0013408", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "FADD-Related_Immunodeficiency", "yamlRevision": "38f06345b895"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

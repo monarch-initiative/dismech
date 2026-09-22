@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3761,6 +3826,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3820,7 +3892,7 @@
 
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Primary Immunodeficiency</span>
 
-                <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Combined immunodeficiency</span>
+                <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Antibody Deficiency Disorder</span>
 
                 <button class="badge badge-openscientist" id="os-ask-btn"
                         onclick="toggleOpenScientist()">
@@ -3836,7 +3908,7 @@
             </div>
 
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
-                Activated PI3K-delta syndrome (APDS) is a rare autosomal dominant combined immunodeficiency comprising APDS1, caused by heterozygous gain-of-function variants in PIK3CD, and APDS2, caused by heterozygous loss-of-function variants in PIK3R1. Both mechanisms produce net hyperactivation of PI3K-delta-AKT-mTOR signaling. The resulting immune dysregulation drives recurrent sinopulmonary infection, non-neoplastic lymphoproliferation, hyper-IgM humoral abnormalities, reduced switched-memory B cells, herpesvirus susceptibility, autoimmunity, and progressive airway damage including bronchiectasis. PTEN loss-of-function immunodeficiency is described as APDS-like (APDS-L) in some literature but is not included in this entry&#39;s APDS1/APDS2 subtype scope.
+                Activated PI3K-delta syndrome (APDS) is a rare autosomal dominant inborn error of immunity comprising APDS1, caused by heterozygous gain-of-function variants in PIK3CD, and APDS2, caused by heterozygous loss-of-function variants in PIK3R1. IUIS 2022 classifies both forms under the predominantly antibody deficiencies (Table 3, CVID phenotype), although the clinical picture also includes T-cell dysfunction and the phenotype is often described in the literature as a combined immunodeficiency. Both mechanisms produce net hyperactivation of PI3K-delta-AKT-mTOR signaling. The resulting immune dysregulation drives recurrent sinopulmonary infection, non-neoplastic lymphoproliferation, hyper-IgM humoral abnormalities, reduced switched-memory B cells, herpesvirus susceptibility, autoimmunity, and progressive airway damage including bronchiectasis. PTEN loss-of-function immunodeficiency is described as APDS-like (APDS-L) in some literature but is not included in this entry&#39;s APDS1/APDS2 subtype scope.
             </p>
 
         </header>
@@ -4140,7 +4212,7 @@
 
 
 
-                    <span class="tag tag-classification" title="IUIS 2022 phenotypic classification Table 1 (combined immunodeficiencies).">combined immunodeficiency</span>
+                    <span class="tag tag-classification" title="IUIS 2022 phenotypic classification Table 3 (predominantly antibody deficiencies), section 2 (CVID phenotype): APDS1 (PIK3CD GOF) and APDS2 (PIK3R1) are consecutive Table 3 rows. This corrects an earlier assignment on this entry that claimed IUIS Table 1 (combined immunodeficiencies): in the 2022 tables PIK3CD appears only in Table 3 (the AR loss-of-function row in section 1 and the APDS1 GOF row in section 2), not in Table 1. &#34;Combined immunodeficiency&#34; remains a common clinical description of the APDS phenotype but is not the IUIS table placement.">predominantly antibody deficiency</span>
 
                 </div>
 
@@ -4212,6 +4284,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4325,6 +4398,7 @@ This subtype is caused by variation in PIK3CD (hgnc:8977). hgnc:8977 is a gene f
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4346,6 +4420,7 @@ This subtype is caused by variation in PIK3CD (hgnc:8977). hgnc:8977 is a gene f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4432,6 +4507,7 @@ This subtype is caused by variation in PIK3R1 (hgnc:8979). hgnc:8979 is a gene f
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4453,6 +4529,7 @@ This subtype is caused by variation in PIK3R1 (hgnc:8979). hgnc:8979 is a gene f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4500,6 +4577,7 @@ This subtype is caused by variation in PIK3R1 (hgnc:8979). hgnc:8979 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pi3k-delta-pathway-hyperactivation" data-dismech-node="PI3K-delta pathway hyperactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">PI3K-delta pathway hyperactivation</div>
+
 
                 <div class="item-desc">Germline gain-of-function variants in the PIK3CD catalytic subunit (APDS1) or loss-of-function variants in the inhibitory PIK3R1 regulatory subunit (APDS2) create constitutive PI3K-delta signaling with increased downstream AKT and mTOR activity. Persistent pathway activation disrupts lymphocyte homeostasis and underlies the precision-medicine rationale for PI3K-delta inhibition.</div>
 
@@ -4841,6 +4919,7 @@ This pathophysiological event involves increased TOR signaling (GO:0031929). GO:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4862,6 +4941,7 @@ This pathophysiological event involves increased TOR signaling (GO:0031929). GO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4887,6 +4967,7 @@ This pathophysiological event involves increased TOR signaling (GO:0031929). GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-b-cell-maturation-and-humoral-immunity" data-dismech-node="Defective B-cell maturation and humoral immunity" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective B-cell maturation and humoral immunity</div>
+
 
                 <div class="item-desc">Hyperactive PI3K-delta signaling skews B-cell development toward expanded transitional cells while impairing maturation into class-switched memory B cells and efficient IgG production. Clinically this produces a hyper-IgM pattern in many patients together with reduced antibody quality and poor polysaccharide vaccine responses.</div>
 
@@ -5084,6 +5165,7 @@ This pathophysiological event involves decreased isotype switching (GO:0045190).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5105,6 +5187,7 @@ This pathophysiological event involves decreased isotype switching (GO:0045190).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5130,6 +5213,7 @@ This pathophysiological event involves decreased isotype switching (GO:0045190).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-senescent-t-cell-skewing" data-dismech-node="Senescent T-cell skewing" data-dismech-type="pathophysiology">
                 <div class="item-name">Senescent T-cell skewing</div>
+
 
                 <div class="item-desc">APDS promotes accumulation of senescent effector T cells and depletion of naive and long-lived memory T-cell pools, creating an exhausted effector-skewed T-cell compartment.</div>
 
@@ -5319,6 +5403,7 @@ This pathophysiological event involves increased activation-induced cell death o
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5341,6 +5426,7 @@ This pathophysiological event involves increased activation-induced cell death o
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-antiviral-control" data-dismech-node="Impaired antiviral control" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired antiviral control</div>
+
 
                 <div class="item-desc">Dysfunctional T-cell immunity weakens control of latent herpesviruses, especially EBV and CMV, predisposing to persistent viremia, lymphadenitis, and lymphoma.</div>
 
@@ -5504,6 +5590,7 @@ This pathophysiological event involves decreased defense response to virus (GO:0
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5526,6 +5613,7 @@ This pathophysiological event involves decreased defense response to virus (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-immune-dysregulation-and-autoimmunity" data-dismech-node="Immune dysregulation and autoimmunity" data-dismech-type="pathophysiology">
                 <div class="item-name">Immune dysregulation and autoimmunity</div>
+
 
                 <div class="item-desc">PI3K-delta hyperactivation also disrupts immune tolerance, producing autoimmune and autoinflammatory complications. Autoimmune cytopenias are the dominant hematologic autoimmune manifestation.</div>
 
@@ -5587,6 +5675,7 @@ This pathophysiological event involves decreased defense response to virus (GO:0
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5609,6 +5698,7 @@ This pathophysiological event involves decreased defense response to virus (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-lymphoproliferation" data-dismech-node="Chronic lymphoproliferation" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic lymphoproliferation</div>
+
 
                 <div class="item-desc">Benign lymphoid hyperplasia is a dominant APDS manifestation and presents as persistent lymphadenopathy, splenomegaly, tonsillar or adenoidal enlargement, and nodal disease at sites of chronic infection.</div>
 
@@ -5742,6 +5832,7 @@ This pathophysiological event involves increased leukocyte proliferation (GO:007
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5764,6 +5855,7 @@ This pathophysiological event involves increased leukocyte proliferation (GO:007
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-airway-injury" data-dismech-node="Progressive airway injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive airway injury</div>
+
 
                 <div class="item-desc">Recurrent sinopulmonary infection together with airway obstruction from lymphoid hyperplasia promotes mosaic attenuation, bronchiolitis, and established bronchiectasis.</div>
 
@@ -5889,6 +5981,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5957,15 +6050,13 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Immune<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Immune<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(1)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Respiratory<span class="pill-count">(1)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Growth<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6006,6 +6097,9 @@ This clinical feature is autoimmune thrombocytopenia (HP:0001973). HP:0001973 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6020,6 +6114,7 @@ This clinical feature is autoimmune thrombocytopenia (HP:0001973). HP:0001973 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6074,6 +6169,9 @@ This clinical feature is autoimmune hemolytic anemia (HP:0001890). HP:0001890 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6088,6 +6186,7 @@ This clinical feature is autoimmune hemolytic anemia (HP:0001890). HP:0001890 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6146,6 +6245,9 @@ This clinical feature is decreased circulating IgG concentration (HP:0004315). H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6160,6 +6262,7 @@ This clinical feature is decreased circulating IgG concentration (HP:0004315). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6216,6 +6319,9 @@ This clinical feature is Lymphoma (HP:0002665). HP:0002665 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6230,6 +6336,7 @@ This clinical feature is Lymphoma (HP:0002665). HP:0002665 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6283,6 +6390,7 @@ This clinical feature is Lymphoma (HP:0002665). HP:0002665 is a phenotype from t
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6297,6 +6405,7 @@ This clinical feature is Lymphoma (HP:0002665). HP:0002665 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6345,6 +6454,7 @@ This clinical feature is Lymphoma (HP:0002665). HP:0002665 is a phenotype from t
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6359,6 +6469,7 @@ This clinical feature is Lymphoma (HP:0002665). HP:0002665 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6426,6 +6537,9 @@ This clinical feature is lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6440,6 +6554,7 @@ This clinical feature is lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6496,6 +6611,9 @@ This clinical feature is splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6510,6 +6628,7 @@ This clinical feature is splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6542,7 +6661,7 @@ This clinical feature is splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Immune
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-respiratory-infections" data-dismech-node="Recurrent respiratory infections" data-dismech-type="phenotype">
@@ -6575,6 +6694,9 @@ This clinical feature is recurrent respiratory infections (HP:0002205). HP:00022
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6592,6 +6714,7 @@ This clinical feature is recurrent respiratory infections (HP:0002205). HP:00022
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6600,6 +6723,82 @@ This clinical feature is recurrent respiratory infections (HP:0002205). HP:00022
 
 
                 <div class="evidence-explanation">The combined APDS1/APDS2 registry supports recurrent respiratory infection as the cardinal early phenotype of APDS.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-herpesvirus-susceptibility" data-dismech-node="Herpesvirus susceptibility" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Herpesvirus susceptibility
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Recurrent viral infections</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004429" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0004429</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is recurrent herpesvirus infections, annotated with Recurrent viral infections (HP:0004429). HP:0004429 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29599784" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29599784" target="_blank">PMID:29599784</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Acute viral infections (with varicella and herpes simplex) as well as chronic viral infections/reactivations were frequently documented in APDS1 and APDS2 patients (Figure 1A)."</div>
+
+
+                <div class="evidence-explanation">Combined registry data support viral susceptibility in both APDS1 and APDS2 without importing an APDS1-only frequency.</div>
 
 
 
@@ -6638,15 +6837,18 @@ This clinical feature is recurrent respiratory infections (HP:0002205). HP:00022
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012758" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0012758</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012758" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0012758</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Neurodevelopmental delay (HP:0012758). HP:0012758 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6666,6 +6868,7 @@ This clinical feature is Neurodevelopmental delay (HP:0012758). HP:0012758 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6719,6 +6922,7 @@ This clinical feature is Neurodevelopmental delay (HP:0012758). HP:0012758 is a 
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6733,6 +6937,7 @@ This clinical feature is Neurodevelopmental delay (HP:0012758). HP:0012758 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6781,6 +6986,7 @@ This clinical feature is Neurodevelopmental delay (HP:0012758). HP:0012758 is a 
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6795,6 +7001,7 @@ This clinical feature is Neurodevelopmental delay (HP:0012758). HP:0012758 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6848,15 +7055,18 @@ This clinical feature is Neurodevelopmental delay (HP:0012758). HP:0012758 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0002110</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0002110</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is bronchiectasis (HP:0002110). HP:0002110 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6876,6 +7086,7 @@ This clinical feature is bronchiectasis (HP:0002110). HP:0002110 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6929,6 +7140,7 @@ This clinical feature is bronchiectasis (HP:0002110). HP:0002110 is a phenotype 
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6943,6 +7155,7 @@ This clinical feature is bronchiectasis (HP:0002110). HP:0002110 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6991,6 +7204,7 @@ This clinical feature is bronchiectasis (HP:0002110). HP:0002110 is a phenotype 
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7005,6 +7219,7 @@ This clinical feature is bronchiectasis (HP:0002110). HP:0002110 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7056,15 +7271,18 @@ This clinical feature is bronchiectasis (HP:0002110). HP:0002110 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0004322</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0004322</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7084,6 +7302,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7133,6 +7352,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
             </div>
 
 
+
             <div class="context-notes">Growth impairment occurs in APDS1, but this registry passage does not provide a separate APDS1 percentage.</div>
 
 
@@ -7151,6 +7371,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7197,6 +7418,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
             </div>
 
 
+
             <div class="context-notes">Growth impairment is enriched in APDS2.</div>
 
 
@@ -7215,6 +7437,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7239,87 +7462,6 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
         </div>
 
     </details>
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-7">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-herpesvirus-susceptibility" data-dismech-node="Herpesvirus susceptibility" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Herpesvirus susceptibility
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Recurrent viral infections</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004429" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0004429</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is recurrent herpesvirus infections, annotated with Recurrent viral infections (HP:0004429). HP:0004429 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:29599784" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29599784" target="_blank">PMID:29599784</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Acute viral infections (with varicella and herpes simplex) as well as chronic viral infections/reactivations were frequently documented in APDS1 and APDS2 patients (Figure 1A)."</div>
-
-
-                <div class="evidence-explanation">Combined registry data support viral susceptibility in both APDS1 and APDS2 without importing an APDS1-only frequency.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
 
 
                 </div>
@@ -7400,6 +7542,9 @@ This disease-associated gene is PIK3CD (hgnc:8977). hgnc:8977 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7414,6 +7559,7 @@ This disease-associated gene is PIK3CD (hgnc:8977). hgnc:8977 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7438,6 +7584,7 @@ This disease-associated gene is PIK3CD (hgnc:8977). hgnc:8977 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7499,6 +7646,9 @@ This disease-associated gene is PIK3R1 (hgnc:8979). hgnc:8979 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7513,6 +7663,7 @@ This disease-associated gene is PIK3R1 (hgnc:8979). hgnc:8979 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7537,6 +7688,7 @@ This disease-associated gene is PIK3R1 (hgnc:8979). hgnc:8979 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7622,6 +7774,31 @@ This treatment is immunoglobulin replacement therapy, annotated with Pharmacothe
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Protein replacement</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Intravenous or subcutaneous immunoglobulin replacement is commonly used as supportive therapy for antibody deficiency and prevention of recurrent bacterial infections.</div>
 
 
@@ -7665,6 +7842,7 @@ This treatment targets recurrent respiratory infections (HP:0002205). HP:0002205
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7752,6 +7930,31 @@ This treatment uses sirolimus (CHEBI:9168). CHEBI:9168 is a therapeutic agent fr
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">mTOR inhibition with sirolimus is an off-label pathway-directed option for lymphoproliferation or organomegaly when leniolisib is unavailable. Registry responses were strongest for lymphoproliferation and less consistent for bowel inflammation and cytopenias. Headache, anorexia, renal toxicity, aphthous ulcers, and liver toxicity led to treatment interruption in some registry participants.</div>
 
 
@@ -7782,6 +7985,7 @@ This treatment uses sirolimus (CHEBI:9168). CHEBI:9168 is a therapeutic agent fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7850,6 +8054,7 @@ This treatment targets lymphadenopathy (HP:0002716). HP:0002716 is a phenotype f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7874,6 +8079,7 @@ This treatment targets lymphadenopathy (HP:0002716). HP:0002716 is a phenotype f
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7895,6 +8101,7 @@ This treatment targets lymphadenopathy (HP:0002716). HP:0002716 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7982,6 +8189,31 @@ This treatment uses leniolisib (CHEBI:229649). CHEBI:229649 is a therapeutic age
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Selective oral PI3Kdelta inhibition directly targets the causal signaling lesion in APDS and is recommended as first-line therapy for significant lymphoproliferative disease. The current U.S. label indicates Joenja for adults and pediatric patients 12 years and older; 70 mg twice daily is the recommended dose for patients weighing at least 45 kg, with no recommended dose below 45 kg. The current label warns of postmarketing hypersensitivity, including anaphylaxis. In the pivotal 12-week phase 3 trial, both lymph-node size and naive-B-cell coprimary outcomes improved versus placebo.</div>
 
 
@@ -8012,6 +8244,7 @@ This treatment uses leniolisib (CHEBI:229649). CHEBI:229649 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8080,6 +8313,7 @@ This treatment targets lymphadenopathy (HP:0002716). HP:0002716 is a phenotype f
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8104,6 +8338,7 @@ This treatment targets lymphadenopathy (HP:0002716). HP:0002716 is a phenotype f
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8125,6 +8360,7 @@ This treatment targets lymphadenopathy (HP:0002716). HP:0002716 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8193,6 +8429,31 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Cell therapy</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Allogeneic hematopoietic stem cell transplantation is reserved for severe or treatment-refractory disease, including progressive organ damage, refractory infection, or immune dysregulation. In an international cohort, two-year overall survival was 86% and graft-failure-free survival was 68%; graft instability and poor graft function remain important limitations.</div>
 
 
@@ -8239,6 +8500,7 @@ This treatment targets combined immunodeficiency (HP:0005387). HP:0005387 is a p
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8263,6 +8525,7 @@ This treatment targets combined immunodeficiency (HP:0005387). HP:0005387 is a p
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8284,6 +8547,7 @@ This treatment targets combined immunodeficiency (HP:0005387). HP:0005387 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8350,6 +8614,31 @@ This treatment is antibiotic prophylaxis, annotated with Antibiotic Therapy (NCI
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Long-term prophylactic antibiotics are used in patients with recurrent bacterial sinopulmonary infections to reduce infectious burden alongside immunoglobulin replacement therapy.</div>
 
 
@@ -8393,6 +8682,7 @@ This treatment targets recurrent respiratory infections (HP:0002205). HP:0002205
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8459,6 +8749,20 @@ This treatment is clinical assessment, annotated with Clinical Evaluation (NCIT:
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Longitudinal follow-up should assess infections and herpesvirus burden, immune function, lymphoproliferation and blood counts, autoimmunity, respiratory function, and gastrointestinal/liver status at least annually. GeneReviews also recommends chest CT or MRI every three to five years and baseline then periodic liver ultrasonography. Persistent or changing lymphadenopathy warrants clinical evaluation because benign lymphoproliferation can be difficult to distinguish from lymphoma.</div>
 
 
@@ -8483,6 +8787,7 @@ This treatment is clinical assessment, annotated with Clinical Evaluation (NCIT:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8504,6 +8809,7 @@ This treatment is clinical assessment, annotated with Clinical Evaluation (NCIT:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8595,6 +8901,7 @@ This treatment is clinical assessment, annotated with Clinical Evaluation (NCIT:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8634,6 +8941,7 @@ This treatment is clinical assessment, annotated with Clinical Evaluation (NCIT:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8710,6 +9018,7 @@ This treatment is clinical assessment, annotated with Clinical Evaluation (NCIT:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8749,6 +9058,7 @@ This treatment is clinical assessment, annotated with Clinical Evaluation (NCIT:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8825,6 +9135,7 @@ This treatment is clinical assessment, annotated with Clinical Evaluation (NCIT:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8864,6 +9175,7 @@ This treatment is clinical assessment, annotated with Clinical Evaluation (NCIT:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8968,6 +9280,7 @@ This treatment is clinical assessment, annotated with Clinical Evaluation (NCIT:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8989,6 +9302,7 @@ This treatment is clinical assessment, annotated with Clinical Evaluation (NCIT:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9083,6 +9397,7 @@ This treatment is clinical assessment, annotated with Clinical Evaluation (NCIT:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9104,6 +9419,7 @@ This treatment is clinical assessment, annotated with Clinical Evaluation (NCIT:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9196,6 +9512,7 @@ This treatment is clinical assessment, annotated with Clinical Evaluation (NCIT:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9222,7 +9539,7 @@ This treatment is clinical assessment, annotated with Clinical Evaluation (NCIT:
 
                 </div>
 
-                <div class="item-desc">Measurement of specific antibody responses to pneumococcal polysaccharide and protein-conjugate vaccines reveals impaired humoral immunity in the majority of patients with APDS, analogous to other combined immunodeficiencies.</div>
+                <div class="item-desc">Measurement of specific antibody responses to pneumococcal polysaccharide and protein-conjugate vaccines reveals impaired humoral immunity in the majority of patients with APDS, as in other immunodeficiencies with impaired humoral immunity.</div>
 
 
 
@@ -9282,6 +9599,7 @@ This treatment is clinical assessment, annotated with Clinical Evaluation (NCIT:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9374,6 +9692,7 @@ This treatment is clinical assessment, annotated with Clinical Evaluation (NCIT:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9395,6 +9714,7 @@ This treatment is clinical assessment, annotated with Clinical Evaluation (NCIT:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9484,6 +9804,7 @@ This treatment is clinical assessment, annotated with Clinical Evaluation (NCIT:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9628,6 +9949,7 @@ This treatment is clinical assessment, annotated with Clinical Evaluation (NCIT:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9799,6 +10121,7 @@ This treatment is clinical assessment, annotated with Clinical Evaluation (NCIT:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9863,6 +10186,7 @@ This treatment is clinical assessment, annotated with Clinical Evaluation (NCIT:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9912,6 +10236,7 @@ This treatment is clinical assessment, annotated with Clinical Evaluation (NCIT:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10078,6 +10403,7 @@ This clinical trial targets lymphadenopathy (HP:0002716). HP:0002716 is a phenot
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10099,6 +10425,7 @@ This clinical trial targets lymphadenopathy (HP:0002716). HP:0002716 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10155,6 +10482,7 @@ This clinical trial targets lymphadenopathy (HP:0002716). HP:0002716 is a phenot
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10205,6 +10533,7 @@ This clinical trial targets lymphadenopathy (HP:0002716). HP:0002716 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10264,26 +10593,49 @@ disease_term:
     label: activated PI3K-delta syndrome
 parents:
 - Primary Immunodeficiency
-- Combined immunodeficiency
+- Antibody Deficiency Disorder
 classifications:
   iuis_category:
-    classification_value: combined immunodeficiency
+    classification_value: predominantly antibody deficiency
     notes: &gt;-
-      IUIS 2022 phenotypic classification Table 1 (combined immunodeficiencies).
+      IUIS 2022 phenotypic classification Table 3 (predominantly antibody
+      deficiencies), section 2 (CVID phenotype): APDS1 (PIK3CD GOF) and APDS2
+      (PIK3R1) are consecutive Table 3 rows. This corrects an earlier
+      assignment on this entry that claimed IUIS Table 1 (combined
+      immunodeficiencies): in the 2022 tables PIK3CD appears only in Table 3
+      (the AR loss-of-function row in section 1 and the APDS1 GOF row in
+      section 2), not in Table 1. &#34;Combined immunodeficiency&#34; remains a common
+      clinical description of the APDS phenotype but is not the IUIS table
+      placement.
     evidence:
     - reference: PMID:35748970
       reference_title: &#34;Human Inborn Errors of Immunity: 2022 Update on the Classification from the International Union of Immunological Societies Expert Committee.&#34;
       supports: SUPPORT
       evidence_source: OTHER
-      snippet: &#34;We report the updated classification of inborn errors of immunity, compiled by the International Union of Immunological Societies Expert Committee.&#34;
+      snippet: &#34;syndrome (APDS) PIK3CD GOF AD 615513&#34;
       explanation: &gt;-
-        APDS is assigned to IUIS Table 1 (combined immunodeficiency) in the
-        IUIS phenotypic IEI classification.
+        The APDS1 row of IUIS 2022 Table 3 (predominantly antibody
+        deficiencies), section 2 (CVID phenotype). The printed row label is
+        &#34;Activated p110-delta syndrome (APDS)&#34;; the quote starts mid-row
+        because PDF extraction dropped the Greek delta, leaving a double
+        space before &#34;syndrome&#34;.
+    - reference: PMID:35748970
+      reference_title: &#34;Human Inborn Errors of Immunity: 2022 Update on the Classification from the International Union of Immunological Societies Expert Committee.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;PIK3R1 AD 616005 (APDS2) Normal/increased IgM, reduced IgG and IgA&#34;
+      explanation: &gt;-
+        The APDS2 row of IUIS 2022 Table 3 section 2, printed immediately
+        below the APDS1 row: the genetic-defect, inheritance, OMIM, and
+        immunoglobulin columns.
 description: &gt;-
-  Activated PI3K-delta syndrome (APDS) is a rare autosomal dominant combined
-  immunodeficiency comprising APDS1, caused by heterozygous gain-of-function
+  Activated PI3K-delta syndrome (APDS) is a rare autosomal dominant inborn
+  error of immunity comprising APDS1, caused by heterozygous gain-of-function
   variants in PIK3CD, and APDS2, caused by heterozygous loss-of-function
-  variants in PIK3R1. Both mechanisms produce net hyperactivation of
+  variants in PIK3R1. IUIS 2022 classifies both forms under the predominantly
+  antibody deficiencies (Table 3, CVID phenotype), although the clinical
+  picture also includes T-cell dysfunction and the phenotype is often
+  described in the literature as a combined immunodeficiency. Both mechanisms produce net hyperactivation of
   PI3K-delta-AKT-mTOR signaling. The resulting immune dysregulation drives
   recurrent sinopulmonary infection, non-neoplastic lymphoproliferation,
   hyper-IgM humoral abnormalities, reduced switched-memory B cells,
@@ -10544,6 +10896,7 @@ pathophysiology:
       snippet: &#34;Non-immunological characteristics included neurodevelopmental delay (19% of APDS1 and 31% of APDS2) and growth impairment, especially among APDS2 patients (45%).&#34;
       explanation: Registry association supports a neurodevelopmental phenotype but not a resolved molecular-to-clinical mechanism.
 - name: Defective B-cell maturation and humoral immunity
+  conforms_to: &#34;germinal_center_reaction#Germinal Center Reaction&#34;
   description: &gt;-
     Hyperactive PI3K-delta signaling skews B-cell development toward expanded
     transitional cells while impairing maturation into class-switched memory B
@@ -11618,7 +11971,8 @@ diagnosis:
   description: &gt;-
     Measurement of specific antibody responses to pneumococcal polysaccharide and
     protein-conjugate vaccines reveals impaired humoral immunity in the majority of
-    patients with APDS, analogous to other combined immunodeficiencies.
+    patients with APDS, as in other immunodeficiencies with impaired humoral
+    immunity.
   diagnosis_term:
     preferred_term: vaccine-specific antibody measurement
     term:
@@ -11813,6 +12167,7 @@ datasets:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11884,6 +12239,7 @@ datasets:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11918,6 +12274,61 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Review: Activated PI3K-delta syndrome (Changes required)</strong> · 2026-05-30T05:00:04Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Activated_PI3K-delta_Syndrome/2026-05-30T050004Z-github-review-3452.yaml">View source</a></p>
+                        <p class="research-review-text">GitHub review issue: https://github.com/monarch-initiative/dismech/issues/3452
+Issue state: OPEN
+Issue created: 2026-05-30T05:00:04Z
+Issue updated: 2026-05-30T11:37:55Z
+Issue closed: not closed
+Review decision: Changes required
+Labels: curation, medium_effort, review
+
+## Completed curation review
+
+- Disease: **Activated PI3K-delta syndrome**
+- Entry: `kb/disorders/Activated_PI3K-delta_Syndrome.yaml`
+- Selection basis: #60 of the least-recently edited Mendelian entries
+- Review decision: **Changes required**
+- Validation stance: assumes schema/term/reference validation passes; this is a biological and clinical-content review.
+
+## Findings
+
+1. **Diagnosis is missing despite a strong treatment/phenotype section.** Add immunoglobulin profiles, vaccine responses, lymphocyte subsets/senescent T cells, genetic testing for PIK3CD/PIK3R1, infection/bronchiectasis imaging, and lymphoma/EBV evaluation.
+2. **APDS1 and APDS2 subtype differences should be mapped.** The YAML has APDS1 and APDS2 and PIK3CD/PIK3R1 genetics, but phenotypes and mechanisms are mostly global. APDS2 can include growth/neurodevelopmental features and splice/disruptive PIK3R1 mechanisms; subtype-specific phenotype and treatment response should be checked.
+3. **Treatment coverage should include current standards and evidence strength.** IVIG, sirolimus, leniolisib, and HSCT are present. Leniolisib is now an approved PI3K-delta inhibitor in many jurisdictions; evidence, age indications, and use relative to sirolimus/HSCT should be represented. Antibiotic prophylaxis and vaccination/infection prevention may also be relevant.
+4. **Cancer/lymphoma surveillance should be explicit.** Lymphoma is a phenotype, but management should address EBV/lymphoproliferation and malignancy risk.
+5. **Pathophysiology is good but should connect to clinical endpoints.** PI3K-delta hyperactivation, B-cell maturation defect, T-cell senescence, antiviral control, lymphoproliferation, and airway injury are useful; ensure each is tied to PIK3CD/PIK3R1 evidence.
+
+## Research-artifact cross-check
+
+Matching artifacts: `research/Activated_PI3K-delta_Syndrome-deep-research-asta.md` and `.citations.md`. Asta should be treated as leads; current immunology guidelines and leniolisib evidence should anchor management.
+
+## Content-completeness summary
+
+- **Phenotypes:** good but subtype-specific mapping needed.
+- **Subtype/lumping:** APDS1/APDS2 present; clinical differences need mapping.
+- **Pathophysiology:** strong; connect to diagnosis and treatment.
+- **Management/diagnosis:** diagnosis missing; treatment needs current evidence/status framing.
+- **References:** add current APDS review/guideline references if updating YAML.
+
+## Sources used
+
+- APDS review, PMID:37745010: https://pubmed.ncbi.nlm.nih.gov/37745010/
+- Leniolisib trial, PMID:36812407: https://pubmed.ncbi.nlm.nih.gov/36812407/
+
+No YAML files or `references_cache/*.md` files were edited.
+
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -12326,7 +12737,7 @@ datasets:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Activated PI3K-delta syndrome", "mondoId": "MONDO:0018338", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Activated_PI3K-delta_syndrome", "yamlRevision": "573fa663e8ac"};
+        const OS_CONFIG = {"diseaseName": "Activated PI3K-delta syndrome", "mondoId": "MONDO:0018338", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Activated_PI3K-delta_syndrome", "yamlRevision": "d18a847e16a1"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

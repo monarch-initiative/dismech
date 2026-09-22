@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3761,6 +3826,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3964,7 +4036,7 @@ It is also the human loss-of-function experiment behind a drug class. FcRn block
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
-                <div class="stat-value">7</div>
+                <div class="stat-value">8</div>
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
@@ -3974,7 +4046,7 @@ It is also the human loss-of-function experiment behind a drug class. FcRn block
             <a class="stat-link" href="#discussions">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💬</div>
-                <div class="stat-value">2</div>
+                <div class="stat-value">3</div>
                 <div class="stat-label">Gaps</div>
             </div>
             </a>
@@ -4201,6 +4273,7 @@ It is also the human loss-of-function experiment behind a drug class. FcRn block
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4222,6 +4295,7 @@ It is also the human loss-of-function experiment behind a drug class. FcRn block
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4263,7 +4337,7 @@ It is also the human loss-of-function experiment behind a drug class. FcRn block
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">?</div>
                 <h2 class="card-title">Discussions and Knowledge Gaps</h2>
-                <span class="card-count">2</span>
+                <span class="card-count">3</span>
             </div>
 
             <div class="item-box discussion-box anchor-target" id="fcrn_antagonist_pharmacological_mirror">
@@ -4322,6 +4396,7 @@ That last point is an inference from mechanism, not a reported observation. No c
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4343,6 +4418,7 @@ That last point is an inference from mechanism, not a reported observation. No c
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4396,7 +4472,8 @@ That last point is an inference from mechanism, not a reported observation. No c
 
 
                 <div class="item-desc" style="margin-top: 10px;">The founding report noted chemical diabetes and a skeletal deformity in the index family, and explicitly attributed them to that family rather than to the disorder - the authors wrote that the protein phenotype &#34;is associated in this family with&#34; these features. With two reported families in thirty-five years there is no way to tell a pleiotropic consequence of beta-2-microglobulin deficiency from an unrelated segregating trait in a consanguineous pedigree.
-They are therefore not curated as phenotypes of this disease. Resolving it needs additional unrelated families, or a mechanistic account linking a class-I-fold heterodimer to glucose handling or skeletal development.</div>
+They are therefore not curated as phenotypes of this disease. Resolving it needs additional unrelated families, or a mechanistic account linking a class-I-fold heterodimer to glucose handling or skeletal development.
+One detail sharpens the question without settling it. The skeletal deformity is specific and concordant between the two affected siblings: both had short forearms with shortened ulnae and bowing of the radii on x-ray. A defined radiographic abnormality present in both affected members and described in neither unaffected relative is more than a vague familial association - but in a first-cousin pedigree a second recessive trait segregating with the first is exactly what would also produce that pattern, and with n=2 the two explanations are indistinguishable. The second family has not been reported to have it.</div>
 
 
 
@@ -4406,7 +4483,7 @@ They are therefore not curated as phenotypes of this disease. Resolving it needs
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
 
@@ -4421,6 +4498,7 @@ They are therefore not curated as phenotypes of this disease. Resolving it needs
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4429,6 +4507,165 @@ They are therefore not curated as phenotypes of this disease. Resolving it needs
 
 
                 <div class="evidence-explanation">The authors&#39; own hedged phrasing, which is the reason this is a gap rather than a phenotype.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:2254461" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/2254461" target="_blank">PMID:2254461</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"On x-ray examination ofhis forearms and wrists, he was shown to have shortened ulnae and bowing ofthe radii"</div>
+
+
+                <div class="evidence-explanation">Characterises the skeletal deformity in the affected brother. Run-together words are artefacts of the cached PDF text layer.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:2254461" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/2254461" target="_blank">PMID:2254461</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Thepatient&#39;s sister had the same abnormality"</div>
+
+
+                <div class="evidence-explanation">Establishes concordance of the skeletal finding between the two affected siblings, which is what makes the attribution question worth keeping open.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box discussion-box anchor-target" id="gap_iga_hypercatabolism_human_versus_mouse">
+                <div class="item-name">Why is IgA survival shortened in the human disease but unchanged in the beta-2-microglobulin knockout mouse, and does that mean FcRn loss has a ligand-handling consequence in humans that the mouse does not model?</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-discussion-kind">HUMAN MODEL MISMATCH</span>
+
+
+                    <span class="tag tag-discussion-status">OPEN</span>
+
+
+                    <span class="entity-ref-chip">gap_iga_hypercatabolism_human_versus_mouse</span>
+
+                </div>
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Attached to</div>
+                    <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-failure-of-ph-dependent-fcrn-salvage-of-igg-and-albumin">pathophysiology#Failure of pH-Dependent FcRn Salvage of IgG and Albumin</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#animal-model-beta-2-microglobulin-knockout-mouse-b6-129p2-b2m-tm1unc">animal_models#Mouse</a>
+
+
+
+                    </div>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 10px;">The mouse result is used in this entry as a specificity control: albumin and IgG half-lives fall while IgA is unchanged, which is what a lesion in a receptor salvaging only those two ligands should produce. That reading is clean, and it is the reason the model is curated at HIGH fidelity.
+The human data do not match it. In the index patient the IgA survival was 2.9 days against a normal mean of 6.4, with the fractional catabolic rate roughly doubled - shortened, not unchanged. The serum IgA looked normal only because synthesis rose to cover it, so the discrepancy is invisible unless turnover is measured rather than concentration.
+Neither observation is in doubt; they are simply not the same result. Candidate explanations include a genuine species difference in how IgA is catabolised, a non-FcRn consequence of losing the whole MHC class I fold in the human hypomorph, or a general increase in catabolism in the index patient that the mouse strain does not reproduce. Distinguishing them needs IgA turnover measured in the FcRn alpha-chain knockout - which would separate a class-I-fold effect from an FcRn effect - or IgA kinetics in a further human family. Until then the specificity claim should be read as established in the mouse and unconfirmed in humans.</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:2254461" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/2254461" target="_blank">PMID:2254461</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The survival t/2 ofradioiodinated IgA in patient W.J. was reduced to 2.9 dcomparedwith the normal meanof6.4 d"</div>
+
+
+                <div class="evidence-explanation">The human observation, which is the half of the mismatch the model does not reproduce.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12566415" data-dismech-supports="REFUTE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12566415" target="_blank">PMID:12566415</a>
+                    </span>
+
+
+                    <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"It can be seen that the half-life of albumin is shortened in the b2m KO strain (t1/2 25 h vs. 35 h in WT, Fig. 4 A) whereas the half-lives of IgA are not different in the two strains"</div>
+
+
+                <div class="evidence-explanation">The mouse observation. Marked REFUTE relative to the human finding: in the model the IgA half-life is explicitly unchanged, which is the direct contradiction this gap is about.</div>
 
 
 
@@ -4455,6 +4692,7 @@ They are therefore not curated as phenotypes of this disease. Resolving it needs
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-b2m-loss-of-function-variant" data-dismech-node="Biallelic B2M Loss-of-Function Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic B2M Loss-of-Function Variant</div>
+
 
                 <div class="item-desc">Both described families are consanguineous and the variants are homozygous. In the family that defined the disease the lesion is a single nucleotide transversion replacing a conserved alanine with proline in the middle of the beta-2-microglobulin signal sequence - that is, it does not alter the mature protein at all, it prevents the protein from being made properly in the first place.
 The signal-peptide position matters for how the entry is read downstream. This is not an allele that produces a subtly altered beta-2-microglobulin which then fails to bind one particular heavy chain; it lowers the supply of the light chain itself, which is why every heterodimer that needs it is affected together.</div>
@@ -4509,6 +4747,7 @@ The signal-peptide position matters for how the entry is read downstream. This i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4530,6 +4769,7 @@ The signal-peptide position matters for how the entry is read downstream. This i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4555,6 +4795,7 @@ The signal-peptide position matters for how the entry is read downstream. This i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-depletion-of-the-shared-mhc-class-i-light-chain" data-dismech-node="Depletion of the Shared MHC Class I Light Chain" data-dismech-type="pathophysiology">
                 <div class="item-name">Depletion of the Shared MHC Class I Light Chain</div>
+
 
                 <div class="item-desc">Beta-2-microglobulin is not a component of one receptor; it is the non-polymorphic light chain of the whole MHC class I fold. Classical HLA-A/B/C, the lipid-presenting CD1 molecules, and FcRn are all heterodimers of a class-I-like heavy chain with the same light chain, so a shortage of it destabilises all of them at once.
 This node is the reason the disease has two arms rather than one, and it is why the immunological defect is broader than in the commoner TAP-deficient form of MHC class I deficiency: TAP loss leaves the heterodimer intact and starves it of peptide, whereas beta-2-microglobulin loss removes the shared subunit that CD1 and FcRn need too.</div>
@@ -4655,6 +4896,7 @@ This pathophysiological event involves decreased beta-2-microglobulin binding to
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4676,6 +4918,7 @@ This pathophysiological event involves decreased beta-2-microglobulin binding to
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4703,6 +4946,7 @@ This pathophysiological event involves decreased beta-2-microglobulin binding to
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4725,6 +4969,7 @@ This pathophysiological event involves decreased beta-2-microglobulin binding to
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-fcrn-from-the-cell-surface" data-dismech-node="Loss of FcRn from the Cell Surface" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of FcRn from the Cell Surface</div>
+
 
                 <div class="item-desc">FcRn is expressed on vascular endothelium, epithelium and most haematopoietic cells. Endothelium alone accounts for roughly half of IgG salvage in mice, which is why a defect in a receptor usually discussed in immunological terms produces a whole-body protein-kinetic phenotype.</div>
 
@@ -4812,6 +5057,7 @@ This pathophysiological event involves vascular endothelial cell, annotated with
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4833,6 +5079,7 @@ This pathophysiological event involves vascular endothelial cell, annotated with
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4858,6 +5105,7 @@ This pathophysiological event involves vascular endothelial cell, annotated with
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-ph-dependent-fcrn-salvage-of-igg-and-albumin" data-dismech-node="Failure of pH-Dependent FcRn Salvage of IgG and Albumin" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of pH-Dependent FcRn Salvage of IgG and Albumin</div>
+
 
                 <div class="item-desc">The salvage cycle is a pH switch. IgG and albumin are pinocytosed indiscriminately along with other plasma proteins; in the acidified endosome FcRn binds them, and everything it does not bind continues to the lysosome. Returned to the neutral pH of the cell surface, the ligands are released back into the circulation. This is the whole mechanism by which two proteins get half-lives of about three weeks when comparable plasma proteins get days.
 Two features of the receptor explain the shape of this disease. It binds IgG and albumin at separate sites, so one lesion in the shared receptor takes out both ligands without either competing with the other; and because the receptor pool is finite, the system is concentration-dependent, which is why catabolic rate rather than synthetic rate is the variable that moves.</div>
@@ -5008,6 +5256,7 @@ This pathophysiological event involves pH-dependent IgG binding by FcRn, annotat
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5029,6 +5278,7 @@ This pathophysiological event involves pH-dependent IgG binding by FcRn, annotat
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5056,6 +5306,7 @@ This pathophysiological event involves pH-dependent IgG binding by FcRn, annotat
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5080,6 +5331,7 @@ This pathophysiological event involves pH-dependent IgG binding by FcRn, annotat
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-accelerated-endogenous-catabolism-of-igg-and-albumin" data-dismech-node="Accelerated Endogenous Catabolism of IgG and Albumin" data-dismech-type="pathophysiology">
                 <div class="item-name">Accelerated Endogenous Catabolism of IgG and Albumin</div>
+
 
                 <div class="item-desc">The defining measurement of the disease, and the one that names it. In the index siblings the fractional catabolic rate of IgG was about five times normal while synthesis was normal - so the low serum concentrations are a clearance phenotype, not a production phenotype.
 The two classical alternative causes of low serum protein were excluded by direct measurement rather than by inference: there was no proteinuria, and faecal chromium-labelled albumin studies were normal, ruling out gastrointestinal loss. That exclusion is what made &#34;hypercatabolic&#34; a claim about mechanism rather than a label for unexplained hypoproteinaemia.</div>
@@ -5177,7 +5429,7 @@ This pathophysiological event involves increased lysosomal catabolism of unsalva
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (4 references)
+            Show evidence (6 references)
         </summary>
         <div class="evidence-list">
 
@@ -5189,6 +5441,7 @@ This pathophysiological event involves increased lysosomal catabolism of unsalva
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5216,6 +5469,7 @@ This pathophysiological event involves increased lysosomal catabolism of unsalva
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5240,6 +5494,7 @@ This pathophysiological event involves increased lysosomal catabolism of unsalva
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5254,7 +5509,7 @@ This pathophysiological event involves increased lysosomal catabolism of unsalva
             </div>
 
 
-            <div class="evidence-more">+ 1 more reference</div>
+            <div class="evidence-more">+ 3 more references</div>
 
         </div>
     </details>
@@ -5264,6 +5519,7 @@ This pathophysiological event involves increased lysosomal catabolism of unsalva
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypoalbuminaemia-and-hypogammaglobulinaemia-with-preserved-synthesis" data-dismech-node="Hypoalbuminaemia and Hypogammaglobulinaemia with Preserved Synthesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypoalbuminaemia and Hypogammaglobulinaemia with Preserved Synthesis</div>
+
 
                 <div class="item-desc">The biochemical endpoint. Because the receptor pool is finite and shared, heterozygous carriers sit on a gradient rather than a threshold: eight relatives of the index siblings were moderately IgG-deficient, while the parents in the second family were normal on every tested parameter except B2M message. The gene is dose-sensitive but the clinical phenotype is not simply proportional to dose.</div>
 
@@ -5302,6 +5558,7 @@ This pathophysiological event involves increased lysosomal catabolism of unsalva
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5323,6 +5580,7 @@ This pathophysiological event involves increased lysosomal catabolism of unsalva
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5348,6 +5606,7 @@ This pathophysiological event involves increased lysosomal catabolism of unsalva
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-classical-mhc-class-i-and-cd1-surface-expression" data-dismech-node="Loss of Classical MHC Class I and CD1 Surface Expression" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Classical MHC Class I and CD1 Surface Expression</div>
+
 
                 <div class="item-desc">The antigen-presentation arm. Both the peptide-presenting classical class I molecules and the lipid-presenting CD1a, CD1b and CD1c disappear from the cell surface, because all of them are built on the same light chain.
 This arm was invisible for the first twenty-five years of the disease&#39;s history. The 1990 protein-turnover study did not look for it, and the 2006 sequencing study measured serum HLA but did not characterise the cellular compartments; the immunological phenotype was described only in 2015.</div>
@@ -5474,6 +5733,7 @@ This pathophysiological event involves decreased MHC class I antigen presentatio
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5495,6 +5755,7 @@ This pathophysiological event involves decreased MHC class I antigen presentatio
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5520,6 +5781,7 @@ This pathophysiological event involves decreased MHC class I antigen presentatio
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-distorted-t-and-nk-cell-compartments" data-dismech-node="Distorted T and NK Cell Compartments" data-dismech-type="pathophysiology">
                 <div class="item-name">Distorted T and NK Cell Compartments</div>
+
 
                 <div class="item-desc">Two lymphocyte compartments are shaped by surface class I and both are abnormal. The conventional CD8 alpha-beta T cell compartment fails, and CD8-positive gamma-delta T cells expand strongly in its place - the same substitution seen in TAP deficiency. NK cells are present in normal numbers but are not licensed, a state in which the cells exist and can be counted but have not been educated by class I to kill.
 The NK finding is the reason a cell count is not a sufficient investigation here. A normal NK number and an absent NK function are the same laboratory result unless licensing is specifically assessed.</div>
@@ -5642,6 +5904,7 @@ This pathophysiological event involves natural killer cell (CL:0000623). CL:0000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5663,6 +5926,7 @@ This pathophysiological event involves natural killer cell (CL:0000623). CL:0000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5688,6 +5952,7 @@ This pathophysiological event involves natural killer cell (CL:0000623). CL:0000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-recurrent-sinopulmonary-infection-and-chronic-skin-disease" data-dismech-node="Recurrent Sinopulmonary Infection and Chronic Skin Disease" data-dismech-type="pathophysiology">
                 <div class="item-name">Recurrent Sinopulmonary Infection and Chronic Skin Disease</div>
+
 
                 <div class="item-desc">The clinical endpoint, and it is strikingly variable within a single genotype. In the 2015 family the sister had recurrent respiratory infection and severe skin disease while her brother, carrying the same homozygous defect, was largely asymptomatic and was found to have bronchiectasis. Bronchiectasis in an otherwise well sibling is the reminder that structural lung damage here can accumulate without a symptomatic infection history.</div>
 
@@ -5723,6 +5988,7 @@ This pathophysiological event involves natural killer cell (CL:0000623). CL:0000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5771,7 +6037,7 @@ This pathophysiological event involves natural killer cell (CL:0000623). CL:0000
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Accelerated Endogenous Catabolism of IgG and Albumin\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The defining measurement of the disease, and the one that names it. In the index siblings the fractional catabolic rate of IgG was about five times normal while synthesis was normal - so the low serum concentrations are a clearance phenotype, not a production phenotype.\\nThe two classical alternative causes of low serum protein were excluded by direct measurement rather than by inference: there was no proteinuria, and faecal chromium-labelled albumin studies were normal, ruling out gastrointestinal loss. That exclusion is what made \\\"hypercatabolic\\\" a claim about mechanism rather than a label for unexplained hypoproteinaemia.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"lysosomal catabolism of unsalvaged IgG and albumin\"], \"role\": \"effector\", \"animal_models\": [{\"name\": \"beta-2-microglobulin knockout mouse (B6.129P2-B2m tm1Unc)\", \"species\": \"Mouse\", \"genotype\": \"B2m knockout, homozygous\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Reproduces the defining kinetic abnormality, and reproduces its selectivity: albumin and IgG half-lives are shortened while IgA and IgM are unchanged, which is exactly what a lesion in a receptor that salvages only those two ligands predicts.\"}]}}, {\"id\": \"Biallelic B2M Loss-of-Function Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Both described families are consanguineous and the variants are homozygous. In the family that defined the disease the lesion is a single nucleotide transversion replacing a conserved alanine with proline in the middle of the beta-2-microglobulin signal sequence - that is, it does not alter the mature protein at all, it prevents the protein from being made properly in the first place.\\nThe signal-peptide position matters for how the entry is read downstream. This is not an allele that produces a subtly altered beta-2-microglobulin which then fails to bind one particular heavy chain; it lowers the supply of the light chain itself, which is why every heterodimer that needs it is affected together.\", \"meta\": {\"evidence_count\": 2, \"role\": \"trigger\"}}, {\"id\": \"Depletion of the Shared MHC Class I Light Chain\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Beta-2-microglobulin is not a component of one receptor; it is the non-polymorphic light chain of the whole MHC class I fold. Classical HLA-A/B/C, the lipid-presenting CD1 molecules, and FcRn are all heterodimers of a class-I-like heavy chain with the same light chain, so a shortage of it destabilises all of them at once.\\nThis node is the reason the disease has two arms rather than one, and it is why the immunological defect is broader than in the commoner TAP-deficient form of MHC class I deficiency: TAP loss leaves the heterodimer intact and starves it of peptide, whereas beta-2-microglobulin loss removes the shared subunit that CD1 and FcRn need too.\", \"meta\": {\"evidence_count\": 3, \"molecular_functions\": [\"beta-2-microglobulin binding to the MHC class I-fold heavy chain\"], \"role\": \"central_effector\"}}, {\"id\": \"Distorted T and NK Cell Compartments\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Two lymphocyte compartments are shaped by surface class I and both are abnormal. The conventional CD8 alpha-beta T cell compartment fails, and CD8-positive gamma-delta T cells expand strongly in its place - the same substitution seen in TAP deficiency. NK cells are present in normal numbers but are not licensed, a state in which the cells exist and can be counted but have not been educated by class I to kill.\\nThe NK finding is the reason a cell count is not a sufficient investigation here. A normal NK number and an absent NK function are the same laboratory result unless licensing is specifically assessed.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"CD8-positive gamma-delta T cell\", \"natural killer cell\"], \"role\": \"consequence\"}}, {\"id\": \"Failure of pH-Dependent FcRn Salvage of IgG and Albumin\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The salvage cycle is a pH switch. IgG and albumin are pinocytosed indiscriminately along with other plasma proteins; in the acidified endosome FcRn binds them, and everything it does not bind continues to the lysosome. Returned to the neutral pH of the cell surface, the ligands are released back into the circulation. This is the whole mechanism by which two proteins get half-lives of about three weeks when comparable plasma proteins get days.\\nTwo features of the receptor explain the shape of this disease. It binds IgG and albumin at separate sites, so one lesion in the shared receptor takes out both ligands without either competing with the other; and because the receptor pool is finite, the system is concentration-dependent, which is why catabolic rate rather than synthetic rate is the variable that moves.\", \"meta\": {\"evidence_count\": 5, \"biological_processes\": [\"FcRn-mediated receptor recycling of IgG and albumin\"], \"molecular_functions\": [\"pH-dependent IgG binding by FcRn\"], \"role\": \"central_effector\", \"animal_models\": [{\"name\": \"FcRn alpha-chain knockout mouse (B6.129X1/SvJ-Fcgrt Tm1Dcr)\", \"species\": \"Mouse\", \"genotype\": \"Fcgrt knockout, homozygous\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Isolates the receptor. This strain is why the human disease can be read as an FcRn phenotype rather than as an unspecified consequence of losing MHC class I.\"}]}}, {\"id\": \"FcRn alpha-chain knockout mouse (B6.129X1/SvJ-Fcgrt Tm1Dcr)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The controlled complement of the beta-2-microglobulin strain. Deleting the FcRn heavy chain leaves the rest of the MHC class I fold intact, so any phenotype it shares with the beta-2-microglobulin knockout is attributable to FcRn rather than to class I generally.\"}, {\"id\": \"Hypoalbuminaemia and Hypogammaglobulinaemia with Preserved Synthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The biochemical endpoint. Because the receptor pool is finite and shared, heterozygous carriers sit on a gradient rather than a threshold: eight relatives of the index siblings were moderately IgG-deficient, while the parents in the second family were normal on every tested parameter except B2M message. The gene is dose-sensitive but the clinical phenotype is not simply proportional to dose.\", \"meta\": {\"evidence_count\": 2, \"role\": \"outcome\"}}, {\"id\": \"Loss of Classical MHC Class I and CD1 Surface Expression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The antigen-presentation arm. Both the peptide-presenting classical class I molecules and the lipid-presenting CD1a, CD1b and CD1c disappear from the cell surface, because all of them are built on the same light chain.\\nThis arm was invisible for the first twenty-five years of the disease\u0027s history. The 1990 protein-turnover study did not look for it, and the 2006 sequencing study measured serum HLA but did not characterise the cellular compartments; the immunological phenotype was described only in 2015.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"professional antigen-presenting cell\"], \"biological_processes\": [\"MHC class I antigen presentation\"], \"role\": \"effector\"}}, {\"id\": \"Loss of FcRn from the Cell Surface\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FcRn is expressed on vascular endothelium, epithelium and most haematopoietic cells. Endothelium alone accounts for roughly half of IgG salvage in mice, which is why a defect in a receptor usually discussed in immunological terms produces a whole-body protein-kinetic phenotype.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"vascular endothelial cell\"], \"role\": \"effector\"}}, {\"id\": \"Recurrent Sinopulmonary Infection and Chronic Skin Disease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint, and it is strikingly variable within a single genotype. In the 2015 family the sister had recurrent respiratory infection and severe skin disease while her brother, carrying the same homozygous defect, was largely asymptomatic and was found to have bronchiectasis. Bronchiectasis in an otherwise well sibling is the reminder that structural lung damage here can accumulate without a symptomatic infection history.\", \"meta\": {\"evidence_count\": 1, \"role\": \"outcome\"}}, {\"id\": \"beta-2-microglobulin knockout mouse (B6.129P2-B2m tm1Unc)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The mouse counterpart of the human lesion: no beta-2-microglobulin, therefore no assembled FcRn, studied by radioiodinated albumin and immunoglobulin turnover - the same experimental design Waldmann and Terry used in the patients.\"}], \"edges\": [{\"source\": \"Biallelic B2M Loss-of-Function Variant\", \"target\": \"Depletion of the Shared MHC Class I Light Chain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of function at the only gene encoding beta-2-microglobulin.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Depletion of the Shared MHC Class I Light Chain\", \"target\": \"Loss of FcRn from the Cell Surface\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"FcRn cannot reach the plasma membrane without its light chain.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Depletion of the Shared MHC Class I Light Chain\", \"target\": \"Loss of Classical MHC Class I and CD1 Surface Expression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The antigen-presentation arm, parallel to and independent of the FcRn arm.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of FcRn from the Cell Surface\", \"target\": \"Failure of pH-Dependent FcRn Salvage of IgG and Albumin\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"No receptor at the membrane, no salvage cycle.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of pH-Dependent FcRn Salvage of IgG and Albumin\", \"target\": \"Accelerated Endogenous Catabolism of IgG and Albumin\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Unsalvaged ligand is delivered to the lysosome by default.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accelerated Endogenous Catabolism of IgG and Albumin\", \"target\": \"Hypoalbuminaemia and Hypogammaglobulinaemia with Preserved Synthesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A steady state in which clearance outruns an unimpaired synthetic rate.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Classical MHC Class I and CD1 Surface Expression\", \"target\": \"Distorted T and NK Cell Compartments\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CD8 selection and NK licensing both read surface class I.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Distorted T and NK Cell Compartments\", \"target\": \"Recurrent Sinopulmonary Infection and Chronic Skin Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired cellular immunity, compounded by the low IgG arriving from the other branch.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"beta-2-microglobulin knockout mouse (B6.129P2-B2m tm1Unc)\", \"target\": \"Accelerated Endogenous Catabolism of IgG and Albumin\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces the defining kinetic abnormality, and reproduces its selectivity: albumin and IgG half-lives are shortened while IgA and IgM are unchanged, which is exactly what a lesion in a receptor that salvages only those two ligands predicts.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Beta-2-microglobulin knockout removes the whole MHC class I fold, so the strain also lacks classical class I and CD1 and is not a clean FcRn model. The paper addresses this by studying an FcRn alpha-chain knockout in parallel, which isolates the receptor. Murine protein half-lives are far shorter than human ones, so the absolute numbers do not transfer; the ratios do.\"}, {\"source\": \"FcRn alpha-chain knockout mouse (B6.129X1/SvJ-Fcgrt Tm1Dcr)\", \"target\": \"Failure of pH-Dependent FcRn Salvage of IgG and Albumin\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Isolates the receptor. This strain is why the human disease can be read as an FcRn phenotype rather than as an unspecified consequence of losing MHC class I.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"A heavy-chain knockout is not the human genotype, which removes the light chain and therefore also classical class I and CD1. The strain models one arm of the human disease and is silent on the other.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Accelerated Endogenous Catabolism of IgG and Albumin\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The defining measurement of the disease, and the one that names it. In the index siblings the fractional catabolic rate of IgG was about five times normal while synthesis was normal - so the low serum concentrations are a clearance phenotype, not a production phenotype.\\nThe two classical alternative causes of low serum protein were excluded by direct measurement rather than by inference: there was no proteinuria, and faecal chromium-labelled albumin studies were normal, ruling out gastrointestinal loss. That exclusion is what made \\\"hypercatabolic\\\" a claim about mechanism rather than a label for unexplained hypoproteinaemia.\", \"meta\": {\"evidence_count\": 6, \"biological_processes\": [\"lysosomal catabolism of unsalvaged IgG and albumin\"], \"role\": \"effector\", \"animal_models\": [{\"name\": \"beta-2-microglobulin knockout mouse (B6.129P2-B2m tm1Unc)\", \"species\": \"Mouse\", \"genotype\": \"B2m knockout, homozygous\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Reproduces the defining kinetic abnormality, and reproduces its selectivity: albumin and IgG half-lives are shortened while IgA and IgM are unchanged, which is exactly what a lesion in a receptor that salvages only those two ligands predicts.\"}]}}, {\"id\": \"Biallelic B2M Loss-of-Function Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Both described families are consanguineous and the variants are homozygous. In the family that defined the disease the lesion is a single nucleotide transversion replacing a conserved alanine with proline in the middle of the beta-2-microglobulin signal sequence - that is, it does not alter the mature protein at all, it prevents the protein from being made properly in the first place.\\nThe signal-peptide position matters for how the entry is read downstream. This is not an allele that produces a subtly altered beta-2-microglobulin which then fails to bind one particular heavy chain; it lowers the supply of the light chain itself, which is why every heterodimer that needs it is affected together.\", \"meta\": {\"evidence_count\": 2, \"role\": \"trigger\"}}, {\"id\": \"Depletion of the Shared MHC Class I Light Chain\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Beta-2-microglobulin is not a component of one receptor; it is the non-polymorphic light chain of the whole MHC class I fold. Classical HLA-A/B/C, the lipid-presenting CD1 molecules, and FcRn are all heterodimers of a class-I-like heavy chain with the same light chain, so a shortage of it destabilises all of them at once.\\nThis node is the reason the disease has two arms rather than one, and it is why the immunological defect is broader than in the commoner TAP-deficient form of MHC class I deficiency: TAP loss leaves the heterodimer intact and starves it of peptide, whereas beta-2-microglobulin loss removes the shared subunit that CD1 and FcRn need too.\", \"meta\": {\"evidence_count\": 3, \"molecular_functions\": [\"beta-2-microglobulin binding to the MHC class I-fold heavy chain\"], \"role\": \"central_effector\"}}, {\"id\": \"Distorted T and NK Cell Compartments\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Two lymphocyte compartments are shaped by surface class I and both are abnormal. The conventional CD8 alpha-beta T cell compartment fails, and CD8-positive gamma-delta T cells expand strongly in its place - the same substitution seen in TAP deficiency. NK cells are present in normal numbers but are not licensed, a state in which the cells exist and can be counted but have not been educated by class I to kill.\\nThe NK finding is the reason a cell count is not a sufficient investigation here. A normal NK number and an absent NK function are the same laboratory result unless licensing is specifically assessed.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"CD8-positive gamma-delta T cell\", \"natural killer cell\"], \"role\": \"consequence\"}}, {\"id\": \"Failure of pH-Dependent FcRn Salvage of IgG and Albumin\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The salvage cycle is a pH switch. IgG and albumin are pinocytosed indiscriminately along with other plasma proteins; in the acidified endosome FcRn binds them, and everything it does not bind continues to the lysosome. Returned to the neutral pH of the cell surface, the ligands are released back into the circulation. This is the whole mechanism by which two proteins get half-lives of about three weeks when comparable plasma proteins get days.\\nTwo features of the receptor explain the shape of this disease. It binds IgG and albumin at separate sites, so one lesion in the shared receptor takes out both ligands without either competing with the other; and because the receptor pool is finite, the system is concentration-dependent, which is why catabolic rate rather than synthetic rate is the variable that moves.\", \"meta\": {\"evidence_count\": 5, \"biological_processes\": [\"FcRn-mediated receptor recycling of IgG and albumin\"], \"molecular_functions\": [\"pH-dependent IgG binding by FcRn\"], \"role\": \"central_effector\", \"animal_models\": [{\"name\": \"FcRn alpha-chain knockout mouse (B6.129X1/SvJ-Fcgrt Tm1Dcr)\", \"species\": \"Mouse\", \"genotype\": \"Fcgrt knockout, homozygous\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Isolates the receptor. This strain is why the human disease can be read as an FcRn phenotype rather than as an unspecified consequence of losing MHC class I.\"}]}}, {\"id\": \"FcRn alpha-chain knockout mouse (B6.129X1/SvJ-Fcgrt Tm1Dcr)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The controlled complement of the beta-2-microglobulin strain. Deleting the FcRn heavy chain leaves the rest of the MHC class I fold intact, so any phenotype it shares with the beta-2-microglobulin knockout is attributable to FcRn rather than to class I generally.\"}, {\"id\": \"Hypoalbuminaemia and Hypogammaglobulinaemia with Preserved Synthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The biochemical endpoint. Because the receptor pool is finite and shared, heterozygous carriers sit on a gradient rather than a threshold: eight relatives of the index siblings were moderately IgG-deficient, while the parents in the second family were normal on every tested parameter except B2M message. The gene is dose-sensitive but the clinical phenotype is not simply proportional to dose.\", \"meta\": {\"evidence_count\": 2, \"role\": \"outcome\"}}, {\"id\": \"Loss of Classical MHC Class I and CD1 Surface Expression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The antigen-presentation arm. Both the peptide-presenting classical class I molecules and the lipid-presenting CD1a, CD1b and CD1c disappear from the cell surface, because all of them are built on the same light chain.\\nThis arm was invisible for the first twenty-five years of the disease\u0027s history. The 1990 protein-turnover study did not look for it, and the 2006 sequencing study measured serum HLA but did not characterise the cellular compartments; the immunological phenotype was described only in 2015.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"professional antigen-presenting cell\"], \"biological_processes\": [\"MHC class I antigen presentation\"], \"role\": \"effector\"}}, {\"id\": \"Loss of FcRn from the Cell Surface\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FcRn is expressed on vascular endothelium, epithelium and most haematopoietic cells. Endothelium alone accounts for roughly half of IgG salvage in mice, which is why a defect in a receptor usually discussed in immunological terms produces a whole-body protein-kinetic phenotype.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"vascular endothelial cell\"], \"role\": \"effector\"}}, {\"id\": \"Recurrent Sinopulmonary Infection and Chronic Skin Disease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint, and it is strikingly variable within a single genotype. In the 2015 family the sister had recurrent respiratory infection and severe skin disease while her brother, carrying the same homozygous defect, was largely asymptomatic and was found to have bronchiectasis. Bronchiectasis in an otherwise well sibling is the reminder that structural lung damage here can accumulate without a symptomatic infection history.\", \"meta\": {\"evidence_count\": 1, \"role\": \"outcome\"}}, {\"id\": \"beta-2-microglobulin knockout mouse (B6.129P2-B2m tm1Unc)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The mouse counterpart of the human lesion: no beta-2-microglobulin, therefore no assembled FcRn, studied by radioiodinated albumin and immunoglobulin turnover - the same experimental design Waldmann and Terry used in the patients.\"}], \"edges\": [{\"source\": \"Biallelic B2M Loss-of-Function Variant\", \"target\": \"Depletion of the Shared MHC Class I Light Chain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of function at the only gene encoding beta-2-microglobulin.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Depletion of the Shared MHC Class I Light Chain\", \"target\": \"Loss of FcRn from the Cell Surface\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"FcRn cannot reach the plasma membrane without its light chain.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Depletion of the Shared MHC Class I Light Chain\", \"target\": \"Loss of Classical MHC Class I and CD1 Surface Expression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The antigen-presentation arm, parallel to and independent of the FcRn arm.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of FcRn from the Cell Surface\", \"target\": \"Failure of pH-Dependent FcRn Salvage of IgG and Albumin\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"No receptor at the membrane, no salvage cycle.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of pH-Dependent FcRn Salvage of IgG and Albumin\", \"target\": \"Accelerated Endogenous Catabolism of IgG and Albumin\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Unsalvaged ligand is delivered to the lysosome by default.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accelerated Endogenous Catabolism of IgG and Albumin\", \"target\": \"Hypoalbuminaemia and Hypogammaglobulinaemia with Preserved Synthesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A steady state in which clearance outruns an unimpaired synthetic rate.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Classical MHC Class I and CD1 Surface Expression\", \"target\": \"Distorted T and NK Cell Compartments\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CD8 selection and NK licensing both read surface class I.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Distorted T and NK Cell Compartments\", \"target\": \"Recurrent Sinopulmonary Infection and Chronic Skin Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired cellular immunity, compounded by the low IgG arriving from the other branch.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"beta-2-microglobulin knockout mouse (B6.129P2-B2m tm1Unc)\", \"target\": \"Accelerated Endogenous Catabolism of IgG and Albumin\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces the defining kinetic abnormality, and reproduces its selectivity: albumin and IgG half-lives are shortened while IgA and IgM are unchanged, which is exactly what a lesion in a receptor that salvages only those two ligands predicts.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Beta-2-microglobulin knockout removes the whole MHC class I fold, so the strain also lacks classical class I and CD1 and is not a clean FcRn model. The paper addresses this by studying an FcRn alpha-chain knockout in parallel, which isolates the receptor. Murine protein half-lives are far shorter than human ones, so the absolute numbers do not transfer; the ratios do.\"}, {\"source\": \"FcRn alpha-chain knockout mouse (B6.129X1/SvJ-Fcgrt Tm1Dcr)\", \"target\": \"Failure of pH-Dependent FcRn Salvage of IgG and Albumin\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Isolates the receptor. This strain is why the human disease can be read as an FcRn phenotype rather than as an unspecified consequence of losing MHC class I.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"A heavy-chain knockout is not the human genotype, which removes the light chain and therefore also classical class I and CD1. The strain models one arm of the human disease and is silent on the other.\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5784,21 +6050,21 @@ This pathophysiological event involves natural killer cell (CL:0000623). CL:0000
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
-                <span class="card-count">7</span>
+                <span class="card-count">8</span>
             </div>
 
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Immune<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Immune<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Metabolism<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Metabolism<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Respiratory<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5808,7 +6074,7 @@ This pathophysiological event involves natural killer cell (CL:0000623). CL:0000
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Blood
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-reduced-circulating-igg" data-dismech-node="Reduced Circulating IgG" data-dismech-type="phenotype">
@@ -5841,9 +6107,12 @@ This clinical feature is Decreased circulating IgG concentration (HP:0004315). H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
 
@@ -5858,6 +6127,7 @@ This clinical feature is Decreased circulating IgG concentration (HP:0004315). H
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5866,6 +6136,132 @@ This clinical feature is Decreased circulating IgG concentration (HP:0004315). H
 
 
                 <div class="evidence-explanation">States both the direction of the change and its endpoint - IgG loses precisely the advantage FcRn gives it over the unsalvaged classes.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:2254461" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/2254461" target="_blank">PMID:2254461</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"with an increased synthetic rate obscuring the short IgA survival"</div>
+
+
+                <div class="evidence-explanation">Supports the phenotype as worded — a claim about serum concentrations, not receptor specificity. IgA survival was shortened too in the index patient; only the serum concentration was spared, and only because synthesis rose. This is the sentence that makes &#34;restricted to IgG&#34; a serum-level claim.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:2254461" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/2254461" target="_blank">PMID:2254461</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The total circulating and body pools of IgG were less than 28% of normal."</div>
+
+
+                <div class="evidence-explanation">Quantifies the depletion of the IgG pool in the index siblings.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-impaired-specific-antibody-response" data-dismech-node="Impaired Specific Antibody Response" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Impaired Specific Antibody Response
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Decreased specific antibody response to vaccination</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0032140" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0032140</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Impaired specific antibody response to antigenic challenge, annotated with Decreased specific antibody response to vaccination (HP:0032140). HP:0032140 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:2254461" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/2254461" target="_blank">PMID:2254461</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"manifested a serum anti-B titer of 1:32 that did not increase on intramuscular stimulation with B blood group substance"</div>
+
+
+                <div class="evidence-explanation">A failed specific antibody response on deliberate antigenic challenge in the index patient, quoted with the control comparison stated in the same sentence of the source.</div>
 
 
 
@@ -5887,8 +6283,109 @@ This clinical feature is Decreased circulating IgG concentration (HP:0004315). H
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Immune
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-reduced-mhc-class-i-cell-surface-expression" data-dismech-node="Reduced MHC Class I Cell Surface Expression" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Reduced MHC Class I Cell Surface Expression
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Reduced MHC I cell surface expression</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0025794" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0025794</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Reduced MHC I cell surface expression (HP:0025794). HP:0025794 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25702838" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25702838" target="_blank">PMID:25702838</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Not only polymorphic MHC-I but also the related CD1a, CD1b, CD1c, and neonatal Fc receptor molecules were absent from the surfaces of β2m-deficient cells."</div>
+
+
+                <div class="evidence-explanation">The cell-surface measurement this phenotype term actually asserts: polymorphic MHC-I absent from the surface of patient cells.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16549777" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16549777" target="_blank">PMID:16549777</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Concentrations of soluble beta(2)m and HLA in the siblings&#39; sera were &lt;1% of normal."</div>
+
+
+                <div class="evidence-explanation">Indirect, and kept as a second item rather than the primary one: this is a serum measurement of soluble HLA, which is consistent with reduced surface expression but does not measure it.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-respiratory-tract-infection" data-dismech-node="Recurrent Respiratory Tract Infection" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -5906,15 +6403,18 @@ This clinical feature is Decreased circulating IgG concentration (HP:0004315). H
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002205" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0002205</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002205" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0002205</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Recurrent respiratory infections (HP:0002205). HP:0002205 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5934,6 +6434,7 @@ This clinical feature is Recurrent respiratory infections (HP:0002205). HP:00022
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5966,7 +6467,7 @@ This clinical feature is Recurrent respiratory infections (HP:0002205). HP:00022
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-hypoalbuminaemia" data-dismech-node="Hypoalbuminaemia" data-dismech-type="phenotype">
@@ -5985,15 +6486,18 @@ This clinical feature is Recurrent respiratory infections (HP:0002205). HP:00022
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003073" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0003073</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003073" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0003073</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypoalbuminemia (HP:0003073). HP:0003073 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6016,6 +6520,7 @@ This clinical feature is Hypoalbuminemia (HP:0003073). HP:0003073 is a phenotype
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6024,237 +6529,6 @@ This clinical feature is Hypoalbuminemia (HP:0003073). HP:0003073 is a phenotype
 
 
                 <div class="evidence-explanation">Low albumin with the kinetic signature that defines this disease.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Respiratory
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-bronchiectasis" data-dismech-node="Bronchiectasis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Bronchiectasis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0002110</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Bronchiectasis (HP:0002110). HP:0002110 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:25702838" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25702838" target="_blank">PMID:25702838</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The sister had recurrent respiratory tract infections and severe skin disease, whereas the brother was fairly asymptomatic but had bronchiectasis."</div>
-
-
-                <div class="evidence-explanation">Bronchiectasis in the asymptomatic sibling.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">3</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-reduced-mhc-class-i-cell-surface-expression" data-dismech-node="Reduced MHC Class I Cell Surface Expression" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Reduced MHC Class I Cell Surface Expression
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Reduced MHC I cell surface expression</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0025794" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0025794</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Reduced MHC I cell surface expression (HP:0025794). HP:0025794 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:25702838" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25702838" target="_blank">PMID:25702838</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Not only polymorphic MHC-I but also the related CD1a, CD1b, CD1c, and neonatal Fc receptor molecules were absent from the surfaces of β2m-deficient cells."</div>
-
-
-                <div class="evidence-explanation">The cell-surface measurement this phenotype term actually asserts: polymorphic MHC-I absent from the surface of patient cells.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:16549777" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16549777" target="_blank">PMID:16549777</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Concentrations of soluble beta(2)m and HLA in the siblings&#39; sera were &lt;1% of normal."</div>
-
-
-                <div class="evidence-explanation">Curated as PARTIAL and kept as a second item rather than the primary one: this is a serum measurement of soluble HLA, which is consistent with reduced surface expression but does not measure it.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-severe-skin-disease" data-dismech-node="Severe Skin Disease" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Severe Skin Disease
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:25702838" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25702838" target="_blank">PMID:25702838</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The sister had recurrent respiratory tract infections and severe skin disease, whereas the brother was fairly asymptomatic but had bronchiectasis."</div>
-
-
-                <div class="evidence-explanation">Severe skin disease in the affected sister, quoted at exactly the specificity the source offers.</div>
 
 
 
@@ -6300,6 +6574,9 @@ This clinical feature is Hypoproteinemia (HP:0003075). HP:0003075 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6317,6 +6594,7 @@ This clinical feature is Hypoproteinemia (HP:0003075). HP:0003075 is a phenotype
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6325,6 +6603,151 @@ This clinical feature is Hypoproteinemia (HP:0003075). HP:0003075 is a phenotype
 
 
                 <div class="evidence-explanation">Reduced serum concentrations of both major proteins, which is the aggregate this term names.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Respiratory
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-bronchiectasis" data-dismech-node="Bronchiectasis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Bronchiectasis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002110</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Bronchiectasis (HP:0002110). HP:0002110 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25702838" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25702838" target="_blank">PMID:25702838</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The sister had recurrent respiratory tract infections and severe skin disease, whereas the brother was fairly asymptomatic but had bronchiectasis."</div>
+
+
+                <div class="evidence-explanation">Bronchiectasis in the asymptomatic sibling.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Other
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-severe-skin-disease" data-dismech-node="Severe Skin Disease" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Severe Skin Disease
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25702838" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25702838" target="_blank">PMID:25702838</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The sister had recurrent respiratory tract infections and severe skin disease, whereas the brother was fairly asymptomatic but had bronchiectasis."</div>
+
+
+                <div class="evidence-explanation">Severe skin disease in the affected sister, quoted at exactly the specificity the source offers.</div>
 
 
 
@@ -6395,10 +6818,10 @@ This clinical feature is Hypoproteinemia (HP:0003075). HP:0003075 is a phenotype
                         Gene: B2M
 
 
-    <a href="https://bioregistry.io/hgnc:914" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:914</a>
+    <a href="https://bioregistry.io/hgnc:914" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-17">hgnc:914</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is B2M (hgnc:914). hgnc:914 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -6408,6 +6831,9 @@ This disease-associated gene is B2M (hgnc:914). hgnc:914 is a gene from the HUGO
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -6432,6 +6858,7 @@ This disease-associated gene is B2M (hgnc:914). hgnc:914 is a gene from the HUGO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6472,6 +6899,240 @@ This disease-associated gene is B2M (hgnc:914). hgnc:914 is a gene from the HUGO
 
 
         <!-- Biochemical Markers -->
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #d97706;">🔬</div>
+                <h2 class="card-title">Biochemical Markers</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box biochemical-box anchor-target" id="biochemical-igg-fractional-catabolic-rate" data-dismech-node="IgG fractional catabolic rate" data-dismech-type="biochemical">
+                <div class="item-name">
+                    IgG fractional catabolic rate
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Increased approximately fivefold - 31% and 36% of the intravascular pool per day in the two siblings, against a normal mean of 6.7 +/- 2%/day.)</span>
+
+                </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:2254461" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/2254461" target="_blank">PMID:2254461</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the IgG survival was short, with their respective fractional catabolic rates increased fivefold to 31% and 36% of the intravenous pool per day"</div>
+
+
+                <div class="evidence-explanation">The numeric core of the diagnosis, with the normal range given in the same sentence.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:2254461" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/2254461" target="_blank">PMID:2254461</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"in the patients were 3.3, 3.0, and 2.8 d, markedly shorter than the mean 22.9 (±4) d in the normal individuals"</div>
+
+
+                <div class="evidence-explanation">The corresponding IgG survival half-lives across three studies in the two siblings, against the control mean.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box biochemical-box anchor-target" id="biochemical-albumin-fractional-catabolic-rate" data-dismech-node="Albumin fractional catabolic rate" data-dismech-type="biochemical">
+                <div class="item-name">
+                    Albumin fractional catabolic rate
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Increased with a shortened survival - albumin half-life 6 days in both siblings against a normal mean of 16 days - while the albumin synthetic rate stayed within the normal range.)</span>
+
+                </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:2254461" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/2254461" target="_blank">PMID:2254461</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Thealbumin survival wasmarkedlyshortened in both patients, with asurvival tA/2 of 6 d in each case compared with the normal mean of 16 d"</div>
+
+
+                <div class="evidence-explanation">The albumin half-life against its control mean. The run-together words are artefacts of the cached PDF text layer, not of the source.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:2254461" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/2254461" target="_blank">PMID:2254461</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the reduced serum albumin concentrations and reduced circulating and total body pools ofthis protein were due to increased fractional catabolic rates (short survivals) of these proteins rather than abnormal albumin synthetic rates"</div>
+
+
+                <div class="evidence-explanation">The authors&#39; explicit attribution of the low albumin to catabolism rather than to synthesis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box biochemical-box anchor-target" id="biochemical-iga-fractional-catabolic-rate" data-dismech-node="IgA fractional catabolic rate" data-dismech-type="biochemical">
+                <div class="item-name">
+                    IgA fractional catabolic rate
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Increased in the index patient - survival 2.9 days against a normal mean of 6.4 - but with a normal or slightly elevated serum IgA concentration, because synthesis rose to compensate.)</span>
+
+                </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:2254461" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/2254461" target="_blank">PMID:2254461</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The survival t/2 ofradioiodinated IgA in patient W.J. was reduced to 2.9 dcomparedwith the normal meanof6.4 d"</div>
+
+
+                <div class="evidence-explanation">The shortened IgA survival in the index patient. Run-together words are artefacts of the cached PDF text layer.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:2254461" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/2254461" target="_blank">PMID:2254461</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"with an increased synthetic rate obscuring the short IgA survival"</div>
+
+
+                <div class="evidence-explanation">Why the shortened IgA survival does not show up as a low serum IgA.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
 
 
         <!-- Diagnosis -->
@@ -6514,6 +7175,7 @@ This disease-associated gene is B2M (hgnc:914). hgnc:914 is a gene from the HUGO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6568,6 +7230,7 @@ This disease-associated gene is B2M (hgnc:914). hgnc:914 is a gene from the HUGO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6634,6 +7297,7 @@ The thrombocytopenia is worth flagging as unexplained rather than assimilated: n
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6804,6 +7468,7 @@ The thrombocytopenia is worth flagging as unexplained rather than assimilated: n
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6860,6 +7525,7 @@ The thrombocytopenia is worth flagging as unexplained rather than assimilated: n
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6922,6 +7588,7 @@ The thrombocytopenia is worth flagging as unexplained rather than assimilated: n
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6961,6 +7628,7 @@ The thrombocytopenia is worth flagging as unexplained rather than assimilated: n
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7098,6 +7766,7 @@ The thrombocytopenia is worth flagging as unexplained rather than assimilated: n
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7137,6 +7806,7 @@ The thrombocytopenia is worth flagging as unexplained rather than assimilated: n
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7235,9 +7905,7 @@ classifications:
       snippet: &#34;MHC class I deficiency B2M AR 109700&#34;
       explanation: &gt;-
         The IUIS table row assigning B2M, autosomal recessive, to MHC class I deficiency.
-
 pathophysiology:
-
 - name: Biallelic B2M Loss-of-Function Variant
   role: trigger
   biological_scale: MOLECULAR
@@ -7507,6 +8175,25 @@ pathophysiology:
       both patients had normal fecal 51Cr-labeled albumin tests, thus excluding excessive
       gastrointestinal protein loss
     explanation: Enteric protein loss excluded, by direct measurement rather than by absence of symptoms.
+  - reference: PMID:2254461
+    reference_title: &#34;Familial hypercatabolic hypoproteinemia. A disorder of endogenous catabolism of albumin and immunoglobulin.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      In addition, the patients did not have circulating antibodies directed toward IgG, IgA, or albumin.
+    explanation: &gt;-
+      The third exclusion, and the one most specific to a hypercatabolic mechanism: autoantibody
+      to a plasma protein is itself a recognised cause of accelerated clearance of that protein,
+      so ruling it out is what leaves a receptor defect as the explanation.
+  - reference: PMID:2254461
+    reference_title: &#34;Familial hypercatabolic hypoproteinemia. A disorder of endogenous catabolism of albumin and immunoglobulin.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      we have excluded autoantibodies to autologous serumproteins as the cause ofthe widespread serum protein hypercatabolism in these patients
+    explanation: &gt;-
+      The authors&#39; own statement of that exclusion. Run-together words are artefacts of the cached
+      PDF text layer.
   downstream:
   - target: Hypoalbuminaemia and Hypogammaglobulinaemia with Preserved Synthesis
     causal_link_type: DIRECT
@@ -7681,8 +8368,19 @@ phenotypes:
 - category: Laboratory
   name: Reduced Circulating IgG
   description: &gt;-
-    Hypogammaglobulinaemia restricted in mechanism to IgG, since FcRn salvages IgG and not
-    the other immunoglobulin classes.
+    IgG is the immunoglobulin class whose serum concentration falls, because it is the class whose
+    concentration depends on FcRn salvage.
+
+    It is worth being precise about what &#34;restricted to IgG&#34; does and does not mean here, because
+    the obvious reading is wrong. In the index patient the IgA survival was also shortened - 2.9
+    days against a normal mean of 6.4, with the fractional catabolic rate nearly doubled - but the
+    serum IgA concentration was normal or slightly raised, because an increased synthetic rate
+    covered the loss. So the *catabolic* abnormality is not confined to IgG; the *serum
+    concentration* abnormality is. The restriction is a property of which classes can compensate
+    by synthesis, not of which classes the receptor handles.
+
+    The mouse is cleaner than the human on this point: in the beta-2-microglobulin knockout, IgA
+    half-life is unchanged. That discrepancy is recorded rather than resolved.
   phenotype_term:
     preferred_term: Decreased circulating IgG concentration
     term:
@@ -7699,6 +8397,25 @@ phenotypes:
     explanation: &gt;-
       States both the direction of the change and its endpoint - IgG loses precisely the
       advantage FcRn gives it over the unsalvaged classes.
+  - reference: PMID:2254461
+    reference_title: &#34;Familial hypercatabolic hypoproteinemia. A disorder of endogenous catabolism of albumin and immunoglobulin.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      with an increased synthetic rate obscuring the short IgA survival
+    directness: DIRECT
+    explanation: &gt;-
+      Supports the phenotype as worded — a claim about serum concentrations, not
+      receptor specificity. IgA survival was shortened too in the index patient;
+      only the serum concentration was spared, and only because synthesis rose.
+      This is the sentence that makes &#34;restricted to IgG&#34; a serum-level claim.
+  - reference: PMID:2254461
+    reference_title: &#34;Familial hypercatabolic hypoproteinemia. A disorder of endogenous catabolism of albumin and immunoglobulin.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The total circulating and body pools of IgG were less than 28% of normal.
+    explanation: Quantifies the depletion of the IgG pool in the index siblings.
 
 - category: Laboratory
   name: Reduced MHC Class I Cell Surface Expression
@@ -7723,8 +8440,9 @@ phenotypes:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Concentrations of soluble beta(2)m and HLA in the siblings&#39; sera were &lt;1% of normal.&#34;
+    directness: INDIRECT
     explanation: &gt;-
-      Curated as PARTIAL and kept as a second item rather than the primary one: this is a
+      Indirect, and kept as a second item rather than the primary one: this is a
       serum measurement of soluble HLA, which is consistent with reduced surface expression
       but does not measure it.
 
@@ -7790,6 +8508,34 @@ phenotypes:
       offers.
 
 - category: Laboratory
+  name: Impaired Specific Antibody Response
+  description: &gt;-
+    The index patient mounted a poor response to polysaccharide and protein antigen challenge -
+    an anti-B blood group titre that did not rise at all on stimulation where controls reached a
+    mean of 1:1,024, and a weak tularaemia response - while responding normally to typhoid
+    vaccine. Her brother, with the same genotype, responded normally to the same challenges.
+
+    Recorded because it changes what the disease is. A low IgG that is purely a clearance problem
+    might leave antibody function intact; this shows the functional deficit is real in at least
+    one patient, which is the argument for treating the hypogammaglobulinaemia rather than merely
+    noting it. The intrafamilial discordance is the same pattern of variable expressivity seen in
+    the second family&#39;s siblings.
+  phenotype_term:
+    preferred_term: Impaired specific antibody response to antigenic challenge
+    term:
+      id: HP:0032140
+      label: Decreased specific antibody response to vaccination
+  evidence:
+  - reference: PMID:2254461
+    reference_title: &#34;Familial hypercatabolic hypoproteinemia. A disorder of endogenous catabolism of albumin and immunoglobulin.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      manifested a serum anti-B titer of 1:32 that did not increase on intramuscular stimulation with B blood group substance
+    explanation: &gt;-
+      A failed specific antibody response on deliberate antigenic challenge in the index patient,
+      quoted with the control comparison stated in the same sentence of the source.
+- category: Laboratory
   name: Hypoproteinaemia
   description: &gt;-
     The eponymous phenotype. Redundant with the albumin and IgG terms in one sense - those
@@ -7813,6 +8559,89 @@ phenotypes:
       Reduced serum concentrations of both major proteins, which is the aggregate this term
       names.
 
+biochemical:
+- name: IgG fractional catabolic rate
+  presence: &gt;-
+    Increased approximately fivefold - 31% and 36% of the intravascular pool per day in the two
+    siblings, against a normal mean of 6.7 +/- 2%/day.
+  notes: &gt;-
+    This is the measurement the disease is named for and the one that distinguishes it from every
+    cause of reduced immunoglobulin synthesis. The direction is the diagnostic point: in
+    hyposynthetic hypogammaglobulinaemia the IgG fractional catabolic rate is *reduced* and
+    survival is prolonged, through the normal concentration-catabolism relationship. A low serum
+    IgG with a high fractional catabolic rate therefore excludes the common causes rather than
+    merely being consistent with this one.
+  evidence:
+  - reference: PMID:2254461
+    reference_title: &#34;Familial hypercatabolic hypoproteinemia. A disorder of endogenous catabolism of albumin and immunoglobulin.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      the IgG survival was short, with their respective fractional catabolic rates increased fivefold to 31% and 36% of the intravenous pool per day
+    explanation: The numeric core of the diagnosis, with the normal range given in the same sentence.
+  - reference: PMID:2254461
+    reference_title: &#34;Familial hypercatabolic hypoproteinemia. A disorder of endogenous catabolism of albumin and immunoglobulin.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      in the patients were 3.3, 3.0, and 2.8 d, markedly shorter than the mean 22.9 (±4) d in the normal individuals
+    explanation: &gt;-
+      The corresponding IgG survival half-lives across three studies in the two siblings, against
+      the control mean.
+- name: Albumin fractional catabolic rate
+  presence: &gt;-
+    Increased with a shortened survival - albumin half-life 6 days in both siblings against a
+    normal mean of 16 days - while the albumin synthetic rate stayed within the normal range.
+  notes: &gt;-
+    The albumin arm behaves like the IgG arm, which is what a single shared receptor predicts and
+    is why the disease is a hypoproteinaemia rather than an isolated hypogammaglobulinaemia. The
+    proportional effect is smaller than for IgG, consistent with IgG depending on FcRn salvage
+    more heavily.
+  evidence:
+  - reference: PMID:2254461
+    reference_title: &#34;Familial hypercatabolic hypoproteinemia. A disorder of endogenous catabolism of albumin and immunoglobulin.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Thealbumin survival wasmarkedlyshortened in both patients, with asurvival tA/2 of 6 d in each case compared with the normal mean of 16 d
+    explanation: &gt;-
+      The albumin half-life against its control mean. The run-together words are artefacts of the
+      cached PDF text layer, not of the source.
+  - reference: PMID:2254461
+    reference_title: &#34;Familial hypercatabolic hypoproteinemia. A disorder of endogenous catabolism of albumin and immunoglobulin.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      the reduced serum albumin concentrations and reduced circulating and total body pools ofthis protein were due to increased fractional catabolic rates (short survivals) of these proteins rather than abnormal albumin synthetic rates
+    explanation: &gt;-
+      The authors&#39; explicit attribution of the low albumin to catabolism rather than to synthesis.
+- name: IgA fractional catabolic rate
+  presence: &gt;-
+    Increased in the index patient - survival 2.9 days against a normal mean of 6.4 - but with a
+    normal or slightly elevated serum IgA concentration, because synthesis rose to compensate.
+  notes: &gt;-
+    Curated deliberately, because it is the finding most likely to be dropped as an inconvenience.
+    It means the catabolic defect in this disease is not confined to the two canonical FcRn
+    ligands, and it means a normal serum IgA does not argue against the diagnosis. It also sits in
+    tension with the beta-2-microglobulin knockout mouse, in which IgA half-life is unchanged; see
+    the human-model-mismatch discussion.
+  evidence:
+  - reference: PMID:2254461
+    reference_title: &#34;Familial hypercatabolic hypoproteinemia. A disorder of endogenous catabolism of albumin and immunoglobulin.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The survival t/2 ofradioiodinated IgA in patient W.J. was reduced to 2.9 dcomparedwith the normal meanof6.4 d
+    explanation: &gt;-
+      The shortened IgA survival in the index patient. Run-together words are artefacts of the
+      cached PDF text layer.
+  - reference: PMID:2254461
+    reference_title: &#34;Familial hypercatabolic hypoproteinemia. A disorder of endogenous catabolism of albumin and immunoglobulin.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      with an increased synthetic rate obscuring the short IgA survival
+    explanation: Why the shortened IgA survival does not show up as a low serum IgA.
 genetic:
 - name: B2M
   gene_term:
@@ -8127,6 +8956,14 @@ discussions:
     They are therefore not curated as phenotypes of this disease. Resolving it needs
     additional unrelated families, or a mechanistic account linking a class-I-fold
     heterodimer to glucose handling or skeletal development.
+
+    One detail sharpens the question without settling it. The skeletal deformity is specific and
+    concordant between the two affected siblings: both had short forearms with shortened ulnae and
+    bowing of the radii on x-ray. A defined radiographic abnormality present in both affected
+    members and described in neither unaffected relative is more than a vague familial
+    association - but in a first-cousin pedigree a second recessive trait segregating with the
+    first is exactly what would also produce that pattern, and with n=2 the two explanations are
+    indistinguishable. The second family has not been reported to have it.
   evidence:
   - reference: PMID:2254461
     reference_title: &#34;Familial hypercatabolic hypoproteinemia. A disorder of endogenous catabolism of albumin and immunoglobulin.&#34;
@@ -8138,6 +8975,71 @@ discussions:
     explanation: &gt;-
       The authors&#39; own hedged phrasing, which is the reason this is a gap rather than a
       phenotype.
+  - reference: PMID:2254461
+    reference_title: &#34;Familial hypercatabolic hypoproteinemia. A disorder of endogenous catabolism of albumin and immunoglobulin.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      On x-ray examination ofhis forearms and wrists, he was shown to have shortened ulnae and bowing ofthe radii
+    explanation: &gt;-
+      Characterises the skeletal deformity in the affected brother. Run-together words are
+      artefacts of the cached PDF text layer.
+  - reference: PMID:2254461
+    reference_title: &#34;Familial hypercatabolic hypoproteinemia. A disorder of endogenous catabolism of albumin and immunoglobulin.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Thepatient&#39;s sister had the same abnormality&#34;
+    explanation: &gt;-
+      Establishes concordance of the skeletal finding between the two affected siblings, which is
+      what makes the attribution question worth keeping open.
+
+- discussion_id: gap_iga_hypercatabolism_human_versus_mouse
+  kind: HUMAN_MODEL_MISMATCH
+  status: OPEN
+  prompt: &gt;-
+    Why is IgA survival shortened in the human disease but unchanged in the beta-2-microglobulin
+    knockout mouse, and does that mean FcRn loss has a ligand-handling consequence in humans that
+    the mouse does not model?
+  attaches_to:
+  - pathophysiology#Failure of pH-Dependent FcRn Salvage of IgG and Albumin
+  - animal_models#Mouse
+  rationale: &gt;-
+    The mouse result is used in this entry as a specificity control: albumin and IgG half-lives
+    fall while IgA is unchanged, which is what a lesion in a receptor salvaging only those two
+    ligands should produce. That reading is clean, and it is the reason the model is curated at
+    HIGH fidelity.
+
+    The human data do not match it. In the index patient the IgA survival was 2.9 days against a
+    normal mean of 6.4, with the fractional catabolic rate roughly doubled - shortened, not
+    unchanged. The serum IgA looked normal only because synthesis rose to cover it, so the
+    discrepancy is invisible unless turnover is measured rather than concentration.
+
+    Neither observation is in doubt; they are simply not the same result. Candidate explanations
+    include a genuine species difference in how IgA is catabolised, a non-FcRn consequence of
+    losing the whole MHC class I fold in the human hypomorph, or a general increase in catabolism
+    in the index patient that the mouse strain does not reproduce. Distinguishing them needs IgA
+    turnover measured in the FcRn alpha-chain knockout - which would separate a class-I-fold
+    effect from an FcRn effect - or IgA kinetics in a further human family. Until then the
+    specificity claim should be read as established in the mouse and unconfirmed in humans.
+  evidence:
+  - reference: PMID:2254461
+    reference_title: &#34;Familial hypercatabolic hypoproteinemia. A disorder of endogenous catabolism of albumin and immunoglobulin.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The survival t/2 ofradioiodinated IgA in patient W.J. was reduced to 2.9 dcomparedwith the normal meanof6.4 d
+    explanation: The human observation, which is the half of the mismatch the model does not reproduce.
+  - reference: PMID:12566415
+    reference_title: &#34;The major histocompatibility complex-related Fc receptor for IgG (FcRn) binds albumin and prolongs its lifespan.&#34;
+    supports: REFUTE
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      It can be seen that the half-life of albumin is shortened in the b2m KO strain (t1/2
+      25 h vs. 35 h in WT, Fig. 4 A) whereas the half-lives of IgA are not different in the
+      two strains
+    explanation: &gt;-
+      The mouse observation. Marked REFUTE relative to the human finding: in the model the IgA
+      half-life is explicitly unchanged, which is the direct contradiction this gap is about.
 
 notes: &gt;-
   Curated from a Perplexity sonar-deep-research report
@@ -8179,9 +9081,9 @@ notes: &gt;-
   appeal to. A paper characterising the rash would justify binding it; MeSH indexing does not.
 
   The MHC class I surface phenotype leads with the cell-surface measurement from PMID:25702838
-  and keeps the soluble-HLA serum measurement as a second item at PARTIAL. The serum figure is
-  real corroborating data measuring a different thing, and `PARTIAL` records that structurally
-  rather than in prose.
+  and keeps the soluble-HLA serum measurement as a second item marked `directness: INDIRECT`.
+  The serum figure is real corroborating data measuring a different thing, and the directness
+  slot records that structurally rather than in prose.
 
   Both knockout strains are curated, not just the beta-2-microglobulin one. The FcRn
   alpha-chain knockout is what licenses reading the human disease as an FcRn phenotype rather
@@ -8358,6 +9260,33 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Curated from a Perplexity sonar-deep-research report (research/Hypercatabolic_Hypoproteinemia-deep-research-perplexity.md), which passed `just preflight-dr` against MONDO:0009434 with the canonical gene B2M mentioned 84 times and the report&#39;s OMIM identifiers including the MONDO xref 241600.
+The report was used to locate literature, not as a source of text. Its own citation list is mostly non-PubMed URLs (Wikipedia, ScienceDirect topic pages, MedGen), and its treatment section is synthesis without primary citations, so every reference cited in this entry was found and read independently. Three PMIDs recalled from memory during that search turned out to point at unrelated papers and were discarded after fetching them; the six references here were located by PubMed query and each abstract was read before use.
+No treatments are curated. The report describes immunoglobulin replacement, albumin infusion and antibiotic prophylaxis, but attributes them to no primary source, and none of the six references read for this entry reports a treatment given to a patient with this disease - PMID:2254461 and PMID:16549777 are metabolic and molecular studies, and PMID:25702838&#39;s therapy content concerns the immunological workup. Asserting a standard of care from a synthesis with no citable source is the failure mode the evidence SOP exists to prevent, so the section is left empty rather than filled speculatively.
+Four curation decisions that a later editor is likely to want to reverse, and the reasons not to.
+The trigger node carries no molecular function. `GO:0042605 peptide antigen binding` is the tempting one and it is wrong: beta-2-microglobulin is the invariant light chain, and the peptide groove belongs to the heavy chain&#39;s alpha-1/alpha-2 domains. The MF anchor that is true sits on the depletion node instead - `GO:0042288 MHC class I protein binding`, with `modifier: DECREASED` rather than `LOSS_OF_FUNCTION`, because the lesion lowers the supply of the light chain rather than altering the activity of the protein it produces. That distinction is the quantitative/qualitative line: nothing here escapes regulation, there is simply less of it.
+The skin phenotype is deliberately unbound. `HP:0200042 Skin ulcer` was drafted and withdrawn: the only quotable source says &#34;severe skin disease&#34;, and the ulcer specificity came from the record&#39;s MeSH indexing rather than from the authors, with no full text to appeal to. A paper characterising the rash would justify binding it; MeSH indexing does not.
+The MHC class I surface phenotype leads with the cell-surface measurement from PMID:25702838 and keeps the soluble-HLA serum measurement as a second item marked `directness: INDIRECT`. The serum figure is real corroborating data measuring a different thing, and the directness slot records that structurally rather than in prose.
+Both knockout strains are curated, not just the beta-2-microglobulin one. The FcRn alpha-chain knockout is what licenses reading the human disease as an FcRn phenotype rather than as an unspecified consequence of losing class I. The `direction: UNCHANGED` albuminuria readout is doing real work: it is what converts a shortened albumin half-life into a catabolism claim, mirroring the proteinuria exclusion in the 1990 human turnover study.
+On the identity of the families: PMID:16549777 sequenced sera &#34;archived for 35 years&#34; from the two siblings, and Waldmann is an author of both it and PMID:2254461, so the molecular diagnosis was made on the family that defined the disease. PMID:25702838 describes a separate Turkish family.
+MONDO:0009434 xrefs OMIM:241600, which OMIM now titles as an immunodeficiency entry; the dismech entry keeps the MONDO label&#39;s historical framing in `disease_term` while the description and pathograph carry both arms.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Hypercatabolic Hypoproteinemia MONDO:0009434</strong> · 2026-08-23T21:46:05Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Hypercatabolic_Hypoproteinemia/2026-08-23T214605Z-claude-code-a9713c.yaml">View source</a></p>
+                        <p class="research-review-text">Curated de novo from a Perplexity sonar-deep-research report, which passed &#39;just preflight-dr&#39; against MONDO:0009434 with a PASS verdict: canonical gene B2M mentioned 84 times, and the report&#39;s OMIM identifiers include the MONDO xref 241600. The report was treated as a lead only. Its own citation list is dominated by non-PubMed URLs and its treatment section carries no primary citations, so all seven references cited here were located by PubMed query and each abstract was read before use. Three PMIDs recalled from memory during that search resolved to unrelated papers and were discarded after fetching them. The pathograph is a deliberate two-arm model from a single B2M lesion: the FcRn salvage arm, which produces the hypercatabolism of IgG and albumin the disease is named for and which was defined by protein turnover studies in 1990, and the antigen-presentation arm, absent classical MHC class I and CD1a/b/c with a failed CD8 compartment and unlicensed NK cells, which was characterised only in 2015. Neither arm is a complication of the other. No treatments are curated: all six primary references were grepped for treatment facts using several phrasings and none reports a therapy given to a patient with this disease. Validation run: &#39;just validate&#39; passed with 38 of 38 snippets verified against cached references, &#39;just validate-terms&#39; passed, and all five ungated CI gates were clean - check-folded-hyphens, check-snippet-length, check-title-snippets, check-environmental-evidence and check-duplicate-keys.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -8707,7 +9636,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Hypercatabolic Hypoproteinemia", "mondoId": "MONDO:0009434", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hypercatabolic_Hypoproteinemia", "yamlRevision": "cb240573e89d"};
+        const OS_CONFIG = {"diseaseName": "Hypercatabolic Hypoproteinemia", "mondoId": "MONDO:0009434", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hypercatabolic_Hypoproteinemia", "yamlRevision": "65c3c8ab0d1a"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

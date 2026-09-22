@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4160,6 +4232,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-acat1-molecular-function-deficiency" data-dismech-node="ACAT1 molecular function deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">ACAT1 molecular function deficiency</div>
 
+
                 <div class="item-desc">Biallelic ACAT1 pathogenic variants reduce mitochondrial acetoacetyl-CoA thiolase catalytic activity.
 </div>
 
@@ -4323,6 +4396,7 @@ This pathophysiological event occurs in mitochondrion (GO:0005739). GO:0005739 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4345,6 +4419,7 @@ This pathophysiological event occurs in mitochondrion (GO:0005739). GO:0005739 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-isoleucine-catabolism" data-dismech-node="Impaired isoleucine catabolism" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired isoleucine catabolism</div>
+
 
                 <div class="item-desc">ACAT1/T2 catalyzes the thiolytic cleavage of 2-methyl-acetoacetyl-CoA into propionyl-CoA and acetyl-CoA, the terminal step in the isoleucine degradation pathway. Loss of T2 activity blocks this step, leading to accumulation of upstream isoleucine-derived metabolites including 2-methyl-3-hydroxybutyrate, 2-methylacetoacetate, and tiglylglycine.
 </div>
@@ -4531,6 +4606,7 @@ This pathophysiological event involves branched-chain amino acid catabolic proce
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4552,6 +4628,7 @@ This pathophysiological event involves branched-chain amino acid catabolic proce
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4577,6 +4654,7 @@ This pathophysiological event involves branched-chain amino acid catabolic proce
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-ketone-body-metabolism" data-dismech-node="Impaired ketone body metabolism" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired ketone body metabolism</div>
+
 
                 <div class="item-desc">T2 is involved in ketogenesis in the liver (synthesizing acetoacetyl-CoA from acetyl-CoA) and in the terminal step of ketolysis in extrahepatic tissues (cleaving acetoacetyl-CoA to two acetyl-CoAs). Loss of T2 activity impairs extrahepatic ketone body utilization, predisposing to ketosis and ketoacidosis under catabolic stress.
 </div>
@@ -4822,6 +4900,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4843,6 +4922,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4868,6 +4948,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-isoleucine-derived-organic-acid-accumulation" data-dismech-node="Isoleucine-derived organic acid accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Isoleucine-derived organic acid accumulation</div>
+
 
                 <div class="item-desc">Failure to clear 2-methylacetoacetyl-CoA redirects upstream isoleucine intermediates into diagnostic organic acids and acylcarnitines, including 2-methyl-3-hydroxybutyrate, tiglylglycine, 2-methylacetoacetate, tiglylcarnitine, and 2-methyl-3-hydroxybutyrylcarnitine.
 </div>
@@ -5008,6 +5089,7 @@ This pathophysiological event involves decreased isoleucine catabolic process, a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5029,6 +5111,7 @@ This pathophysiological event involves decreased isoleucine catabolic process, a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5054,6 +5137,7 @@ This pathophysiological event involves decreased isoleucine catabolic process, a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-episodic-metabolic-decompensation" data-dismech-node="Episodic metabolic decompensation" data-dismech-type="pathophysiology">
                 <div class="item-name">Episodic metabolic decompensation</div>
+
 
                 <div class="item-desc">Under catabolic triggers such as infection, diarrhoea, prolonged fasting, ketogenic diet, or the inflammatory response to vaccination, increased reliance on ketone body flux and amino acid catabolism overwhelms the blocked T2 pathway. Accumulated organic acids produce high anion gap metabolic acidosis with ketosis and variable glycemia. Between crises, biochemical profiles may normalize, complicating detection. Episodes decrease in frequency with age, and are rare after age 10 in most patients.
 </div>
@@ -5212,6 +5296,7 @@ This pathophysiological event involves cellular response to acidic pH (GO:007146
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5233,6 +5318,7 @@ This pathophysiological event involves cellular response to acidic pH (GO:007146
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5260,6 +5346,7 @@ This pathophysiological event involves cellular response to acidic pH (GO:007146
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5282,6 +5369,7 @@ This pathophysiological event involves cellular response to acidic pH (GO:007146
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-acute-ketoacidotic-crisis-syndrome" data-dismech-node="Acute ketoacidotic crisis syndrome" data-dismech-type="pathophysiology">
                 <div class="item-name">Acute ketoacidotic crisis syndrome</div>
+
 
                 <div class="item-desc">Severe ketoacidotic episodes can present with toxic metabolic encephalopathy and associated acute-crisis signs, including reduced arousal, vomiting, hypotonia, tachypnea, seizures, and coma.
 </div>
@@ -5452,6 +5540,7 @@ This pathophysiological event involves cellular response to acidic pH (GO:007146
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5473,6 +5562,7 @@ This pathophysiological event involves cellular response to acidic pH (GO:007146
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5498,6 +5588,7 @@ This pathophysiological event involves cellular response to acidic pH (GO:007146
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-variable-glycemic-response-during-crisis" data-dismech-node="Variable glycemic response during crisis" data-dismech-type="pathophysiology">
                 <div class="item-name">Variable glycemic response during crisis</div>
+
 
                 <div class="item-desc">During acute illness and metabolic crisis, BKD patients may show stress hyperglycemia, while other presentations include hypoglycemia together with the characteristic metabolite accumulation.
 </div>
@@ -5598,6 +5689,7 @@ This pathophysiological event involves abnormal glucose homeostasis (GO:0042593)
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5619,6 +5711,7 @@ This pathophysiological event involves abnormal glucose homeostasis (GO:0042593)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5644,6 +5737,7 @@ This pathophysiological event involves abnormal glucose homeostasis (GO:0042593)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neurological-complications-and-basal-ganglia-involvement" data-dismech-node="Neurological complications and basal ganglia involvement" data-dismech-type="pathophysiology">
                 <div class="item-name">Neurological complications and basal ganglia involvement</div>
+
 
                 <div class="item-desc">BKD can produce neurologic complications, especially extrapyramidal manifestations and basal ganglia lesions, as sequelae of ketoacidotic episodes or occasionally without a recognized preceding crisis.
 </div>
@@ -5769,6 +5863,7 @@ This pathophysiological event occurs in basal ganglion (UBERON:0002420). UBERON:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5790,6 +5885,7 @@ This pathophysiological event occurs in basal ganglion (UBERON:0002420). UBERON:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5863,11 +5959,9 @@ This pathophysiological event occurs in basal ganglion (UBERON:0002420). UBERON:
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(6)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Respiratory<span class="pill-count">(3)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5908,6 +6002,9 @@ This clinical feature is Vomiting (HP:0002013). HP:0002013 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5922,6 +6019,7 @@ This clinical feature is Vomiting (HP:0002013). HP:0002013 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5985,6 +6083,9 @@ This clinical feature is Recurrent ketoacidosis, annotated with Ketoacidosis (HP
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5999,6 +6100,7 @@ This clinical feature is Recurrent ketoacidosis, annotated with Ketoacidosis (HP
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6053,6 +6155,9 @@ This clinical feature is Metabolic acidosis (HP:0001942). HP:0001942 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6067,6 +6172,7 @@ This clinical feature is Metabolic acidosis (HP:0001942). HP:0001942 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6118,6 +6224,9 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Deliberately carries no incoming causal edge. Fever in BKD sits on the TRIGGER side - it marks the intercurrent infection that precipitates a crisis - rather than being a consequence of the crisis, so wiring it downstream of the acute crisis node would invert the causal direction. It is recorded as a phenotype because it is a real and frequent presenting feature that clinicians will observe, but the pathograph should not imply the disease causes it.
 </div>
 
@@ -6138,6 +6247,7 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6192,6 +6302,9 @@ This clinical feature is Hyperglycemia (HP:0003074). HP:0003074 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6206,6 +6319,7 @@ This clinical feature is Hyperglycemia (HP:0003074). HP:0003074 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6260,6 +6374,9 @@ This clinical feature is Hypoglycemia (HP:0001943). HP:0001943 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6274,6 +6391,7 @@ This clinical feature is Hypoglycemia (HP:0001943). HP:0001943 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6337,6 +6455,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6351,6 +6472,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6383,7 +6505,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">5</span>
+                    <span class="cat-count">6</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-lethargy" data-dismech-node="Lethargy" data-dismech-type="phenotype">
@@ -6414,6 +6536,9 @@ This clinical feature is Lethargy (HP:0001254). HP:0001254 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6428,6 +6553,7 @@ This clinical feature is Lethargy (HP:0001254). HP:0001254 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6452,6 +6578,7 @@ This clinical feature is Lethargy (HP:0001254). HP:0001254 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6506,6 +6633,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6520,6 +6650,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6574,6 +6705,9 @@ This clinical feature is Coma (HP:0001259). HP:0001259 is a phenotype from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6588,6 +6722,7 @@ This clinical feature is Coma (HP:0001259). HP:0001259 is a phenotype from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6642,6 +6777,9 @@ This clinical feature is Abnormal basal ganglia morphology (HP:0002134). HP:0002
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6656,6 +6794,7 @@ This clinical feature is Abnormal basal ganglia morphology (HP:0002134). HP:0002
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6683,6 +6822,7 @@ This clinical feature is Abnormal basal ganglia morphology (HP:0002134). HP:0002
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6691,6 +6831,80 @@ This clinical feature is Abnormal basal ganglia morphology (HP:0002134). HP:0002
 
 
                 <div class="evidence-explanation">Documents bilateral basal ganglia lesions on imaging in a BKD patient.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-extrapyramidal-signs" data-dismech-node="Extrapyramidal signs" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Extrapyramidal signs
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormality of extrapyramidal motor function</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002071" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0002071</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Extrapyramidal signs, annotated with Abnormality of extrapyramidal motor function (HP:0002071). HP:0002071 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40598206" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40598206" target="_blank">PMID:40598206</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Neurological complications, particularly extrapyramidal signs may"</div>
+
+
+                <div class="evidence-explanation">Documents extrapyramidal signs as a neurologic complication of BKD.</div>
 
 
 
@@ -6722,15 +6936,18 @@ This clinical feature is Abnormal basal ganglia morphology (HP:0002134). HP:0002
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Psychomotor developmental delay, annotated with Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6750,6 +6967,7 @@ This clinical feature is Psychomotor developmental delay, annotated with Global 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6799,15 +7017,18 @@ This clinical feature is Psychomotor developmental delay, annotated with Global 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002789" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0002789</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002789" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0002789</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Tachypnea (HP:0002789). HP:0002789 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6827,6 +7048,7 @@ This clinical feature is Tachypnea (HP:0002789). HP:0002789 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6867,15 +7089,18 @@ This clinical feature is Tachypnea (HP:0002789). HP:0002789 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0002094</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0002094</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6895,6 +7120,7 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6935,15 +7161,18 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002878" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0002878</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002878" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0002878</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Respiratory failure (HP:0002878). HP:0002878 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6966,6 +7195,7 @@ This clinical feature is Respiratory failure (HP:0002878). HP:0002878 is a pheno
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6974,85 +7204,6 @@ This clinical feature is Respiratory failure (HP:0002878). HP:0002878 is a pheno
 
 
                 <div class="evidence-explanation">Documents respiratory failure during acute severe BKD crisis in a 9-month-old.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-extrapyramidal-signs" data-dismech-node="Extrapyramidal signs" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Extrapyramidal signs
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Abnormality of extrapyramidal motor function</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002071" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0002071</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Extrapyramidal signs, annotated with Abnormality of extrapyramidal motor function (HP:0002071). HP:0002071 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:40598206" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40598206" target="_blank">PMID:40598206</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Neurological complications, particularly extrapyramidal signs may"</div>
-
-
-                <div class="evidence-explanation">Documents extrapyramidal signs as a neurologic complication of BKD.</div>
 
 
 
@@ -7136,6 +7287,9 @@ This disease-associated gene is ACAT1 (hgnc:93). hgnc:93 is a gene from the HUGO
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
@@ -7161,6 +7315,7 @@ This disease-associated gene is ACAT1 (hgnc:93). hgnc:93 is a gene from the HUGO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7182,6 +7337,7 @@ This disease-associated gene is ACAT1 (hgnc:93). hgnc:93 is a gene from the HUGO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7216,6 +7372,12 @@ This disease-associated gene is ACAT1 (hgnc:93). hgnc:93 is a gene from the HUGO
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Compound heterozygosity for two different ACAT1 pathogenic variants is a common genotype. For example, ACAT1 c.481T&gt;C, p.(Tyr161His) was identified in compound heterozygosity in an adult patient presenting with diabetic ketoacidosis.
 </div>
 
@@ -7241,6 +7403,7 @@ This disease-associated gene is ACAT1 (hgnc:93). hgnc:93 is a gene from the HUGO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7275,6 +7438,12 @@ This disease-associated gene is ACAT1 (hgnc:93). hgnc:93 is a gene from the HUGO
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Founder mutations have been identified in specific populations. In a Palestinian cohort, a founder mutation was found in six patients from three families. All affected patients were offspring of consanguineous marriages, increasing the likelihood of homozygous pathogenic variants.
 </div>
 
@@ -7300,6 +7469,7 @@ This disease-associated gene is ACAT1 (hgnc:93). hgnc:93 is a gene from the HUGO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7334,6 +7504,12 @@ This disease-associated gene is ACAT1 (hgnc:93). hgnc:93 is a gene from the HUGO
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Almost all of the 56 disease-associated missense ACAT1 variants affect residues that are completely or partially buried in the T2 structure, causing deficiency through lower in vivo T2 activity due to reduced folding efficiency or stability.
 </div>
 
@@ -7359,6 +7535,7 @@ This disease-associated gene is ACAT1 (hgnc:93). hgnc:93 is a gene from the HUGO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7447,6 +7624,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">The cornerstone of chronic BKD management is avoidance of prolonged fasting, ketogenic diets, and prompt treatment of intercurrent illness to prevent catabolic stress and ketoacidotic episodes.
 </div>
 
@@ -7472,6 +7663,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7493,6 +7685,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7557,6 +7750,31 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Mild protein restriction with avoidance of excess fat intake, regular carbohydrate intake to prevent ketosis, and sick-day glucose and electrolyte solutions. The dietary approach is less restrictive than for many other organic acidemias due to the generally favorable prognosis.
 </div>
 
@@ -7579,6 +7797,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7643,6 +7862,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">During acute ketoacidotic episodes, intravenous dextrose infusion to suppress ketogenesis (even if euglycemic), along with intravenous fluids and electrolyte correction. Bicarbonate may be used for severe acidosis. Severe crises may require intensive care with ventilation and dialysis when needed.
 </div>
 
@@ -7665,6 +7898,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7729,6 +7963,20 @@ This treatment is carnitine supplementation, annotated with Nutritional Support 
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">L-carnitine supplementation may be considered if carnitine deficiency is documented, to support organic acid detoxification and excretion via acylcarnitine conjugation.
 </div>
 
@@ -7781,6 +8029,20 @@ This treatment is disease screening (NCIT:C15419). NCIT:C15419 is a clinical int
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">BKD can be detected through expanded newborn screening using tandem mass spectrometry (MS/MS) via elevated C5:1 and C5-OH acylcarnitines. However, screening sensitivity is not 100 percent, and some affected patients may be missed: C5-OH and C5:1 can both be normal even during acute decompensation. Adding 3-hydroxybutyrylcarnitine (C4OH) as a co-primary marker is proposed to reduce these false negatives, and second-tier genetic testing using NGS panels reduces false positive rates.
 </div>
 
@@ -7806,6 +8068,7 @@ This treatment is disease screening (NCIT:C15419). NCIT:C15419 is a clinical int
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7827,6 +8090,7 @@ This treatment is disease screening (NCIT:C15419). NCIT:C15419 is a clinical int
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7890,6 +8154,20 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Genetic counseling for affected families, including discussion of autosomal recessive inheritance, recurrence risk (25%), and carrier testing for informative family members. Prenatal diagnosis is available through molecular analysis of ACAT1.
 </div>
 
@@ -7915,6 +8193,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7936,6 +8215,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8000,6 +8280,20 @@ This treatment is biomarker analysis (NCIT:C63333). NCIT:C63333 is a clinical in
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Given the first reported case of persistent diabetes in an adult with BKD, checking HbA1c in people with BKD and hyperglycemia is recommended to uncover potential coexisting diabetes and facilitate timely management.
 </div>
 
@@ -8022,6 +8316,7 @@ This treatment is biomarker analysis (NCIT:C63333). NCIT:C63333 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8147,6 +8442,7 @@ This treatment is biomarker analysis (NCIT:C63333). NCIT:C63333 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8168,6 +8464,7 @@ This treatment is biomarker analysis (NCIT:C63333). NCIT:C63333 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8278,6 +8575,7 @@ This treatment is biomarker analysis (NCIT:C63333). NCIT:C63333 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8382,6 +8680,7 @@ This treatment is biomarker analysis (NCIT:C63333). NCIT:C63333 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8492,6 +8791,7 @@ This treatment is biomarker analysis (NCIT:C63333). NCIT:C63333 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8513,6 +8813,7 @@ This treatment is biomarker analysis (NCIT:C63333). NCIT:C63333 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8623,6 +8924,7 @@ This treatment is biomarker analysis (NCIT:C63333). NCIT:C63333 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8697,6 +8999,7 @@ This treatment is biomarker analysis (NCIT:C63333). NCIT:C63333 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8757,6 +9060,7 @@ This treatment is biomarker analysis (NCIT:C63333). NCIT:C63333 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8798,6 +9102,7 @@ This treatment is biomarker analysis (NCIT:C63333). NCIT:C63333 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8819,6 +9124,7 @@ This treatment is biomarker analysis (NCIT:C63333). NCIT:C63333 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8921,6 +9227,7 @@ This treatment is biomarker analysis (NCIT:C63333). NCIT:C63333 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8945,6 +9252,7 @@ This treatment is biomarker analysis (NCIT:C63333). NCIT:C63333 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8966,6 +9274,7 @@ This treatment is biomarker analysis (NCIT:C63333). NCIT:C63333 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9037,6 +9346,7 @@ This treatment is biomarker analysis (NCIT:C63333). NCIT:C63333 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9085,6 +9395,7 @@ This treatment is biomarker analysis (NCIT:C63333). NCIT:C63333 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9139,6 +9450,7 @@ This treatment is biomarker analysis (NCIT:C63333). NCIT:C63333 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9163,6 +9475,7 @@ This treatment is biomarker analysis (NCIT:C63333). NCIT:C63333 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9184,6 +9497,7 @@ This treatment is biomarker analysis (NCIT:C63333). NCIT:C63333 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9261,6 +9575,7 @@ This treatment is biomarker analysis (NCIT:C63333). NCIT:C63333 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9320,6 +9635,7 @@ This treatment is biomarker analysis (NCIT:C63333). NCIT:C63333 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9341,6 +9657,7 @@ This treatment is biomarker analysis (NCIT:C63333). NCIT:C63333 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9403,6 +9720,7 @@ This treatment is biomarker analysis (NCIT:C63333). NCIT:C63333 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9457,6 +9775,7 @@ This treatment is biomarker analysis (NCIT:C63333). NCIT:C63333 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9478,6 +9797,7 @@ This treatment is biomarker analysis (NCIT:C63333). NCIT:C63333 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11443,6 +11763,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11511,6 +11832,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11585,6 +11907,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11653,6 +11976,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11727,6 +12051,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11795,6 +12120,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11869,6 +12195,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11937,6 +12264,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12011,6 +12339,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12079,6 +12408,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12153,6 +12483,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12221,6 +12552,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12295,6 +12627,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12363,6 +12696,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12437,6 +12771,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12505,6 +12840,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12579,6 +12915,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12647,6 +12984,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12721,6 +13059,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12789,6 +13128,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12863,6 +13203,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -12931,6 +13272,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13005,6 +13347,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -13073,6 +13416,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13147,6 +13491,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -13218,6 +13563,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13252,6 +13598,112 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Cross-provider assessment</strong> · <a href="../research/Beta-Ketothiolase_Deficiency-synthesis.html">Read assessment</a></p>
+
+                    </div>
+
+                    <div>
+                        <p><strong>Review: cite uncited prevalence claims, add C4OH marker, module conformance, missing phenotypes</strong> · 2026-07-25T19:30:32Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Beta-Ketothiolase_Deficiency/2026-07-25T193032Z-claude-code-59ef85.yaml">View source</a></p>
+                        <p class="research-review-text">Review of the second-oldest unreviewed disorder entry (creation_date
+2025-06-12).
+
+Uncited quantitative prevalence claims (the principal finding). The single
+prevalence record carried no evidence at all, used the deprecated free-text
+percentage field, and asserted two specific numbers in its notes: an
+incidence of &#34;approximately 1:32,237&#34; in a Chinese newborn-screening cohort
+of 206,977, and &#34;over 149 patients have been reported worldwide&#34;. Both came
+from a deep-research report rather than a verified source. Tracing them:
+
+- The 1:32,237 figure is real but was unverifiable from the cache, which held
+  only the abstract of DOI:10.3389/fgene.2024.1387423; the abstract never
+  mentions beta-ketothiolase deficiency. Fetched the open-access full text,
+  which does contain it. Retained as its own record but reframed honestly:
+  it is a single-centre, ancestry-specific rate confined to the Miao
+  minority, roughly 35-fold above the Chinese national estimate, and must not
+  be read as a general population rate. It was previously the entry&#39;s only
+  prevalence statement.
+- The &#34;149 patients worldwide&#34; figure was a misreading. PMID:31268215&#39;s 149 is
+  the count of genetically characterised patients in an ACAT1 mutation
+  update, not a worldwide case total. PMID:34001203 states approximately 250
+  patients have been reported worldwide since 1971. Both are now recorded, in
+  a CASES_IN_LITERATURE record, with the distinction made explicit.
+- Added the record that was actually missing: the Chinese national
+  newborn-screening incidence of about 1 per 1,000,000 from 16,088,190
+  screened newborns (PMID:34001203) - by far the largest denominator
+  available and the appropriate headline figure.
+
+All three records now use the structured measure_type / prevalence_class /
+rate_per_100000 slots instead of free text.
+
+Missing biomarker: C4OH. The biochemical section listed 2M3HB, TIG, 2MAA,
+C5:1 and C5-OH but omitted 3-hydroxybutyrylcarnitine (CHEBI:72995), which is
+the entire subject of PMID:34001203 and is clinically consequential rather
+than incidental: it was raised in 94% of the cohort, and two patients had
+elevated C4OH with normal C5-OH and C5:1 even during acute decompensation -
+exactly the false-negative pattern that causes BKD to be missed on the
+conventional two-marker screening panel. Added as a biochemical marker with a
+readout edge off the impaired-ketolysis node, a causal edge from the
+organic-acid accumulation node, and a corresponding update to the newborn
+screening treatment and its description.
+
+Missing differential diagnosis. The entry did not record that elevated
+urinary 2M3HB and TIG are not specific to BKD: the same pattern occurs in
+HSD10 mitochondrial disease (HSD17B10, OMIM #300438) and patients have been
+misdiagnosed as BKD on metabolite data alone, so enzyme assay or ACAT1
+mutation analysis is required to confirm rather than merely characterise the
+diagnosis. Added to notes, along with the genotype-phenotype dissociation
+(clinical phenotype does not track genotype; outcome tracks timeliness of
+diagnosis).
+
+Missing trigger and safety point. The recognised trigger set was &#34;infection,
+fasting, or ketogenic diet&#34;. PMID:34001203 adds diarrhoea and, importantly,
+the inflammatory response to vaccination - two cohort patients decompensated
+after vaccination, one fatally, and the authors note the vaccine reaction can
+look clinically identical to a metabolic decompensation, delaying
+recognition. Added to the decompensation node description and evidence, and
+to the trigger-avoidance treatment with a note clarifying that this is a
+caution about recognition and timing, not a reason to withhold vaccination.
+
+Module conformance. The entry had no conforms_to anywhere despite being a
+textbook intoxication-type inborn error. Added three conformance edges to
+metabolic_intoxication_decompensation - Enzymatic Block in Intermediary
+Metabolism on the ACAT1 node, Toxic Metabolite Accumulation and Energy
+Deficit on the organic-acid accumulation node, and Acute Metabolic
+Decompensation on the episodic decompensation node - plus biological_scale
+tags on those nodes.
+
+Missing phenotypes. Dyspnea (HP:0002094), named in the Orphanet definition
+but absent, and Fever (HP:0001945), among the presenting features of the
+62% of the Chinese cohort who were symptomatic. Both wired into the acute
+crisis syndrome node rather than left floating. Built and committed the
+previously absent ORPHA:134 structured cache record.
+
+Unevidenced treatments. Dietary management and the trigger-avoidance
+treatment carried no evidence; both now cite sources, with the dietary
+citation deliberately marked PARTIAL and its note rewritten to say plainly
+that it establishes mechanistic rationale, not efficacy - there is no
+controlled trial evidence for diet in BKD and the previous note implied the
+gap was merely one of abstract availability.
+
+Progression. The long-term outcome phase said only that prognosis is
+&#34;generally favorable&#34;; quantified it (19/23, 82% favourable; one
+developmental delay; three deaths) and added the finding that outcome tracks
+timeliness of diagnosis rather than genotype.
+
+Validation. Schema, term and reference validation all pass. The Miao-cohort
+snippet is quoted in a deliberately short form because the source PDF text
+contains broken ligatures (&#34;de ﬁciency&#34;) that would not match reliably.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

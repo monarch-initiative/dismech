@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4231,6 +4303,7 @@ The two arms are modelled separately here. The constitutive arm runs from enzyme
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4255,6 +4328,7 @@ The two arms are modelled separately here. The constitutive arm runs from enzyme
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4276,6 +4350,7 @@ The two arms are modelled separately here. The constitutive arm runs from enzyme
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4540,6 +4615,7 @@ The two arms are modelled separately here. The constitutive arm runs from enzyme
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-dpyd-loss-of-function" data-dismech-node="Biallelic DPYD Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic DPYD Loss of Function</div>
 
+
                 <div class="item-desc">Deleterious variants in DPYD, which encodes dihydropyrimidine dehydrogenase. The enzyme is a large homodimeric redox protein carrying two FAD, two FMN, and eight iron-sulfur clusters arranged as electron-transfer chains, which is why loss of function is reachable by many mechanistically distinct routes: disruption of the substrate site, of cofactor binding, of the electron wire, or of dimer assembly and folding. Complete deficiency requires two alleles; a single deleterious allele reduces activity enough to matter only when a fluoropyrimidine is administered.</div>
 
 
@@ -4630,6 +4706,7 @@ This pathophysiological event involves dihydropyrimidine dehydrogenase activity,
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4652,6 +4729,7 @@ This pathophysiological event involves dihydropyrimidine dehydrogenase activity,
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-dpd-catalytic-activity" data-dismech-node="Reduced DPD Catalytic Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced DPD Catalytic Activity</div>
+
 
                 <div class="item-desc">Diminished or absent dihydropyrimidine dehydrogenase activity. This node is the hinge of the entry: everything constitutive runs downstream of it through the blocked catabolic pathway, and everything pharmacogenomic runs downstream of it only once a fluoropyrimidine arrives. Residual activity is continuous rather than binary, which is why the same node supports both a severe infantile presentation and a lifelong asymptomatic state.</div>
 
@@ -4751,6 +4829,7 @@ This pathophysiological event involves decreased pyrimidine nucleobase catabolic
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4773,6 +4852,7 @@ This pathophysiological event involves decreased pyrimidine nucleobase catabolic
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-block-of-pyrimidine-nucleobase-catabolism" data-dismech-node="Block of Pyrimidine Nucleobase Catabolism" data-dismech-type="pathophysiology">
                 <div class="item-name">Block of Pyrimidine Nucleobase Catabolism</div>
+
 
                 <div class="item-desc">Because DPD catalyses the committed first step, its loss blocks the entire three-step catabolic pathway. The consequence is two-sided and both sides may matter: substrates accumulate, and the eventual product beta-alanine is not made. Uraciluria is the resulting biochemical signature and is present in essentially all homozygotes, whether or not they have any symptoms.</div>
 
@@ -4864,6 +4944,7 @@ This pathophysiological event involves decreased pyrimidine nucleobase catabolic
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4886,6 +4967,7 @@ This pathophysiological event involves decreased pyrimidine nucleobase catabolic
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pyrimidine-substrate-accumulation-and-beta-alanine-depletion" data-dismech-node="Pyrimidine Substrate Accumulation and Beta-Alanine Depletion" data-dismech-type="pathophysiology">
                 <div class="item-name">Pyrimidine Substrate Accumulation and Beta-Alanine Depletion</div>
+
 
                 <div class="item-desc">Uracil, thymine, and 5-hydroxymethyluracil accumulate in urine, plasma, and cerebrospinal fluid, while beta-alanine and beta-aminoisobutyrate are depleted. Beta-alanine is a structural analogue of GABA and glycine and has inhibitory neurotransmitter activity, which is the basis of the proposed but unproven link to the neurological phenotype. This node is where the entry stops asserting and starts hypothesising: the metabolite disturbance is measured and certain, its consequences for the brain are not.</div>
 
@@ -5027,6 +5109,7 @@ This pathophysiological event involves decreased beta-alanine biosynthetic proce
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5049,6 +5132,7 @@ This pathophysiological event involves decreased beta-alanine biosynthetic proce
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-inhibitory-neurotransmission-and-neurodevelopmental-injury" data-dismech-node="Impaired Inhibitory Neurotransmission and Neurodevelopmental Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Inhibitory Neurotransmission and Neurodevelopmental Injury</div>
+
 
                 <div class="item-desc">The hypothesised neurological consequence of the metabolite imbalance: beta-alanine and beta-aminoisobutyrate are structural analogues of GABA and glycine, so their depletion is proposed to shift inhibitory neurotransmission in the developing central nervous system, with accumulated pyrimidines contributing independently. This node exists as a node rather than as a bare edge to the phenotypes because it is the thing the animal evidence speaks to, positively and negatively, and a hypothesis with no node has nowhere to attach a negative result. Its edges belong to the neurotoxicity hypothesis group and are not asserted: the same biochemical state is compatible with no neurological phenotype at all.</div>
 
@@ -5201,6 +5285,7 @@ This pathophysiological event involves decreased beta-alanine biosynthetic proce
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5222,6 +5307,7 @@ This pathophysiological event involves decreased beta-alanine biosynthetic proce
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5247,6 +5333,7 @@ This pathophysiological event involves decreased beta-alanine biosynthetic proce
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-fluoropyrimidine-clearance" data-dismech-node="Impaired Fluoropyrimidine Clearance" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Fluoropyrimidine Clearance</div>
+
 
                 <div class="item-desc">Exposure-gated node, and the reason this disease matters far beyond the handful of children with the inborn error. Dihydropyrimidine dehydrogenase performs the great majority of fluoropyrimidine catabolism, so a patient with reduced activity who receives a standard dose of 5-fluorouracil or capecitabine cannot clear it. Systemic exposure and half-life rise, and the patient effectively receives an overdose while being given a normal prescription. Nothing about this node is active until the drug is administered.</div>
 
@@ -5338,6 +5425,7 @@ This pathophysiological event involves decreased pyrimidine nucleobase catabolic
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5360,6 +5448,7 @@ This pathophysiological event involves decreased pyrimidine nucleobase catabolic
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fluoropyrimidine-cytotoxicity-in-proliferating-tissues" data-dismech-node="Fluoropyrimidine Cytotoxicity in Proliferating Tissues" data-dismech-type="pathophysiology">
                 <div class="item-name">Fluoropyrimidine Cytotoxicity in Proliferating Tissues</div>
+
 
                 <div class="item-desc">Supratherapeutic 5-fluorouracil exposure damages rapidly proliferating tissues by two routes: the metabolite FdUMP inhibits thymidylate synthase, producing thymineless stress and DNA damage, and FUTP is misincorporated into RNA. Bone marrow and gastrointestinal mucosa bear the brunt, with skin, myocardium, and central nervous system also affected. This node is the disease-specific substitution for the cytotoxic driver in the myelosuppression module: the insult is not an administered cytotoxic dose but an ordinary dose that the patient cannot clear.</div>
 
@@ -5421,6 +5510,7 @@ This pathophysiological event involves decreased pyrimidine nucleobase catabolic
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5443,6 +5533,7 @@ This pathophysiological event involves decreased pyrimidine nucleobase catabolic
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-multilineage-cytopenias" data-dismech-node="Multilineage Cytopenias" data-dismech-type="pathophysiology">
                 <div class="item-name">Multilineage Cytopenias</div>
+
 
                 <div class="item-desc">Neutropenia, thrombocytopenia, and in severe or complete deficiency pancytopenia, arising from marrow suppression by unclearable fluoropyrimidine rather than from an intrinsic haematological disorder. Severe toxicity of this kind is frequently dose-limiting and can be fatal.</div>
 
@@ -5493,6 +5584,7 @@ This pathophysiological event involves decreased pyrimidine nucleobase catabolic
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5564,9 +5656,9 @@ This pathophysiological event involves decreased pyrimidine nucleobase catabolic
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Genitourinary<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(4)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5607,6 +5699,9 @@ This clinical feature is Decreased total neutrophil count (HP:0001875). HP:00018
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5621,6 +5716,7 @@ This clinical feature is Decreased total neutrophil count (HP:0001875). HP:00018
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5675,6 +5771,9 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5689,6 +5788,7 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5752,6 +5852,9 @@ This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5766,6 +5869,7 @@ This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5797,13 +5901,13 @@ This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from t
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Nervous System
-                    <span class="cat-count">4</span>
+                    Genitourinary
+                    <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-seizure" data-dismech-node="Seizure" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-uraciluria" data-dismech-node="Uraciluria" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Seizure
+                        Uraciluria
 
 
 
@@ -5815,15 +5919,18 @@ This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012127" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0012127</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Uraciluria (HP:0012127). HP:0012127 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5843,6 +5950,88 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"An altered beta-alanine, uracil and thymine homeostasis might underlie the various clinical abnormalities encountered in patients with DPD deficiency."</div>
+
+
+                <div class="evidence-explanation">Cited for the accumulation of uracil and thymine that produces the urinary finding, not for the hedged clinical inference in the same sentence.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Nervous System
+                    <span class="cat-count">4</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-seizure" data-dismech-node="Seizure" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Seizure
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001250</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10071185" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10071185" target="_blank">PMID:10071185</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5883,15 +6072,18 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001249</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5911,6 +6103,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5951,15 +6144,18 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5979,6 +6175,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6019,15 +6216,18 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002352" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0002352</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002352" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002352</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Leukoencephalopathy (HP:0002352). HP:0002352 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6050,6 +6250,7 @@ This clinical feature is Leukoencephalopathy (HP:0002352). HP:0002352 is a pheno
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6058,83 +6259,6 @@ This clinical feature is Leukoencephalopathy (HP:0002352). HP:0002352 is a pheno
 
 
                 <div class="evidence-explanation">Describes the imaging finding including the brainstem involvement.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-uraciluria" data-dismech-node="Uraciluria" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Uraciluria
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012127" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0012127</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Uraciluria (HP:0012127). HP:0012127 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:10071185" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10071185" target="_blank">PMID:10071185</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"An altered beta-alanine, uracil and thymine homeostasis might underlie the various clinical abnormalities encountered in patients with DPD deficiency."</div>
-
-
-                <div class="evidence-explanation">Cited for the accumulation of uracil and thymine that produces the urinary finding, not for the hedged clinical inference in the same sentence.</div>
 
 
 
@@ -6220,6 +6344,9 @@ This disease-associated gene is DPYD (hgnc:3012). hgnc:3012 is a gene from the H
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
@@ -6245,6 +6372,7 @@ This disease-associated gene is DPYD (hgnc:3012). hgnc:3012 is a gene from the H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6266,6 +6394,7 @@ This disease-associated gene is DPYD (hgnc:3012). hgnc:3012 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6349,6 +6478,31 @@ This treatment is Genetic testing to guide fluoropyrimidine dosing, annotated wi
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">The intervention that defines modern management, and it is preventive rather than therapeutic. Testing DPYD before the first fluoropyrimidine dose and reducing or avoiding the drug according to residual activity converts a lethal idiosyncratic reaction into a manageable one. The evidence is quantitative and among the strongest in pharmacogenomics: upfront genotyping with dose individualisation cut severe toxicity dramatically and abolished drug-induced death in the study population.</div>
 
 
@@ -6379,6 +6533,7 @@ This treatment is Genetic testing to guide fluoropyrimidine dosing, annotated wi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6425,6 +6580,7 @@ This treatment is Genetic testing to guide fluoropyrimidine dosing, annotated wi
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6446,6 +6602,7 @@ This treatment is Genetic testing to guide fluoropyrimidine dosing, annotated wi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6509,6 +6666,31 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">For individuals with complete or near-complete deficiency, avoidance of 5-fluorouracil, capecitabine, and tegafur for life. This applies equally to those who are entirely asymptomatic, which is the point: the biochemical diagnosis carries a permanent prescribing implication even in someone who will never have a neurological symptom.</div>
 
 
@@ -6539,6 +6721,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6633,6 +6816,31 @@ This treatment uses uridine triacetate (CHEBI:90914). CHEBI:90914 is a therapeut
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Emergency antidote for fluoropyrimidine overexposure or early-onset severe toxicity, including toxicity arising from DPD deficiency. It delivers high concentrations of uridine, which competes with cytotoxic 5-fluorouracil metabolites for incorporation into RNA. Timing is the whole game: it must be given early, and most treated patients received it within 96 hours of exposure.</div>
 
 
@@ -6663,6 +6871,7 @@ This treatment uses uridine triacetate (CHEBI:90914). CHEBI:90914 is a therapeut
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6709,6 +6918,7 @@ This treatment uses uridine triacetate (CHEBI:90914). CHEBI:90914 is a therapeut
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6730,6 +6940,7 @@ This treatment uses uridine triacetate (CHEBI:90914). CHEBI:90914 is a therapeut
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6793,6 +7004,31 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Symptomatic seizure control for the constitutive neurological arm. No DPD-specific agent or regimen is established, and seizures are often difficult to control.</div>
 
 
@@ -6838,6 +7074,31 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -6895,6 +7156,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6916,6 +7178,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6967,6 +7230,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7032,6 +7296,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7101,6 +7366,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7155,6 +7421,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7206,6 +7473,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7307,6 +7575,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7362,6 +7631,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7545,6 +7815,7 @@ This clinical trial targets Decreased total neutrophil count (HP:0001875). HP:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7685,6 +7956,7 @@ This clinical trial targets Decreased total neutrophil count (HP:0001875). HP:00
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7724,6 +7996,7 @@ This clinical trial targets Decreased total neutrophil count (HP:0001875). HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7778,6 +8051,7 @@ This clinical trial targets Decreased total neutrophil count (HP:0001875). HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9000,6 +9274,27 @@ prevalence:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Scope and framing. This entry covers both the constitutive inborn error (biallelic, unexposed) and the fluoropyrimidine-toxicity arm (mono- or biallelic, drug-exposed), because they are the same enzyme deficiency and separating them into two entries would hide the fact that the second is reached from the first only by an exposure. The toxicity phenotypes are therefore placed downstream of an exposure-gated node rather than in the constitutive phenotype list.
+Module conformance was considered carefully and only one was taken. The marrow limb of the toxicity arm conforms to `myelosuppression`, where the disorder specific substitution is excess systemic 5-fluorouracil arising from failed catabolic clearance rather than an administered cytotoxic dose. `epilepsy_excitation_inhibition_imbalance` was NOT declared, because conforming would require asserting the beta-alanine inhibitory-neurotransmission mechanism, which the literature explicitly hedges; that mechanism is recorded as an EMERGING hypothesis instead. `metabolic_intoxication_decompensation` was also declined: DPD deficiency does not classically produce catabolic-stress triggered crises with acidosis, hyperammonaemia, or hypoglycaemia, and the one acute presentation in the literature is a single case report.
+There is no dismech module for pharmacogenomic clearance failure, the pattern in which impaired drug catabolism produces supratherapeutic exposure and dose-dependent toxicity. It recurs across DPYD with fluoropyrimidines, TPMT and NUDT15 with thiopurines, UGT1A1 with irinotecan, and CYP2D6 with codeine. This entry would be a natural flagship conformer if such a module is ever written; no existing module was stretched to cover it.
+Deliberately not curated. The source deep-research report attributed the DPWG genotype-guided dosing recommendation to PMID:31745289 and its central illustration of a biochemically deficient but symptom-free sibling to PMID:9323575. Neither identifier resolves to a record, and both were flagged as probable confabulations by the report&#39;s own reference validation. The dosing content is therefore sourced here from the prospective studies that generated the evidence instead, and the unexposed-sibling observation is not curated at all. Beta-alanine supplementation is mechanistically attractive and has no clinical evidence; it is not curated as a treatment. Deliberate DPD inhibition to potentiate 5-fluorouracil is a real oncology strategy but is not a treatment for this disease and appears only here in notes.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Dihydropyrimidine Dehydrogenase Deficiency (MONDO:0010130)</strong> · 2026-08-16T15:09:44Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Dihydropyrimidine_Dehydrogenase_Deficiency/2026-08-16T150944Z-claude-code-a97479.yaml">View source</a></p>
+                        <p class="research-review-text">New entry from a claude_code deep-research report. Seven pathophysiology nodes structured as two arms sharing one hinge node (Reduced DPD Catalytic Activity): a constitutive arm running to metabolite imbalance, and an exposure-gated pharmacogenomic arm that is inert until a fluoropyrimidine is administered. The drug exposure is modelled as an environmental entry with influences_mechanisms TRIGGERS on the clearance node rather than as part of the constitutive chain, and the toxicity phenotypes sit downstream of it rather than in the constitutive phenotype list. Module conformance: myelosuppression taken at two nodes, with the disease-specific substitution being unclearable ordinary-dose 5-FU rather than an administered cytotoxic dose. epilepsy_excitation_inhibition_imbalance deliberately NOT declared because conforming would require asserting the beta-alanine mechanism the literature hedges; metabolic_intoxication_decompensation declined as over-claim. The neurological chain is curated as an EMERGING mechanistic_hypotheses group with its edges opted into that group rather than asserted, because the originating study states no genotype-phenotype correlation is established and biochemically deficient individuals can be entirely asymptomatic. A HUMAN_MODEL_MISMATCH records that the mouse beta-alanine evidence is a sleep phenotype, not seizures. Two blacklisted PMIDs: the report attributed the DPWG dosing recommendation to PMID:31745289 and its central deficient-but-asymptomatic-sibling illustration to PMID:9323575; neither resolves, both were flagged by the report&#39;s own validation, so dosing is sourced from the prospective studies instead and the sibling observation is not curated. Two errors caught in self-audit before push: a [4Fe-4S] snippet that fails because bracket notation is stripped by snippet normalisation (trimmed, with the reason recorded in the explanation), and a fabricated reference_title for PMID:41259730 which CI does not check (corrected from cache, and the prevalence population narrowed to match the real title&#39;s GI/hepatopancreaticobiliary scope). Validated: just validate passed; count-verified-snippets 27/27; title audit 27 citations 0 mismatches; check_folded_hyphens OK; check-title-snippets OK.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

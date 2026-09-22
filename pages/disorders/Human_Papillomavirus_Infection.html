@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4141,6 +4213,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-basal-keratinocyte-infection-and-genome-establishment" data-dismech-node="Basal Keratinocyte Infection and Genome Establishment" data-dismech-type="pathophysiology">
                 <div class="item-name">Basal Keratinocyte Infection and Genome Establishment</div>
 
+
                 <div class="item-desc">HPV virions gain access to basal keratinocytes of stratified squamous epithelium through microabrasions, binding heparan sulfate proteoglycans and entering by receptor-mediated endocytosis. The viral genome is established as a low-copy nuclear episome in the proliferating basal/parabasal compartment, where E1 and E2 support replication and partitioning.</div>
 
 
@@ -4263,6 +4336,7 @@ This pathophysiological event involves increased Receptor-mediated endocytosis o
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4285,6 +4359,7 @@ This pathophysiological event involves increased Receptor-mediated endocytosis o
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-productive-life-cycle-coupled-to-keratinocyte-differentiation" data-dismech-node="Productive Life Cycle Coupled to Keratinocyte Differentiation" data-dismech-type="pathophysiology">
                 <div class="item-name">Productive Life Cycle Coupled to Keratinocyte Differentiation</div>
+
 
                 <div class="item-desc">The HPV productive life cycle is tightly linked to the epithelial differentiation program. As infected keratinocytes migrate suprabasally and differentiate, viral late promoters activate, E1/E2-driven genome amplification occurs, and L1/L2 capsid proteins are expressed in the most superficial layers, where progeny virions assemble and are shed. E4 disrupts the keratin cytoskeleton to facilitate egress. Low-risk-type productive infection produces the benign hyperplastic warty lesion.</div>
 
@@ -4476,6 +4551,7 @@ This pathophysiological event involves increased Viral release from host cell (G
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4498,6 +4574,7 @@ This pathophysiological event involves increased Viral release from host cell (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-immune-evasion-and-persistence" data-dismech-node="Immune Evasion and Persistence" data-dismech-type="pathophysiology">
                 <div class="item-name">Immune Evasion and Persistence</div>
+
 
                 <div class="item-desc">HPV restricts its replication to the epithelium, avoids viremia and cytolysis, downregulates Toll-like receptor and type I interferon signaling, and delays antigen presentation, allowing infection to persist below the threshold of efficient immune detection. Cell-mediated immunity ultimately clears most infections, but immunosuppression (e.g. HIV, transplantation) impairs clearance and predisposes to persistence, extensive warts, and progression.</div>
 
@@ -4655,6 +4732,7 @@ This pathophysiological event involves increased Suppression of host innate immu
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4676,6 +4754,7 @@ This pathophysiological event involves increased Suppression of host innate immu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4701,6 +4780,7 @@ This pathophysiological event involves increased Suppression of host innate immu
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-high-risk-persistence-and-transformation" data-dismech-node="High-Risk Persistence and Transformation" data-dismech-type="pathophysiology">
                 <div class="item-name">High-Risk Persistence and Transformation</div>
+
 
                 <div class="item-desc">Persistent high-risk HPV infection can deregulate E6/E7 expression (often accompanying genome integration and loss of E2 repression), driving p53 degradation and pRB inactivation, G1/S checkpoint override, genomic instability, and progression through intraepithelial neoplasia toward invasive carcinoma. In this entry the transformation program is summarized as the bridge to the dedicated HPV-associated cancer entries.</div>
 
@@ -4845,6 +4925,7 @@ This pathophysiological event involves increased Perturbation of host G1/S check
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4907,10 +4988,29 @@ This pathophysiological event involves increased Perturbation of host G1/S check
             </div>
 
 
+            <div class="pheno-toc">
 
-            <div class="item-box phenotype-box anchor-target" id="phenotype-anogenital-warts-condylomata-acuminata" data-dismech-node="Anogenital warts (condylomata acuminata)" data-dismech-type="phenotype">
-                <div class="item-name">
-                    Anogenital warts (condylomata acuminata)
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Genitourinary<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Integument<span class="pill-count">(2)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Neoplasm<span class="pill-count">(1)</span></button>
+
+                <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
+            </div>
+
+
+            <details class="phenotype-category-group" id="pheno-cat-1">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Genitourinary
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cervical-intraepithelial-neoplasia" data-dismech-node="Cervical intraepithelial neoplasia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Cervical intraepithelial neoplasia
+
 
 
 
@@ -4920,147 +5020,19 @@ This pathophysiological event involves increased Perturbation of host G1/S check
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0032301" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0032301</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0032242" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0032242</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Anogenital warts, annotated with Genital warts (HP:0032301). HP:0032301 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:19709100" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19709100" target="_blank">PMID:19709100</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"External genital warts (EGWs, condylomata acuminata) are a common, highly contagious disease caused by human papillomavirus (HPV), predominantly"</div>
-
-
-                <div class="evidence-explanation">Identifies external genital warts (condylomata acuminata) as a common HPV disease driven predominantly by HPV-6 and HPV-11.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-            </div>
-
-            <div class="item-box phenotype-box anchor-target" id="phenotype-cutaneous-warts" data-dismech-node="Cutaneous warts" data-dismech-type="phenotype">
-                <div class="item-name">
-                    Cutaneous warts
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0200043" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0200043</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Cutaneous warts (verrucae), annotated with Verrucae (HP:0200043). HP:0200043 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:22972052" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22972052" target="_blank">PMID:22972052</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Viral warts are a common skin condition, which can range in severity from a minor nuisance that resolve spontaneously to a troublesome, chronic condition."</div>
-
-
-                <div class="evidence-explanation">Establishes cutaneous viral warts as a common, often self-limited skin manifestation of HPV.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-            </div>
-
-            <div class="item-box phenotype-box anchor-target" id="phenotype-cervical-intraepithelial-neoplasia" data-dismech-node="Cervical intraepithelial neoplasia" data-dismech-type="phenotype">
-                <div class="item-name">
-                    Cervical intraepithelial neoplasia
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0032242" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0032242</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
 This clinical feature is Cervical intraepithelial neoplasia (HP:0032242). HP:0032242 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                </div>
+                    </div>
+
+
+
 
 
 
@@ -5080,6 +5052,7 @@ This clinical feature is Cervical intraepithelial neoplasia (HP:0032242). HP:003
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5104,17 +5077,185 @@ This clinical feature is Cervical intraepithelial neoplasia (HP:0032242). HP:003
 
 
 
-            </div>
+                </div>
 
-            <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-respiratory-papillomatosis" data-dismech-node="Recurrent respiratory papillomatosis" data-dismech-type="phenotype">
-                <div class="item-name">
-                    Recurrent respiratory papillomatosis
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Integument
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-anogenital-warts-condylomata-acuminata" data-dismech-node="Anogenital warts (condylomata acuminata)" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Anogenital warts (condylomata acuminata)
+
 
 
 
 
 
                     <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0032301" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0032301</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anogenital warts, annotated with Genital warts (HP:0032301). HP:0032301 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19709100" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19709100" target="_blank">PMID:19709100</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"External genital warts (EGWs, condylomata acuminata) are a common, highly contagious disease caused by human papillomavirus (HPV), predominantly"</div>
+
+
+                <div class="evidence-explanation">Identifies external genital warts (condylomata acuminata) as a common HPV disease driven predominantly by HPV-6 and HPV-11.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cutaneous-warts" data-dismech-node="Cutaneous warts" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Cutaneous warts
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Verrucae</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0200043" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0200043</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cutaneous warts (verrucae), annotated with Verrucae (HP:0200043). HP:0200043 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22972052" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22972052" target="_blank">PMID:22972052</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Viral warts are a common skin condition, which can range in severity from a minor nuisance that resolve spontaneously to a troublesome, chronic condition."</div>
+
+
+                <div class="evidence-explanation">Establishes cutaneous viral warts as a common, often self-limited skin manifestation of HPV.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Neoplasm
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-respiratory-papillomatosis" data-dismech-node="Recurrent respiratory papillomatosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Recurrent respiratory papillomatosis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Laryngeal papilloma</span>
+
 
 
 
@@ -5126,7 +5267,10 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Laryngeal papillomatosis, annotated with Laryngeal papilloma (HP:0033001). HP:0033001 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                </div>
+                    </div>
+
+
+
 
 
 
@@ -5146,6 +5290,7 @@ This clinical feature is Laryngeal papillomatosis, annotated with Laryngeal papi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5170,8 +5315,34 @@ This clinical feature is Laryngeal papillomatosis, annotated with Laryngeal papi
 
 
 
-            </div>
+                </div>
 
+            </details>
+
+            <script>
+            (function() {
+                // TOC pill click: expand target group and scroll to it
+                document.querySelectorAll('.pheno-toc-pill').forEach(function(pill) {
+                    pill.addEventListener('click', function() {
+                        var target = document.getElementById(pill.dataset.target);
+                        if (target) {
+                            target.open = true;
+                            target.scrollIntoView({behavior: 'smooth', block: 'start'});
+                        }
+                    });
+                });
+                // Expand/collapse all toggle
+                var btn = document.getElementById('phenoToggleAll');
+                if (btn) {
+                    btn.addEventListener('click', function() {
+                        var groups = document.querySelectorAll('.phenotype-category-group');
+                        var anyOpen = Array.from(groups).some(function(g) { return g.open; });
+                        groups.forEach(function(g) { g.open = !anyOpen; });
+                        btn.textContent = anyOpen ? 'Expand all' : 'Collapse all';
+                    });
+                }
+            })();
+            </script>
 
         </div>
 
@@ -5235,6 +5406,31 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Vaccine</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Prophylactic L1 virus-like-particle vaccines (bivalent, quadrivalent, and 9-valent) induce neutralizing antibodies that prevent incident infection by covered genotypes. The 9-valent vaccine covers HPV-6/11 (anogenital warts) and seven high-risk oncogenic types. These vaccines act ONLY at the virion-entry step — they neutralize incoming particles before the genome is established — and therefore do NOT recognize or clear keratinocytes in which infection is already established (the L1 capsid target is not displayed on infected cells). They are preventive, not therapeutic, and do not clear established infection.</div>
 
 
@@ -5265,6 +5461,7 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5333,6 +5530,7 @@ This treatment targets Anogenital warts, annotated with Genital warts (HP:003230
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5354,6 +5552,7 @@ This treatment targets Anogenital warts, annotated with Genital warts (HP:003230
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5418,6 +5617,31 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Vaccine</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Investigational therapeutic vaccines that, unlike prophylactic L1 VLP vaccines, are designed to act ON established infection. They present the HPV E6 and E7 oncoproteins — which ARE expressed by infected/transformed keratinocytes — via DNA, synthetic long-peptide, viral-vector, or mRNA platforms to prime E6/E7-specific cytotoxic T lymphocytes that recognize and kill already-infected cells. The furthest-advanced example, the HPV-16/18 E6/E7 DNA vaccine VGX-3100, produced histologic regression of CIN2/3 in a randomized phase 2b trial; synthetic long-peptide (ISA101), viral-vector, and mRNA candidates are in trials, often combined with immune-checkpoint blockade in HPV-driven cancers. Still investigational and not yet standard of care.</div>
 
 
@@ -5448,6 +5672,7 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5526,6 +5751,7 @@ This treatment targets Cervical intraepithelial neoplasia (HP:0032242). HP:00322
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5611,6 +5837,31 @@ This treatment uses imiquimod (CHEBI:36704). CHEBI:36704 is a therapeutic agent 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Topical Toll-like receptor 7 agonist that stimulates local innate and cell-mediated immune responses (interferon-alpha and other cytokines) to clear external anogenital warts; patient-applied.</div>
 
 
@@ -5675,6 +5926,7 @@ This treatment targets Anogenital warts, annotated with Genital warts (HP:003230
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5696,6 +5948,7 @@ This treatment targets Anogenital warts, annotated with Genital warts (HP:003230
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5781,6 +6034,31 @@ This treatment uses podophyllotoxin (CHEBI:50305). CHEBI:50305 is a therapeutic 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Patient-applied topical antimitotic that arrests wart keratinocytes in metaphase and causes local tissue necrosis of external anogenital warts.</div>
 
 
@@ -5842,6 +6120,7 @@ This treatment targets Anogenital warts, annotated with Genital warts (HP:003230
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5927,6 +6206,31 @@ This treatment uses epigallocatechin gallate, annotated with (-)-epigallocatechi
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Topical green-tea (Camellia sinensis) catechin extract, standardized on epigallocatechin gallate, applied to external anogenital warts; immunostimulatory and antiproliferative.</div>
 
 
@@ -5991,6 +6295,7 @@ This treatment targets Anogenital warts, annotated with Genital warts (HP:003230
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6012,6 +6317,7 @@ This treatment targets Anogenital warts, annotated with Genital warts (HP:003230
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6097,6 +6403,31 @@ This treatment uses trichloroacetic acid (CHEBI:30956). CHEBI:30956 is a therape
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Provider-applied caustic agent that chemically coagulates and destroys wart tissue; suitable for external and mucosal anogenital warts including in pregnancy.</div>
 
 
@@ -6161,6 +6492,7 @@ This treatment targets Anogenital warts, annotated with Genital warts (HP:003230
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6182,6 +6514,7 @@ This treatment targets Anogenital warts, annotated with Genital warts (HP:003230
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6241,6 +6574,31 @@ This treatment is cryosurgery (NCIT:C15215). NCIT:C15215 is a clinical intervent
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -6327,6 +6685,7 @@ This treatment targets Cutaneous warts (verrucae), annotated with Verrucae (HP:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6383,6 +6742,31 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -6466,6 +6850,7 @@ This treatment targets Laryngeal papillomatosis, annotated with Laryngeal papill
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6558,6 +6943,7 @@ This treatment targets Laryngeal papillomatosis, annotated with Laryngeal papill
 
 
 
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -6614,6 +7000,7 @@ This treatment targets Laryngeal papillomatosis, annotated with Laryngeal papill
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6714,6 +7101,7 @@ This treatment targets Laryngeal papillomatosis, annotated with Laryngeal papill
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6772,6 +7160,7 @@ This treatment targets Laryngeal papillomatosis, annotated with Laryngeal papill
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6793,6 +7182,7 @@ This treatment targets Laryngeal papillomatosis, annotated with Laryngeal papill
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7632,6 +8022,8 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

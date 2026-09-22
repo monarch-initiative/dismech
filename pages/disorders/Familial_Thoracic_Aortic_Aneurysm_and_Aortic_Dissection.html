@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3761,6 +3826,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3803,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 9</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 27</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Familial%20Thoracic%20Aortic%20Aneurysm%20and%20Aortic%20Dissection"
@@ -3962,7 +4034,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">8</div>
+                <div class="stat-value">10</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -3991,7 +4063,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">9</div>
+                <div class="stat-value">27</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4000,7 +4072,7 @@
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
-                <div class="stat-value">14</div>
+                <div class="stat-value">16</div>
                 <div class="stat-label">Genes</div>
             </div>
             </a>
@@ -4029,6 +4101,14 @@
 
 
 
+
+            <a class="stat-link" href="#references">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📚</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">References</div>
+            </div>
+            </a>
 
 
             <a class="stat-link" href="#literature-summaries">
@@ -4487,6 +4567,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4581,6 +4662,25 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                ACTA2
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:130" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:130</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in ACTA2 (hgnc:130). hgnc:130 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">ACTA2-related familial thoracic aortic aneurysm and dissection.</div>
@@ -4606,6 +4706,25 @@
 
                     </div>
                     <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                MYH11
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:7569" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:7569</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in MYH11 (hgnc:7569). hgnc:7569 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
 
 
 
@@ -4641,6 +4760,25 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                MYLK
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:7590" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:7590</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in MYLK (hgnc:7590). hgnc:7590 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">MYLK-related familial thoracic aortic aneurysm and dissection.</div>
@@ -4666,6 +4804,25 @@
 
                     </div>
                     <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                PRKG1
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:9414" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:9414</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in PRKG1 (hgnc:9414). hgnc:9414 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
 
 
 
@@ -4701,6 +4858,25 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                LOX
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:6664" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:6664</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in LOX (hgnc:6664). hgnc:6664 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">LOX-related familial thoracic aortic aneurysm and dissection (extracellular-matrix gene; ClinGen HTAD GCEP classification Strong).</div>
@@ -4731,6 +4907,25 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                MFAP5
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:29673" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:29673</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in MFAP5 (hgnc:29673). hgnc:29673 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">MFAP5-related familial thoracic aortic aneurysm and dissection (AAT9; OMIM 616166). MFAP5 (microfibril-associated glycoprotein 2/MAGP-2) is an extracellular-matrix component of fibrillin microfibrils that modulates TGF-beta bioavailability; loss-of-function variants disrupt microfibril integrity. MONDO binds this leaf class to MFAP5 (RO:0004003 HGNC:29673).</div>
@@ -4756,6 +4951,25 @@
 
                     </div>
                     <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                THSD4
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:25835" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:25835</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in THSD4 (hgnc:25835). hgnc:25835 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
 
 
 
@@ -4851,11 +5065,12 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">8</span>
+                <span class="card-count">10</span>
             </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-germline-pathogenic-variant-in-an-htad-gene" data-dismech-node="Germline pathogenic variant in an HTAD gene" data-dismech-type="pathophysiology">
                 <div class="item-name">Germline pathogenic variant in an HTAD gene</div>
+
 
                 <div class="item-desc">Inherited pathogenic variants in high-penetrance HTAD genes initiate familial thoracic aortic aneurysm and dissection risk. Downstream mechanisms cluster into extracellular matrix, TGF-beta signaling, and vascular smooth muscle contractile pathways.</div>
 
@@ -4925,6 +5140,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4948,6 +5164,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-extracellular-matrix-structural-failure" data-dismech-node="Extracellular matrix structural failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Extracellular matrix structural failure</div>
 
+
                 <div class="item-desc">Pathogenic variants in genes such as FBN1, LOX, and COL3A1 compromise aortic extracellular matrix organization, elastic-fiber integrity, or collagen structure, weakening the thoracic aortic media.</div>
 
 
@@ -4962,11 +5179,11 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000359</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000359</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves vascular smooth muscle cell, annotated with vascular associated smooth muscle cell (CL:0000359). CL:0000359 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4988,6 +5205,127 @@ This pathophysiological event involves vascular smooth muscle cell, annotated wi
 
 
 
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        FBN1
+
+
+    <a href="https://bioregistry.io/hgnc:3603" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:3603</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves FBN1 (hgnc:3603). hgnc:3603 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        LOX
+
+
+    <a href="https://bioregistry.io/hgnc:6664" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:6664</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves LOX (hgnc:6664). hgnc:6664 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        COL3A1
+
+
+    <a href="https://bioregistry.io/hgnc:2201" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-11">hgnc:2201</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-11">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves COL3A1 (hgnc:2201). hgnc:2201 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
 
 
 
@@ -5003,11 +5341,11 @@ This pathophysiological event involves vascular smooth muscle cell, annotated wi
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0030198</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5072,6 +5410,7 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5095,7 +5434,8 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tgf-beta-signaling-dysregulation" data-dismech-node="TGF-beta signaling dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">TGF-beta signaling dysregulation</div>
 
-                <div class="item-desc">Pathogenic variants in TGFBR1, TGFBR2, SMAD3, or TGFB2 perturb transforming growth factor beta signaling, contributing to thoracic aortic wall remodeling and aneurysm susceptibility.</div>
+
+                <div class="item-desc">Pathogenic variants in TGFBR1, TGFBR2, SMAD2, SMAD3, or TGFB2 perturb transforming growth factor beta signaling, contributing to thoracic aortic wall remodeling and aneurysm susceptibility.</div>
 
 
 
@@ -5109,11 +5449,11 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000359</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000359</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves vascular smooth muscle cell, annotated with vascular associated smooth muscle cell (CL:0000359). CL:0000359 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5135,6 +5475,205 @@ This pathophysiological event involves vascular smooth muscle cell, annotated wi
 
 
 
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        TGFBR1
+
+
+    <a href="https://bioregistry.io/hgnc:11772" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-14">hgnc:11772</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-14">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TGFBR1 (hgnc:11772). hgnc:11772 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        TGFBR2
+
+
+    <a href="https://bioregistry.io/hgnc:11773" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-15">hgnc:11773</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-15">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TGFBR2 (hgnc:11773). hgnc:11773 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        SMAD2
+
+
+    <a href="https://bioregistry.io/hgnc:6768" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:6768</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SMAD2 (hgnc:6768). hgnc:6768 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        SMAD3
+
+
+    <a href="https://bioregistry.io/hgnc:6769" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-17">hgnc:6769</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-17">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SMAD3 (hgnc:6769). hgnc:6769 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        TGFB2
+
+
+    <a href="https://bioregistry.io/hgnc:11768" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-18">hgnc:11768</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-18">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TGFB2 (hgnc:11768). hgnc:11768 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
 
 
 
@@ -5150,11 +5689,11 @@ This pathophysiological event involves vascular smooth muscle cell, annotated wi
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007179" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0007179</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007179" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0007179</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal transforming growth factor beta receptor signaling pathway (GO:0007179). GO:0007179 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5219,6 +5758,7 @@ This pathophysiological event involves abnormal transforming growth factor beta 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5242,6 +5782,7 @@ This pathophysiological event involves abnormal transforming growth factor beta 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vascular-smooth-muscle-contractile-apparatus-disruption" data-dismech-node="Vascular smooth muscle contractile apparatus disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">Vascular smooth muscle contractile apparatus disruption</div>
 
+
                 <div class="item-desc">Pathogenic variants in ACTA2, MYH11, MYLK, or PRKG1 impair vascular smooth muscle contraction and mechanotransduction, weakening the thoracic aorta.</div>
 
 
@@ -5256,11 +5797,11 @@ This pathophysiological event involves abnormal transforming growth factor beta 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000359</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-20">CL:0000359</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves vascular smooth muscle cell, annotated with vascular associated smooth muscle cell (CL:0000359). CL:0000359 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5282,6 +5823,166 @@ This pathophysiological event involves vascular smooth muscle cell, annotated wi
 
 
 
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        ACTA2
+
+
+    <a href="https://bioregistry.io/hgnc:130" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-21">hgnc:130</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-21">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ACTA2 (hgnc:130). hgnc:130 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        MYH11
+
+
+    <a href="https://bioregistry.io/hgnc:7569" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-22">hgnc:7569</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-22">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MYH11 (hgnc:7569). hgnc:7569 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        MYLK
+
+
+    <a href="https://bioregistry.io/hgnc:7590" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-23">hgnc:7590</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-23">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MYLK (hgnc:7590). hgnc:7590 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        PRKG1
+
+
+    <a href="https://bioregistry.io/hgnc:9414" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-24">hgnc:9414</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-24">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PRKG1 (hgnc:9414). hgnc:9414 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
 
 
 
@@ -5297,11 +5998,11 @@ This pathophysiological event involves vascular smooth muscle cell, annotated wi
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006939" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0006939</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006939" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-25">GO:0006939</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal smooth muscle contraction (GO:0006939). GO:0006939 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5366,6 +6067,7 @@ This pathophysiological event involves abnormal smooth muscle contraction (GO:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5389,6 +6091,7 @@ This pathophysiological event involves abnormal smooth muscle contraction (GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-myh11-associated-impaired-aortic-contractility-and-rock-signaling" data-dismech-node="MYH11-associated impaired aortic contractility and ROCK signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">MYH11-associated impaired aortic contractility and ROCK signaling</div>
 
+
                 <div class="item-desc">In a Myh11 familial TAAD model, reduced aortic contractility and a transcriptional program involving ROCK signaling are proposed to prime the aorta for maladaptive stress responses and dissection susceptibility.</div>
 
 
@@ -5403,11 +6106,11 @@ This pathophysiological event involves abnormal smooth muscle contraction (GO:00
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000359</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-26">CL:0000359</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves vascular smooth muscle cell, annotated with vascular associated smooth muscle cell (CL:0000359). CL:0000359 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5429,6 +6132,49 @@ This pathophysiological event involves vascular smooth muscle cell, annotated wi
 
 
 
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        MYH11
+
+
+    <a href="https://bioregistry.io/hgnc:7569" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-27">hgnc:7569</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-27">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MYH11 (hgnc:7569). hgnc:7569 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
 
 
 
@@ -5444,11 +6190,11 @@ This pathophysiological event involves vascular smooth muscle cell, annotated wi
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006939" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0006939</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006939" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-28">GO:0006939</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased smooth muscle contraction (GO:0006939). GO:0006939 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5498,6 +6244,7 @@ This pathophysiological event involves decreased smooth muscle contraction (GO:0
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5519,6 +6266,7 @@ This pathophysiological event involves decreased smooth muscle contraction (GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5545,6 +6293,7 @@ This pathophysiological event involves decreased smooth muscle contraction (GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-prkg1-gain-of-function-constitutive-pkg-1-activation" data-dismech-node="PRKG1 gain-of-function constitutive PKG-1 activation" data-dismech-type="pathophysiology">
                 <div class="item-name">PRKG1 gain-of-function constitutive PKG-1 activation</div>
 
+
                 <div class="item-desc">PRKG1-related familial thoracic aortic disease (AAT8) is the only gain-of-function locus among the nonsyndromic HTAD genes. The recurrent PRKG1 c.530G&gt;A (p.Arg177Gln) variant yields a type I cGMP-dependent protein kinase (PKG-1) that is constitutively active even without cGMP. Persistent PKG-1 activity lowers phosphorylation of the myosin regulatory light chain, decreasing vascular smooth muscle contraction and weakening the thoracic aorta — contrasting with the loss-of-function contractile genes ACTA2, MYH11, and MYLK.</div>
 
 
@@ -5559,11 +6308,11 @@ This pathophysiological event involves decreased smooth muscle contraction (GO:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000359</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-29">CL:0000359</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves vascular smooth muscle cell, annotated with vascular associated smooth muscle cell (CL:0000359). CL:0000359 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5585,6 +6334,49 @@ This pathophysiological event involves vascular smooth muscle cell, annotated wi
 
 
 
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        PRKG1
+
+
+    <a href="https://bioregistry.io/hgnc:9414" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-30">hgnc:9414</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-30">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PRKG1 (hgnc:9414). hgnc:9414 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
 
 
 
@@ -5600,11 +6392,11 @@ This pathophysiological event involves vascular smooth muscle cell, annotated wi
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0035556" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0035556</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0035556" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-31">GO:0035556</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased constitutive cGMP-dependent protein kinase (PKG-1) signaling, annotated with intracellular signal transduction (GO:0035556). GO:0035556 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5634,11 +6426,11 @@ This pathophysiological event involves increased constitutive cGMP-dependent pro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006939" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0006939</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006939" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-32">GO:0006939</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased vascular smooth muscle contraction, annotated with smooth muscle contraction (GO:0006939). GO:0006939 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5703,6 +6495,7 @@ This pathophysiological event involves decreased vascular smooth muscle contract
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5724,6 +6517,7 @@ This pathophysiological event involves decreased vascular smooth muscle contract
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5751,6 +6545,7 @@ This pathophysiological event involves decreased vascular smooth muscle contract
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5774,6 +6569,7 @@ This pathophysiological event involves decreased vascular smooth muscle contract
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mfap5-haploinsufficiency-and-microfibril-elastic-fiber-alteration" data-dismech-node="MFAP5 haploinsufficiency and microfibril elastic-fiber alteration" data-dismech-type="pathophysiology">
                 <div class="item-name">MFAP5 haploinsufficiency and microfibril elastic-fiber alteration</div>
 
+
                 <div class="item-desc">MFAP5-related familial thoracic aortic disease (AAT9) is an extracellular-matrix locus. Loss-of-function variants in MFAP5 cause haploinsufficiency for MAGP-2 (microfibril-associated glycoprotein 2), a component of microfibrils and elastic fibers that interacts with elastin and the fibrillin microfibrillar network. Reduced MAGP-2 alters elastic-fiber and microfibril integrity, weakening the aortic medial matrix and acting as an initiating mechanism of inherited TAAD through the extracellular-matrix arm of the aortopathy mechanism.</div>
 
 
@@ -5788,11 +6584,11 @@ This pathophysiological event involves decreased vascular smooth muscle contract
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000359</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-33">CL:0000359</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves vascular smooth muscle cell, annotated with vascular associated smooth muscle cell (CL:0000359). CL:0000359 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5814,6 +6610,49 @@ This pathophysiological event involves vascular smooth muscle cell, annotated wi
 
 
 
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        MFAP5
+
+
+    <a href="https://bioregistry.io/hgnc:29673" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-34">hgnc:29673</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-34">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MFAP5 (hgnc:29673). hgnc:29673 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
 
 
 
@@ -5829,11 +6668,11 @@ This pathophysiological event involves vascular smooth muscle cell, annotated wi
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048251" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0048251</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048251" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-35">GO:0048251</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal elastic fiber assembly (GO:0048251). GO:0048251 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5863,11 +6702,11 @@ This pathophysiological event involves abnormal elastic fiber assembly (GO:00482
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-36">GO:0030198</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5932,6 +6771,7 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5953,6 +6793,7 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5980,6 +6821,7 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6000,8 +6842,502 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
 
 	            </div>
 
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-thsd4-haploinsufficiency-and-impaired-fibrillin-1-microfibril-assembly" data-dismech-node="THSD4 haploinsufficiency and impaired fibrillin-1 microfibril assembly" data-dismech-type="pathophysiology">
+                <div class="item-name">THSD4 haploinsufficiency and impaired fibrillin-1 microfibril assembly</div>
+
+
+                <div class="item-desc">THSD4-related familial thoracic aortic disease (AAT12) is the second microfibril locus in this entry alongside MFAP5. THSD4 encodes ADAMTSL6, a secreted microfibril-associated protein that promotes assembly of fibrillin-1 into the microfibrillar matrix. The reported heterozygous variants act either by haploinsufficiency or by impairing fibrillin-1 microfibril assembly directly, and heterozygous Thsd4 mice develop progressive thoracic aortic dilatation with medial degeneration, placing this locus in the extracellular-matrix arm of the aortopathy mechanism.</div>
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        vascular smooth muscle cell
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-37">CL:0000359</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves vascular smooth muscle cell, annotated with vascular associated smooth muscle cell (CL:0000359). CL:0000359 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        THSD4
+
+
+    <a href="https://bioregistry.io/hgnc:25835" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-38">hgnc:25835</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-38">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves THSD4 (hgnc:25835). hgnc:25835 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        fibrillin-1 microfibril assembly
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0160054" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-39">GO:0160054</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased fibrillin-1 microfibril assembly, annotated with microfibril assembly (GO:0160054). GO:0160054 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Extracellular matrix structural failure</span>
+
+	                            <span class="crosslink-desc">Failure of fibrillin-1 microfibril assembly degrades the medial microfibrillar matrix, feeding the extracellular-matrix arm of aortic wall weakening.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32855533" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32855533" target="_blank">PMID:32855533</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The THSD4 variants studied lead to haploinsufficiency or impaired assembly of fibrillin-1 microfibrils."</div>
+
+
+                <div class="evidence-explanation">Cell and tissue assays on the patient variants define the two molecular routes this node asserts: reduced ADAMTSL6 dosage, or direct failure of fibrillin-1 microfibril assembly.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32855533" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32855533" target="_blank">PMID:32855533</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Thsd4+/- mice showed progressive dilation of the thoracic aorta."</div>
+
+
+                <div class="evidence-explanation">The heterozygous mouse reproduces progressive thoracic aortic dilatation, supporting haploinsufficiency for ADAMTSL6 as sufficient to weaken the aortic wall.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-foxe3-loss-and-aortic-smooth-muscle-cell-depletion" data-dismech-node="FOXE3 loss and aortic smooth muscle cell depletion" data-dismech-type="pathophysiology">
+                <div class="item-name">FOXE3 loss and aortic smooth muscle cell depletion</div>
+
+
+                <div class="item-desc">FOXE3 is a forkhead transcription factor whose loss acts on smooth muscle cell number and survival rather than on the contractile apparatus. In mice, Foxe3 deficiency reduces smooth muscle cell density and impairs smooth muscle cell differentiation in the ascending aorta, and increases smooth muscle cell apoptosis and ascending aortic rupture when aortic pressure rises. Rescue by p53 inhibition places the apoptotic arm downstream of p53. This is a distinct route into thoracic aortic wall failure from both the extracellular-matrix and the contractile-apparatus arms.</div>
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        vascular smooth muscle cell
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-40">CL:0000359</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves vascular smooth muscle cell, annotated with vascular associated smooth muscle cell (CL:0000359). CL:0000359 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        FOXE3
+
+
+    <a href="https://bioregistry.io/hgnc:3808" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-41">hgnc:3808</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-41">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves FOXE3 (hgnc:3808). hgnc:3808 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        aortic smooth muscle cell differentiation
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0035887" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-42">GO:0035887</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased aortic smooth muscle cell differentiation (GO:0035887). GO:0035887 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-bio">
+                        vascular smooth muscle cell apoptosis
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_1905288" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-43">GO:1905288</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased vascular smooth muscle cell apoptosis, annotated with vascular associated smooth muscle cell apoptotic process (GO:1905288). GO:1905288 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Thoracic aortic dilatation and dissection</span>
+
+	                            <span class="crosslink-desc">A thinner, less differentiated and apoptosis-prone smooth muscle cell population weakens the ascending aortic media under biomechanical load.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26854927" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26854927" target="_blank">PMID:26854927</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We performed exome sequencing of a large family with multiple members with TAADs and identified a rare variant in FOXE3 with an altered amino acid in the DNA-binding domain (p.Asp153His) that segregated with disease in this family."</div>
+
+
+                <div class="evidence-explanation">Segregation of a DNA-binding-domain FOXE3 variant in a multiplex TAAD family is the human genetic basis for curating this locus.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26854927" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26854927" target="_blank">PMID:26854927</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In mice, Foxe3 deficiency reduced smooth muscle cell (SMC) density and impaired SMC differentiation in the ascending aorta."</div>
+
+
+                <div class="evidence-explanation">Gives the developmental half of this node: fewer and less differentiated aortic smooth muscle cells rather than a defect in their contractile machinery.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26854927" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26854927" target="_blank">PMID:26854927</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Foxe3 expression was induced in aortic SMCs after transverse aortic constriction, and Foxe3 deficiency increased SMC apoptosis and ascending aortic rupture with increased aortic pressure."</div>
+
+
+                <div class="evidence-explanation">Gives the stress-response half: without FOXE3, raised aortic pressure drives smooth muscle cell apoptosis and rupture.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-thoracic-aortic-dilatation-and-dissection" data-dismech-node="Thoracic aortic dilatation and dissection" data-dismech-type="pathophysiology">
                 <div class="item-name">Thoracic aortic dilatation and dissection</div>
+
 
                 <div class="item-desc">Progressive thoracic aortic enlargement increases wall stress and can lead to acute aortic dissection or rupture. Because relatives can have silent dilation, imaging surveillance is clinically important.</div>
 
@@ -6060,6 +7396,7 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6130,7 +7467,7 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aortic dissection\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Aortic dissection is a life-threatening defining manifestation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002647\"}}, {\"id\": \"Extracellular matrix structural failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic variants in genes such as FBN1, LOX, and COL3A1 compromise aortic extracellular matrix organization, elastic-fiber integrity, or collagen structure, weakening the thoracic aortic media.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"vascular smooth muscle cell\"], \"biological_processes\": [\"extracellular matrix organization\"]}}, {\"id\": \"Germline pathogenic variant in an HTAD gene\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inherited pathogenic variants in high-penetrance HTAD genes initiate familial thoracic aortic aneurysm and dissection risk. Downstream mechanisms cluster into extracellular matrix, TGF-beta signaling, and vascular smooth muscle contractile pathways.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"MFAP5 haploinsufficiency and microfibril elastic-fiber alteration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MFAP5-related familial thoracic aortic disease (AAT9) is an extracellular-matrix locus. Loss-of-function variants in MFAP5 cause haploinsufficiency for MAGP-2 (microfibril-associated glycoprotein 2), a component of microfibrils and elastic fibers that interacts with elastin and the fibrillin microfibrillar network. Reduced MAGP-2 alters elastic-fiber and microfibril integrity, weakening the aortic medial matrix and acting as an initiating mechanism of inherited TAAD through the extracellular-matrix arm of the aortopathy mechanism.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"vascular smooth muscle cell\"], \"biological_processes\": [\"elastic fiber assembly\", \"extracellular matrix organization\"]}}, {\"id\": \"PRKG1 gain-of-function constitutive PKG-1 activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PRKG1-related familial thoracic aortic disease (AAT8) is the only gain-of-function locus among the nonsyndromic HTAD genes. The recurrent PRKG1 c.530G\u003eA (p.Arg177Gln) variant yields a type I cGMP-dependent protein kinase (PKG-1) that is constitutively active even without cGMP. Persistent PKG-1 activity lowers phosphorylation of the myosin regulatory light chain, decreasing vascular smooth muscle contraction and weakening the thoracic aorta \\u2014 contrasting with the loss-of-function contractile genes ACTA2, MYH11, and MYLK.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"vascular smooth muscle cell\"], \"biological_processes\": [\"constitutive cGMP-dependent protein kinase (PKG-1) signaling\", \"vascular smooth muscle contraction\"]}}, {\"id\": \"TGF-beta signaling dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic variants in TGFBR1, TGFBR2, SMAD3, or TGFB2 perturb transforming growth factor beta signaling, contributing to thoracic aortic wall remodeling and aneurysm susceptibility.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"vascular smooth muscle cell\"], \"biological_processes\": [\"transforming growth factor beta receptor signaling pathway\"]}}, {\"id\": \"Thoracic aortic aneurysm\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Thoracic aortic aneurysm or dilation is a defining manifestation of FTAAD.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004942\"}}, {\"id\": \"Thoracic aortic dilatation and dissection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive thoracic aortic enlargement increases wall stress and can lead to acute aortic dissection or rupture. Because relatives can have silent dilation, imaging surveillance is clinically important.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Vascular smooth muscle contractile apparatus disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic variants in ACTA2, MYH11, MYLK, or PRKG1 impair vascular smooth muscle contraction and mechanotransduction, weakening the thoracic aorta.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"vascular smooth muscle cell\"], \"biological_processes\": [\"smooth muscle contraction\"]}}], \"edges\": [{\"source\": \"Germline pathogenic variant in an HTAD gene\", \"target\": \"Extracellular matrix structural failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ECM-gene variants weaken the aortic wall matrix.\"}, {\"source\": \"Germline pathogenic variant in an HTAD gene\", \"target\": \"TGF-beta signaling dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"TGF-beta pathway gene variants perturb growth-factor signaling.\"}, {\"source\": \"Germline pathogenic variant in an HTAD gene\", \"target\": \"Vascular smooth muscle contractile apparatus disruption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Contractile-apparatus gene variants impair smooth-muscle force generation and mechanosensing.\"}, {\"source\": \"Extracellular matrix structural failure\", \"target\": \"Thoracic aortic dilatation and dissection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Matrix failure weakens the aortic wall and promotes dilation and dissection.\"}, {\"source\": \"TGF-beta signaling dysregulation\", \"target\": \"Thoracic aortic dilatation and dissection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysregulated TGF-beta signaling contributes to maladaptive aortic wall remodeling.\"}, {\"source\": \"Vascular smooth muscle contractile apparatus disruption\", \"target\": \"Thoracic aortic dilatation and dissection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired contractility and stress sensing increase susceptibility to aneurysm and dissection.\"}, {\"source\": \"PRKG1 gain-of-function constitutive PKG-1 activation\", \"target\": \"Thoracic aortic dilatation and dissection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Decreased smooth muscle contraction from constitutive PKG-1 activity weakens the aortic wall and predisposes to aneurysm and acute dissection, frequently at young ages.\"}, {\"source\": \"MFAP5 haploinsufficiency and microfibril elastic-fiber alteration\", \"target\": \"Extracellular matrix structural failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"MAGP-2 haploinsufficiency degrades elastic-fiber and microfibril integrity, feeding the extracellular-matrix arm of aortic wall weakening.\"}, {\"source\": \"Thoracic aortic dilatation and dissection\", \"target\": \"Thoracic aortic aneurysm\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive thoracic aortic enlargement is expressed clinically as thoracic aortic aneurysm or dilation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Thoracic aortic dilatation and dissection\", \"target\": \"Aortic dissection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A weakened dilated thoracic aorta can progress to acute aortic dissection.\", \"causal_link_type\": \"DIRECT\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ACTA2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ACTA2\"], \"gene_terms\": [{\"label\": \"ACTA2\", \"id\": \"hgnc:130\"}], \"subtypes\": [\"ACTA2-related\"], \"presence\": \"Positive\", \"association\": \"High-penetrance HTAD smooth muscle contractile apparatus gene\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Aortic dissection\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Aortic dissection is a life-threatening defining manifestation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002647\"}}, {\"id\": \"COL3A1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"COL3A1\"], \"gene_terms\": [{\"label\": \"COL3A1\", \"id\": \"hgnc:2201\"}], \"presence\": \"Positive\", \"association\": \"High-penetrance HTAD extracellular matrix gene\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Extracellular matrix structural failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic variants in genes such as FBN1, LOX, and COL3A1 compromise aortic extracellular matrix organization, elastic-fiber integrity, or collagen structure, weakening the thoracic aortic media.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"vascular smooth muscle cell\"], \"biological_processes\": [\"extracellular matrix organization\"], \"genes\": [\"FBN1\", \"LOX\", \"COL3A1\"], \"gene_terms\": [{\"label\": \"FBN1\", \"id\": \"hgnc:3603\"}, {\"label\": \"LOX\", \"id\": \"hgnc:6664\"}, {\"label\": \"COL3A1\", \"id\": \"hgnc:2201\"}]}}, {\"id\": \"FBN1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"FBN1\"], \"gene_terms\": [{\"label\": \"FBN1\", \"id\": \"hgnc:3603\"}], \"presence\": \"Positive\", \"association\": \"High-penetrance HTAD extracellular matrix gene\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"FOXE3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"FOXE3\"], \"gene_terms\": [{\"label\": \"FOXE3\", \"id\": \"hgnc:3808\"}], \"presence\": \"Positive\", \"association\": \"HTAD smooth muscle cell survival and differentiation gene\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"FOXE3 loss and aortic smooth muscle cell depletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FOXE3 is a forkhead transcription factor whose loss acts on smooth muscle cell number and survival rather than on the contractile apparatus. In mice, Foxe3 deficiency reduces smooth muscle cell density and impairs smooth muscle cell differentiation in the ascending aorta, and increases smooth muscle cell apoptosis and ascending aortic rupture when aortic pressure rises. Rescue by p53 inhibition places the apoptotic arm downstream of p53. This is a distinct route into thoracic aortic wall failure from both the extracellular-matrix and the contractile-apparatus arms.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"vascular smooth muscle cell\"], \"biological_processes\": [\"aortic smooth muscle cell differentiation\", \"vascular smooth muscle cell apoptosis\"], \"genes\": [\"FOXE3\"], \"gene_terms\": [{\"label\": \"FOXE3\", \"id\": \"hgnc:3808\"}]}}, {\"id\": \"Germline pathogenic variant in an HTAD gene\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inherited pathogenic variants in high-penetrance HTAD genes initiate familial thoracic aortic aneurysm and dissection risk. Downstream mechanisms cluster into extracellular matrix, TGF-beta signaling, and vascular smooth muscle contractile pathways.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"LOX\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"LOX\"], \"gene_terms\": [{\"label\": \"LOX\", \"id\": \"hgnc:6664\"}], \"subtypes\": [\"LOX-related\"], \"presence\": \"Positive\", \"association\": \"High-penetrance HTAD extracellular matrix gene\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"MFAP5\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MFAP5\"], \"gene_terms\": [{\"label\": \"MFAP5\", \"id\": \"hgnc:29673\"}], \"subtypes\": [\"MFAP5-related\"], \"presence\": \"Positive\", \"association\": \"HTAD extracellular matrix microfibril gene (MFAP5/MAGP-2; AAT9)\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"MFAP5 haploinsufficiency and microfibril elastic-fiber alteration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MFAP5-related familial thoracic aortic disease (AAT9) is an extracellular-matrix locus. Loss-of-function variants in MFAP5 cause haploinsufficiency for MAGP-2 (microfibril-associated glycoprotein 2), a component of microfibrils and elastic fibers that interacts with elastin and the fibrillin microfibrillar network. Reduced MAGP-2 alters elastic-fiber and microfibril integrity, weakening the aortic medial matrix and acting as an initiating mechanism of inherited TAAD through the extracellular-matrix arm of the aortopathy mechanism.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"vascular smooth muscle cell\"], \"biological_processes\": [\"elastic fiber assembly\", \"extracellular matrix organization\"], \"genes\": [\"MFAP5\"], \"gene_terms\": [{\"label\": \"MFAP5\", \"id\": \"hgnc:29673\"}]}}, {\"id\": \"MYH11\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MYH11\"], \"gene_terms\": [{\"label\": \"MYH11\", \"id\": \"hgnc:7569\"}], \"subtypes\": [\"MYH11-related\"], \"presence\": \"Positive\", \"association\": \"High-penetrance HTAD smooth muscle contractile apparatus gene\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"MYH11-associated impaired aortic contractility and ROCK signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In a Myh11 familial TAAD model, reduced aortic contractility and a transcriptional program involving ROCK signaling are proposed to prime the aorta for maladaptive stress responses and dissection susceptibility.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"vascular smooth muscle cell\"], \"biological_processes\": [\"smooth muscle contraction\"], \"genes\": [\"MYH11\"], \"gene_terms\": [{\"label\": \"MYH11\", \"id\": \"hgnc:7569\"}]}}, {\"id\": \"MYLK\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MYLK\"], \"gene_terms\": [{\"label\": \"MYLK\", \"id\": \"hgnc:7590\"}], \"subtypes\": [\"MYLK-related\"], \"presence\": \"Positive\", \"association\": \"High-penetrance HTAD smooth muscle contractile apparatus gene\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"PRKG1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PRKG1\"], \"gene_terms\": [{\"label\": \"PRKG1\", \"id\": \"hgnc:9414\"}], \"subtypes\": [\"PRKG1-related\"], \"presence\": \"Positive\", \"association\": \"High-penetrance HTAD smooth muscle contractile apparatus gene\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"PRKG1 gain-of-function constitutive PKG-1 activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PRKG1-related familial thoracic aortic disease (AAT8) is the only gain-of-function locus among the nonsyndromic HTAD genes. The recurrent PRKG1 c.530G\u003eA (p.Arg177Gln) variant yields a type I cGMP-dependent protein kinase (PKG-1) that is constitutively active even without cGMP. Persistent PKG-1 activity lowers phosphorylation of the myosin regulatory light chain, decreasing vascular smooth muscle contraction and weakening the thoracic aorta \\u2014 contrasting with the loss-of-function contractile genes ACTA2, MYH11, and MYLK.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"vascular smooth muscle cell\"], \"biological_processes\": [\"constitutive cGMP-dependent protein kinase (PKG-1) signaling\", \"vascular smooth muscle contraction\"], \"genes\": [\"PRKG1\"], \"gene_terms\": [{\"label\": \"PRKG1\", \"id\": \"hgnc:9414\"}]}}, {\"id\": \"SMAD2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SMAD2\"], \"gene_terms\": [{\"label\": \"SMAD2\", \"id\": \"hgnc:6768\"}], \"presence\": \"Positive\", \"association\": \"TGF-beta pathway aortopathy gene (Loeys-Dietz syndrome 6)\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"SMAD3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SMAD3\"], \"gene_terms\": [{\"label\": \"SMAD3\", \"id\": \"hgnc:6769\"}], \"presence\": \"Positive\", \"association\": \"High-penetrance HTAD TGF-beta pathway gene\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"TGF-beta signaling dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic variants in TGFBR1, TGFBR2, SMAD2, SMAD3, or TGFB2 perturb transforming growth factor beta signaling, contributing to thoracic aortic wall remodeling and aneurysm susceptibility.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"vascular smooth muscle cell\"], \"biological_processes\": [\"transforming growth factor beta receptor signaling pathway\"], \"genes\": [\"TGFBR1\", \"TGFBR2\", \"SMAD2\", \"SMAD3\", \"TGFB2\"], \"gene_terms\": [{\"label\": \"TGFBR1\", \"id\": \"hgnc:11772\"}, {\"label\": \"TGFBR2\", \"id\": \"hgnc:11773\"}, {\"label\": \"SMAD2\", \"id\": \"hgnc:6768\"}, {\"label\": \"SMAD3\", \"id\": \"hgnc:6769\"}, {\"label\": \"TGFB2\", \"id\": \"hgnc:11768\"}]}}, {\"id\": \"TGFB2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TGFB2\"], \"gene_terms\": [{\"label\": \"TGFB2\", \"id\": \"hgnc:11768\"}], \"presence\": \"Positive\", \"association\": \"High-penetrance HTAD TGF-beta pathway gene\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"TGFBR1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TGFBR1\"], \"gene_terms\": [{\"label\": \"TGFBR1\", \"id\": \"hgnc:11772\"}], \"presence\": \"Positive\", \"association\": \"High-penetrance HTAD TGF-beta pathway gene\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"TGFBR2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TGFBR2\"], \"gene_terms\": [{\"label\": \"TGFBR2\", \"id\": \"hgnc:11773\"}], \"presence\": \"Positive\", \"association\": \"High-penetrance HTAD TGF-beta pathway gene\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"THSD4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"THSD4\"], \"gene_terms\": [{\"label\": \"THSD4\", \"id\": \"hgnc:25835\"}], \"subtypes\": [\"THSD4-related\"], \"presence\": \"Positive\", \"association\": \"HTAD microfibril-associated gene (THSD4/ADAMTSL6; AAT12)\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"THSD4 haploinsufficiency and impaired fibrillin-1 microfibril assembly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"THSD4-related familial thoracic aortic disease (AAT12) is the second microfibril locus in this entry alongside MFAP5. THSD4 encodes ADAMTSL6, a secreted microfibril-associated protein that promotes assembly of fibrillin-1 into the microfibrillar matrix. The reported heterozygous variants act either by haploinsufficiency or by impairing fibrillin-1 microfibril assembly directly, and heterozygous Thsd4 mice develop progressive thoracic aortic dilatation with medial degeneration, placing this locus in the extracellular-matrix arm of the aortopathy mechanism.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"vascular smooth muscle cell\"], \"biological_processes\": [\"fibrillin-1 microfibril assembly\"], \"genes\": [\"THSD4\"], \"gene_terms\": [{\"label\": \"THSD4\", \"id\": \"hgnc:25835\"}]}}, {\"id\": \"Thoracic aortic aneurysm\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Thoracic aortic aneurysm or dilation is a defining manifestation of FTAAD.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004942\"}}, {\"id\": \"Thoracic aortic dilatation and dissection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive thoracic aortic enlargement increases wall stress and can lead to acute aortic dissection or rupture. Because relatives can have silent dilation, imaging surveillance is clinically important.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Vascular smooth muscle contractile apparatus disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic variants in ACTA2, MYH11, MYLK, or PRKG1 impair vascular smooth muscle contraction and mechanotransduction, weakening the thoracic aorta.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"vascular smooth muscle cell\"], \"biological_processes\": [\"smooth muscle contraction\"], \"genes\": [\"ACTA2\", \"MYH11\", \"MYLK\", \"PRKG1\"], \"gene_terms\": [{\"label\": \"ACTA2\", \"id\": \"hgnc:130\"}, {\"label\": \"MYH11\", \"id\": \"hgnc:7569\"}, {\"label\": \"MYLK\", \"id\": \"hgnc:7590\"}, {\"label\": \"PRKG1\", \"id\": \"hgnc:9414\"}]}}], \"edges\": [{\"source\": \"Germline pathogenic variant in an HTAD gene\", \"target\": \"Extracellular matrix structural failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ECM-gene variants weaken the aortic wall matrix.\"}, {\"source\": \"Germline pathogenic variant in an HTAD gene\", \"target\": \"TGF-beta signaling dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"TGF-beta pathway gene variants perturb growth-factor signaling.\"}, {\"source\": \"Germline pathogenic variant in an HTAD gene\", \"target\": \"Vascular smooth muscle contractile apparatus disruption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Contractile-apparatus gene variants impair smooth-muscle force generation and mechanosensing.\"}, {\"source\": \"Extracellular matrix structural failure\", \"target\": \"Thoracic aortic dilatation and dissection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Matrix failure weakens the aortic wall and promotes dilation and dissection.\"}, {\"source\": \"TGF-beta signaling dysregulation\", \"target\": \"Thoracic aortic dilatation and dissection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysregulated TGF-beta signaling contributes to maladaptive aortic wall remodeling.\"}, {\"source\": \"Vascular smooth muscle contractile apparatus disruption\", \"target\": \"Thoracic aortic dilatation and dissection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired contractility and stress sensing increase susceptibility to aneurysm and dissection.\"}, {\"source\": \"PRKG1 gain-of-function constitutive PKG-1 activation\", \"target\": \"Thoracic aortic dilatation and dissection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Decreased smooth muscle contraction from constitutive PKG-1 activity weakens the aortic wall and predisposes to aneurysm and acute dissection, frequently at young ages.\"}, {\"source\": \"MFAP5 haploinsufficiency and microfibril elastic-fiber alteration\", \"target\": \"Extracellular matrix structural failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"MAGP-2 haploinsufficiency degrades elastic-fiber and microfibril integrity, feeding the extracellular-matrix arm of aortic wall weakening.\"}, {\"source\": \"THSD4 haploinsufficiency and impaired fibrillin-1 microfibril assembly\", \"target\": \"Extracellular matrix structural failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of fibrillin-1 microfibril assembly degrades the medial microfibrillar matrix, feeding the extracellular-matrix arm of aortic wall weakening.\"}, {\"source\": \"FOXE3 loss and aortic smooth muscle cell depletion\", \"target\": \"Thoracic aortic dilatation and dissection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A thinner, less differentiated and apoptosis-prone smooth muscle cell population weakens the ascending aortic media under biomechanical load.\"}, {\"source\": \"Thoracic aortic dilatation and dissection\", \"target\": \"Thoracic aortic aneurysm\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive thoracic aortic enlargement is expressed clinically as thoracic aortic aneurysm or dilation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Thoracic aortic dilatation and dissection\", \"target\": \"Aortic dissection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A weakened dilated thoracic aorta can progress to acute aortic dissection.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"FBN1\", \"target\": \"Extracellular matrix structural failure\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LOX\", \"target\": \"Extracellular matrix structural failure\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"COL3A1\", \"target\": \"Extracellular matrix structural failure\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TGFBR1\", \"target\": \"TGF-beta signaling dysregulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TGFBR2\", \"target\": \"TGF-beta signaling dysregulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SMAD3\", \"target\": \"TGF-beta signaling dysregulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TGFB2\", \"target\": \"TGF-beta signaling dysregulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ACTA2\", \"target\": \"Vascular smooth muscle contractile apparatus disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MYH11\", \"target\": \"MYH11-associated impaired aortic contractility and ROCK signaling\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MYH11\", \"target\": \"Vascular smooth muscle contractile apparatus disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MYLK\", \"target\": \"Vascular smooth muscle contractile apparatus disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PRKG1\", \"target\": \"PRKG1 gain-of-function constitutive PKG-1 activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PRKG1\", \"target\": \"Vascular smooth muscle contractile apparatus disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FOXE3\", \"target\": \"FOXE3 loss and aortic smooth muscle cell depletion\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SMAD2\", \"target\": \"TGF-beta signaling dysregulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MFAP5\", \"target\": \"MFAP5 haploinsufficiency and microfibril elastic-fiber alteration\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"THSD4\", \"target\": \"THSD4 haploinsufficiency and impaired fibrillin-1 microfibril assembly\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6162,15 +7499,18 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004942" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0004942</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004942" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0004942</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Thoracic aortic aneurysm, annotated with Aortic aneurysm (HP:0004942). HP:0004942 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -6190,6 +7530,7 @@ This clinical feature is Thoracic aortic aneurysm, annotated with Aortic aneurys
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6230,15 +7571,18 @@ This clinical feature is Thoracic aortic aneurysm, annotated with Aortic aneurys
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002647" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002647</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002647" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0002647</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Aortic dissection (HP:0002647). HP:0002647 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -6258,6 +7602,7 @@ This clinical feature is Aortic dissection (HP:0002647). HP:0002647 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6294,7 +7639,7 @@ This clinical feature is Aortic dissection (HP:0002647). HP:0002647 is a phenoty
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
-                <span class="card-count">14</span>
+                <span class="card-count">16</span>
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-fbn1" data-dismech-node="FBN1" data-dismech-type="genetic">
@@ -6315,17 +7660,24 @@ This clinical feature is Aortic dissection (HP:0002647). HP:0002647 is a phenoty
                         Gene: FBN1
 
 
-    <a href="https://bioregistry.io/hgnc:3603" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-17">hgnc:3603</a>
+    <a href="https://bioregistry.io/hgnc:3603" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-46">hgnc:3603</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is FBN1 (hgnc:3603). hgnc:3603 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
+
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -6344,6 +7696,7 @@ This disease-associated gene is FBN1 (hgnc:3603). hgnc:3603 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6386,17 +7739,24 @@ This disease-associated gene is FBN1 (hgnc:3603). hgnc:3603 is a gene from the H
                         Gene: LOX
 
 
-    <a href="https://bioregistry.io/hgnc:6664" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-18">hgnc:6664</a>
+    <a href="https://bioregistry.io/hgnc:6664" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-47">hgnc:6664</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is LOX (hgnc:6664). hgnc:6664 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
+
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -6415,6 +7775,7 @@ This disease-associated gene is LOX (hgnc:6664). hgnc:6664 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6457,17 +7818,24 @@ This disease-associated gene is LOX (hgnc:6664). hgnc:6664 is a gene from the HU
                         Gene: COL3A1
 
 
-    <a href="https://bioregistry.io/hgnc:2201" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-19">hgnc:2201</a>
+    <a href="https://bioregistry.io/hgnc:2201" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-48">hgnc:2201</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is COL3A1 (hgnc:2201). hgnc:2201 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
+
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -6486,6 +7854,7 @@ This disease-associated gene is COL3A1 (hgnc:2201). hgnc:2201 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6528,17 +7897,24 @@ This disease-associated gene is COL3A1 (hgnc:2201). hgnc:2201 is a gene from the
                         Gene: TGFBR1
 
 
-    <a href="https://bioregistry.io/hgnc:11772" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-20">hgnc:11772</a>
+    <a href="https://bioregistry.io/hgnc:11772" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-49">hgnc:11772</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is TGFBR1 (hgnc:11772). hgnc:11772 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
+
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -6557,6 +7933,7 @@ This disease-associated gene is TGFBR1 (hgnc:11772). hgnc:11772 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6599,17 +7976,24 @@ This disease-associated gene is TGFBR1 (hgnc:11772). hgnc:11772 is a gene from t
                         Gene: TGFBR2
 
 
-    <a href="https://bioregistry.io/hgnc:11773" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-21">hgnc:11773</a>
+    <a href="https://bioregistry.io/hgnc:11773" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-50">hgnc:11773</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is TGFBR2 (hgnc:11773). hgnc:11773 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
+
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -6628,6 +8012,7 @@ This disease-associated gene is TGFBR2 (hgnc:11773). hgnc:11773 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6670,17 +8055,24 @@ This disease-associated gene is TGFBR2 (hgnc:11773). hgnc:11773 is a gene from t
                         Gene: SMAD3
 
 
-    <a href="https://bioregistry.io/hgnc:6769" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-22">hgnc:6769</a>
+    <a href="https://bioregistry.io/hgnc:6769" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-51">hgnc:6769</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is SMAD3 (hgnc:6769). hgnc:6769 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
+
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -6699,6 +8091,7 @@ This disease-associated gene is SMAD3 (hgnc:6769). hgnc:6769 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6741,17 +8134,24 @@ This disease-associated gene is SMAD3 (hgnc:6769). hgnc:6769 is a gene from the 
                         Gene: TGFB2
 
 
-    <a href="https://bioregistry.io/hgnc:11768" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-23">hgnc:11768</a>
+    <a href="https://bioregistry.io/hgnc:11768" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-52">hgnc:11768</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is TGFB2 (hgnc:11768). hgnc:11768 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
+
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -6770,6 +8170,7 @@ This disease-associated gene is TGFB2 (hgnc:11768). hgnc:11768 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6812,17 +8213,24 @@ This disease-associated gene is TGFB2 (hgnc:11768). hgnc:11768 is a gene from th
                         Gene: ACTA2
 
 
-    <a href="https://bioregistry.io/hgnc:130" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-24">hgnc:130</a>
+    <a href="https://bioregistry.io/hgnc:130" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-53">hgnc:130</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is ACTA2 (hgnc:130). hgnc:130 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
+
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -6841,6 +8249,7 @@ This disease-associated gene is ACTA2 (hgnc:130). hgnc:130 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6883,17 +8292,24 @@ This disease-associated gene is ACTA2 (hgnc:130). hgnc:130 is a gene from the HU
                         Gene: MYH11
 
 
-    <a href="https://bioregistry.io/hgnc:7569" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-25">hgnc:7569</a>
+    <a href="https://bioregistry.io/hgnc:7569" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-54">hgnc:7569</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is MYH11 (hgnc:7569). hgnc:7569 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
+
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -6912,6 +8328,7 @@ This disease-associated gene is MYH11 (hgnc:7569). hgnc:7569 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6954,17 +8371,24 @@ This disease-associated gene is MYH11 (hgnc:7569). hgnc:7569 is a gene from the 
                         Gene: MYLK
 
 
-    <a href="https://bioregistry.io/hgnc:7590" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-26">hgnc:7590</a>
+    <a href="https://bioregistry.io/hgnc:7590" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-55">hgnc:7590</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is MYLK (hgnc:7590). hgnc:7590 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
+
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -6983,6 +8407,7 @@ This disease-associated gene is MYLK (hgnc:7590). hgnc:7590 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7025,17 +8450,24 @@ This disease-associated gene is MYLK (hgnc:7590). hgnc:7590 is a gene from the H
                         Gene: PRKG1
 
 
-    <a href="https://bioregistry.io/hgnc:9414" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-27">hgnc:9414</a>
+    <a href="https://bioregistry.io/hgnc:9414" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-56">hgnc:9414</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is PRKG1 (hgnc:9414). hgnc:9414 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
+
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -7057,6 +8489,7 @@ This disease-associated gene is PRKG1 (hgnc:9414). hgnc:9414 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7065,6 +8498,187 @@ This disease-associated gene is PRKG1 (hgnc:9414). hgnc:9414 is a gene from the 
 
 
                 <div class="evidence-explanation">PRKG1 is curated here as a smooth-muscle contractile HTAD gene under the VASCERN gene-class framework.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+            <div class="item-box genetic-box anchor-target" id="genetic-foxe3" data-dismech-node="FOXE3" data-dismech-type="genetic">
+                <div class="item-name">
+                    FOXE3
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(HTAD smooth muscle cell survival and differentiation gene)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: FOXE3
+
+
+    <a href="https://bioregistry.io/hgnc:3808" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-57">hgnc:3808</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is FOXE3 (hgnc:3808). hgnc:3808 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26854927" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26854927" target="_blank">PMID:26854927</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Here, we describe mutations in the forkhead transcription factor FOXE3 that predispose mutation-bearing individuals to TAAD."</div>
+
+
+                <div class="evidence-explanation">The report that established the FOXE3 gene-disease relationship for thoracic aortic aneurysm and dissection.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26854927" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26854927" target="_blank">PMID:26854927</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Additional pathogenic FOXE3 variants were identified in unrelated TAAD families."</div>
+
+
+                <div class="evidence-explanation">Records that the relationship rests on more than the index pedigree, which is what distinguishes it from the single-family associations elsewhere in this entry.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+            <div class="item-box genetic-box anchor-target" id="genetic-smad2" data-dismech-node="SMAD2" data-dismech-type="genetic">
+                <div class="item-name">
+                    SMAD2
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(TGF-beta pathway aortopathy gene (Loeys-Dietz syndrome 6))</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: SMAD2
+
+
+    <a href="https://bioregistry.io/hgnc:6768" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-58">hgnc:6768</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SMAD2 (hgnc:6768). hgnc:6768 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
+
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="CGGV:assertion_c32835d3-af61-4b05-902c-d17b406beef6-2025-08-01T160000.000Z" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_c32835d3-af61-4b05-902c-d17b406beef6-2025-08-01T160000.000Z" target="_blank">CGGV:assertion_c32835d3-af61-4b05-902c-d17b406beef6-2025-08-01T160000.000Z</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"SMAD2 | HGNC:6768 | Loeys-Dietz syndrome 6 | MONDO:0030500 | AD | Definitive"</div>
+
+
+                <div class="evidence-explanation">ClinGen rates the SMAD2 gene-disease relationship Definitive against the Loeys-Dietz syndrome 6 term, which is the classification level the CAUSATIVE relationship_type on this record asserts and the entry this record cross-references.</div>
 
 
 
@@ -7096,17 +8710,24 @@ This disease-associated gene is PRKG1 (hgnc:9414). hgnc:9414 is a gene from the 
                         Gene: MAT2A
 
 
-    <a href="https://bioregistry.io/hgnc:6904" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-28">hgnc:6904</a>
+    <a href="https://bioregistry.io/hgnc:6904" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-59">hgnc:6904</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is MAT2A (hgnc:6904). hgnc:6904 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: UNKNOWN</span>
+
+
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -7125,6 +8746,7 @@ This disease-associated gene is MAT2A (hgnc:6904). hgnc:6904 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7167,17 +8789,22 @@ This disease-associated gene is MAT2A (hgnc:6904). hgnc:6904 is a gene from the 
                         Gene: MFAP5
 
 
-    <a href="https://bioregistry.io/hgnc:29673" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-29">hgnc:29673</a>
+    <a href="https://bioregistry.io/hgnc:29673" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-60">hgnc:29673</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is MFAP5 (hgnc:29673). hgnc:29673 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
 
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
+
                 </div>
+
+
+
 
 
 
@@ -7196,6 +8823,7 @@ This disease-associated gene is MFAP5 (hgnc:29673). hgnc:29673 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7238,17 +8866,22 @@ This disease-associated gene is MFAP5 (hgnc:29673). hgnc:29673 is a gene from th
                         Gene: THSD4
 
 
-    <a href="https://bioregistry.io/hgnc:25835" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-30">hgnc:25835</a>
+    <a href="https://bioregistry.io/hgnc:25835" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-61">hgnc:25835</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is THSD4 (hgnc:25835). hgnc:25835 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
 
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
+
                 </div>
+
+
+
 
 
 
@@ -7267,6 +8900,7 @@ This disease-associated gene is THSD4 (hgnc:25835). hgnc:25835 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7317,7 +8951,7 @@ This disease-associated gene is THSD4 (hgnc:25835). hgnc:25835 is a gene from th
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">magnetic resonance imaging surveillance<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-62">magnetic resonance imaging surveillance<span class="pill-tip" role="tooltip" id="pill-tip-62">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is magnetic resonance imaging surveillance, annotated with Magnetic Resonance Imaging (NCIT:C16809). NCIT:C16809 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7350,6 +8984,20 @@ This treatment is magnetic resonance imaging surveillance, annotated with Magnet
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Serial aortic imaging surveillance identifies progressive dilation and informs timing of prophylactic repair before high-risk dissection or rupture.</div>
 
 
@@ -7371,6 +9019,7 @@ This treatment is magnetic resonance imaging surveillance, annotated with Magnet
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7402,7 +9051,7 @@ This treatment is magnetic resonance imaging surveillance, annotated with Magnet
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">aortic surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-63">aortic surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-63">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is aortic surgical procedure, annotated with Cardiac Surgery (NCIT:C157806). NCIT:C157806 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7435,6 +9084,20 @@ This treatment is aortic surgical procedure, annotated with Cardiac Surgery (NCI
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Prophylactic repair is used when aortic size, growth rate, gene, family history, or other risk features indicate high dissection risk.</div>
 
 
@@ -7456,6 +9119,7 @@ This treatment is aortic surgical procedure, annotated with Cardiac Surgery (NCI
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7487,7 +9151,7 @@ This treatment is aortic surgical procedure, annotated with Cardiac Surgery (NCI
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-64">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-64">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7519,6 +9183,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Medical therapy for heritable thoracic aortic disease commonly includes blood-pressure and wall-stress reduction with beta-blockers and/or angiotensin receptor blockers, tailored to gene and clinical context.</div>
 
 
@@ -7540,6 +9218,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7571,7 +9250,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">genetic counseling<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-65">genetic counseling<span class="pill-tip" role="tooltip" id="pill-tip-65">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7604,6 +9283,20 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Genetic counseling and testing help distinguish at-risk relatives from relatives who can be reassured when a familial diagnosis is ruled out.</div>
 
 
@@ -7625,6 +9318,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7727,6 +9421,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7898,6 +9593,11 @@ has_subtypes:
     term:
       id: MONDO:0012730
       label: aortic aneurysm, familial thoracic 6
+  genes:
+  - preferred_term: ACTA2
+    term:
+      id: hgnc:130
+      label: ACTA2
   description: ACTA2-related familial thoracic aortic aneurysm and dissection.
 - name: MYH11-related
   display_name: MYH11-related familial thoracic aortic aneurysm 4
@@ -7906,6 +9606,11 @@ has_subtypes:
     term:
       id: MONDO:0007568
       label: aortic aneurysm, familial thoracic 4
+  genes:
+  - preferred_term: MYH11
+    term:
+      id: hgnc:7569
+      label: MYH11
   description: MYH11-related familial thoracic aortic aneurysm and dissection.
 - name: MYLK-related
   display_name: MYLK-related familial thoracic aortic aneurysm 7
@@ -7914,6 +9619,11 @@ has_subtypes:
     term:
       id: MONDO:0013418
       label: aortic aneurysm, familial thoracic 7
+  genes:
+  - preferred_term: MYLK
+    term:
+      id: hgnc:7590
+      label: MYLK
   description: MYLK-related familial thoracic aortic aneurysm and dissection.
 - name: PRKG1-related
   display_name: PRKG1-related familial thoracic aortic aneurysm 8
@@ -7922,6 +9632,11 @@ has_subtypes:
     term:
       id: MONDO:0014187
       label: aortic aneurysm, familial thoracic 8
+  genes:
+  - preferred_term: PRKG1
+    term:
+      id: hgnc:9414
+      label: PRKG1
   description: &gt;-
     PRKG1-related familial thoracic aortic aneurysm and dissection (smooth-muscle
     contractile-mechanism gene; ClinGen HTAD GCEP classification Strong).
@@ -7932,6 +9647,11 @@ has_subtypes:
     term:
       id: MONDO:0014950
       label: aortic aneurysm, familial thoracic 10
+  genes:
+  - preferred_term: LOX
+    term:
+      id: hgnc:6664
+      label: LOX
   description: &gt;-
     LOX-related familial thoracic aortic aneurysm and dissection (extracellular-matrix
     gene; ClinGen HTAD GCEP classification Strong).
@@ -7942,6 +9662,11 @@ has_subtypes:
     term:
       id: MONDO:0014514
       label: aortic aneurysm, familial thoracic 9
+  genes:
+  - preferred_term: MFAP5
+    term:
+      id: hgnc:29673
+      label: MFAP5
   description: &gt;-
     MFAP5-related familial thoracic aortic aneurysm and dissection (AAT9; OMIM
     616166). MFAP5 (microfibril-associated glycoprotein 2/MAGP-2) is an
@@ -7955,6 +9680,11 @@ has_subtypes:
     term:
       id: MONDO:0030731
       label: aortic aneurysm, familial thoracic 12
+  genes:
+  - preferred_term: THSD4
+    term:
+      id: hgnc:25835
+      label: THSD4
   description: &gt;-
     THSD4-related familial thoracic aortic aneurysm and dissection (AAT12; OMIM
     619825). MONDO binds this leaf class to THSD4 (RO:0004003 HGNC:25835), the
@@ -8039,6 +9769,19 @@ pathophysiology:
     Pathogenic variants in genes such as FBN1, LOX, and COL3A1 compromise
     aortic extracellular matrix organization, elastic-fiber integrity, or
     collagen structure, weakening the thoracic aortic media.
+  genes:
+  - preferred_term: FBN1
+    term:
+      id: hgnc:3603
+      label: FBN1
+  - preferred_term: LOX
+    term:
+      id: hgnc:6664
+      label: LOX
+  - preferred_term: COL3A1
+    term:
+      id: hgnc:2201
+      label: COL3A1
   cell_types:
   - preferred_term: vascular smooth muscle cell
     term:
@@ -8064,9 +9807,30 @@ pathophysiology:
 - name: TGF-beta signaling dysregulation
   conforms_to: &#34;aortopathy_tgfbeta_dysregulation#TGF-beta Signaling Dysregulation&#34;
   description: &gt;-
-    Pathogenic variants in TGFBR1, TGFBR2, SMAD3, or TGFB2 perturb
+    Pathogenic variants in TGFBR1, TGFBR2, SMAD2, SMAD3, or TGFB2 perturb
     transforming growth factor beta signaling, contributing to thoracic aortic
     wall remodeling and aneurysm susceptibility.
+  genes:
+  - preferred_term: TGFBR1
+    term:
+      id: hgnc:11772
+      label: TGFBR1
+  - preferred_term: TGFBR2
+    term:
+      id: hgnc:11773
+      label: TGFBR2
+  - preferred_term: SMAD2
+    term:
+      id: hgnc:6768
+      label: SMAD2
+  - preferred_term: SMAD3
+    term:
+      id: hgnc:6769
+      label: SMAD3
+  - preferred_term: TGFB2
+    term:
+      id: hgnc:11768
+      label: TGFB2
   cell_types:
   - preferred_term: vascular smooth muscle cell
     term:
@@ -8093,6 +9857,23 @@ pathophysiology:
   description: &gt;-
     Pathogenic variants in ACTA2, MYH11, MYLK, or PRKG1 impair vascular smooth
     muscle contraction and mechanotransduction, weakening the thoracic aorta.
+  genes:
+  - preferred_term: ACTA2
+    term:
+      id: hgnc:130
+      label: ACTA2
+  - preferred_term: MYH11
+    term:
+      id: hgnc:7569
+      label: MYH11
+  - preferred_term: MYLK
+    term:
+      id: hgnc:7590
+      label: MYLK
+  - preferred_term: PRKG1
+    term:
+      id: hgnc:9414
+      label: PRKG1
   cell_types:
   - preferred_term: vascular smooth muscle cell
     term:
@@ -8120,6 +9901,11 @@ pathophysiology:
     In a Myh11 familial TAAD model, reduced aortic contractility and a
     transcriptional program involving ROCK signaling are proposed to prime the
     aorta for maladaptive stress responses and dissection susceptibility.
+  genes:
+  - preferred_term: MYH11
+    term:
+      id: hgnc:7569
+      label: MYH11
   cell_types:
   - preferred_term: vascular smooth muscle cell
     term:
@@ -8156,6 +9942,11 @@ pathophysiology:
     decreasing vascular smooth muscle contraction and weakening the thoracic
     aorta — contrasting with the loss-of-function contractile genes ACTA2,
     MYH11, and MYLK.
+  genes:
+  - preferred_term: PRKG1
+    term:
+      id: hgnc:9414
+      label: PRKG1
   cell_types:
   - preferred_term: vascular smooth muscle cell
     term:
@@ -8210,6 +10001,11 @@ pathophysiology:
     microfibril integrity, weakening the aortic medial matrix and acting as an
     initiating mechanism of inherited TAAD through the extracellular-matrix arm
     of the aortopathy mechanism.
+  genes:
+  - preferred_term: MFAP5
+    term:
+      id: hgnc:29673
+      label: MFAP5
   cell_types:
   - preferred_term: vascular smooth muscle cell
     term:
@@ -8259,6 +10055,124 @@ pathophysiology:
     description: &gt;-
       MAGP-2 haploinsufficiency degrades elastic-fiber and microfibril integrity,
       feeding the extracellular-matrix arm of aortic wall weakening.
+- name: THSD4 haploinsufficiency and impaired fibrillin-1 microfibril assembly
+  description: &gt;-
+    THSD4-related familial thoracic aortic disease (AAT12) is the second
+    microfibril locus in this entry alongside MFAP5. THSD4 encodes ADAMTSL6, a
+    secreted microfibril-associated protein that promotes assembly of
+    fibrillin-1 into the microfibrillar matrix. The reported heterozygous
+    variants act either by haploinsufficiency or by impairing fibrillin-1
+    microfibril assembly directly, and heterozygous Thsd4 mice develop
+    progressive thoracic aortic dilatation with medial degeneration, placing
+    this locus in the extracellular-matrix arm of the aortopathy mechanism.
+  genes:
+  - preferred_term: THSD4
+    term:
+      id: hgnc:25835
+      label: THSD4
+  cell_types:
+  - preferred_term: vascular smooth muscle cell
+    term:
+      id: CL:0000359
+      label: vascular associated smooth muscle cell
+  biological_processes:
+  - preferred_term: fibrillin-1 microfibril assembly
+    modifier: DECREASED
+    term:
+      id: GO:0160054
+      label: microfibril assembly
+  evidence:
+  - reference: PMID:32855533
+    reference_title: Pathogenic variants in THSD4, encoding the ADAMTS-like 6 protein, predispose to inherited thoracic aortic aneurysm.
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      The THSD4 variants studied lead to haploinsufficiency or impaired assembly of fibrillin-1 microfibrils.
+    explanation: &gt;-
+      Cell and tissue assays on the patient variants define the two molecular
+      routes this node asserts: reduced ADAMTSL6 dosage, or direct failure of
+      fibrillin-1 microfibril assembly.
+  - reference: PMID:32855533
+    reference_title: Pathogenic variants in THSD4, encoding the ADAMTS-like 6 protein, predispose to inherited thoracic aortic aneurysm.
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      Thsd4+/- mice showed progressive dilation of the thoracic aorta.
+    explanation: &gt;-
+      The heterozygous mouse reproduces progressive thoracic aortic dilatation,
+      supporting haploinsufficiency for ADAMTSL6 as sufficient to weaken the
+      aortic wall.
+  downstream:
+  - target: Extracellular matrix structural failure
+    description: &gt;-
+      Failure of fibrillin-1 microfibril assembly degrades the medial
+      microfibrillar matrix, feeding the extracellular-matrix arm of aortic
+      wall weakening.
+- name: FOXE3 loss and aortic smooth muscle cell depletion
+  description: &gt;-
+    FOXE3 is a forkhead transcription factor whose loss acts on smooth muscle
+    cell number and survival rather than on the contractile apparatus. In mice,
+    Foxe3 deficiency reduces smooth muscle cell density and impairs smooth
+    muscle cell differentiation in the ascending aorta, and increases smooth
+    muscle cell apoptosis and ascending aortic rupture when aortic pressure
+    rises. Rescue by p53 inhibition places the apoptotic arm downstream of p53.
+    This is a distinct route into thoracic aortic wall failure from both the
+    extracellular-matrix and the contractile-apparatus arms.
+  genes:
+  - preferred_term: FOXE3
+    term:
+      id: hgnc:3808
+      label: FOXE3
+  cell_types:
+  - preferred_term: vascular smooth muscle cell
+    term:
+      id: CL:0000359
+      label: vascular associated smooth muscle cell
+  biological_processes:
+  - preferred_term: aortic smooth muscle cell differentiation
+    modifier: DECREASED
+    term:
+      id: GO:0035887
+      label: aortic smooth muscle cell differentiation
+  - preferred_term: vascular smooth muscle cell apoptosis
+    modifier: INCREASED
+    term:
+      id: GO:1905288
+      label: vascular associated smooth muscle cell apoptotic process
+  evidence:
+  - reference: PMID:26854927
+    reference_title: FOXE3 mutations predispose to thoracic aortic aneurysms and dissections.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      We performed exome sequencing of a large family with multiple members with TAADs and identified a rare variant in FOXE3 with an altered amino acid in the DNA-binding domain (p.Asp153His) that segregated with disease in this family.
+    explanation: &gt;-
+      Segregation of a DNA-binding-domain FOXE3 variant in a multiplex TAAD
+      family is the human genetic basis for curating this locus.
+  - reference: PMID:26854927
+    reference_title: FOXE3 mutations predispose to thoracic aortic aneurysms and dissections.
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      In mice, Foxe3 deficiency reduced smooth muscle cell (SMC) density and impaired SMC differentiation in the ascending aorta.
+    explanation: &gt;-
+      Gives the developmental half of this node: fewer and less differentiated
+      aortic smooth muscle cells rather than a defect in their contractile
+      machinery.
+  - reference: PMID:26854927
+    reference_title: FOXE3 mutations predispose to thoracic aortic aneurysms and dissections.
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      Foxe3 expression was induced in aortic SMCs after transverse aortic constriction, and Foxe3 deficiency increased SMC apoptosis and ascending aortic rupture with increased aortic pressure.
+    explanation: &gt;-
+      Gives the stress-response half: without FOXE3, raised aortic pressure
+      drives smooth muscle cell apoptosis and rupture.
+  downstream:
+  - target: Thoracic aortic dilatation and dissection
+    description: &gt;-
+      A thinner, less differentiated and apoptosis-prone smooth muscle cell
+      population weakens the ascending aortic media under biomechanical load.
 - name: Thoracic aortic dilatation and dissection
   conforms_to: &#34;aortopathy_tgfbeta_dysregulation#Aortic Dissection and Rupture&#34;
   description: &gt;-
@@ -8344,7 +10258,16 @@ histopathology:
     PubMed evidence item.
 genetic:
 - name: FBN1
+  relationship_type: CAUSATIVE
+  variant_origin: GERMLINE
   association: High-penetrance HTAD extracellular matrix gene
+  notes: &gt;-
+    FBN1 is a syndromic HTAD gene, not a familial-TAAD subtype: it is
+    curated in full in kb/disorders/Marfan_Syndrome.yaml. It is listed here
+    because the VASCERN HTAD diagnostic pathway classes it among the aortic
+    extracellular-matrix genes tested in a suspected-HTAD proband, and
+    because ClinGen&#39;s HTAD panel rates FBN1 Definitive against MONDO:0019625
+    itself. No has_subtypes row is created for it.
   presence: Positive
   gene_term:
     preferred_term: FBN1
@@ -8360,6 +10283,8 @@ genetic:
       Associated genes identified to date are classified into those encoding components of the (a) extracellular matrix (b) TGFβ pathway and (c) smooth muscle contractile mechanism.
     explanation: FBN1 is curated here as an extracellular-matrix HTAD gene under the VASCERN gene-class framework.
 - name: LOX
+  relationship_type: CAUSATIVE
+  variant_origin: GERMLINE
   association: High-penetrance HTAD extracellular matrix gene
   presence: Positive
   subtype: LOX-related
@@ -8377,7 +10302,14 @@ genetic:
       Associated genes identified to date are classified into those encoding components of the (a) extracellular matrix (b) TGFβ pathway and (c) smooth muscle contractile mechanism.
     explanation: LOX is curated here as an extracellular-matrix HTAD gene under the VASCERN gene-class framework.
 - name: COL3A1
+  relationship_type: CAUSATIVE
+  variant_origin: GERMLINE
   association: High-penetrance HTAD extracellular matrix gene
+  notes: &gt;-
+    COL3A1 is a syndromic HTAD gene curated in full in
+    kb/disorders/Vascular_Ehlers-Danlos_Syndrome.yaml. It is listed here as
+    an extracellular-matrix gene on the VASCERN HTAD testing panel, not as a
+    familial-TAAD subtype.
   presence: Positive
   gene_term:
     preferred_term: COL3A1
@@ -8393,7 +10325,15 @@ genetic:
       Associated genes identified to date are classified into those encoding components of the (a) extracellular matrix (b) TGFβ pathway and (c) smooth muscle contractile mechanism.
     explanation: COL3A1 is curated here as an extracellular-matrix HTAD gene under the VASCERN gene-class framework.
 - name: TGFBR1
+  relationship_type: CAUSATIVE
+  variant_origin: GERMLINE
   association: High-penetrance HTAD TGF-beta pathway gene
+  notes: &gt;-
+    TGFBR1 is the Loeys-Dietz syndrome type 1 gene (MONDO:0012212) and is
+    curated in kb/disorders/Loeys-Dietz_Syndrome.yaml. It appears here as a
+    TGF-beta pathway gene on the VASCERN HTAD panel; the
+    nonsyndromic/syndromic boundary is phenotype-dependent rather than
+    genotype-defined.
   presence: Positive
   gene_term:
     preferred_term: TGFBR1
@@ -8409,7 +10349,15 @@ genetic:
       Associated genes identified to date are classified into those encoding components of the (a) extracellular matrix (b) TGFβ pathway and (c) smooth muscle contractile mechanism.
     explanation: TGFBR1 is curated here as a TGF-beta pathway HTAD gene under the VASCERN gene-class framework.
 - name: TGFBR2
+  relationship_type: CAUSATIVE
+  variant_origin: GERMLINE
   association: High-penetrance HTAD TGF-beta pathway gene
+  notes: &gt;-
+    TGFBR2 is the Loeys-Dietz syndrome type 2 gene (MONDO:0012427) and is
+    curated in kb/disorders/Loeys-Dietz_Syndrome.yaml. It is also the gene
+    in the AAT2 3p24-p25 candidate interval; see the TGFBR2-candidate locus
+    has_subtypes row, which deliberately carries no genes list because MONDO
+    assigns no confirmed causal gene to MONDO:0011770.
   presence: Positive
   gene_term:
     preferred_term: TGFBR2
@@ -8425,7 +10373,14 @@ genetic:
       Associated genes identified to date are classified into those encoding components of the (a) extracellular matrix (b) TGFβ pathway and (c) smooth muscle contractile mechanism.
     explanation: TGFBR2 is curated here as a TGF-beta pathway HTAD gene under the VASCERN gene-class framework.
 - name: SMAD3
+  relationship_type: CAUSATIVE
+  variant_origin: GERMLINE
   association: High-penetrance HTAD TGF-beta pathway gene
+  notes: &gt;-
+    SMAD3 is the Loeys-Dietz syndrome type 3 / aneurysms-osteoarthritis
+    syndrome gene (MONDO:0013426), curated in
+    kb/disorders/Loeys-Dietz_Syndrome.yaml. It is listed here as a TGF-beta
+    pathway gene on the VASCERN HTAD panel.
   presence: Positive
   gene_term:
     preferred_term: SMAD3
@@ -8441,7 +10396,13 @@ genetic:
       Associated genes identified to date are classified into those encoding components of the (a) extracellular matrix (b) TGFβ pathway and (c) smooth muscle contractile mechanism.
     explanation: SMAD3 is curated here as a TGF-beta pathway HTAD gene under the VASCERN gene-class framework.
 - name: TGFB2
+  relationship_type: CAUSATIVE
+  variant_origin: GERMLINE
   association: High-penetrance HTAD TGF-beta pathway gene
+  notes: &gt;-
+    TGFB2 is the Loeys-Dietz syndrome type 4 gene (MONDO:0013897) and is
+    curated in kb/disorders/Loeys-Dietz_Syndrome.yaml. ClinGen&#39;s HTAD panel
+    separately rates TGFB2 Definitive against MONDO:0019625.
   presence: Positive
   gene_term:
     preferred_term: TGFB2
@@ -8457,7 +10418,19 @@ genetic:
       Associated genes identified to date are classified into those encoding components of the (a) extracellular matrix (b) TGFβ pathway and (c) smooth muscle contractile mechanism.
     explanation: TGFB2 is curated here as a TGF-beta pathway HTAD gene under the VASCERN gene-class framework.
 - name: ACTA2
+  relationship_type: CAUSATIVE
+  variant_origin: GERMLINE
   association: High-penetrance HTAD smooth muscle contractile apparatus gene
+  notes: &gt;-
+    ACTA2 is the AAT6 gene (MONDO:0012730), bound on the ACTA2-related
+    has_subtypes row. Note that the ClinGen validity table committed in this
+    repository carries no ACTA2 row against MONDO:0019625 or against any of the
+    numbered AAT leaf classes; its only ACTA2 row is a Definitive curation
+    against multisystemic smooth muscle dysfunction syndrome (MONDO:0013452), a
+    different ACTA2 disorder. The CAUSATIVE relationship_type here therefore
+    rests on MONDO&#39;s own gene assignment and on the VASCERN classification of
+    ACTA2 as a smooth-muscle contractile HTAD gene, not on a ClinGen HTAD
+    classification.
   presence: Positive
   subtype: ACTA2-related
   gene_term:
@@ -8474,6 +10447,8 @@ genetic:
       Associated genes identified to date are classified into those encoding components of the (a) extracellular matrix (b) TGFβ pathway and (c) smooth muscle contractile mechanism.
     explanation: ACTA2 is curated here as a smooth-muscle contractile HTAD gene under the VASCERN gene-class framework.
 - name: MYH11
+  relationship_type: CAUSATIVE
+  variant_origin: GERMLINE
   association: High-penetrance HTAD smooth muscle contractile apparatus gene
   presence: Positive
   subtype: MYH11-related
@@ -8491,6 +10466,8 @@ genetic:
       Familial thoracic aortic aneurysm and dissection (FTAAD), caused by the pathogenic Myh11 K1256del variant, is characterized by impaired aortic contractility; however, how reduced contractility predisposes the aorta to dissection remains incompletely understood.
     explanation: This supports MYH11 as a contractile-gene cause in FTAAD biology.
 - name: MYLK
+  relationship_type: CAUSATIVE
+  variant_origin: GERMLINE
   association: High-penetrance HTAD smooth muscle contractile apparatus gene
   presence: Positive
   subtype: MYLK-related
@@ -8508,6 +10485,8 @@ genetic:
       Associated genes identified to date are classified into those encoding components of the (a) extracellular matrix (b) TGFβ pathway and (c) smooth muscle contractile mechanism.
     explanation: MYLK is curated here as a smooth-muscle contractile HTAD gene under the VASCERN gene-class framework.
 - name: PRKG1
+  relationship_type: CAUSATIVE
+  variant_origin: GERMLINE
   association: High-penetrance HTAD smooth muscle contractile apparatus gene
   presence: Positive
   subtype: PRKG1-related
@@ -8524,7 +10503,90 @@ genetic:
     snippet: &gt;-
       Associated genes identified to date are classified into those encoding components of the (a) extracellular matrix (b) TGFβ pathway and (c) smooth muscle contractile mechanism.
     explanation: PRKG1 is curated here as a smooth-muscle contractile HTAD gene under the VASCERN gene-class framework.
+- name: FOXE3
+  variant_origin: GERMLINE
+  association: HTAD smooth muscle cell survival and differentiation gene
+  notes: &gt;-
+    relationship_type is deliberately left unset, on the same basis as MFAP5.
+    The ClinGen HTAD Gene Curation Expert Panel rates FOXE3 Moderate against
+    MONDO:0019625 (row in cache/clingen/gene_validity.csv, the ClinGen validity
+    table committed in this repository), and GeneDiseaseRelationshipEnum has no
+    value between CAUSATIVE (defined in the schema as ClinGen Definitive or
+    Strong) and DISPUTED. That assertion is published under a CGGCIEX
+    identifier rather than a CGGV one, and the repository&#39;s ClinGen structured
+    source only ingests CGGV assertions
+    (src/dismech/structured_sources/clingen.py), so it cannot be cited as a
+    snippet-validated reference here; the human and mouse evidence below is what
+    the record rests on. FOXE3 is not one of the three VASCERN gene classes -
+    it acts on smooth muscle cell number and survival, not on the extracellular
+    matrix, the TGF-beta pathway or the contractile apparatus - and it has its
+    own pathophysiology node for that reason. MONDO assigns no numbered AAT leaf
+    class to FOXE3, so no has_subtypes row was created.
+  presence: Positive
+  gene_term:
+    preferred_term: FOXE3
+    term:
+      id: hgnc:3808
+      label: FOXE3
+  evidence:
+  - reference: PMID:26854927
+    reference_title: FOXE3 mutations predispose to thoracic aortic aneurysms and dissections.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Here, we describe mutations in the forkhead transcription factor FOXE3 that predispose mutation-bearing individuals to TAAD.
+    explanation: &gt;-
+      The report that established the FOXE3 gene-disease relationship for
+      thoracic aortic aneurysm and dissection.
+  - reference: PMID:26854927
+    reference_title: FOXE3 mutations predispose to thoracic aortic aneurysms and dissections.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Additional pathogenic FOXE3 variants were identified in unrelated TAAD families.
+    explanation: &gt;-
+      Records that the relationship rests on more than the index pedigree, which
+      is what distinguishes it from the single-family associations elsewhere in
+      this entry.
+- name: SMAD2
+  relationship_type: CAUSATIVE
+  variant_origin: GERMLINE
+  association: TGF-beta pathway aortopathy gene (Loeys-Dietz syndrome 6)
+  notes: &gt;-
+    SMAD2 is the Loeys-Dietz syndrome type 6 gene (MONDO:0030500), curated in
+    full in kb/disorders/Loeys-Dietz_Syndrome_6.yaml and carried as a subtype
+    row in kb/disorders/Loeys-Dietz_Syndrome.yaml. It is listed here for the
+    same reason as the other Loeys-Dietz genes above: a suspected-HTAD proband
+    is tested for the TGF-beta pathway genes as a class, and the
+    nonsyndromic/syndromic boundary is phenotype-dependent. No has_subtypes row
+    is created for it. Note that the ClinGen validity table committed in this
+    repository carries no SMAD2 row against MONDO:0019625; the Definitive
+    classification quoted below is against the Loeys-Dietz syndrome 6 term.
+  presence: Positive
+  gene_term:
+    preferred_term: SMAD2
+    term:
+      id: hgnc:6768
+      label: SMAD2
+  evidence:
+  - reference: CGGV:assertion_c32835d3-af61-4b05-902c-d17b406beef6-2025-08-01T160000.000Z
+    reference_title: &#34;SMAD2 / Loeys-Dietz syndrome 6 (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;SMAD2 | HGNC:6768 | Loeys-Dietz syndrome 6 | MONDO:0030500 | AD | Definitive&#34;
+    explanation: &gt;-
+      ClinGen rates the SMAD2 gene-disease relationship Definitive against the
+      Loeys-Dietz syndrome 6 term, which is the classification level the
+      CAUSATIVE relationship_type on this record asserts and the entry this
+      record cross-references.
 - name: MAT2A
+  relationship_type: UNKNOWN
+  variant_origin: GERMLINE
+  notes: &gt;-
+    ClinGen classifies MAT2A against MONDO:0019625 as Limited (see the CGGV
+    evidence below). GeneDiseaseRelationshipEnum has no Limited value, and
+    Limited is not a contested claim, so UNKNOWN (&#34;not yet classified&#34; at the
+    causative/disputed level) is used rather than CAUSATIVE or DISPUTED.
   gene_term:
     preferred_term: MAT2A
     term:
@@ -8540,8 +10602,15 @@ genetic:
     explanation: ClinGen classifies the MAT2A-familial thoracic aortic aneurysm and aortic dissection gene-disease relationship as limited with autosomal dominant inheritance.
 - name: MFAP5
   association: HTAD extracellular matrix microfibril gene (MFAP5/MAGP-2; AAT9)
+  variant_origin: GERMLINE
   presence: Positive
   subtype: MFAP5-related
+  notes: &gt;-
+    relationship_type is deliberately left unset. ClinGen gene-disease validity for this gene against the umbrella term MONDO:0019625 is recorded as &#34;Moderate&#34; by the HTAD Gene Curation Expert Panel (row in cache/clingen/gene_validity.csv, the ClinGen validity table committed in this repository). That assertion is published under a CGGCIEX identifier rather than a CGGV one, and the repository&#39;s ClinGen structured source only ingests CGGV assertions (src/dismech/structured_sources/clingen.py), so it cannot be cited as a snippet-validated reference here.
+    GeneDiseaseRelationshipEnum has no value between CAUSATIVE (defined in the
+    schema as ClinGen Definitive or Strong) and DISPUTED, so a Moderate
+    classification has no honest value to take and the slot is omitted rather
+    than rounded up.
   gene_term:
     preferred_term: MFAP5
     term:
@@ -8560,8 +10629,15 @@ genetic:
       places this locus in the extracellular-matrix arm of the aortopathy mechanism.
 - name: THSD4
   association: HTAD microfibril-associated gene (THSD4/ADAMTSL6; AAT12)
+  variant_origin: GERMLINE
   presence: Positive
   subtype: THSD4-related
+  notes: &gt;-
+    relationship_type is deliberately left unset: the ClinGen validity table
+    committed in this repository (cache/clingen/gene_validity.csv) contains no
+    THSD4 row at all, so no gene-disease validity classification exists to map
+    onto the enum. The human genetic and mouse evidence cited below is the
+    basis for curating the locus.
   gene_term:
     preferred_term: THSD4
     term:
@@ -8665,6 +10741,41 @@ treatments:
     snippet: &gt;-
       We hypothesize that tailored genetic testing and imaging of first-degree and second-degree relatives of patients affected by NS-TADs may enable early diagnosis and allow appropriate surveillance or intervention.
     explanation: The REST study supports genetic testing and family imaging as early-detection strategies.
+references:
+- reference: PMID:20301299
+  title: Heritable Thoracic Aortic Disease Overview.
+  tags:
+  - GeneReviews
+notes: &gt;-
+  Gene scope. This entry is the nonsyndromic familial-TAAD lump. The
+  has_subtypes list carries one row per numbered AAT locus MONDO recognizes,
+  each now bound to its causal gene where MONDO assigns one; the two rows that
+  carry no genes list (AAT1 11q23 linkage locus, AAT2 3p24-p25 TGFBR2-candidate
+  locus) are the two leaf classes for which MONDO records no confirmed causal
+  gene, and their descriptions say so. The genetic list is wider than the
+  subtype list because it also carries the syndromic HTAD genes named by the
+  VASCERN diagnostic pathway (FBN1, COL3A1, TGFBR1, TGFBR2, SMAD3, TGFB2);
+  those are curated in full in their own entries (Marfan_Syndrome,
+  Vascular_Ehlers-Danlos_Syndrome, Loeys-Dietz_Syndrome and
+  Loeys-Dietz_Syndrome_6) and each carries a notes line here naming that home,
+  so this entry does not duplicate them as subtypes. SMAD2 is included on that
+  basis. Two further genes sit outside both lists: FOXE3, a nonsyndromic HTAD
+  gene that MONDO gives no numbered AAT leaf class, and MAT2A, likewise.
+
+  GeneReviews baseline. The GeneReviews chapter for this disease group is
+  &#34;Heritable Thoracic Aortic Disease Overview&#34; (PMID:20301299, NBK1120), tagged
+  in the references block above. The fetched cache for that PMID contains only
+  the chapter front matter and its statement of purpose, with no clinical or
+  genetic body text, so no evidence snippet is quoted from it anywhere in this
+  entry.
+
+  ClinGen. Classifications quoted in the notes on individual genetic entries
+  were read from cache/clingen/gene_validity.csv, the ClinGen gene-disease
+  validity table committed in this repository. Most of the HTAD Gene Curation
+  Expert Panel&#39;s assertions against MONDO:0019625 predate the CGGV identifier
+  scheme and are published under CGGCIEX identifiers, which the repository&#39;s
+  ClinGen structured source does not ingest, so only the MAT2A assertion is
+  citable as a CGGV reference.
 </pre>
             </div>
         </div>
@@ -8677,12 +10788,39 @@ treatments:
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
 
+            <div class="grouped-section anchor-target" id="references">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">References</h3>
+                    <span class="card-count">1</span>
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301299" target="_blank">PMID:20301299</a>
+                            </div>
+
+                            <div class="reference-title">Heritable Thoracic Aortic Disease Overview.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+            </div>
+
 
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -9279,7 +11417,7 @@ treatments:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Familial Thoracic Aortic Aneurysm and Aortic Dissection", "mondoId": "MONDO:0019625", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Familial_Thoracic_Aortic_Aneurysm_and_Aortic_Dissection", "yamlRevision": "23386b18874b"};
+        const OS_CONFIG = {"diseaseName": "Familial Thoracic Aortic Aneurysm and Aortic Dissection", "mondoId": "MONDO:0019625", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Familial_Thoracic_Aortic_Aneurysm_and_Aortic_Dissection", "yamlRevision": "8ede151f0c6f"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

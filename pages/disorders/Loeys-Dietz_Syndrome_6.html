@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4303,6 +4375,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4324,6 +4397,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4410,6 +4484,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4434,6 +4509,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4455,6 +4531,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4607,6 +4684,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4735,6 +4813,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4756,6 +4835,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4880,6 +4960,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4904,6 +4985,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4925,6 +5007,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5051,6 +5134,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5072,6 +5156,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5109,6 +5194,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-heterozygous-smad2-loss-of-function-variant" data-dismech-node="Heterozygous SMAD2 Loss-of-Function Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">Heterozygous SMAD2 Loss-of-Function Variant</div>
+
 
                 <div class="item-desc">The primary lesion is a heterozygous loss-of-function variant in SMAD2. Reported alleles include nonsense, frameshift and splice variants that remove one functional copy outright, and missense variants. The missense alleles reported in the aneurysm literature cluster in the MH2 domain - the conserved surface responsible for oligomerisation of SMAD2 with SMAD4 and for subsequent SMAD-dependent transcriptional activation - so an MH2 missense allele attacks the same step as haploinsufficiency, by disabling complex assembly rather than by removing protein. That clustering is not a property of SMAD2 missense variants in general: in a large congenital-heart-disease cohort the missense variants were instead concentrated in exon 4, and the modelled p.Arg114Cys allele lies in the MH1 domain.</div>
 
@@ -5205,6 +5291,7 @@ This pathophysiological event involves SMAD2 (hgnc:6768). hgnc:6768 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5226,6 +5313,7 @@ This pathophysiological event involves SMAD2 (hgnc:6768). hgnc:6768 is a gene fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5253,6 +5341,7 @@ This pathophysiological event involves SMAD2 (hgnc:6768). hgnc:6768 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5277,6 +5366,7 @@ This pathophysiological event involves SMAD2 (hgnc:6768). hgnc:6768 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-canonical-tgf-beta-smad2-signal-transduction" data-dismech-node="Impaired Canonical TGF-beta SMAD2 Signal Transduction" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Canonical TGF-beta SMAD2 Signal Transduction</div>
+
 
                 <div class="item-desc">SMAD2 is the receptor-regulated SMAD phosphorylated by the activated type I TGF-beta receptor; with SMAD3 it carries the signal to the nucleus in complex with SMAD4. Halving functional SMAD2, or disabling its MH2 oligomerisation surface, degrades this canonical arm. As in every other Loeys-Dietz subtype the net tissue-level consequence is not a simple reduction: heterozygous loss-of-function alleles in the upstream LDS genes are associated with paradoxically increased TGF-beta pathway output in the aortic wall, evidenced by raised SMAD phosphorylation and TGF-beta-driven gene expression. The node is therefore curated as dysregulation of the pathway rather than as loss of pathway activity, matching the module it conforms to.</div>
 
@@ -5444,6 +5534,7 @@ This pathophysiological event involves abnormal transforming growth factor beta 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5465,6 +5556,7 @@ This pathophysiological event involves abnormal transforming growth factor beta 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5492,6 +5584,7 @@ This pathophysiological event involves abnormal transforming growth factor beta 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5514,6 +5607,7 @@ This pathophysiological event involves abnormal transforming growth factor beta 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-smad2-dependent-transcriptional-programme" data-dismech-node="Disrupted SMAD2-Dependent Transcriptional Programme" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted SMAD2-Dependent Transcriptional Programme</div>
+
 
                 <div class="item-desc">SMAD2 acts in the nucleus as a co-regulator that binds many different transcription factors. Isogenic induced pluripotent stem cell models show that SMAD2 haploinsufficiency changes chromatin accessibility at promoters, dysregulates hundreds of SMAD-regulated genes including known congenital-heart-disease genes, and disrupts predicted interactions with NANOG, ETS, TEAD3/4, CREB1 and AP1. Loss-of-function and missense alleles produce partly distinct accessibility and transcription-factor-binding signatures, which is the leading explanation offered for why SMAD2 variants give rise to more than one cardiovascular phenotype.</div>
 
@@ -5622,6 +5716,7 @@ This pathophysiological event involves abnormal regulation of transcription by R
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5643,6 +5738,7 @@ This pathophysiological event involves abnormal regulation of transcription by R
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5670,6 +5766,7 @@ This pathophysiological event involves abnormal regulation of transcription by R
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5692,6 +5789,7 @@ This pathophysiological event involves abnormal regulation of transcription by R
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-cardiac-morphogenesis-and-laterality-specification" data-dismech-node="Impaired Cardiac Morphogenesis and Laterality Specification" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Cardiac Morphogenesis and Laterality Specification</div>
+
 
                 <div class="item-desc">SMAD2 haploinsufficiency lowers expression of NODAL, LEFTY1 and LEFTY2 - activin/nodal pathway components that establish the left-right axis - and the authors of that work propose the resulting epigenetic and transcriptional changes as the mechanism by which SMAD2 haploinsufficiency causes congenital heart disease and vascular anomalies. Clinically, heterozygous SMAD2 variants are recovered in large congenital-heart-disease cohorts and the presentation is complex structural heart disease with or without heterotaxy - a developmentally much earlier consequence than the aortopathy, and the arm of LDS6 that is least like the other Loeys-Dietz subtypes.</div>
 
@@ -5842,6 +5940,7 @@ This pathophysiological event involves abnormal determination of left/right symm
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5863,6 +5962,7 @@ This pathophysiological event involves abnormal determination of left/right symm
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5890,6 +5990,7 @@ This pathophysiological event involves abnormal determination of left/right symm
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5914,6 +6015,7 @@ This pathophysiological event involves abnormal determination of left/right symm
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aortic-medial-degeneration-and-wall-weakening" data-dismech-node="Aortic Medial Degeneration and Wall Weakening" data-dismech-type="pathophysiology">
                 <div class="item-name">Aortic Medial Degeneration and Wall Weakening</div>
+
 
                 <div class="item-desc">Dysregulated TGF-beta signalling in the aortic media alters the smooth muscle cell phenotype and extracellular matrix homeostasis, weakening the wall. This is the shared, conserved step of every Loeys-Dietz subtype and of heritable thoracic aortic disease generally; it is curated here by conformance to the `aortopathy_tgfbeta_dysregulation` module rather than re-derived, because no SMAD2-specific aortic histopathology series has been published.</div>
 
@@ -6047,6 +6149,7 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6069,6 +6172,7 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-aortic-and-arterial-dilation" data-dismech-node="Progressive Aortic and Arterial Dilation" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Aortic and Arterial Dilation</div>
+
 
                 <div class="item-desc">Progressive dilation is not confined to the aortic root in SMAD2-related disease: reported patients show aortic root aneurysm together with tortuosity and aneurysm throughout the arterial tree, including the neck vessels and the coronary arteries. The arterial-tree-wide distribution is what makes root-only surveillance inadequate.</div>
 
@@ -6138,6 +6242,7 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6159,6 +6264,7 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6184,6 +6290,7 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-arterial-dissection-and-rupture" data-dismech-node="Arterial Dissection and Rupture" data-dismech-type="pathophysiology">
                 <div class="item-name">Arterial Dissection and Rupture</div>
+
 
                 <div class="item-desc">Dissection is the principal life-threatening endpoint. In SMAD2-related disease it has been documented in the aorta and, distinctively, in the coronary arteries. As for Loeys-Dietz syndrome generally, dissection can occur at smaller aortic diameters and at younger ages than in Marfan syndrome, which is why the intervention thresholds used for Marfan syndrome are not transferable.</div>
 
@@ -6245,6 +6352,7 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6269,6 +6377,7 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6290,6 +6399,7 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6357,7 +6467,7 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(6)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(1)</span></button>
 
@@ -6365,9 +6475,7 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Growth<span class="pill-count">(2)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Growth<span class="pill-count">(3)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6377,7 +6485,7 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
-                    <span class="cat-count">5</span>
+                    <span class="cat-count">6</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-arterial-aneurysm" data-dismech-node="Arterial Aneurysm" data-dismech-type="phenotype">
@@ -6410,6 +6518,9 @@ This clinical feature is Aortic aneurysm (HP:0004942). HP:0004942 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6424,6 +6535,7 @@ This clinical feature is Aortic aneurysm (HP:0004942). HP:0004942 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6478,6 +6590,9 @@ This clinical feature is Aortic root aneurysm (HP:0002616). HP:0002616 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6492,6 +6607,7 @@ This clinical feature is Aortic root aneurysm (HP:0002616). HP:0002616 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6516,6 +6632,7 @@ This clinical feature is Aortic root aneurysm (HP:0002616). HP:0002616 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6572,6 +6689,9 @@ This clinical feature is Aortic dissection (HP:0002647). HP:0002647 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6589,6 +6709,7 @@ This clinical feature is Aortic dissection (HP:0002647). HP:0002647 is a phenoty
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6597,6 +6718,103 @@ This clinical feature is Aortic dissection (HP:0002647). HP:0002647 is a phenoty
 
 
                 <div class="evidence-explanation">Establishes dissection as a core feature of the SMAD2 phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-coronary-artery-dissection" data-dismech-node="Coronary Artery Dissection" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Coronary Artery Dissection
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006702" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0006702</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Coronary artery dissection (HP:0006702). HP:0006702 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29967133" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29967133" target="_blank">PMID:29967133</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The third missense variant, p.(Asn361Thr), was discovered in a man presenting with coronary artery dissection."</div>
+
+
+                <div class="evidence-explanation">A SMAD2-variant patient whose presenting event was coronary artery dissection.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31569402" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31569402" target="_blank">PMID:31569402</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"To date, 9 (likely) pathogenic variants in SMAD2 have now been described in 15 subjects displaying a broad range of features, including aneurysms, tortuosity of the entire arterial tree, and coronary artery dissections"</div>
+
+
+                <div class="evidence-explanation">Confirms coronary artery dissection as a recurrent feature across all published SMAD2 subjects, not a single-case observation.</div>
 
 
 
@@ -6626,15 +6844,18 @@ This clinical feature is Aortic dissection (HP:0002647). HP:0002647 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005116" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0005116</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005116" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0005116</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Arterial tortuosity (HP:0005116). HP:0005116 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6654,6 +6875,7 @@ This clinical feature is Arterial tortuosity (HP:0005116). HP:0005116 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6678,6 +6900,7 @@ This clinical feature is Arterial tortuosity (HP:0005116). HP:0005116 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6720,15 +6943,18 @@ This clinical feature is Arterial tortuosity (HP:0005116). HP:0005116 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001627</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001627</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Complex congenital heart disease, annotated with Abnormal heart morphology (HP:0001627). HP:0001627 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6748,6 +6974,7 @@ This clinical feature is Complex congenital heart disease, annotated with Abnorm
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6772,6 +6999,7 @@ This clinical feature is Complex congenital heart disease, annotated with Abnorm
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6821,15 +7049,18 @@ This clinical feature is Complex congenital heart disease, annotated with Abnorm
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000316</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000316</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6849,6 +7080,7 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6873,6 +7105,7 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6924,15 +7157,18 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001999</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001999</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6952,6 +7188,7 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7001,15 +7238,18 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7029,6 +7269,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7069,15 +7310,18 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7097,6 +7341,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7129,7 +7374,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Growth
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-marfanoid-habitus" data-dismech-node="Marfanoid Habitus" data-dismech-type="phenotype">
@@ -7148,15 +7393,18 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001519" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001519</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001519" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001519</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Marfanoid habitus, annotated with Disproportionate tall stature (HP:0001519). HP:0001519 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7176,6 +7424,7 @@ This clinical feature is Marfanoid habitus, annotated with Disproportionate tall
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7187,175 +7436,6 @@ This clinical feature is Marfanoid habitus, annotated with Disproportionate tall
 
 
                 <div class="evidence-explanation">Documents marfanoid features in a SMAD2-variant mother-daughter pair. Curated against HP:0001519, whose exact HPO synonyms include &#34;Marfanoid habitus&#34;.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-short-stature" data-dismech-node="Short Stature" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Short Stature
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0004322</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:30157302" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30157302" target="_blank">PMID:30157302</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Patients 1 and 2 presented with complex CHD, developmental delay, seizures, dysmorphic features, short stature, and poor weight gain."</div>
-
-
-                <div class="evidence-explanation">Lists short stature and poor weight gain in the congenital presentation.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-coronary-artery-dissection" data-dismech-node="Coronary Artery Dissection" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Coronary Artery Dissection
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0006702" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0006702</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Coronary artery dissection (HP:0006702). HP:0006702 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:29967133" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29967133" target="_blank">PMID:29967133</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The third missense variant, p.(Asn361Thr), was discovered in a man presenting with coronary artery dissection."</div>
-
-
-                <div class="evidence-explanation">A SMAD2-variant patient whose presenting event was coronary artery dissection.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31569402" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31569402" target="_blank">PMID:31569402</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"To date, 9 (likely) pathogenic variants in SMAD2 have now been described in 15 subjects displaying a broad range of features, including aneurysms, tortuosity of the entire arterial tree, and coronary artery dissections"</div>
-
-
-                <div class="evidence-explanation">Confirms coronary artery dissection as a recurrent feature across all published SMAD2 subjects, not a single-case observation.</div>
 
 
 
@@ -7385,15 +7465,18 @@ This clinical feature is Coronary artery dissection (HP:0006702). HP:0006702 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030853" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0030853</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030853" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0030853</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Heterotaxy (HP:0030853). HP:0030853 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7413,6 +7496,7 @@ This clinical feature is Heterotaxy (HP:0030853). HP:0030853 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7440,6 +7524,7 @@ This clinical feature is Heterotaxy (HP:0030853). HP:0030853 is a phenotype from
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7448,6 +7533,78 @@ This clinical feature is Heterotaxy (HP:0030853). HP:0030853 is a phenotype from
 
 
                 <div class="evidence-explanation">Supplies the mechanistic account of the heterotaxy phenotype from the isogenic iPSC models, complementing the clinical observation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-short-stature" data-dismech-node="Short Stature" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Short Stature
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0004322</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30157302" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30157302" target="_blank">PMID:30157302</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Patients 1 and 2 presented with complex CHD, developmental delay, seizures, dysmorphic features, short stature, and poor weight gain."</div>
+
+
+                <div class="evidence-explanation">Lists short stature and poor weight gain in the congenital presentation.</div>
 
 
 
@@ -7537,6 +7694,9 @@ This disease-associated gene is SMAD2 (hgnc:6768). hgnc:6768 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (5 references)
@@ -7551,6 +7711,7 @@ This disease-associated gene is SMAD2 (hgnc:6768). hgnc:6768 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7578,6 +7739,7 @@ This disease-associated gene is SMAD2 (hgnc:6768). hgnc:6768 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7599,6 +7761,7 @@ This disease-associated gene is SMAD2 (hgnc:6768). hgnc:6768 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7686,6 +7849,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Serial echocardiography of the aortic root and ascending aorta together with magnetic resonance or computed tomography angiography of the entire arterial tree. Root-only surveillance is inadequate in SMAD2-related disease, where tortuosity and aneurysm involve the whole arterial tree and coronary artery dissection has been a presenting event.</div>
 
 
@@ -7710,6 +7887,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7731,6 +7909,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7816,6 +7995,31 @@ This treatment uses beta-adrenergic antagonist (NCIT:C29576). NCIT:C29576 is a t
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Beta-adrenergic receptor blockade to reduce heart rate, blood pressure and pulsatile wall stress, with the aim of slowing aneurysm progression.</div>
 
 
@@ -7837,6 +8041,7 @@ This treatment uses beta-adrenergic antagonist (NCIT:C29576). NCIT:C29576 is a t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7922,6 +8127,31 @@ This treatment uses losartan (CHEBI:6541). CHEBI:6541 is a therapeutic agent fro
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Angiotensin receptor blockers such as losartan reduce haemodynamic stress and are proposed to act additionally on maladaptive TGF-beta signalling. Their mechanistic rationale in SMAD2-related disease is weaker than in other subtypes, because whether the aortic TGF-beta paradox holds when the mutated gene is the SMAD effector itself has never been tested.</div>
 
 
@@ -7943,6 +8173,7 @@ This treatment uses losartan (CHEBI:6541). CHEBI:6541 is a therapeutic agent fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8007,6 +8238,31 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Elective repair of the aortic root or other aneurysmal segment before dissection. Loeys-Dietz aneurysms are amenable to early and aggressive surgical intervention, and because dissection can occur at smaller diameters than in Marfan syndrome the Marfan thresholds are not transferable.</div>
 
 
@@ -8028,6 +8284,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8055,6 +8312,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8076,6 +8334,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8142,6 +8401,31 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Avoidance of contact and competitive sports, isometric exercise, and agents that stimulate the cardiovascular system, all of which acutely raise aortic wall stress.</div>
 
 
@@ -8163,6 +8447,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8229,6 +8514,20 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Autosomal dominant transmission carries a 50% recurrence risk for each child. Once the familial SMAD2 variant is known, at-risk relatives can be clarified by targeted testing so that carriers enter cardiovascular surveillance before an aneurysm is symptomatic.</div>
 
 
@@ -8253,6 +8552,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8274,6 +8574,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8340,6 +8641,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Pregnancy and the puerperium carry an increased risk of aortic dissection or rupture and of uterine rupture, and require intensified aortic imaging during pregnancy and in the weeks after delivery.</div>
 
 
@@ -8361,6 +8676,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8440,6 +8756,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8489,6 +8806,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8544,6 +8862,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8565,6 +8884,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8636,6 +8956,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8657,6 +8978,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8765,6 +9087,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8786,6 +9109,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8865,6 +9189,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8886,6 +9211,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9065,6 +9391,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -9104,6 +9431,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9183,6 +9511,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -9222,6 +9551,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11146,6 +11476,49 @@ datasets: []
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Review response on PR #8864: evidence the comparative dissection-threshold claim and add TGF-beta paradox lineage nuance</strong> · 2026-08-18T23:02:46Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Loeys-Dietz_Syndrome_6/2026-08-18T230246Z-claude-code-a313e1.yaml">View source</a></p>
+                        <p class="research-review-text">Addressed the single blocking finding on PR #8864.
+
+The Prophylactic Aortic Surgery treatment asserted that Marfan operative diameter thresholds are not transferable because Loeys-Dietz dissection occurs at smaller diameters, but its only snippet (&#34;aneurysms are amenable to early and aggressive surgical intervention&#34;) supported early surgery and said nothing about the comparative threshold. Added two evidence items: the GeneReviews sentence that states the comparison directly (&#34;aortic dissection can occur at smaller aortic diameters and at younger ages than observed in Marfan syndrome&#34;, PMID:20301312), and the Velchev/Dietz/Loeys review natural-history sentence (PMID:34807423), which this PR had cached but cited zero times.
+
+Extended the smad2_aortic_tgfb_paradox_untested KNOWLEDGE_GAP with the Velchev generic paradox statement (recorded as PARTIAL: it generalises over the whole LDS gene set including SMAD2 without a SMAD2-specific aortic tissue series behind it, which is the unexamined generalisation this gap flags rather than a resolution of it) and with the MacFarlane 2019 lineage-specificity result (PMID:30614814, newly fetched with just fetch-reference). Second-heart-field-derived aortic-root VSMCs show impaired ligand-induced Smad2/3 activation while neighbouring cardiac-neural-crest-derived VSMCs retain signalling potential and show increased Smad2/3 phosphorylation in vivo, and CNC- but not SHF-specific Smad2 deletion was protective. The rationale now explains that a bulk aortic pSMAD2 readout can average two opposite lineage-level effects, and the proposed experiment requires the SMAD2 readout to be resolved by lineage rather than reported as a bulk value.
+
+Substituted CL:0002539 (aortic smooth muscle cell) for CL:0000359 on the aorta-specific &#34;Aortic Medial Degeneration and Wall Weakening&#34; node - the organ-specific-substitution pattern that mechanism modules expect, and which gives the previously consumer-less cache rows a consumer without hand-editing cache/.
+
+Recorded in the prevalence notes that the deep-research &#34;SMAD2/LDS6 is roughly 1-5% of LDS&#34; figure was seen and deliberately not curated (review-sourced, no denominator-bearing cohort, and a fraction-of-LDS share cannot be converted to an LDS6 population prevalence without an LDS prevalence that is itself unestablished).
+
+Deliberately not done: no diagnosis: section (TTE/CTA/CMR-MRA content is already curated as the Whole-Arterial-Tree Imaging Surveillance MONITORING treatment plus the GeneReviews diagnostic statement in definitions:, so a diagnosis: block would duplicate rather than add); no clinical_trials: (no registered trial enrolled SMAD2-positive participants - I-LoDiS enrolled TGFBR1/2 only and GenTAC reports no LDS6 subgroup); no edit to kb/disorders/Loeys-Dietz_Syndrome.yaml, whose has_subtypes: block is concurrently being edited by PRs #8861 and #8862 - filed issue #8866 to reconcile once all three land.
+
+Validation actually run and read: just validate (passed), just count-verified-snippets (86/86 verified against cached references, up from 81), just validate-terms (passed), just check-duplicate-keys (no duplicates), just validate-disorders kb/disorders/Loeys-Dietz_Syndrome_6.yaml (schema, terms and references all passed; 86/86). just check-title-snippets reported 4 findings, all in the unrelated Juvenile_Neuronal_Ceroid_Lipofuscinosis.yaml, none in this entry.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Loeys-Dietz Syndrome 6 (SMAD2, MONDO:0030500)</strong> · 2026-08-18T21:03:24Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Loeys-Dietz_Syndrome_6/2026-08-18T210324Z-claude-code-573ae2.yaml">View source</a></p>
+                        <p class="research-review-text">New Mendelian disorder entry for Loeys-Dietz syndrome 6 (SMAD2-related), MONDO:0030500 / OMIM:619656.
+
+Disease identity. MONDO carries no definition text for MONDO:0030500 and the Loeys-Dietz numbered series is a high Named-Entity-Confusion-risk class, so identity was anchored on OAK rather than on any narrative source. &#34;uv run runoak -i sqlite:obo:mondo info MONDO:0030500 -O obo&#34; returned: xref OMIM:619656; exact synonym &#34;LDS6&#34; attributed to OMIM:619656; is_a MONDO:0018954 Loeys-Dietz syndrome; relationship RO:0004003 HGNC:6768 SMAD2. That RO:0004003 assertion plus the OMIM cross-reference is what establishes SMAD2 as the LDS6 gene here.
+
+Deep research. falcon (Edison Scientific), report at research/Loeys-Dietz_Syndrome_6-deep-research-falcon.md. NEC preflight &#34;just preflight-dr research/Loeys-Dietz_Syndrome_6-deep-research-falcon.md MONDO:0030500&#34; returned PASS: canonical gene SMAD2 mentioned 63 times against TGFBR1=9, TGFBR2=8, SMAD3=5, TGFB3=4; MONDO OMIM 619656. The report&#39;s own reference validation (linkml-reference-validator 0.2.1) reported 7 references checked, 7 resolved, 0 unresolved, 0 off topic, confabulation_rate 0.0; no unresolved_references list and no needs_review flag. Correction: an earlier draft of this record quoted SMAD2=86 and 6-of-6 references. Those figures came from a first falcon run whose report file was overwritten when the run was relaunched after a session interruption; the figures above are from a preflight re-run against the report file actually committed in this branch. The verdict was PASS in both runs. Two claims the report carried were deliberately NOT curated because they could not be verified against the local cache: the Micha 2015 fibroblast pSMAD2/pSMAD3 functional result (full-text-only, not in the cached record) and the Schepers Table 5 SMAD2 feature list (extracted by the tool from a figure image, absent from the cached full text).
+
+Content curated. Seven-node pathophysiology chain from the heterozygous SMAD2 loss-of-function variant through impaired canonical TGF-beta/SMAD2 signal transduction, a disrupted SMAD2-dependent transcriptional programme, aortic medial degeneration, progressive dilation and arterial dissection, with a parallel NODAL/SMAD2 cardiac-morphogenesis and left-right-specification arm. Four nodes declare conforms_to against aortopathy_tgfbeta_dysregulation (TGF-beta Signaling Dysregulation, Aortic Medial Degeneration and Wall Weakening, Progressive Aortic Dilation and Aneurysm, Aortic Dissection and Rupture). Thirteen phenotypes covering both the late-onset vascular presentation (aortic aneurysm, aortic root aneurysm, aortic and coronary dissection, arterial tortuosity, hypertelorism, marfanoid habitus) and the congenital presentation (complex congenital heart disease, heterotaxy, developmental delay, seizure, short stature, facial dysmorphism). SMAD2 genetic section documenting the MH2-domain clustering of the reported missense alleles. Four discussions: three KNOWLEDGE_GAP (LDS6 unplaced in the LDS severity ranking; the unexplained two-phenotype split and whether allele class predicts it; the aortic TGF-beta paradox never tested in SMAD2-variant tissue) and one HUMAN_MODEL_MISMATCH (Smad2-null mouse embryos die before E8.5 from defective egg-cylinder elongation, so aortic size cannot be examined and no in vivo LDS6 aortopathy model exists). Seven treatments, progression across three phases, and a prevalence record.
+
+Deliberate omissions. datasets left empty: SMAD2 is a heavily studied cancer and TGF-beta gene, so a gene-only accession search would surface wrong-disease datasets - the Named Entity Confusion risk CLAUDE.md warns about for dataset curation. kb/disorders/Loeys-Dietz_Syndrome.yaml was not edited at all: sibling agents are concurrently curating LDS2 (issue 8749) and LDS4 (issue 8750) in that file, so this entry cross-references the umbrella and the module in prose instead of adding a subtype there.
+
+Pre-PR red-team review. A subagent review against the dismech-pr-review skill re-verified every snippet, ontology term and cross-reference and raised six substantive findings, all addressed before opening the PR: (1) the MH2-domain clustering claim was stated unqualified but is a property of the aneurysm literature only - the congenital-heart-disease cohort&#39;s missense variants concentrate in exon 4 and the modelled p.Arg114Cys allele is in MH1 - so the claim is now scoped and carries two qualifying evidence items; (2) the NODAL-SMAD2 laterality mechanism was asserted three times with no citation and in the wrong direction, and is now rewritten to the evidenced mechanism (SMAD2 haploinsufficiency reduces NODAL/LEFTY1/LEFTY2 expression) with IN_VITRO evidence attached to the node, the causal edge and the heterotaxy phenotype; (3) all thirteen phenotypes were orphaned from the pathograph, and seven pathophysiology-to-phenotype downstream edges were added; (4) no phenotype cited the GeneReviews Clinical Characteristics section, now fixed on Hypertelorism; (5) the GeneReviews diagnosis snippet was truncated before its clinical qualifier and is now quoted in full, with the working sufficiency criterion added as a second evidence item; (6) the iPSC system was discussed but not modeled, and is now an experimental_models entry with two modeled_mechanisms links and three readouts. Minor findings also applied: the Orphanet gene row was removed from a phenotype where it evidenced nothing, cell-type preferred_terms were aligned to the CL label used, two bare-fragment snippets were requoted with their SMAD2 attribution intact, the genetic-counselling entry moved to action_category COUNSELING_INFORMATIONAL, an ISDS skeletal classification was added for consistency with the sibling subtype entries, and the 2026 preclinical-modeling review was cited in the model-gap discussion.
+
+Validation actually run, with output read. just validate: passed. just count-verified-snippets: 81/81 verified against cached references after the review fixes (70/70 before them). just validate-terms: passed. just check-duplicate-keys: passed. just compliance: 87.4 percent global, 87.7 percent weighted after the review fixes; it read 90.3/90.7 before them, the experimental_models block having added recommended slots to the denominator faster than it filled them. just validate-disorders (the batched pre-PR sweep CI runs): all validations passed. Also run: just check-title-snippets (no new title-quoting snippets) and the pytest data suite (6192 passed).
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

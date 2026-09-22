@@ -38,6 +38,38 @@ run_metadata:
 citation_count: 36
 ---
 
+> ## ⚠️ FIVE SUGGESTED CURIEs IN THIS REPORT NAME A DIFFERENT TERM — DO NOT BIND THEM
+>
+> Every ontology identifier below was checked against `cache/hp/terms.csv` and
+> `cache/chebi/terms.csv`. In each case the identifier **resolves**, so nothing
+> about it looks wrong, and it names something unrelated to what this report
+> calls it. This is the failure mode a report's own suggestions are most likely
+> to carry: a well-formed CURIE with a plausible label attached by the writer
+> rather than by the ontology.
+>
+> | Report says | CURIE actually is | The term the report meant |
+> |---|---|---|
+> | `HP:0002071` "Generalized dystonia" (line 543) | **Abnormality of extrapyramidal motor function** | `HP:0007325` Generalized dystonia |
+> | `HP:0002061` "Foot dystonia" (line 543) | **Lower limb spasticity** | `HP:0031959` Leg dystonia |
+> | `HP:0002171` "Babinski sign" (line 548) | **Gliosis** | `HP:0003487` Babinski sign |
+> | `HP:0002340` "Rigidity" (line 549) | **Caudate atrophy** | `HP:0002063` Rigidity |
+> | `CHEBI:6082` "L-DOPA / levodopa" (line 720) | **Japonine** (an alkaloid) | `CHEBI:15765` L-dopa, which the KB already binds |
+>
+> The automated `## Term Validation` section at the foot of this report caught
+> only `HP:0002171`: its name-checking reads the label the report puts in
+> parentheses, and the other four are wrapped in extra prose
+> ("Foot dystonia — if available as a specific term…") that the extractor does
+> not treat as a name claim. So **that section passing is not evidence a
+> suggestion here is safe** — look every CURIE up before binding it.
+>
+> Nothing in `kb/` was bound from these suggestions; the risk this note exists
+> for is the next curator mining the report as a lead.
+>
+> Two further entries in that section are benign and need no action:
+> `MONDO:0971063` "if available" is the template's own boilerplate phrasing, not
+> a naming claim, and the two `GO:` entries differ only by a trailing
+> description the writer appended.
+
 ## Question
 
 # Disease Characteristics Research Template
@@ -676,7 +708,7 @@ No specific environmental toxin, occupational exposure, dietary factor, or infec
 - Markedly decreased homovanillic acid (HVA)
 - Normal or mildly low 5-hydroxyindoleacetic acid (5-HIAA)
 - Reduced tetrahydrobiopterin (BH4) and neopterin
-(direct quote-level finding: "cerebrospinal fluid analysis shows a markedly decreased level of homovanillic acid (HVA), normal or low 5-hydroxyindoleacetic acid (5-HIAA), and reduced tetrahydrobiopterin (BH4), and neopterin" — summarized from GeneReviews/emedicine sources above).
+(NOT A QUOTE — this is the report's own paraphrase, summarized across the GeneReviews and emedicine sources cited above, and no single source states it in these words. Do not use it as an evidence `snippet`: a snippet must be an exact substring of one cited reference, so this pattern would need to be re-derived from a specific source and re-quoted verbatim.)
 
 **Phenylalanine loading test:** An oral phenylalanine challenge (100 mg/kg) with serial (0, 1, 2, 4, 6 hr) measurement of plasma phenylalanine, tyrosine, biopterin, and neopterin. Affected/carrier individuals show higher post-load phenylalanine and phenylalanine:tyrosine ratios and blunted biopterin rise compared to controls; however, sensitivity/specificity have been questioned in more recent studies, and it is now considered supportive rather than definitive ([Neurology 1997](https://www.neurology.org/doi/10.1212/WNL.48.5.1290); [ScienceDirect pitfalls paper](https://www.sciencedirect.com/science/article/abs/pii/S109671921300005X)).
 
@@ -811,3 +843,43 @@ Sources:
 - [Crystal structure of GTPCH1-GFRP complex, PNAS](https://www.pnas.org/doi/10.1073/pnas.022646999)
 - [Allosteric regulation of GTP cyclohydrolase I, PNAS 2020](https://www.pnas.org/doi/10.1073/pnas.2013473117)
 - [GCH1 prevalence in Serbian dystonia-parkinsonism cohort, ScienceDirect](https://www.sciencedirect.com/science/article/abs/pii/S1353802017303462)
+
+## Term Validation
+
+Checked with `linkml-term-validator` 0.4.5, through the `ols:` adapter.
+
+| Outcome | Count |
+| --- | --- |
+| Terms checked | 43 |
+| Resolved | 36 |
+| Unresolved (possible confabulation) | 0 |
+| Obsolete | 0 |
+| Unverifiable | 7 |
+| Terms whose name was checked | 13 |
+| Terms named correctly | 9 |
+| Terms named as a **different** term | 2 |
+| Terms whose name is worth a second look | 2 |
+
+### Terms the report names something else
+
+These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:
+
+- `MONDO:0971063` (2 mentions) - the report calls it "if available"; MONDO calls it **autosomal dominant dopa-responsive dystonia**
+- `HP:0002171` (1 mention) - the report calls it "Babinski sign"; HP calls it **Gliosis**
+
+### Terms whose name is worth a second look
+
+The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a *related* synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:
+
+- `GO:0042416` (3 mentions) - the report calls it "dopamine biosynthetic process, downstream", "dopamine biosynthetic process"; GO calls it **dopamine biosynthetic process**
+- `GO:0004511` (1 mention) - the report calls it "tyrosine 3-monooxygenase/tyrosine hydroxylase activity, downstream affected enzyme"; GO calls it **tyrosine 3-monooxygenase activity**
+
+### Terms named inconsistently
+
+The report gives these identifiers more than one name of its own:
+
+- `GO:0042416` - called "dopamine biosynthetic process, downstream", "dopamine biosynthetic process"
+
+### Prefixes with no resolver
+
+Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: `ORPHA`.

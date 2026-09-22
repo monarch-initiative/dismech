@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4094,6 +4166,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4118,6 +4191,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4139,6 +4213,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4188,6 +4263,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-germline-men1-first-hit-inactivation" data-dismech-node="Germline MEN1 First-Hit Inactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">Germline MEN1 First-Hit Inactivation</div>
+
 
                 <div class="item-desc">A heterozygous loss-of-function variant in MEN1 at 11q13 is present in every nucleated cell of the carrier. MEN1 encodes menin, a nuclear scaffold protein with no similarity to previously characterized proteins, which acts as a tumor suppressor in endocrine tissue. The heterozygous state is compatible with normal endocrine function, so the constitutional lesion is a susceptibility rather than a disease state — what it changes is that every parathyroid, islet, and pituitary cell now sits one event away from complete menin loss.</div>
 
@@ -4286,6 +4362,8 @@ This genetic context concerns MEN1 (hgnc:7010). hgnc:7010 is a gene from the HUG
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4304,6 +4382,9 @@ This genetic context concerns MEN1 (hgnc:7010). hgnc:7010 is a gene from the HUG
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Constitutional heterozygous MEN1 loss of function; frameshift, nonsense, missense and in-frame deletion alleles were all identified in the original mutation-positive families.</div>
 
@@ -4353,6 +4434,7 @@ This genetic context concerns MEN1 (hgnc:7010). hgnc:7010 is a gene from the HUG
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4374,6 +4456,7 @@ This genetic context concerns MEN1 (hgnc:7010). hgnc:7010 is a gene from the HUG
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4399,6 +4482,7 @@ This genetic context concerns MEN1 (hgnc:7010). hgnc:7010 is a gene from the HUG
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-somatic-men1-second-hit-inactivation" data-dismech-node="Somatic MEN1 Second-Hit Inactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">Somatic MEN1 Second-Hit Inactivation</div>
+
 
                 <div class="item-desc">A somatic event removes the retained wild-type MEN1 allele in a single endocrine cell, most often as loss of heterozygosity across the 11q13 region. This was demonstrated for MEN1 a decade before the gene was cloned, by comparing constitutional with tumour genotypes in insulinomas from two brothers who had inherited MEN1 from their mother — the tumours showed unmasking of the recessive mutation at the locus. Because the second hit is stochastic and every cell of the target tissue is equally primed, hits occur independently many times over, which is the direct mechanistic reason MEN1 parathyroid and islet disease is multiglandular and multicentric rather than solitary.</div>
 
@@ -4452,6 +4536,8 @@ This genetic context concerns MEN1 (hgnc:7010). hgnc:7010 is a gene from the HUG
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: SOMATIC</span>
 
 
@@ -4470,6 +4556,9 @@ This genetic context concerns MEN1 (hgnc:7010). hgnc:7010 is a gene from the HUG
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Acquired inactivation of the retained wild-type MEN1 allele in tumor tissue, predominantly by loss of heterozygosity at 11q13.</div>
 
@@ -4519,6 +4608,7 @@ This genetic context concerns MEN1 (hgnc:7010). hgnc:7010 is a gene from the HUG
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4541,6 +4631,7 @@ This genetic context concerns MEN1 (hgnc:7010). hgnc:7010 is a gene from the HUG
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-menin-loss-in-endocrine-tissue" data-dismech-node="Biallelic Menin Loss in Endocrine Tissue" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic Menin Loss in Endocrine Tissue</div>
+
 
                 <div class="item-desc">A parathyroid chief cell, pancreatic islet cell, or anterior pituitary cell now carries no functional MEN1 allele. Menin is a nuclear scaffold with no catalytic activity of its own; the tumor-suppressive function it provides in these lineages is lost as a whole rather than as a single enzymatic step, which is why no one pathway substitutes for it and why the tumors that follow are lineage-defined rather than pathway-defined.</div>
 
@@ -4632,6 +4723,7 @@ This pathophysiological event involves negative regulation of cell population pr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4653,6 +4745,7 @@ This pathophysiological event involves negative regulation of cell population pr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4678,6 +4771,7 @@ This pathophysiological event involves negative regulation of cell population pr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-multicentric-endocrine-tumorigenesis" data-dismech-node="Multicentric Endocrine Tumorigenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Multicentric Endocrine Tumorigenesis</div>
+
 
                 <div class="item-desc">Menin-null cells expand clonally within parathyroid, enteropancreatic and anterior pituitary tissue. Because initiation events are independent, MEN1 parathyroid disease is characteristically an asynchronous multigland process and MEN1 pancreatic neuroendocrine disease is multicentric — a distinction with direct surgical consequence, since resecting one apparently causative lesion leaves the remaining primed tissue behind.</div>
 
@@ -4769,6 +4863,7 @@ This pathophysiological event involves increased cell population proliferation (
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4791,6 +4886,7 @@ This pathophysiological event involves increased cell population proliferation (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-men1-tumor-spectrum-and-reduced-life-expectancy" data-dismech-node="MEN1 Tumor Spectrum and Reduced Life Expectancy" data-dismech-type="pathophysiology">
                 <div class="item-name">MEN1 Tumor Spectrum and Reduced Life Expectancy</div>
+
 
                 <div class="item-desc">The clinical signature: parathyroid, pancreatic islet and anterior pituitary tumors, with carcinoid, adrenocortical, meningeal and cutaneous lesions in a substantial minority. Tumors in MEN1 carriers behave worse than their sporadic counterparts not because the histology differs but because they are multiple, larger, more often metastatic, and less amenable to the operations that cure the solitary sporadic lesion — the direct clinical expression of the two-hit architecture. Life expectancy is reduced accordingly.</div>
 
@@ -4829,6 +4925,7 @@ This pathophysiological event involves increased cell population proliferation (
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4850,6 +4947,7 @@ This pathophysiological event involves increased cell population proliferation (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4917,11 +5015,11 @@ This pathophysiological event involves increased cell population proliferation (
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Metabolism<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Endocrine<span class="pill-count">(4)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Musculoskeletal<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Metabolism<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4930,185 +5028,7 @@ This pathophysiological event involves increased cell population proliferation (
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Metabolism
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hypercalcemia" data-dismech-node="Hypercalcemia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hypercalcemia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003072" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0003072</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hypercalcemia (HP:0003072). HP:0003072 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20301710" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301710" target="_blank">PMID:20301710</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Parathyroid tumors are the most common MEN1-associated endocrinopathy; onset in 90% of individuals is between ages 20 and 25 years with hypercalcemia evident by age 50 years"</div>
-
-
-                <div class="evidence-explanation">GeneReviews Clinical Characteristics section, stating hypercalcaemia directly and giving the age by which it is evident. This replaces the placeholder note left when no cited source stated hypercalcaemia in a quotable sentence; the GeneReviews chapter does.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20301710" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301710" target="_blank">PMID:20301710</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"hypercalcemia causes lethargy, depression, confusion, anorexia, constipation, nausea, vomiting, diuresis, dehydration, hypercalciuria, kidney stones, increased bone resorption/fracture risk, hypertension, and shortened QT interval"</div>
-
-
-                <div class="evidence-explanation">GeneReviews Clinical Characteristics section, giving the systemic consequences of the hypercalcaemia — the clinical burden that makes parathyroid disease worth detecting presymptomatically.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Musculoskeletal
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-multiple-lipomas" data-dismech-node="Multiple Lipomas" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Multiple Lipomas
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001012" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0001012</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Multiple lipomas (HP:0001012). HP:0001012 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:22723327" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22723327" target="_blank">PMID:22723327</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Some patients may also develop carcinoid tumors, adrenocortical tumors, meningiomas, facial angiofibromas, collagenomas, and lipomas."</div>
-
-
-                <div class="evidence-explanation">Lists lipomas among the additional features seen in a subset of patients.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
+                    Endocrine
                     <span class="cat-count">4</span>
                 </summary>
 
@@ -5126,15 +5046,18 @@ This clinical feature is Multiple lipomas (HP:0001012). HP:0001012 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008200" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0008200</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008200" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0008200</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Primary hyperparathyroidism (HP:0008200). HP:0008200 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5154,6 +5077,7 @@ This clinical feature is Primary hyperparathyroidism (HP:0008200). HP:0008200 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5178,6 +5102,7 @@ This clinical feature is Primary hyperparathyroidism (HP:0008200). HP:0008200 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5218,15 +5143,18 @@ This clinical feature is Primary hyperparathyroidism (HP:0008200). HP:0008200 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002897" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0002897</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002897" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0002897</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Parathyroid adenoma (HP:0002897). HP:0002897 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5246,6 +5174,7 @@ This clinical feature is Parathyroid adenoma (HP:0002897). HP:0002897 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5288,15 +5217,18 @@ This clinical feature is Parathyroid adenoma (HP:0002897). HP:0002897 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030405" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0030405</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030405" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0030405</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pancreatic endocrine tumor (HP:0030405). HP:0030405 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5316,6 +5248,7 @@ This clinical feature is Pancreatic endocrine tumor (HP:0030405). HP:0030405 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5356,15 +5289,18 @@ This clinical feature is Pancreatic endocrine tumor (HP:0030405). HP:0030405 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002893" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0002893</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002893" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0002893</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pituitary adenoma (HP:0002893). HP:0002893 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5384,6 +5320,7 @@ This clinical feature is Pituitary adenoma (HP:0002893). HP:0002893 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5411,6 +5348,7 @@ This clinical feature is Pituitary adenoma (HP:0002893). HP:0002893 is a phenoty
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5419,6 +5357,193 @@ This clinical feature is Pituitary adenoma (HP:0002893). HP:0002893 is a phenoty
 
 
                 <div class="evidence-explanation">GeneReviews Clinical Characteristics section, identifying prolactinoma as the commonest pituitary tumor in MEN1 and its sex-specific presentation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Metabolism
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypercalcemia" data-dismech-node="Hypercalcemia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hypercalcemia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003072" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0003072</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypercalcemia (HP:0003072). HP:0003072 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301710" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301710" target="_blank">PMID:20301710</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Parathyroid tumors are the most common MEN1-associated endocrinopathy; onset in 90% of individuals is between ages 20 and 25 years with hypercalcemia evident by age 50 years"</div>
+
+
+                <div class="evidence-explanation">GeneReviews Clinical Characteristics section, stating hypercalcaemia directly and giving the age by which it is evident. This replaces the placeholder note left when no cited source stated hypercalcaemia in a quotable sentence; the GeneReviews chapter does.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301710" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301710" target="_blank">PMID:20301710</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"hypercalcemia causes lethargy, depression, confusion, anorexia, constipation, nausea, vomiting, diuresis, dehydration, hypercalciuria, kidney stones, increased bone resorption/fracture risk, hypertension, and shortened QT interval"</div>
+
+
+                <div class="evidence-explanation">GeneReviews Clinical Characteristics section, giving the systemic consequences of the hypercalcaemia — the clinical burden that makes parathyroid disease worth detecting presymptomatically.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Musculoskeletal
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-multiple-lipomas" data-dismech-node="Multiple Lipomas" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Multiple Lipomas
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001012" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001012</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Multiple lipomas (HP:0001012). HP:0001012 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22723327" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22723327" target="_blank">PMID:22723327</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Some patients may also develop carcinoid tumors, adrenocortical tumors, meningiomas, facial angiofibromas, collagenomas, and lipomas."</div>
+
+
+                <div class="evidence-explanation">Lists lipomas among the additional features seen in a subset of patients.</div>
 
 
 
@@ -5506,6 +5631,9 @@ This disease-associated gene is MEN1 (hgnc:7010). hgnc:7010 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5520,6 +5648,7 @@ This disease-associated gene is MEN1 (hgnc:7010). hgnc:7010 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5602,6 +5731,31 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Because the constitutional allele is present from birth and second hits accumulate over decades, the intervention with the clearest rationale in MEN1 is early identification of carriers followed by biochemical and imaging surveillance, so that tumors are detected before they metastasize.</div>
 
 
@@ -5641,6 +5795,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5704,6 +5859,31 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Management of MEN1 differs from management of the same tumors occurring sporadically, because lesions are multiple and recurrence in retained primed tissue is expected; the guideline therefore recommends care by teams experienced in endocrine tumors.</div>
 
 
@@ -5725,6 +5905,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5788,6 +5969,31 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Surgery for MEN1 hyperparathyroidism is not the single-gland operation used for sporadic disease: because every parathyroid cell carries the first hit and disease is multiglandular, the operation is subtotal parathyroidectomy with cryopreservation, or total parathyroidectomy with autotransplantation. Postoperative hypoparathyroidism is the expected trade-off and must be monitored for. Calcimimetics are the fallback when surgery fails or is contraindicated.</div>
 
 
@@ -5830,6 +6036,7 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5851,6 +6058,7 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5914,6 +6122,31 @@ This treatment is Magnetic Resonance Imaging (NCIT:C16809). NCIT:C16809 is a cli
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Device</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">The concrete protocol behind this entry&#39;s surveillance rationale. Surveillance begins in early childhood — age five for calcium, prolactin and IGF-1 — because tumors initiate whenever a second hit occurs rather than at a set age, and continues across several organ systems on different schedules.</div>
 
 
@@ -5956,6 +6189,7 @@ This treatment is Magnetic Resonance Imaging (NCIT:C16809). NCIT:C16809 is a cli
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5977,6 +6211,7 @@ This treatment is Magnetic Resonance Imaging (NCIT:C16809). NCIT:C16809 is a cli
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6040,6 +6275,31 @@ This treatment is Behavioral Counseling (NCIT:C181743). NCIT:C181743 is a clinic
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">An agents-to-avoid recommendation with a specific target: smoking increases carcinoid risk, and thymectomy may prevent thymic carcinoid in males, particularly smokers. Thymic carcinoid is one of the two leading causes of MEN1-specific death, which is what makes a preventive thymectomy discussable at all.</div>
 
 
@@ -6064,6 +6324,7 @@ This treatment is Behavioral Counseling (NCIT:C181743). NCIT:C181743 is a clinic
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6085,6 +6346,7 @@ This treatment is Behavioral Counseling (NCIT:C181743). NCIT:C181743 is a clinic
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6195,6 +6457,7 @@ This treatment is Behavioral Counseling (NCIT:C181743). NCIT:C181743 is a clinic
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6284,6 +6547,7 @@ This treatment is Behavioral Counseling (NCIT:C181743). NCIT:C181743 is a clinic
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6305,6 +6569,7 @@ This treatment is Behavioral Counseling (NCIT:C181743). NCIT:C181743 is a clinic
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6422,6 +6687,7 @@ This clinical trial targets Pancreatic neuroendocrine tumor, annotated with Panc
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 

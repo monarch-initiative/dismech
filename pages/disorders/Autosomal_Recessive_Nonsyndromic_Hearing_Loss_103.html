@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4102,6 +4174,7 @@ There is now a proof of concept for treatment. Inner ear delivery of wild-type C
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4123,6 +4196,7 @@ There is now a proof of concept for treatment. Inner ear delivery of wild-type C
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4328,6 +4402,7 @@ There is a second, more specific worry inside the same result. Vestibular rescue
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4352,6 +4427,7 @@ There is a second, more specific worry inside the same result. Vestibular rescue
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4373,6 +4449,7 @@ There is a second, more specific worry inside the same result. Vestibular rescue
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4459,6 +4536,7 @@ What is missing is measurement. Neither the Cameroonian family nor the 22 Siberi
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4483,6 +4561,7 @@ What is missing is measurement. Neither the Cameroonian family nor the 22 Siberi
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4504,6 +4583,7 @@ What is missing is measurement. Neither the Cameroonian family nor the 22 Siberi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4541,6 +4621,7 @@ What is missing is measurement. Neither the Cameroonian family nor the 22 Siberi
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-clic5-loss-of-function" data-dismech-node="CLIC5 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">CLIC5 Loss of Function</div>
+
 
                 <div class="item-desc">Biallelic CLIC5 alleles that abolish or cripple the protein. The reported human spectrum is a nonsense variant p.Cys32Ter in the founding Turkish family, a compound heterozygous pair in the Cameroonian family consisting of a missense p.L75P and a canonical donor splice-site variant, and a founder nonsense variant p.Trp215Ter in Eastern Siberia. Even the one missense allele behaves as a loss of function in cells: expressed CLIC5A p.L75P forms perinuclear aggregates instead of distributing evenly in the cytoplasm, and fails to produce the thin filopodia-like membrane protrusions the wild-type protein induces.</div>
 
@@ -4635,6 +4716,7 @@ This pathophysiological event involves CLIC5 (hgnc:13517). hgnc:13517 is a gene 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4656,6 +4738,7 @@ This pathophysiological event involves CLIC5 (hgnc:13517). hgnc:13517 is a gene 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4683,6 +4766,7 @@ This pathophysiological event involves CLIC5 (hgnc:13517). hgnc:13517 is a gene 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4707,6 +4791,7 @@ This pathophysiological event involves CLIC5 (hgnc:13517). hgnc:13517 is a gene 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-membrane-actin-tethering-at-the-stereocilia-taper" data-dismech-node="Loss of Membrane-Actin Tethering at the Stereocilia Taper" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Membrane-Actin Tethering at the Stereocilia Taper</div>
+
 
                 <div class="item-desc">CLIC5 concentrates at the base of hair cell stereocilia, in the taper region, and not at the tips. Mass spectrometry of chicken utricle stereocilia puts it there at roughly a one-to-one molar ratio with radixin, and biochemical assays show it interacts with ezrin-radixin-moesin proteins, with taperin and possibly with myosin VI. The proposed job of the complex is to hold the plasma membrane against the underlying actin core at the point where the stereocilium narrows.
 In CLIC5-deficient mice, radixin immunostaining at the bundle is reduced, and radixin, taperin and PTPRQ are all mislocalised in fused stereocilia. The timing is what makes this the primary lesion rather than a byproduct: PTPRQ and radixin are already dispersed before any fusion is visible. The dependency also runs the other way, since CLIC5 and radixin fail to localise properly in myosin VI mutant mice, so the complex is mutually stabilising rather than hierarchical.</div>
@@ -4932,6 +5017,7 @@ This pathophysiological event involves decreased actin filament binding (GO:0051
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4953,6 +5039,7 @@ This pathophysiological event involves decreased actin filament binding (GO:0051
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4980,6 +5067,7 @@ This pathophysiological event involves decreased actin filament binding (GO:0051
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5004,6 +5092,7 @@ This pathophysiological event involves decreased actin filament binding (GO:0051
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-stereocilia-fusion-and-bundle-distortion" data-dismech-node="Progressive Stereocilia Fusion and Bundle Distortion" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Stereocilia Fusion and Bundle Distortion</div>
+
 
                 <div class="item-desc">The structural failure. Without the taper tether, adjacent stereocilia fuse. In the cochlea the fusion affects inner hair cells across all regions and outer hair cells most severely at the apex.
 The reported onset differs between the two mouse lines and they should not be read as one time course. In the jitterbug line, which carries an exon-skipping frameshift, fusion is described from postnatal day 10 onwards. In the Clic5-null line used for the gene therapy work, no cochlear abnormality is detectable at day 14 and the defects are established by day 17, with the vestibular change running slightly ahead - elongated utricular bundles from day 15, thickened by day 17. Both agree that the lesion has a defined postnatal onset rather than being present from birth, which is the structural counterpart of the postlingual, progressive human course; the P14-to-P17 window used by the therapeutic-window discussion and by the AAV model limitations is the null line&#39;s, not the jitterbug line&#39;s.</div>
@@ -5242,6 +5331,7 @@ This pathophysiological event involves decreased vestibular receptor cell stereo
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5263,6 +5353,7 @@ This pathophysiological event involves decreased vestibular receptor cell stereo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5290,6 +5381,7 @@ This pathophysiological event involves decreased vestibular receptor cell stereo
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5312,6 +5404,7 @@ This pathophysiological event involves decreased vestibular receptor cell stereo
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-hair-cell-degeneration" data-dismech-node="Progressive Hair Cell Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Hair Cell Degeneration</div>
+
 
                 <div class="item-desc">Hair cells are lost after the bundles fail. The founding mouse description reports dysmorphic stereocilia together with progressive hair cell degeneration, and the vestibular hair cell count in Clic5-null mice is reduced by 12 weeks. Because degeneration follows rather than accompanies the structural lesion, there is a period in which cells are still present with damaged bundles, and that interval is where the gene therapy result sits.</div>
 
@@ -5453,6 +5546,7 @@ This pathophysiological event involves vestibular hair cell (CL:0000609). CL:000
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5474,6 +5568,7 @@ This pathophysiological event involves vestibular hair cell (CL:0000609). CL:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5570,6 +5665,9 @@ This clinical feature is Progressive sensorineural hearing impairment (HP:000040
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -5584,6 +5682,7 @@ This clinical feature is Progressive sensorineural hearing impairment (HP:000040
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5611,6 +5710,7 @@ This clinical feature is Progressive sensorineural hearing impairment (HP:000040
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5632,6 +5732,7 @@ This clinical feature is Progressive sensorineural hearing impairment (HP:000040
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5685,6 +5786,9 @@ This clinical feature is Bilateral sensorineural hearing impairment (HP:0008619)
                 </div>
 
 
+
+
+
                 <div class="item-desc">VERY_FREQUENT rather than OBLIGATE because no reported series states laterality for every patient - the Turkish founding family&#39;s cached abstract does not say - so what is established is that no unilateral case has been described, not that none exists.</div>
 
 
@@ -5704,6 +5808,7 @@ This clinical feature is Bilateral sensorineural hearing impairment (HP:0008619)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5728,6 +5833,7 @@ This clinical feature is Bilateral sensorineural hearing impairment (HP:0008619)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5781,6 +5887,9 @@ This clinical feature is High-frequency sensorineural hearing impairment (HP:000
                 </div>
 
 
+
+
+
                 <div class="item-desc">Bound to HP:0001757 for the high-frequency component. The mid-frequency involvement reported alongside it is carried in the description rather than by a second binding, because the source describes one downsloping audiogram shape rather than two separable findings.</div>
 
 
@@ -5800,6 +5909,7 @@ This clinical feature is High-frequency sensorineural hearing impairment (HP:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5856,6 +5966,9 @@ This clinical feature is Postlingual sensorineural hearing impairment (HP:000859
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -5870,6 +5983,7 @@ This clinical feature is Postlingual sensorineural hearing impairment (HP:000859
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5897,6 +6011,7 @@ This clinical feature is Postlingual sensorineural hearing impairment (HP:000859
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5918,6 +6033,7 @@ This clinical feature is Postlingual sensorineural hearing impairment (HP:000859
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5974,6 +6090,9 @@ This clinical feature is Vestibular areflexia (HP:0008568). HP:0008568 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5988,6 +6107,7 @@ This clinical feature is Vestibular areflexia (HP:0008568). HP:0008568 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6012,6 +6132,7 @@ This clinical feature is Vestibular areflexia (HP:0008568). HP:0008568 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6084,6 +6205,9 @@ This disease-associated gene is CLIC5 (hgnc:13517). hgnc:13517 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (5 references)
@@ -6098,6 +6222,7 @@ This disease-associated gene is CLIC5 (hgnc:13517). hgnc:13517 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6125,6 +6250,7 @@ This disease-associated gene is CLIC5 (hgnc:13517). hgnc:13517 is a gene from th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6146,6 +6272,7 @@ This disease-associated gene is CLIC5 (hgnc:13517). hgnc:13517 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6231,6 +6358,7 @@ This disease-associated gene is CLIC5 (hgnc:13517). hgnc:13517 is a gene from th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6305,6 +6433,31 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Counselling for a recessive condition with a 25 percent sibling recurrence risk, and scheduled follow-up rather than a single assessment. Surveillance is the substantive part here: hearing is not congenitally impaired, newborn screening can be passed, and the loss then declines by several decibels per year, so a normal early audiogram is not a discharge. Vestibular testing is worth including because areflexia develops later than the hearing loss and is often asymptomatic.</div>
 
 
@@ -6329,6 +6482,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6350,6 +6504,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6425,6 +6580,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6446,6 +6602,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6516,6 +6673,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6568,6 +6726,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6617,6 +6776,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6693,6 +6853,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6752,6 +6913,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6773,6 +6935,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6829,6 +6992,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6879,6 +7043,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7093,6 +7258,7 @@ This experimental model concerns CLIC5 (hgnc:13517). hgnc:13517 is a gene from t
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7152,6 +7318,7 @@ This experimental model concerns CLIC5 (hgnc:13517). hgnc:13517 is a gene from t
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7191,6 +7358,7 @@ This experimental model concerns CLIC5 (hgnc:13517). hgnc:13517 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7270,6 +7438,7 @@ This experimental model concerns CLIC5 (hgnc:13517). hgnc:13517 is a gene from t
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7309,6 +7478,7 @@ This experimental model concerns CLIC5 (hgnc:13517). hgnc:13517 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7356,6 +7526,7 @@ This experimental model concerns CLIC5 (hgnc:13517). hgnc:13517 is a gene from t
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7377,6 +7548,7 @@ This experimental model concerns CLIC5 (hgnc:13517). hgnc:13517 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7554,6 +7726,7 @@ This experimental model concerns CLIC5 (hgnc:13517). hgnc:13517 is a gene from t
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7613,6 +7786,7 @@ This experimental model concerns CLIC5 (hgnc:13517). hgnc:13517 is a gene from t
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7652,6 +7826,7 @@ This experimental model concerns CLIC5 (hgnc:13517). hgnc:13517 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7731,6 +7906,7 @@ This experimental model concerns CLIC5 (hgnc:13517). hgnc:13517 is a gene from t
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7770,6 +7946,7 @@ This experimental model concerns CLIC5 (hgnc:13517). hgnc:13517 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7817,6 +7994,7 @@ This experimental model concerns CLIC5 (hgnc:13517). hgnc:13517 is a gene from t
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7838,6 +8016,7 @@ This experimental model concerns CLIC5 (hgnc:13517). hgnc:13517 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9052,6 +9231,31 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Autosomal Recessive Nonsyndromic Hearing Loss 103 (DFNB103, CLIC5)</strong> · 2026-08-28T19:10:23Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Autosomal_Recessive_Nonsyndromic_Hearing_Loss_103/2026-08-28T191023Z-claude-code-8a059e.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of DFNB103 (MONDO:0014469, CLIC5 hgnc:13517) from the stub queue. entry_type decided as DISEASE: one causal gene, no MONDO descendants, one pathograph from biallelic CLIC5 loss through failure of the stereocilia taper membrane-actin tether to progressive fusion, hair cell degeneration and postlingual progressive hearing loss with vestibular involvement. Nothing in kb/ previously mentioned CLIC5.
+
+Mechanistic point of the entry: CLIC5 is a chloride intracellular channel family member that acts as a membrane-cytoskeletal adaptor at the base of the stereocilium rather than as an ion channel, in near 1:1 stoichiometry with radixin and in complex with taperin, PTPRQ and myosin VI. Losing a base-of-bundle tether gives a different phenotype from losing a tip protein, and the mouse shows it as progressive stereocilia fusion from P10 with partner mislocalisation preceding the fusion, which is the timing evidence that makes the complex disassembly upstream rather than consequent.
+
+The jitterbug mouse is curated in animal_models with modeled_mechanisms (not experimental_models), with two links (taper tethering, RECAPITULATES HIGH; stereocilia fusion, RECAPITULATES HIGH) and readouts for radixin staining and partner localisation. The 2025 AAV gene-replacement study is curated as a second animal model with a RESCUES link, and its limitations state plainly that treatment was given at P0 before the lesion begins between P14 and P17, so it demonstrates prevention rather than reversal. A HUMAN_MODEL_MISMATCH discussion carries that timing problem against a human disease detected at a mean age of about 8 years, and also records the unexplained divergence in that study between durable vestibular rescue and auditory thresholds that deteriorated despite robust transgene expression and unchanged hair cell morphology.
+
+A second KNOWLEDGE_GAP preserves the founding authors&#39; hedge about mild renal dysfunction in one patient. Later descriptions call DFNB103 nonsyndromic without qualification; CLIC5 has an established role in glomerular podocyte maintenance, so the observation points at a mechanism rather than being a chance finding, and the Siberian founder cohort is now large enough to settle it.
+
+Evidence: 8 references cited, all fetched with just fetch-reference; 56/56 snippets verified against the local cache. One near-miss caught during curation and fixed: an initial evidence item for PMID:22889583 quoted a paraphrase of the paper title rather than a real substring; the reference validator caught it and it was replaced with a verified sentence from the abstract. Prevalence records the Siberian founder yield (9.9 percent of GJB2-negative patients) as CARRIER_FREQUENCY with a note that it is a diagnostic yield in an ascertained, GJB2-excluded series and does not generalise.
+
+Deep research: falcon report run and preflighted against MONDO:0014469, verdict PASS (CLIC5=36 mentions, next gene at 8). Entry curated from primary sources regardless.
+
+Validation: just validate exit 0, just validate-terms exit 0, just validate-disorders exit 0, just check-entity-refs exit 0, just check-duplicate-keys exit 0, and check-folded-hyphens, check-snippet-length, check-title-snippets, check-snippet-grading, check-environmental-evidence all exit 0.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3761,6 +3826,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -4027,6 +4099,122 @@
         <!-- Classifications -->
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
+                <h2 class="card-title">Classifications</h2>
+            </div>
+
+
+
+
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification">GENETICS ENVIRONMENT DISEASE</span>
+
+                </div>
+
+            </div>
+
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">IUIS Category</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="IUIS 2022 Table 2 (combined immunodeficiencies with associated or syndromic features), sub-section 9, Other Defects; the FAT4 (autosomal recessive) row within the &#34;Hennekam-lymphangiectasia-lymphedema syndrome&#34; row group, immediately following the CCBE1 row. The row records low/variable T and B cells with decreased immunoglobulins alongside the lymphangiectasia, lymphedema, and dysmorphic features.">combined immunodeficiency with syndromic features</span>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+
         <!-- Mappings -->
 
 
@@ -4092,6 +4280,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4138,6 +4327,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fat4-loss-of-function" data-dismech-node="FAT4 loss of function" data-dismech-type="pathophysiology">
                 <div class="item-name">FAT4 loss of function</div>
+
 
                 <div class="item-desc">Biallelic loss-of-function mutations in FAT4, a giant atypical protocadherin, disrupt Dachsous1-FAT4 planar cell polarity signaling (with context-dependent Hippo-pathway involvement) required for normal lymphatic development.</div>
 
@@ -4234,6 +4424,7 @@ This pathophysiological event involves FAT4 (hgnc:23109). hgnc:23109 is a gene f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4255,6 +4446,7 @@ This pathophysiological event involves FAT4 (hgnc:23109). hgnc:23109 is a gene f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4280,6 +4472,7 @@ This pathophysiological event involves FAT4 (hgnc:23109). hgnc:23109 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-lymphatic-valve-morphogenesis" data-dismech-node="Impaired lymphatic valve morphogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired lymphatic valve morphogenesis</div>
+
 
                 <div class="item-desc">Disrupted FAT4-dependent planar cell polarity leaves lymphatic valve endothelial cells disoriented and unable to form proper valve leaflets, impairing lymphatic drainage.</div>
 
@@ -4444,6 +4637,7 @@ This pathophysiological event involves establishment of planar polarity (GO:0001
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4465,6 +4659,7 @@ This pathophysiological event involves establishment of planar polarity (GO:0001
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4490,6 +4685,7 @@ This pathophysiological event involves establishment of planar polarity (GO:0001
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-generalized-lymphatic-dysplasia" data-dismech-node="Generalized lymphatic dysplasia" data-dismech-type="pathophysiology">
                 <div class="item-name">Generalized lymphatic dysplasia</div>
+
 
                 <div class="item-desc">Lymphatic dysfunction impairs lymph drainage and underlies the intestinal lymphangiectasia and lymphedema of the syndrome.</div>
 
@@ -4585,6 +4781,7 @@ This pathophysiological event involves lymphatic endothelial cell, annotated wit
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4607,6 +4804,7 @@ This pathophysiological event involves lymphatic endothelial cell, annotated wit
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-intestinal-lymphangiectasia" data-dismech-node="Intestinal lymphangiectasia" data-dismech-type="pathophysiology">
                 <div class="item-name">Intestinal lymphangiectasia</div>
+
 
                 <div class="item-desc">Dilated intestinal lymphatics leak protein-rich lymph into the gut, producing protein-losing enteropathy with hypoalbuminemia, hypogammaglobulinemia, and lymphopenia.</div>
 
@@ -4660,6 +4858,7 @@ This pathophysiological event involves lymphatic endothelial cell, annotated wit
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4682,6 +4881,7 @@ This pathophysiological event involves lymphatic endothelial cell, annotated wit
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-protein-losing-enteropathy" data-dismech-node="Protein-losing enteropathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Protein-losing enteropathy</div>
+
 
                 <div class="item-desc">Protein-rich lymph lost into the gut lumen produces protein-losing enteropathy, depleting serum albumin, immunoglobulins, and lymphocytes.</div>
 
@@ -4751,6 +4951,7 @@ This pathophysiological event involves lymphatic endothelial cell, annotated wit
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4796,7 +4997,7 @@ This pathophysiological event involves lymphatic endothelial cell, annotated wit
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Decreased circulating immunoglobulin concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Loss of lymph into the gut depletes serum immunoglobulins (hypogammaglobulinemia).\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004313\"}}, {\"id\": \"FAT4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"FAT4\"], \"gene_terms\": [{\"label\": \"FAT4\", \"id\": \"hgnc:23109\"}], \"association\": \"Causal biallelic loss-of-function variant\"}}, {\"id\": \"FAT4 loss of function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic loss-of-function mutations in FAT4, a giant atypical protocadherin, disrupt Dachsous1-FAT4 planar cell polarity signaling (with context-dependent Hippo-pathway involvement) required for normal lymphatic development.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"FAT4\"], \"gene_terms\": [{\"label\": \"FAT4\", \"id\": \"hgnc:23109\"}]}}, {\"id\": \"Generalized lymphatic dysplasia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Lymphatic dysfunction impairs lymph drainage and underlies the intestinal lymphangiectasia and lymphedema of the syndrome.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"lymphatic endothelial cell\"]}}, {\"id\": \"Hypoalbuminemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Enteric protein loss lowers serum albumin.\", \"meta\": {\"term_id\": \"HP:0003073\"}}, {\"id\": \"Impaired lymphatic valve morphogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disrupted FAT4-dependent planar cell polarity leaves lymphatic valve endothelial cells disoriented and unable to form proper valve leaflets, impairing lymphatic drainage.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"lymphatic endothelial cell\"], \"biological_processes\": [\"establishment of planar polarity\"], \"genes\": [\"DCHS1\"], \"gene_terms\": [{\"label\": \"DCHS1\", \"id\": \"hgnc:13681\"}]}}, {\"id\": \"Intestinal lymphangiectasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dilated intestinal lymphatic vessels cause protein-losing enteropathy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002593\"}}, {\"id\": \"Lymphedema\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lymphedema, distinguishing Hennekam syndrome from Van Maldergem syndrome, is a core feature; it affects the limbs, genitalia, and face. In the FAT4-related form, lymphedema is often reported to begin later in childhood, in contrast to the frequently congenital lymphedema of the CCBE1-related form, although this distinction is based on limited published cases.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001004\"}}, {\"id\": \"Lymphopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Loss of lymph into the gut depletes circulating lymphocytes.\", \"meta\": {\"term_id\": \"HP:0001888\"}}, {\"id\": \"Protein-losing enteropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Enteric protein loss from intestinal lymphangiectasia is a hallmark complication.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002243\"}}], \"edges\": [{\"source\": \"FAT4 loss of function\", \"target\": \"Impaired lymphatic valve morphogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"FAT4, with its ligand Dachsous1, controls planar cell polarity of valve endothelial cells; loss disrupts lymphatic valve leaflet formation.\"}, {\"source\": \"Impaired lymphatic valve morphogenesis\", \"target\": \"Generalized lymphatic dysplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Defective lymphatic valve morphogenesis and drainage produce dysfunctional lymphatics.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Generalized lymphatic dysplasia\", \"target\": \"Intestinal lymphangiectasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysplastic intestinal lymphatics dilate and leak lymph into the gut lumen.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Generalized lymphatic dysplasia\", \"target\": \"Lymphedema\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired lymphatic drainage in the limbs, genitalia, and face causes lymphedema.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intestinal lymphangiectasia\", \"target\": \"Protein-losing enteropathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Enteric loss of lymph depletes serum albumin and immunoglobulins.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Protein-losing enteropathy\", \"target\": \"Hypoalbuminemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Enteric protein loss lowers serum albumin.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Protein-losing enteropathy\", \"target\": \"Decreased circulating immunoglobulin concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Enteric loss of lymph depletes serum immunoglobulins.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Protein-losing enteropathy\", \"target\": \"Lymphopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Enteric loss of lymph depletes circulating lymphocytes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"FAT4\", \"target\": \"FAT4 loss of function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Decreased circulating immunoglobulin concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Loss of lymph into the gut depletes serum immunoglobulins (hypogammaglobulinemia). This is a secondary, loss-driven antibody deficiency rather than a defect of B-cell development, which is the distinction that matters when this entry is read alongside the primary immunodeficiencies.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0004313\"}}, {\"id\": \"FAT4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"FAT4\"], \"gene_terms\": [{\"label\": \"FAT4\", \"id\": \"hgnc:23109\"}], \"association\": \"Causal biallelic loss-of-function variant\"}}, {\"id\": \"FAT4 loss of function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic loss-of-function mutations in FAT4, a giant atypical protocadherin, disrupt Dachsous1-FAT4 planar cell polarity signaling (with context-dependent Hippo-pathway involvement) required for normal lymphatic development.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"FAT4\"], \"gene_terms\": [{\"label\": \"FAT4\", \"id\": \"hgnc:23109\"}]}}, {\"id\": \"Generalized lymphatic dysplasia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Lymphatic dysfunction impairs lymph drainage and underlies the intestinal lymphangiectasia and lymphedema of the syndrome.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"lymphatic endothelial cell\"]}}, {\"id\": \"Hypoalbuminemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Enteric protein loss lowers serum albumin, contributing an oncotic component to the edema on top of the lymphatic drainage failure.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003073\"}}, {\"id\": \"Impaired lymphatic valve morphogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disrupted FAT4-dependent planar cell polarity leaves lymphatic valve endothelial cells disoriented and unable to form proper valve leaflets, impairing lymphatic drainage.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"lymphatic endothelial cell\"], \"biological_processes\": [\"establishment of planar polarity\"], \"genes\": [\"DCHS1\"], \"gene_terms\": [{\"label\": \"DCHS1\", \"id\": \"hgnc:13681\"}]}}, {\"id\": \"Intestinal lymphangiectasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dilated intestinal lymphatic vessels cause protein-losing enteropathy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002593\"}}, {\"id\": \"Lymphedema\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lymphedema, distinguishing Hennekam syndrome from Van Maldergem syndrome, is a core feature; it affects the limbs, genitalia, and face. In the FAT4-related form, lymphedema is often reported to begin later in childhood, in contrast to the frequently congenital lymphedema of the CCBE1-related form, although this distinction is based on limited published cases.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001004\"}}, {\"id\": \"Lymphopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Loss of lymph into the gut depletes circulating lymphocytes. As in the CCBE1-related form, the laboratory abnormality overstates the clinical consequence: in intestinal lymphangiectasia, moderate-to-severe lymphopenia and hypogammaglobulinemia coexist with a pyogenic bacterial infection risk that is not significantly elevated, and opportunistic infection is uncommon. This is a quantitative loss of cells and protein into the gut, not a functional immunodeficiency.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001888\"}}, {\"id\": \"Protein-losing enteropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Enteric protein loss from intestinal lymphangiectasia is a hallmark complication.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002243\"}}], \"edges\": [{\"source\": \"FAT4 loss of function\", \"target\": \"Impaired lymphatic valve morphogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"FAT4, with its ligand Dachsous1, controls planar cell polarity of valve endothelial cells; loss disrupts lymphatic valve leaflet formation.\"}, {\"source\": \"Impaired lymphatic valve morphogenesis\", \"target\": \"Generalized lymphatic dysplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Defective lymphatic valve morphogenesis and drainage produce dysfunctional lymphatics.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Generalized lymphatic dysplasia\", \"target\": \"Intestinal lymphangiectasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysplastic intestinal lymphatics dilate and leak lymph into the gut lumen.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Generalized lymphatic dysplasia\", \"target\": \"Lymphedema\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired lymphatic drainage in the limbs, genitalia, and face causes lymphedema.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intestinal lymphangiectasia\", \"target\": \"Protein-losing enteropathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Enteric loss of lymph depletes serum albumin and immunoglobulins.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Protein-losing enteropathy\", \"target\": \"Hypoalbuminemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Enteric protein loss lowers serum albumin.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Protein-losing enteropathy\", \"target\": \"Decreased circulating immunoglobulin concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Enteric loss of lymph depletes serum immunoglobulins.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Protein-losing enteropathy\", \"target\": \"Lymphopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Enteric loss of lymph depletes circulating lymphocytes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"FAT4\", \"target\": \"FAT4 loss of function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4817,19 +5018,21 @@ This pathophysiological event involves lymphatic endothelial cell, annotated wit
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Eye<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Digestive<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Head and Neck<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Ear<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Metabolism<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Eye<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Nervous System<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Head and Neck<span class="pill-count">(4)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Metabolism<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Other<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Nervous System<span class="pill-count">(2)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Growth<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4870,9 +5073,12 @@ This clinical feature is Hypogammaglobulinemia, annotated with Decreased circula
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -4887,6 +5093,7 @@ This clinical feature is Hypogammaglobulinemia, annotated with Decreased circula
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4895,6 +5102,33 @@ This clinical feature is Hypogammaglobulinemia, annotated with Decreased circula
 
 
                 <div class="evidence-explanation">Enteric protein loss in Hennekam syndrome produces hypogammaglobulinemia.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18294365" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18294365" target="_blank">PMID:18294365</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"responsible for protein-losing enteropathy leading to lymphopenia, hypoalbuminemia and hypogammaglobulinemia"</div>
+
+
+                <div class="evidence-explanation">Corroborates hypogammaglobulinemia as a consequence of lymph loss in intestinal lymphangiectasia generally. Cited for the shared mechanism, not as HKLLS2-specific data.</div>
 
 
 
@@ -4943,12 +5177,160 @@ This clinical feature is Lymphopenia, annotated with Decreased total lymphocyte 
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18294365" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18294365" target="_blank">PMID:18294365</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"responsible for protein-losing enteropathy leading to lymphopenia, hypoalbuminemia and hypogammaglobulinemia"</div>
+
+
+                <div class="evidence-explanation">Establishes lymphopenia as a consequence of lymph loss in intestinal lymphangiectasia. Cited for the shared downstream mechanism rather than as HKLLS2-specific cohort data.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18294365" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18294365" target="_blank">PMID:18294365</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"their risk of pyogenic bacterial infection is not significantly elevated"</div>
+
+
+                <div class="evidence-explanation">The basis for the caution in the description. Recorded because an entry listing lymphopenia and hypogammaglobulinemia without it would imply an infection risk the literature does not support.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
 
                 </div>
 
             </details>
 
             <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Cardiovascular
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-intestinal-lymphangiectasia" data-dismech-node="Intestinal lymphangiectasia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Intestinal lymphangiectasia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002593" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0002593</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Intestinal lymphangiectasia (HP:0002593). HP:0002593 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:2624276" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/2624276" target="_blank">PMID:2624276</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We report on two male and two female relatives with intestinal lymphangiectasia; severe lymphedema of limbs, genitalia, and face; facial anomalies; seizures; mild growth retardation; and moderate mental retardation."</div>
+
+
+                <div class="evidence-explanation">Documents intestinal lymphangiectasia in the original Hennekam family, later shown to carry biallelic FAT4 mutations (PMID:24913602).</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Digestive
@@ -4969,15 +5351,18 @@ This clinical feature is Lymphopenia, annotated with Decreased total lymphocyte 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002243" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0002243</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002243" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0002243</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Protein-losing enteropathy (HP:0002243). HP:0002243 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -4997,6 +5382,7 @@ This clinical feature is Protein-losing enteropathy (HP:0002243). HP:0002243 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5025,7 +5411,88 @@ This clinical feature is Protein-losing enteropathy (HP:0002243). HP:0002243 is 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-3">
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Ear
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormality-of-the-ear" data-dismech-node="Abnormality of the ear" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Abnormality of the ear
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000598" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0000598</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ear defects, annotated with Abnormality of the ear (HP:0000598). HP:0000598 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:2624276" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/2624276" target="_blank">PMID:2624276</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Main facial anomalies are a flat face, flat nasal bridge, hypertelorism, small mouth, tooth anomalies, and ear defects."</div>
+
+
+                <div class="evidence-explanation">Documents ear defects in the original Hennekam family, later shown to carry biallelic FAT4 mutations (PMID:24913602).</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
@@ -5046,15 +5513,18 @@ This clinical feature is Protein-losing enteropathy (HP:0002243). HP:0002243 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0000316</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0000316</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5074,6 +5544,7 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5102,7 +5573,7 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
@@ -5123,15 +5594,18 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012368" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0012368</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012368" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0012368</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Flat face (HP:0012368). HP:0012368 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5151,6 +5625,7 @@ This clinical feature is Flat face (HP:0012368). HP:0012368 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5191,15 +5666,18 @@ This clinical feature is Flat face (HP:0012368). HP:0012368 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005280" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0005280</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005280" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0005280</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Flat nasal bridge, annotated with Depressed nasal bridge (HP:0005280). HP:0005280 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5219,6 +5697,7 @@ This clinical feature is Flat nasal bridge, annotated with Depressed nasal bridg
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5259,15 +5738,18 @@ This clinical feature is Flat nasal bridge, annotated with Depressed nasal bridg
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000160" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000160</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000160" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000160</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Small mouth, annotated with Narrow mouth (HP:0000160). HP:0000160 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5287,6 +5769,7 @@ This clinical feature is Small mouth, annotated with Narrow mouth (HP:0000160). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5327,15 +5810,18 @@ This clinical feature is Small mouth, annotated with Narrow mouth (HP:0000160). 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006482" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0006482</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006482" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0006482</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Tooth anomalies, annotated with Abnormal dental morphology (HP:0006482). HP:0006482 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5355,6 +5841,7 @@ This clinical feature is Tooth anomalies, annotated with Abnormal dental morphol
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5383,7 +5870,7 @@ This clinical feature is Tooth anomalies, annotated with Abnormal dental morphol
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-5">
+            <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
@@ -5404,10 +5891,10 @@ This clinical feature is Tooth anomalies, annotated with Abnormal dental morphol
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001004" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001004</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001004" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001004</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Lymphedema (HP:0001004), qualified as temporality chronic. HP:0001004 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5436,6 +5923,9 @@ This clinical feature is Lymphedema (HP:0001004), qualified as temporality chron
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5450,6 +5940,7 @@ This clinical feature is Lymphedema (HP:0001004), qualified as temporality chron
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5474,6 +5965,7 @@ This clinical feature is Lymphedema (HP:0001004), qualified as temporality chron
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5514,10 +6006,10 @@ This clinical feature is Lymphedema (HP:0001004), qualified as temporality chron
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003073" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0003073</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003073" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0003073</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypoalbuminemia (HP:0003073). HP:0003073 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5531,12 +6023,52 @@ This clinical feature is Hypoalbuminemia (HP:0003073). HP:0003073 is a phenotype
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18294365" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18294365" target="_blank">PMID:18294365</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"responsible for protein-losing enteropathy leading to lymphopenia, hypoalbuminemia and hypogammaglobulinemia"</div>
+
+
+                <div class="evidence-explanation">Establishes hypoalbuminemia as a consequence of the protein-losing enteropathy caused by intestinal lymphangiectasia. This source describes primary (Waldmann) intestinal lymphangiectasia rather than FAT4-related Hennekam syndrome, and is cited for the shared downstream consequence of dilated intestinal lacteals, not as HKLLS2-specific data.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
 
                 </div>
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-6">
+            <details class="phenotype-category-group" id="pheno-cat-8">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
@@ -5557,15 +6089,18 @@ This clinical feature is Hypoalbuminemia (HP:0003073). HP:0003073 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001249</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5585,6 +6120,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5615,6 +6151,8 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                     <div class="item-name">
                         Seizure
 
+                        <span class="phenotype-freq">FREQUENT</span>
+
 
 
 
@@ -5625,10 +6163,10 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Seizures, annotated with Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5639,11 +6177,39 @@ This clinical feature is Seizures, annotated with Seizure (HP:0001250). HP:00012
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29560340" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29560340" target="_blank">PMID:29560340</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"About 33% of cases of Hennekam syndrome patients have seizures, varying from absences to tonic or atonic attacks"</div>
+
+
+                <div class="evidence-explanation">Quantifies seizures at about 33% of Hennekam syndrome patients (FREQUENT band, 30-79%) and gives the semiology. The figure is for Hennekam syndrome across molecular subtypes, not for FAT4-related disease specifically.</div>
+
+
+
+            </div>
 
             <div class="evidence-item" data-dismech-evidence="PMID:2624276" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
@@ -5653,6 +6219,7 @@ This clinical feature is Seizures, annotated with Seizure (HP:0001250). HP:00012
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5681,7 +6248,7 @@ This clinical feature is Seizures, annotated with Seizure (HP:0001250). HP:00012
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-7">
+            <details class="phenotype-category-group" id="pheno-cat-9">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Growth
@@ -5702,15 +6269,18 @@ This clinical feature is Seizures, annotated with Seizure (HP:0001250). HP:00012
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001510</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001510</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Growth retardation, annotated with Growth delay (HP:0001510). HP:0001510 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5730,6 +6300,7 @@ This clinical feature is Growth retardation, annotated with Growth delay (HP:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5741,151 +6312,6 @@ This clinical feature is Growth retardation, annotated with Growth delay (HP:000
 
 
                 <div class="evidence-explanation">Mild growth retardation was documented in the original Hennekam family, which was later shown to carry biallelic FAT4 mutations (PMID:24913602).</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-8">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-intestinal-lymphangiectasia" data-dismech-node="Intestinal lymphangiectasia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Intestinal lymphangiectasia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002593" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002593</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Intestinal lymphangiectasia (HP:0002593). HP:0002593 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:2624276" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/2624276" target="_blank">PMID:2624276</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"We report on two male and two female relatives with intestinal lymphangiectasia; severe lymphedema of limbs, genitalia, and face; facial anomalies; seizures; mild growth retardation; and moderate mental retardation."</div>
-
-
-                <div class="evidence-explanation">Documents intestinal lymphangiectasia in the original Hennekam family, later shown to carry biallelic FAT4 mutations (PMID:24913602).</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormality-of-the-ear" data-dismech-node="Abnormality of the ear" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Abnormality of the ear
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000598" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000598</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Ear defects, annotated with Abnormality of the ear (HP:0000598). HP:0000598 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:2624276" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/2624276" target="_blank">PMID:2624276</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Main facial anomalies are a flat face, flat nasal bridge, hypertelorism, small mouth, tooth anomalies, and ear defects."</div>
-
-
-                <div class="evidence-explanation">Documents ear defects in the original Hennekam family, later shown to carry biallelic FAT4 mutations (PMID:24913602).</div>
 
 
 
@@ -5973,6 +6399,9 @@ This disease-associated gene is FAT4 (hgnc:23109). hgnc:23109 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -5987,6 +6416,7 @@ This disease-associated gene is FAT4 (hgnc:23109). hgnc:23109 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6014,6 +6444,7 @@ This disease-associated gene is FAT4 (hgnc:23109). hgnc:23109 is a gene from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6035,6 +6466,7 @@ This disease-associated gene is FAT4 (hgnc:23109). hgnc:23109 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6118,7 +6550,32 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
-                <div class="item-desc">A low-fat, high-protein diet enriched in medium-chain triglycerides reduces intestinal lymphatic load and enteric protein loss; supplemental nutrition and albumin support growth and nutrition.</div>
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
+                <div class="item-desc">A low-fat diet with medium-chain triglyceride supplementation is the mainstay of management for the protein-losing enteropathy. The mechanism is specific rather than merely nutritional: withholding long-chain fat prevents chyle engorging the intestinal lymphatics and so prevents the rupture through which lymph is lost, while medium-chain triglycerides are absorbed directly into the portal circulation and bypass the lacteals altogether. Dietary control generally needs to be permanent, because clinical and biochemical abnormalities return when the low-fat diet is withdrawn.</div>
 
 
 
@@ -6127,7 +6584,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (4 references)
         </summary>
         <div class="evidence-list">
 
@@ -6139,6 +6596,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6155,6 +6613,62 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="PMID:18294365" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18294365" target="_blank">PMID:18294365</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A low-fat diet associated with medium-chain triglyceride supplementation is the cornerstone of PIL medical management."</div>
+
+
+                <div class="evidence-explanation">Establishes the dietary regimen as first-line management of intestinal lymphangiectasia. This replaces an earlier evidence item on this record that quoted only the title of the 1989 clinical report, which described the syndrome but said nothing about diet. Cited for the shared management of intestinal lymphangiectasia rather than as HKLLS2-specific trial data.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18294365" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18294365" target="_blank">PMID:18294365</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The absence of fat in the diet prevents chyle engorgement of the intestinal lymphatic vessels thereby preventing their rupture with its ensuing lymph loss. Medium-chain triglycerides are absorbed directly into the portal venous circulation and avoid lacteal overloading."</div>
+
+
+                <div class="evidence-explanation">Gives the mechanism recorded in the description, which is what makes this a mechanism-directed rather than a merely supportive intervention.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
 
         </div>
     </details>
@@ -6203,6 +6717,31 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Complete decongestive therapy (compression, manual lymphatic drainage, exercise, skin care) manages the lymphedema and reduces cellulitis risk.</div>
 
 
@@ -6227,6 +6766,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6248,6 +6788,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6312,6 +6853,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Management is symptomatic and multidisciplinary, including nutritional support, monitoring for hypoalbuminemia and immunodeficiency, developmental and educational support, and treatment of seizures.</div>
 
 
@@ -6333,6 +6888,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6396,6 +6952,20 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Counsel families about autosomal recessive inheritance, 25% sibling recurrence risk, carrier testing, the allelic relationship to Van Maldergem syndrome, and reproductive options.</div>
 
 
@@ -6417,6 +6987,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6527,6 +7098,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6598,6 +7170,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6762,6 +7335,30 @@ disease_term:
   term:
     id: MONDO:0014454
     label: Hennekam lymphangiectasia-lymphedema syndrome 2
+classifications:
+  harrisons_chapter:
+  - classification_value: GENETICS_ENVIRONMENT_DISEASE
+  iuis_category:
+    classification_value: combined immunodeficiency with syndromic features
+    notes: &gt;-
+      IUIS 2022 Table 2 (combined immunodeficiencies with associated or
+      syndromic features), sub-section 9, Other Defects; the FAT4 (autosomal
+      recessive) row within the &#34;Hennekam-lymphangiectasia-lymphedema syndrome&#34;
+      row group, immediately following the CCBE1 row. The row records
+      low/variable T and B cells with decreased immunoglobulins alongside the
+      lymphangiectasia, lymphedema, and dysmorphic features.
+    evidence:
+    - reference: PMID:35748970
+      reference_title: &#34;Human Inborn Errors of Immunity: 2022 Update on the Classification from the International Union of Immunological Societies Expert Committee.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &gt;-
+        FAT4 AR 612411 Low/variable Low/variable
+      explanation: &gt;-
+        The IUIS Table 2 Other Defects row assigning the FAT4 (autosomal
+        recessive) form of Hennekam lymphangiectasia-lymphedema syndrome to the
+        combined immunodeficiencies with syndromic features; the disease-name
+        cell is carried by the preceding CCBE1 row of the same row group.
 inheritance:
 - name: Autosomal recessive inheritance
   inheritance_term:
@@ -7162,14 +7759,27 @@ phenotypes:
       carry biallelic FAT4 mutations (PMID:24913602).
 - name: Seizure
   category: Neurologic
+  frequency: FREQUENT
   description: &gt;-
-    Seizures were reported in the original affected family.
+    Seizures affect about a third of individuals with Hennekam syndrome and
+    range from absences to tonic or atonic attacks. They were present in the
+    original family, which was subsequently shown to be FAT4-related.
   phenotype_term:
     preferred_term: Seizures
     term:
       id: HP:0001250
       label: Seizure
   evidence:
+  - reference: PMID:29560340
+    reference_title: &#34;Hennekam Syndrome: A Case Report.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      About 33% of cases of Hennekam syndrome patients have seizures, varying from absences to tonic or atonic attacks
+    explanation: &gt;-
+      Quantifies seizures at about 33% of Hennekam syndrome patients (FREQUENT
+      band, 30-79%) and gives the semiology. The figure is for Hennekam syndrome
+      across molecular subtypes, not for FAT4-related disease specifically.
   - reference: PMID:2624276
     reference_title: Autosomal recessive intestinal lymphangiectasia and lymphedema, with facial anomalies and mental retardation.
     supports: SUPPORT
@@ -7248,17 +7858,34 @@ phenotypes:
 - name: Hypoalbuminemia
   category: Metabolic
   description: &gt;-
-    Enteric protein loss lowers serum albumin.
+    Enteric protein loss lowers serum albumin, contributing an oncotic component
+    to the edema on top of the lymphatic drainage failure.
   phenotype_term:
     preferred_term: Hypoalbuminemia
     term:
       id: HP:0003073
       label: Hypoalbuminemia
+  evidence:
+  - reference: PMID:18294365
+    reference_title: &#34;Primary intestinal lymphangiectasia (Waldmann&#39;s disease).&#34;
+    supports: SUPPORT
+    directness: INDIRECT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      responsible for protein-losing enteropathy leading to lymphopenia, hypoalbuminemia and hypogammaglobulinemia
+    explanation: &gt;-
+      Establishes hypoalbuminemia as a consequence of the protein-losing
+      enteropathy caused by intestinal lymphangiectasia. This source describes
+      primary (Waldmann) intestinal lymphangiectasia rather than FAT4-related
+      Hennekam syndrome, and is cited for the shared downstream consequence of
+      dilated intestinal lacteals, not as HKLLS2-specific data.
 - name: Decreased circulating immunoglobulin concentration
   category: Immunologic
   description: &gt;-
     Loss of lymph into the gut depletes serum immunoglobulins
-    (hypogammaglobulinemia).
+    (hypogammaglobulinemia). This is a secondary, loss-driven antibody deficiency
+    rather than a defect of B-cell development, which is the distinction that
+    matters when this entry is read alongside the primary immunodeficiencies.
   phenotype_term:
     preferred_term: Hypogammaglobulinemia
     term:
@@ -7273,15 +7900,55 @@ phenotypes:
       severe protein loss resulting in hypogammaglobulinemia
     explanation: &gt;-
       Enteric protein loss in Hennekam syndrome produces hypogammaglobulinemia.
+  - reference: PMID:18294365
+    reference_title: &#34;Primary intestinal lymphangiectasia (Waldmann&#39;s disease).&#34;
+    supports: SUPPORT
+    directness: INDIRECT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      responsible for protein-losing enteropathy leading to lymphopenia, hypoalbuminemia and hypogammaglobulinemia
+    explanation: &gt;-
+      Corroborates hypogammaglobulinemia as a consequence of lymph loss in
+      intestinal lymphangiectasia generally. Cited for the shared mechanism, not
+      as HKLLS2-specific data.
 - name: Lymphopenia
   category: Immunologic
   description: &gt;-
-    Loss of lymph into the gut depletes circulating lymphocytes.
+    Loss of lymph into the gut depletes circulating lymphocytes. As in the
+    CCBE1-related form, the laboratory abnormality overstates the clinical
+    consequence: in intestinal lymphangiectasia, moderate-to-severe lymphopenia
+    and hypogammaglobulinemia coexist with a pyogenic bacterial infection risk
+    that is not significantly elevated, and opportunistic infection is uncommon.
+    This is a quantitative loss of cells and protein into the gut, not a
+    functional immunodeficiency.
   phenotype_term:
     preferred_term: Lymphopenia
     term:
       id: HP:0001888
       label: Decreased total lymphocyte count
+  evidence:
+  - reference: PMID:18294365
+    reference_title: &#34;Primary intestinal lymphangiectasia (Waldmann&#39;s disease).&#34;
+    supports: SUPPORT
+    directness: INDIRECT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      responsible for protein-losing enteropathy leading to lymphopenia, hypoalbuminemia and hypogammaglobulinemia
+    explanation: &gt;-
+      Establishes lymphopenia as a consequence of lymph loss in intestinal
+      lymphangiectasia. Cited for the shared downstream mechanism rather than as
+      HKLLS2-specific cohort data.
+  - reference: PMID:18294365
+    reference_title: &#34;Primary intestinal lymphangiectasia (Waldmann&#39;s disease).&#34;
+    supports: SUPPORT
+    directness: INDIRECT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      their risk of pyogenic bacterial infection is not significantly elevated
+    explanation: &gt;-
+      The basis for the caution in the description. Recorded because an entry
+      listing lymphopenia and hypogammaglobulinemia without it would imply an
+      infection risk the literature does not support.
 genetic:
 - name: FAT4
   association: Causal biallelic loss-of-function variant
@@ -7322,6 +7989,22 @@ genetic:
     explanation: &gt;-
       Documents the FAT4 variant classes causing HKLLS2 (homozygous or compound
       heterozygous), consistent with biallelic recessive loss of function.
+  notes: &gt;-
+    How FAT4 divides the Hennekam syndrome population from CCBE1, which is the
+    lump/split question this entry exists to answer. CCBE1 accounts for
+    approximately 25% of Hennekam syndrome. FAT4 was then sought specifically in
+    the CCBE1-negative remainder: after the original 1989 Hennekam family was
+    solved by homozygosity mapping and exome sequencing, targeted FAT4 analysis
+    of 24 CCBE1 mutation-negative patients found biallelic variants in four
+    further families. The two gene fractions therefore add rather than compete,
+    and a substantial share of Hennekam syndrome remains unexplained by either -
+    ADAMTS3 (HKLLS3) accounts for some of the rest.
+
+    A secondary source (PMID:29560340) puts the FAT4 share at about 20%, but that
+    figure is not quoted as evidence here: the sentence carrying it in the cached
+    text is broken by an inline citation marker and a hyphenated line break, so
+    no exact substring can carry the number. The cohort arithmetic above is
+    quoted directly instead.
 diagnosis:
 - name: Molecular genetic testing of FAT4
   diagnosis_term:
@@ -7350,9 +8033,14 @@ diagnosis:
 treatments:
 - name: Dietary management of protein-losing enteropathy
   description: &gt;-
-    A low-fat, high-protein diet enriched in medium-chain triglycerides reduces
-    intestinal lymphatic load and enteric protein loss; supplemental nutrition
-    and albumin support growth and nutrition.
+    A low-fat diet with medium-chain triglyceride supplementation is the
+    mainstay of management for the protein-losing enteropathy. The mechanism is
+    specific rather than merely nutritional: withholding long-chain fat prevents
+    chyle engorging the intestinal lymphatics and so prevents the rupture through
+    which lymph is lost, while medium-chain triglycerides are absorbed directly
+    into the portal circulation and bypass the lacteals altogether. Dietary
+    control generally needs to be permanent, because clinical and biochemical
+    abnormalities return when the low-fat diet is withdrawn.
   therapeutic_modality: BEHAVIORAL
   treatment_term:
     preferred_term: dietary intervention
@@ -7370,6 +8058,39 @@ treatments:
     explanation: &gt;-
       Directly supports a high-protein, low-fat, medium-chain-triglyceride diet
       for the protein-losing enteropathy of Hennekam syndrome.
+  - reference: PMID:18294365
+    reference_title: &#34;Primary intestinal lymphangiectasia (Waldmann&#39;s disease).&#34;
+    supports: SUPPORT
+    directness: INDIRECT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      A low-fat diet associated with medium-chain triglyceride supplementation is the cornerstone of PIL medical management.
+    explanation: &gt;-
+      Establishes the dietary regimen as first-line management of intestinal
+      lymphangiectasia. This replaces an earlier evidence item on this record
+      that quoted only the title of the 1989 clinical report, which described the
+      syndrome but said nothing about diet. Cited for the shared management of
+      intestinal lymphangiectasia rather than as HKLLS2-specific trial data.
+  - reference: PMID:18294365
+    reference_title: &#34;Primary intestinal lymphangiectasia (Waldmann&#39;s disease).&#34;
+    supports: SUPPORT
+    directness: INDIRECT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The absence of fat in the diet prevents chyle engorgement of the intestinal lymphatic vessels thereby preventing their rupture with its ensuing lymph loss. Medium-chain triglycerides are absorbed directly into the portal venous circulation and avoid lacteal overloading.
+    explanation: &gt;-
+      Gives the mechanism recorded in the description, which is what makes this a
+      mechanism-directed rather than a merely supportive intervention.
+  - reference: PMID:18294365
+    reference_title: &#34;Primary intestinal lymphangiectasia (Waldmann&#39;s disease).&#34;
+    supports: SUPPORT
+    directness: INDIRECT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The need for dietary control appears to be permanent, because clinical and biochemical findings reappear after low-fat diet withdrawal.
+    explanation: &gt;-
+      Supports the statement that the dietary restriction is indefinite rather
+      than a time-limited course.
 - name: Lymphedema supportive care
   description: &gt;-
     Complete decongestive therapy (compression, manual lymphatic drainage,
@@ -7510,6 +8231,19 @@ datasets: []
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Hennekam lymphangiectasia-lymphedema syndrome 2 FAT4</strong> · 2026-08-02T01:41:07Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Hennekam_Lymphangiectasia-Lymphedema_Syndrome_2/2026-08-02T014107Z-claude-code-639cab.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of FAT4-related Hennekam syndrome MONDO:0014454, OMIM 616006. Deep research via Edison falcon provider. Curated the FAT4/Dachsous1 planar-cell-polarity lymphatic-valve-morphogenesis mechanism, generalized lymphatic dysplasia, intestinal lymphangiectasia, lymphedema, facial gestalt, intellectual disability, and the allelic relationship to Van Maldergem syndrome. Key insight: the original 1989 Hennekam family PMID:2624276 was later shown to carry FAT4 mutations per Alders 2014 PMID:24913602, grounding the phenotype descriptions. Evidence: Alders 2014 PMID:24913602, Ivanovski 2018 PMID:29681106, Pujol 2017 PMID:28705793, Hennekam 1989 PMID:2624276. Validated with just validate; schema, terms and references all pass.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -8370,7 +9104,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Hennekam lymphangiectasia-lymphedema syndrome 2", "mondoId": "MONDO:0014454", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hennekam_lymphangiectasia-lymphedema_syndrome_2", "yamlRevision": "d1407e542a10"};
+        const OS_CONFIG = {"diseaseName": "Hennekam lymphangiectasia-lymphedema syndrome 2", "mondoId": "MONDO:0014454", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hennekam_lymphangiectasia-lymphedema_syndrome_2", "yamlRevision": "9f46e55c73e2"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

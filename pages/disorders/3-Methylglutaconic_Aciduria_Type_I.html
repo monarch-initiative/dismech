@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4203,6 +4275,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4224,6 +4297,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4383,6 +4457,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4404,6 +4479,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4549,6 +4625,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4570,6 +4647,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4701,6 +4779,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4722,6 +4801,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4759,6 +4839,13 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-auh-dependent-3-methylglutaconyl-coa-hydratase-deficiency" data-dismech-node="AUH-dependent 3-methylglutaconyl-CoA hydratase deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">AUH-dependent 3-methylglutaconyl-CoA hydratase deficiency</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Biallelic pathogenic variants in AUH reduce or abolish mitochondrial 3-methylglutaconyl-CoA hydratase activity. The enzyme catalyzes conversion of 3-methylglutaconyl-CoA to 3-hydroxy-3-methylglutaryl-CoA in leucine degradation.</div>
 
@@ -4952,6 +5039,7 @@ This pathophysiological event involves mitochondrial matrix (GO:0005759). GO:000
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4973,6 +5061,7 @@ This pathophysiological event involves mitochondrial matrix (GO:0005759). GO:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4998,6 +5087,13 @@ This pathophysiological event involves mitochondrial matrix (GO:0005759). GO:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-leucine-pathway-organic-acid-accumulation" data-dismech-node="Leucine-pathway organic-acid accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Leucine-pathway organic-acid accumulation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The AUH-dependent leucine-catabolism block produces persistent urinary 3-methylglutaconic acid, with variable 3-hydroxyisovaleric and 3-methylglutaric acids. These metabolites are diagnostic readouts. Their toxicity and any causal connection to neurologic disease have not been demonstrated, so this node does not conform to a toxic-metabolite or energy-deficit mechanism module.</div>
 
@@ -5051,6 +5147,7 @@ This pathophysiological event involves mitochondrial matrix (GO:0005759). GO:000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5072,6 +5169,7 @@ This pathophysiological event involves mitochondrial matrix (GO:0005759). GO:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5097,6 +5195,13 @@ This pathophysiological event involves mitochondrial matrix (GO:0005759). GO:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reported-adult-leukoencephalopathy-association-of-uncertain-causality" data-dismech-node="Reported adult leukoencephalopathy association of uncertain causality" data-dismech-type="pathophysiology">
                 <div class="item-name">Reported adult leukoencephalopathy association of uncertain causality</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">A small number of adults with biochemical and genetic MGA1 have been reported with progressive ataxia and extensive cerebral white-matter disease. The causal path from AUH deficiency or its metabolites to white-matter injury is unknown, and ascertainment bias remains a viable explanation. This clinical-association node is intentionally detached from the established biochemical causal chain.</div>
 
@@ -5203,6 +5308,7 @@ This pathophysiological event occurs in brain white matter (UBERON:0003544). UBE
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5224,6 +5330,7 @@ This pathophysiological event occurs in brain white matter (UBERON:0003544). UBE
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5249,6 +5356,13 @@ This pathophysiological event occurs in brain white matter (UBERON:0003544). UBE
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reported-pediatric-neurodevelopmental-association-of-uncertain-causality" data-dismech-node="Reported pediatric neurodevelopmental association of uncertain causality" data-dismech-type="pathophysiology">
                 <div class="item-name">Reported pediatric neurodevelopmental association of uncertain causality</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">Delayed speech, learning problems, and severe early neuromotor impairment have been reported in individual children with biochemical MGA1. Familial discordance, asymptomatic newborn-screened individuals, and the absence of a consistent childhood phenotype make causal attribution uncertain. This node is intentionally detached from the established biochemical causal chain.</div>
 
@@ -5310,6 +5424,7 @@ This pathophysiological event occurs in brain white matter (UBERON:0003544). UBE
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5331,6 +5446,7 @@ This pathophysiological event occurs in brain white matter (UBERON:0003544). UBE
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5379,7 +5495,7 @@ This pathophysiological event occurs in brain white matter (UBERON:0003544). UBE
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"3-Methylglutaconic aciduria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistent increased urinary 3-methylglutaconic acid is the defining biochemical phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003535\"}}, {\"id\": \"3-methylglutaconyl-CoA hydratase activity in fibroblasts\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"fibroblast\"], \"presence\": \"DECREASED\", \"term_id\": \"GO:0004490\", \"term_label\": \"methylglutaconyl-CoA hydratase activity\", \"readouts\": [{\"target\": \"AUH-dependent 3-methylglutaconyl-CoA hydratase deficiency\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Markedly reduced fibroblast enzyme activity directly reports the proximal enzymatic lesion.\"}]}}, {\"id\": \"AUH-dependent 3-methylglutaconyl-CoA hydratase deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in AUH reduce or abolish mitochondrial 3-methylglutaconyl-CoA hydratase activity. The enzyme catalyzes conversion of 3-methylglutaconyl-CoA to 3-hydroxy-3-methylglutaryl-CoA in leucine degradation.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"L-leucine catabolic process\"], \"molecular_functions\": [\"methylglutaconyl-CoA hydratase activity\"], \"genes\": [\"AUH\"], \"gene_terms\": [{\"label\": \"AUH\", \"id\": \"hgnc:890\"}]}}, {\"id\": \"Biallelic AUH pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"AUH\"], \"gene_terms\": [{\"label\": \"AUH\", \"id\": \"hgnc:890\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Blood 3-hydroxyisovalerylcarnitine (C5-OH)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:73027\", \"term_label\": \"3-hydroxyisovalerylcarnitine\", \"readouts\": [{\"target\": \"Leucine-pathway organic-acid accumulation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated C5-OH can flag disturbed leucine metabolism but does not identify MGA1 by itself.\"}]}}, {\"id\": \"Cerebrospinal-fluid 3-hydroxyisovaleric acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:37084\", \"term_label\": \"3-hydroxyisovaleric acid\", \"readouts\": [{\"target\": \"Leucine-pathway organic-acid accumulation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"interpretation\": \"CSF enrichment demonstrates CNS exposure but does not establish neurotoxicity.\"}]}}, {\"id\": \"Delayed speech and language development\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Expressive speech delay has been reported in individual children. Current cohort evidence does not establish it as a penetrant consequence of AUH deficiency.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000750\"}}, {\"id\": \"Dementia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dementia occurred in one reported adult case.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000726\"}}, {\"id\": \"Leucine-pathway organic-acid accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The AUH-dependent leucine-catabolism block produces persistent urinary 3-methylglutaconic acid, with variable 3-hydroxyisovaleric and 3-methylglutaric acids. These metabolites are diagnostic readouts. Their toxicity and any causal connection to neurologic disease have not been demonstrated, so this node does not conform to a toxic-metabolite or energy-deficit mechanism module.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Leucine-restricted diet\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Leucine restriction has been proposed from pathway logic and used in case reports, but no controlled evidence demonstrates neurologic benefit. Sustained intensive restriction may offer little benefit to asymptomatic individuals on current evidence and should not be represented as routine therapy; any use requires individualized metabolic-dietitian oversight.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Leukoencephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Extensive white-matter disease was present in reported adults and mild deep white-matter abnormalities in one child; the association with AUH deficiency remains unproven.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002352\"}}, {\"id\": \"Optic atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Optic atrophy occurred in one reported adult case.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000648\"}}, {\"id\": \"Progressive ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive ataxia was the shared presenting feature of two reported adults.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001251\"}}, {\"id\": \"Reported adult leukoencephalopathy association of uncertain causality\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A small number of adults with biochemical and genetic MGA1 have been reported with progressive ataxia and extensive cerebral white-matter disease. The causal path from AUH deficiency or its metabolites to white-matter injury is unknown, and ascertainment bias remains a viable explanation. This clinical-association node is intentionally detached from the established biochemical causal chain.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"brain white matter\"]}}, {\"id\": \"Reported pediatric neurodevelopmental association of uncertain causality\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Delayed speech, learning problems, and severe early neuromotor impairment have been reported in individual children with biochemical MGA1. Familial discordance, asymptomatic newborn-screened individuals, and the absence of a consistent childhood phenotype make causal attribution uncertain. This node is intentionally detached from the established biochemical causal chain.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Severe global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe psychomotor retardation with quadriplegia and athetoid movements was described in one infant; its generalizability and causal relationship to AUH deficiency remain uncertain.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Spasticity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Spasticity occurred in one reported adult case.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001257\"}}, {\"id\": \"Urinary 3-hydroxyisovaleric acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:37084\", \"term_label\": \"3-hydroxyisovaleric acid\", \"readouts\": [{\"target\": \"Leucine-pathway organic-acid accumulation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Increased urinary 3-hydroxyisovaleric acid can accompany the primary 3-MGA profile.\"}]}}, {\"id\": \"Urinary 3-methylglutaconic acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:144330\", \"term_label\": \"3-methylglutaconic acid\", \"readouts\": [{\"target\": \"Leucine-pathway organic-acid accumulation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Increased urinary 3-methylglutaconic acid is the defining readout of the AUH-dependent leucine block.\"}]}}, {\"id\": \"Urinary 3-methylglutaric acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:68566\", \"term_label\": \"3-methylglutaric acid\", \"readouts\": [{\"target\": \"Leucine-pathway organic-acid accumulation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Increased urinary 3-methylglutaric acid can accompany the primary 3-MGA profile.\"}]}}], \"edges\": [{\"source\": \"AUH-dependent 3-methylglutaconyl-CoA hydratase deficiency\", \"target\": \"Leucine-pathway organic-acid accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The hydratase block causes the characteristic primary 3-methylglutaconic aciduria biochemical profile.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Leucine-pathway organic-acid accumulation\", \"target\": \"3-Methylglutaconic aciduria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent urinary 3-methylglutaconic acid is the defining phenotypic expression of the biochemical block.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reported adult leukoencephalopathy association of uncertain causality\", \"target\": \"Leukoencephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Extensive white-matter disease is the defining imaging observation in the reported adult cases.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reported adult leukoencephalopathy association of uncertain causality\", \"target\": \"Progressive ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive ataxia was the shared presenting feature of two reported adults.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reported adult leukoencephalopathy association of uncertain causality\", \"target\": \"Optic atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Optic atrophy was present in one of the two reported adults.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reported adult leukoencephalopathy association of uncertain causality\", \"target\": \"Spasticity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Spasticity was present in one of the two reported adults.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reported adult leukoencephalopathy association of uncertain causality\", \"target\": \"Dementia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dementia was present in one of the two reported adults.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reported pediatric neurodevelopmental association of uncertain causality\", \"target\": \"Delayed speech and language development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Expressive speech delay is reported in some children, but penetrance and causal attribution are unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reported pediatric neurodevelopmental association of uncertain causality\", \"target\": \"Severe global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe psychomotor delay and neurologic impairment have been reported in an individual infant.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Leucine-restricted diet\", \"target\": \"Leucine-pathway organic-acid accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Leucine-pathway organic-acid accumulation\", \"target\": \"Urinary 3-methylglutaconic acid\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Increased urinary 3-methylglutaconic acid is the defining readout of the AUH-dependent leucine block.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Leucine-pathway organic-acid accumulation\", \"target\": \"Urinary 3-methylglutaric acid\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Increased urinary 3-methylglutaric acid can accompany the primary 3-MGA profile.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Leucine-pathway organic-acid accumulation\", \"target\": \"Urinary 3-hydroxyisovaleric acid\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Increased urinary 3-hydroxyisovaleric acid can accompany the primary 3-MGA profile.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Leucine-pathway organic-acid accumulation\", \"target\": \"Blood 3-hydroxyisovalerylcarnitine (C5-OH)\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated C5-OH can flag disturbed leucine metabolism but does not identify MGA1 by itself.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"AUH-dependent 3-methylglutaconyl-CoA hydratase deficiency\", \"target\": \"3-methylglutaconyl-CoA hydratase activity in fibroblasts\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Markedly reduced fibroblast enzyme activity directly reports the proximal enzymatic lesion.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Leucine-pathway organic-acid accumulation\", \"target\": \"Cerebrospinal-fluid 3-hydroxyisovaleric acid\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"CSF enrichment demonstrates CNS exposure but does not establish neurotoxicity.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\"}, {\"source\": \"Biallelic AUH pathogenic variants\", \"target\": \"AUH-dependent 3-methylglutaconyl-CoA hydratase deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"3-Methylglutaconic aciduria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistent increased urinary 3-methylglutaconic acid is the defining biochemical phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003535\"}}, {\"id\": \"3-methylglutaconyl-CoA hydratase activity in fibroblasts\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"fibroblast\"], \"presence\": \"DECREASED\", \"term_id\": \"GO:0004490\", \"term_label\": \"methylglutaconyl-CoA hydratase activity\", \"readouts\": [{\"target\": \"AUH-dependent 3-methylglutaconyl-CoA hydratase deficiency\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Markedly reduced fibroblast enzyme activity directly reports the proximal enzymatic lesion.\"}]}}, {\"id\": \"AUH-dependent 3-methylglutaconyl-CoA hydratase deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in AUH reduce or abolish mitochondrial 3-methylglutaconyl-CoA hydratase activity. The enzyme catalyzes conversion of 3-methylglutaconyl-CoA to 3-hydroxy-3-methylglutaryl-CoA in leucine degradation.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"L-leucine catabolic process\"], \"molecular_functions\": [\"methylglutaconyl-CoA hydratase activity\"], \"genes\": [\"AUH\"], \"gene_terms\": [{\"label\": \"AUH\", \"id\": \"hgnc:890\"}], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Biallelic AUH pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"AUH\"], \"gene_terms\": [{\"label\": \"AUH\", \"id\": \"hgnc:890\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Blood 3-hydroxyisovalerylcarnitine (C5-OH)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:73027\", \"term_label\": \"3-hydroxyisovalerylcarnitine\", \"readouts\": [{\"target\": \"Leucine-pathway organic-acid accumulation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated C5-OH can flag disturbed leucine metabolism but does not identify MGA1 by itself.\"}]}}, {\"id\": \"Cerebrospinal-fluid 3-hydroxyisovaleric acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:37084\", \"term_label\": \"3-hydroxyisovaleric acid\", \"readouts\": [{\"target\": \"Leucine-pathway organic-acid accumulation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"interpretation\": \"CSF enrichment demonstrates CNS exposure but does not establish neurotoxicity.\"}]}}, {\"id\": \"Delayed speech and language development\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Expressive speech delay has been reported in individual children. Current cohort evidence does not establish it as a penetrant consequence of AUH deficiency.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000750\"}}, {\"id\": \"Dementia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dementia occurred in one reported adult case.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000726\"}}, {\"id\": \"Leucine-pathway organic-acid accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The AUH-dependent leucine-catabolism block produces persistent urinary 3-methylglutaconic acid, with variable 3-hydroxyisovaleric and 3-methylglutaric acids. These metabolites are diagnostic readouts. Their toxicity and any causal connection to neurologic disease have not been demonstrated, so this node does not conform to a toxic-metabolite or energy-deficit mechanism module.\", \"meta\": {\"evidence_count\": 2, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Leucine-restricted diet\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Leucine restriction has been proposed from pathway logic and used in case reports, but no controlled evidence demonstrates neurologic benefit. Sustained intensive restriction may offer little benefit to asymptomatic individuals on current evidence and should not be represented as routine therapy; any use requires individualized metabolic-dietitian oversight.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Leukoencephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Extensive white-matter disease was present in reported adults and mild deep white-matter abnormalities in one child; the association with AUH deficiency remains unproven.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002352\"}}, {\"id\": \"Optic atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Optic atrophy occurred in one reported adult case.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000648\"}}, {\"id\": \"Progressive ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive ataxia was the shared presenting feature of two reported adults.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001251\"}}, {\"id\": \"Reported adult leukoencephalopathy association of uncertain causality\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A small number of adults with biochemical and genetic MGA1 have been reported with progressive ataxia and extensive cerebral white-matter disease. The causal path from AUH deficiency or its metabolites to white-matter injury is unknown, and ascertainment bias remains a viable explanation. This clinical-association node is intentionally detached from the established biochemical causal chain.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"brain white matter\"], \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Reported pediatric neurodevelopmental association of uncertain causality\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Delayed speech, learning problems, and severe early neuromotor impairment have been reported in individual children with biochemical MGA1. Familial discordance, asymptomatic newborn-screened individuals, and the absence of a consistent childhood phenotype make causal attribution uncertain. This node is intentionally detached from the established biochemical causal chain.\", \"meta\": {\"evidence_count\": 2, \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Severe global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe psychomotor retardation with quadriplegia and athetoid movements was described in one infant; its generalizability and causal relationship to AUH deficiency remain uncertain.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Spasticity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Spasticity occurred in one reported adult case.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001257\"}}, {\"id\": \"Urinary 3-hydroxyisovaleric acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:37084\", \"term_label\": \"3-hydroxyisovaleric acid\", \"readouts\": [{\"target\": \"Leucine-pathway organic-acid accumulation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Increased urinary 3-hydroxyisovaleric acid can accompany the primary 3-MGA profile.\"}]}}, {\"id\": \"Urinary 3-methylglutaconic acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:144330\", \"term_label\": \"3-methylglutaconic acid\", \"readouts\": [{\"target\": \"Leucine-pathway organic-acid accumulation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Increased urinary 3-methylglutaconic acid is the defining readout of the AUH-dependent leucine block.\"}]}}, {\"id\": \"Urinary 3-methylglutaric acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:68566\", \"term_label\": \"3-methylglutaric acid\", \"readouts\": [{\"target\": \"Leucine-pathway organic-acid accumulation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Increased urinary 3-methylglutaric acid can accompany the primary 3-MGA profile.\"}]}}], \"edges\": [{\"source\": \"AUH-dependent 3-methylglutaconyl-CoA hydratase deficiency\", \"target\": \"Leucine-pathway organic-acid accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The hydratase block causes the characteristic primary 3-methylglutaconic aciduria biochemical profile.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Leucine-pathway organic-acid accumulation\", \"target\": \"3-Methylglutaconic aciduria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent urinary 3-methylglutaconic acid is the defining phenotypic expression of the biochemical block.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reported adult leukoencephalopathy association of uncertain causality\", \"target\": \"Leukoencephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Extensive white-matter disease is the defining imaging observation in the reported adult cases.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reported adult leukoencephalopathy association of uncertain causality\", \"target\": \"Progressive ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive ataxia was the shared presenting feature of two reported adults.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reported adult leukoencephalopathy association of uncertain causality\", \"target\": \"Optic atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Optic atrophy was present in one of the two reported adults.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reported adult leukoencephalopathy association of uncertain causality\", \"target\": \"Spasticity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Spasticity was present in one of the two reported adults.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reported adult leukoencephalopathy association of uncertain causality\", \"target\": \"Dementia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dementia was present in one of the two reported adults.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reported pediatric neurodevelopmental association of uncertain causality\", \"target\": \"Delayed speech and language development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Expressive speech delay is reported in some children, but penetrance and causal attribution are unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reported pediatric neurodevelopmental association of uncertain causality\", \"target\": \"Severe global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe psychomotor delay and neurologic impairment have been reported in an individual infant.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Leucine-restricted diet\", \"target\": \"Leucine-pathway organic-acid accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Leucine-pathway organic-acid accumulation\", \"target\": \"Urinary 3-methylglutaconic acid\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Increased urinary 3-methylglutaconic acid is the defining readout of the AUH-dependent leucine block.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Leucine-pathway organic-acid accumulation\", \"target\": \"Urinary 3-methylglutaric acid\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Increased urinary 3-methylglutaric acid can accompany the primary 3-MGA profile.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Leucine-pathway organic-acid accumulation\", \"target\": \"Urinary 3-hydroxyisovaleric acid\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Increased urinary 3-hydroxyisovaleric acid can accompany the primary 3-MGA profile.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Leucine-pathway organic-acid accumulation\", \"target\": \"Blood 3-hydroxyisovalerylcarnitine (C5-OH)\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated C5-OH can flag disturbed leucine metabolism but does not identify MGA1 by itself.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"AUH-dependent 3-methylglutaconyl-CoA hydratase deficiency\", \"target\": \"3-methylglutaconyl-CoA hydratase activity in fibroblasts\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Markedly reduced fibroblast enzyme activity directly reports the proximal enzymatic lesion.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Leucine-pathway organic-acid accumulation\", \"target\": \"Cerebrospinal-fluid 3-hydroxyisovaleric acid\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"CSF enrichment demonstrates CNS exposure but does not establish neurotoxicity.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\"}, {\"source\": \"Biallelic AUH pathogenic variants\", \"target\": \"AUH-dependent 3-methylglutaconyl-CoA hydratase deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5400,11 +5516,11 @@ This pathophysiological event occurs in brain white matter (UBERON:0003544). UBE
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Eye<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Musculoskeletal<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Genitourinary<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(5)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5445,6 +5561,9 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5459,6 +5578,7 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5490,6 +5610,87 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Genitourinary
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-3-methylglutaconic-aciduria" data-dismech-node="3-Methylglutaconic aciduria" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        3-Methylglutaconic aciduria
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003535" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0003535</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is 3-Methylglutaconic aciduria (HP:0003535). HP:0003535 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36341175" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36341175" target="_blank">PMID:36341175</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"causes the accumulation of urinary 3-methylglutaconate"</div>
+
+
+                <div class="evidence-explanation">Establishes the defining biochemical phenotype without assigning a frequency band.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
                     <span class="cat-count">1</span>
                 </summary>
@@ -5508,15 +5709,18 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0001257</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0001257</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5536,6 +5740,7 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5564,7 +5769,7 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-3">
+            <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
@@ -5585,15 +5790,18 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0000750</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0000750</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Delayed speech and language development (HP:0000750). HP:0000750 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5613,6 +5821,7 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5637,6 +5846,7 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5677,15 +5887,18 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5705,6 +5918,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5745,10 +5959,10 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0001251</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001251</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ataxia (HP:0001251), qualified as course progressive. HP:0001251 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5777,6 +5991,9 @@ This clinical feature is Ataxia (HP:0001251), qualified as course progressive. H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5791,6 +6008,7 @@ This clinical feature is Ataxia (HP:0001251), qualified as course progressive. H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5815,6 +6033,7 @@ This clinical feature is Ataxia (HP:0001251), qualified as course progressive. H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5855,10 +6074,10 @@ This clinical feature is Ataxia (HP:0001251), qualified as course progressive. H
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002352" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0002352</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002352" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0002352</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Leukoencephalopathy (HP:0002352), qualified as course progressive. HP:0002352 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5887,6 +6106,9 @@ This clinical feature is Leukoencephalopathy (HP:0002352), qualified as course p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5901,6 +6123,7 @@ This clinical feature is Leukoencephalopathy (HP:0002352), qualified as course p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5925,6 +6148,7 @@ This clinical feature is Leukoencephalopathy (HP:0002352), qualified as course p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5965,15 +6189,18 @@ This clinical feature is Leukoencephalopathy (HP:0002352), qualified as course p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000726" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000726</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000726" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000726</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dementia (HP:0000726). HP:0000726 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5996,6 +6223,7 @@ This clinical feature is Dementia (HP:0000726). HP:0000726 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6004,83 +6232,6 @@ This clinical feature is Dementia (HP:0000726). HP:0000726 is a phenotype from t
 
 
                 <div class="evidence-explanation">Supports a case-level observation only.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-3-methylglutaconic-aciduria" data-dismech-node="3-Methylglutaconic aciduria" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        3-Methylglutaconic aciduria
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003535" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0003535</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is 3-Methylglutaconic aciduria (HP:0003535). HP:0003535 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:36341175" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36341175" target="_blank">PMID:36341175</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"causes the accumulation of urinary 3-methylglutaconate"</div>
-
-
-                <div class="evidence-explanation">Establishes the defining biochemical phenotype without assigning a frequency band.</div>
 
 
 
@@ -6170,6 +6321,9 @@ This disease-associated gene is AUH (hgnc:890). hgnc:890 is a gene from the HUGO
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6184,6 +6338,7 @@ This disease-associated gene is AUH (hgnc:890). hgnc:890 is a gene from the HUGO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6211,6 +6366,7 @@ This disease-associated gene is AUH (hgnc:890). hgnc:890 is a gene from the HUGO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6232,6 +6388,7 @@ This disease-associated gene is AUH (hgnc:890). hgnc:890 is a gene from the HUGO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6315,6 +6472,20 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Leucine restriction has been proposed from pathway logic and used in case reports, but no controlled evidence demonstrates neurologic benefit. Sustained intensive restriction may offer little benefit to asymptomatic individuals on current evidence and should not be represented as routine therapy; any use requires individualized metabolic-dietitian oversight.</div>
 
 
@@ -6357,6 +6528,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6378,6 +6550,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6442,6 +6615,20 @@ This treatment is carnitine supplementation, annotated with Nutritional Support 
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Levocarnitine has been given with protein or leucine restriction in pediatric reports. These uncontrolled observations do not establish clinical benefit or a universal indication, and long-term asymptomatic outcomes are also reported without treatment.</div>
 
 
@@ -6463,6 +6650,7 @@ This treatment is carnitine supplementation, annotated with Nutritional Support 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6490,6 +6678,7 @@ This treatment is carnitine supplementation, annotated with Nutritional Support 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6511,6 +6700,7 @@ This treatment is carnitine supplementation, annotated with Nutritional Support 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6610,6 +6800,7 @@ This treatment is carnitine supplementation, annotated with Nutritional Support 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6688,6 +6879,7 @@ This treatment is carnitine supplementation, annotated with Nutritional Support 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6772,6 +6964,7 @@ This treatment is carnitine supplementation, annotated with Nutritional Support 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6853,6 +7046,7 @@ This treatment is carnitine supplementation, annotated with Nutritional Support 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6874,6 +7068,7 @@ This treatment is carnitine supplementation, annotated with Nutritional Support 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6958,6 +7153,7 @@ This treatment is carnitine supplementation, annotated with Nutritional Support 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7032,6 +7228,7 @@ This treatment is carnitine supplementation, annotated with Nutritional Support 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7131,6 +7328,7 @@ This treatment is carnitine supplementation, annotated with Nutritional Support 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7152,6 +7350,7 @@ This treatment is carnitine supplementation, annotated with Nutritional Support 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7244,6 +7443,7 @@ This treatment is carnitine supplementation, annotated with Nutritional Support 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7333,6 +7533,7 @@ This treatment is carnitine supplementation, annotated with Nutritional Support 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7357,6 +7558,7 @@ This treatment is carnitine supplementation, annotated with Nutritional Support 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7378,6 +7580,7 @@ This treatment is carnitine supplementation, annotated with Nutritional Support 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7470,6 +7673,7 @@ This treatment is carnitine supplementation, annotated with Nutritional Support 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7556,6 +7760,7 @@ This treatment is carnitine supplementation, annotated with Nutritional Support 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7741,6 +7946,7 @@ This treatment is carnitine supplementation, annotated with Nutritional Support 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7762,6 +7968,7 @@ This treatment is carnitine supplementation, annotated with Nutritional Support 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7933,6 +8140,7 @@ This treatment is carnitine supplementation, annotated with Nutritional Support 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7997,6 +8205,7 @@ This treatment is carnitine supplementation, annotated with Nutritional Support 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8049,6 +8258,7 @@ This treatment is carnitine supplementation, annotated with Nutritional Support 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8073,6 +8283,7 @@ This treatment is carnitine supplementation, annotated with Nutritional Support 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8094,6 +8305,7 @@ This treatment is carnitine supplementation, annotated with Nutritional Support 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8149,6 +8361,7 @@ This treatment is carnitine supplementation, annotated with Nutritional Support 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8170,6 +8383,7 @@ This treatment is carnitine supplementation, annotated with Nutritional Support 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8238,6 +8452,7 @@ This treatment is carnitine supplementation, annotated with Nutritional Support 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8338,6 +8553,7 @@ This treatment is carnitine supplementation, annotated with Nutritional Support 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8359,6 +8575,7 @@ This treatment is carnitine supplementation, annotated with Nutritional Support 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8432,6 +8649,7 @@ This treatment is carnitine supplementation, annotated with Nutritional Support 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8453,6 +8671,7 @@ This treatment is carnitine supplementation, annotated with Nutritional Support 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8524,6 +8743,7 @@ This treatment is carnitine supplementation, annotated with Nutritional Support 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8548,6 +8768,7 @@ This treatment is carnitine supplementation, annotated with Nutritional Support 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8569,6 +8790,7 @@ This treatment is carnitine supplementation, annotated with Nutritional Support 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8639,6 +8861,7 @@ This treatment is carnitine supplementation, annotated with Nutritional Support 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 

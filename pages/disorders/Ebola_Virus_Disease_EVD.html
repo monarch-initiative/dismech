@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3761,6 +3826,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3801,7 +3873,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 12</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 15</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Ebola%20Virus%20Disease%20%28EVD%29"
@@ -3959,7 +4031,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">12</div>
+                <div class="stat-value">15</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3978,7 +4050,7 @@
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
-                <div class="stat-value">3</div>
+                <div class="stat-value">5</div>
                 <div class="stat-label">Medical Actions</div>
             </div>
             </a>
@@ -4100,6 +4172,7 @@
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"The reemergence of Ebola, subtype Zaire, in Kikwit 1995 caused a worldwide sensation, since it struck after a sensibilization on the danger of Ebola virus disease."</div>
@@ -4122,6 +4195,7 @@
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"The re-emergence of EHF outbreaks in Gabon and Republic of the Congo were concomitant with an increase in mortality amongst gorillas and chimpanzees infected with ZEBOV."</div>
@@ -4141,6 +4215,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4204,6 +4279,7 @@
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Here, the 2022 Sudan virus disease (SVD) outbreak in Mubende District, Uganda, is summarized."</div>
@@ -4226,6 +4302,7 @@
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Ebola virus disease (EVD) in humans is associated with four ebolaviruses: Ebola virus (EBOV), Sudan virus (SUDV), Bundibugyo virus (BDBV), and Taï Forest virus"</div>
@@ -4245,6 +4322,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4310,6 +4388,7 @@
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"The first known Ebola hemorrhagic fever (EHF) outbreak caused by Bundibugyo Ebola virus occurred in Bundibugyo District, Uganda, in 2007. Fifty-six cases of EHF were laboratory confirmed."</div>
@@ -4329,6 +4408,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4392,6 +4472,7 @@
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Ebola virus disease (EVD) in humans is associated with four ebolaviruses: Ebola virus (EBOV), Sudan virus (SUDV), Bundibugyo virus (BDBV), and Taï Forest virus"</div>
@@ -4414,6 +4495,7 @@
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"The genus Ebolavirus from the family Filoviridae is composed of five species including Sudan ebolavirus, Reston ebolavirus, Bundibugyo ebolavirus, Taï Forest ebolavirus, and Ebola virus (previously known as Zaire ebolavirus)"</div>
@@ -4433,6 +4515,7 @@
 
 
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
 
 
 
@@ -4496,6 +4579,7 @@
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Reston ebolavirus infection event in domestic pigs has triggered continuing epidemiologic investigations among Philippine health and veterinary agencies... The first one in 1989 was the first-ever Ebola virus that emerged outside of Africa and was also the first known natural infection of Ebola..."</div>
@@ -4515,6 +4599,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4560,6 +4645,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-viral-entry-via-endocytosis" data-dismech-node="Viral Entry via Endocytosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Viral Entry via Endocytosis</div>
+
 
                 <div class="item-desc">Ebola virus enters host cells through receptor-mediated macropinocytosis. The virus attaches to phosphatidylserine receptors like TIM-1 (HAVCR1) and is internalized into endosomes. Cathepsins B and L cleave the viral glycoprotein (GP), followed by binding to the essential receptor NPC1 in late endosomes/lysosomes, triggering membrane fusion and release of viral genome into the cytoplasm.</div>
 
@@ -4715,6 +4801,7 @@ This pathophysiological event involves symbiont entry into host cell (GO:0046718
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-immune-evasion-and-viral-replication" data-dismech-node="Immune Evasion and Viral Replication" data-dismech-type="pathophysiology">
                 <div class="item-name">Immune Evasion and Viral Replication</div>
 
+
                 <div class="item-desc">Ebola viral proteins VP35 and VP24 antagonize the host interferon response. VP35 binds dsRNA and blocks RIG-I signaling, while VP24 prevents STAT1 nuclear import, thereby suppressing type I interferon signaling. This allows rapid viral replication and high viremia in infected monocytes, macrophages, and dendritic cells.</div>
 
 
@@ -4835,6 +4922,7 @@ This pathophysiological event involves dendritic cell (CL:0000451). CL:0000451 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-endothelial-dysfunction-and-vascular-leak" data-dismech-node="Endothelial Dysfunction and Vascular Leak" data-dismech-type="pathophysiology">
                 <div class="item-name">Endothelial Dysfunction and Vascular Leak</div>
 
+
                 <div class="item-desc">Ebola virus glycoprotein (GP) and secreted GP (sGP) contribute to endothelial cell activation and barrier disruption. This leads to increased vascular permeability, fluid extravasation, and hypovolemic shock. Endothelial dysfunction is a central feature of Ebola hemorrhagic fever.</div>
 
 
@@ -4916,6 +5004,7 @@ This pathophysiological event occurs in blood vessel (UBERON:0001981). UBERON:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-coagulopathy-and-disseminated-intravascular-coagulation" data-dismech-node="Coagulopathy and Disseminated Intravascular Coagulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Coagulopathy and Disseminated Intravascular Coagulation</div>
 
+
                 <div class="item-desc">Ebola infection triggers systemic inflammatory response with cytokine release, endothelial activation, and tissue factor pathway activation. This leads to thromboinflammation, platelet activation, consumptive coagulopathy, and disseminated intravascular coagulation (DIC), resulting in hemorrhagic manifestations.</div>
 
 
@@ -4996,6 +5085,7 @@ This pathophysiological event occurs in blood vessel (UBERON:0001981). UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-multiorgan-involvement" data-dismech-node="Multiorgan Involvement" data-dismech-type="pathophysiology">
                 <div class="item-name">Multiorgan Involvement</div>
+
 
                 <div class="item-desc">Ebola virus infects multiple organs including liver, spleen, lymph nodes, and kidneys. Hepatic dysfunction with elevated liver enzymes (AST &gt; ALT pattern) and splenic involvement contribute to multiorgan failure in severe cases.</div>
 
@@ -5093,7 +5183,7 @@ This pathophysiological event occurs in spleen (UBERON:0002106). UBERON:0002106 
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Dehydration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001944\"}}, {\"id\": \"Diarrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"severity\": \"Severe\", \"term_id\": \"HP:0002014\"}}, {\"id\": \"Electrolyte Imbalances\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003111\"}}, {\"id\": \"Elevated Liver Enzymes\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"reports_on\": [{\"target\": \"Hepatitis\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}], \"term_id\": \"HP:0002910\"}}, {\"id\": \"Hemorrhage\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"frequency\": \"VERY_FREQUENT\", \"severity\": \"Severe\", \"term_id\": \"HP:0001892\"}}, {\"id\": \"Hepatitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012115\"}}, {\"id\": \"Hypovolemic Shock\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0031273\"}}, {\"id\": \"Impaired Liver Function\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001410\"}}, {\"id\": \"Increased Risk of Bleeding\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001892\"}}, {\"id\": \"Multiorgan Failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\"}}, {\"id\": \"Thrombocytopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001873\"}}, {\"id\": \"Vascular Dysfunction and Death\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}], \"edges\": [{\"source\": \"Hemorrhage\", \"target\": \"Hypovolemic Shock\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Hemorrhage\", \"target\": \"Multiorgan Failure\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Hemorrhage\", \"target\": \"Vascular Dysfunction and Death\", \"predicate\": \"leads_to\", \"is_orphan\": true, \"description\": \"Ebola virus causes aggressive inflammatory response and impaired coagulation systems leading to hemorrhage and often death.\"}, {\"source\": \"Diarrhea\", \"target\": \"Dehydration\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Diarrhea\", \"target\": \"Electrolyte Imbalances\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Thrombocytopenia\", \"target\": \"Increased Risk of Bleeding\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Hepatitis\", \"target\": \"Impaired Liver Function\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Hepatitis\", \"target\": \"Elevated Liver Enzymes\", \"predicate\": \"readout\", \"is_orphan\": false, \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}], \"orphan_targets\": [\"Vascular Dysfunction and Death\"]}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Dehydration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001944\"}}, {\"id\": \"Diarrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"severity\": \"Severe\", \"term_id\": \"HP:0002014\"}}, {\"id\": \"Electrolyte Imbalances\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003111\"}}, {\"id\": \"Elevated Liver Enzymes\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"reports_on\": [{\"target\": \"Hepatitis\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}], \"term_id\": \"HP:0002910\"}}, {\"id\": \"Hemorrhage\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"frequency\": \"VERY_FREQUENT\", \"severity\": \"Severe\", \"term_id\": \"HP:0001892\"}}, {\"id\": \"Hepatitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012115\"}}, {\"id\": \"Hypovolemic Shock\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0031273\"}}, {\"id\": \"Immune Evasion and Viral Replication\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ebola viral proteins VP35 and VP24 antagonize the host interferon response. VP35 binds dsRNA and blocks RIG-I signaling, while VP24 prevents STAT1 nuclear import, thereby suppressing type I interferon signaling. This allows rapid viral replication and high viremia in infected monocytes, macrophages, and dendritic cells.\", \"meta\": {\"cell_types\": [\"monocyte\", \"macrophage\", \"dendritic cell\"]}}, {\"id\": \"Impaired Liver Function\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001410\"}}, {\"id\": \"Increased Risk of Bleeding\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001892\"}}, {\"id\": \"Multiorgan Failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\"}}, {\"id\": \"REGN-EB3 (Inmazeb; atoltivimab/maftivimab/odesivimab)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Combination monoclonal antibody targeting multiple viral glycoprotein epitopes; reported to substantially improve survival, particularly when administered during earlier stages of infection.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"atoltivimab\", \"maftivimab\", \"odesivimab\"]}}, {\"id\": \"Thrombocytopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001873\"}}, {\"id\": \"Vascular Dysfunction and Death\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"mAb114 (Ebanga; ansuvimab)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Single monoclonal antibody isolated from a survivor of Ebola virus disease; reported to substantially improve survival, particularly when administered during earlier stages of infection.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"ansuvimab\"]}}], \"edges\": [{\"source\": \"Hemorrhage\", \"target\": \"Hypovolemic Shock\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Hemorrhage\", \"target\": \"Multiorgan Failure\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Hemorrhage\", \"target\": \"Vascular Dysfunction and Death\", \"predicate\": \"leads_to\", \"is_orphan\": true, \"description\": \"Ebola virus causes aggressive inflammatory response and impaired coagulation systems leading to hemorrhage and often death.\"}, {\"source\": \"Diarrhea\", \"target\": \"Dehydration\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Diarrhea\", \"target\": \"Electrolyte Imbalances\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Thrombocytopenia\", \"target\": \"Increased Risk of Bleeding\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Hepatitis\", \"target\": \"Impaired Liver Function\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"REGN-EB3 (Inmazeb; atoltivimab/maftivimab/odesivimab)\", \"target\": \"Immune Evasion and Viral Replication\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"mAb114 (Ebanga; ansuvimab)\", \"target\": \"Immune Evasion and Viral Replication\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Hepatitis\", \"target\": \"Elevated Liver Enzymes\", \"predicate\": \"readout\", \"is_orphan\": false, \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}], \"orphan_targets\": [\"Vascular Dysfunction and Death\"]}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5169,6 +5259,9 @@ This clinical feature is Hemorrhage, annotated with Abnormal bleeding (HP:000189
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -5199,6 +5292,7 @@ This clinical feature is Hemorrhage, annotated with Abnormal bleeding (HP:000189
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"It is usually diagnosed based on several clinical symptoms such as the sudden onset of illness, high fevers for less than three weeks, and at least two hemorrhagic symptoms despite no predisposing factors."</div>
@@ -5221,6 +5315,7 @@ This clinical feature is Hemorrhage, annotated with Abnormal bleeding (HP:000189
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Ebolaviruses, members of the family Filoviridae, cause severe hemorrhagic fever in humans and nonhuman primates, with human case fatality rates of up to 90%."</div>
@@ -5240,6 +5335,7 @@ This clinical feature is Hemorrhage, annotated with Abnormal bleeding (HP:000189
 
 
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
 
 
 
@@ -5294,6 +5390,9 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -5320,6 +5419,7 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Transmission of EBoV has been reported in various ways, including human to human transmission through close contact with blood and bodily fluids... It is usually diagnosed based on several clinical symptoms such as the sudden onset of illness, high fevers for less than three weeks, and at least..."</div>
@@ -5342,6 +5442,7 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Understanding bleeding in Ebola virus disease."</div>
@@ -5361,6 +5462,7 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5421,6 +5523,9 @@ This clinical feature is Increased Risk of Bleeding, annotated with Abnormal ble
 
 
 
+
+
+
                 </div>
 
             </details>
@@ -5457,6 +5562,9 @@ This clinical feature is Hypovolemic Shock, annotated with Shock (HP:0031273). H
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5507,6 +5615,9 @@ This clinical feature is Vomiting (HP:0002013). HP:0002013 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -5521,6 +5632,7 @@ This clinical feature is Vomiting (HP:0002013). HP:0002013 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5546,6 +5658,7 @@ This clinical feature is Vomiting (HP:0002013). HP:0002013 is a phenotype from t
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"EVD outbreaks typically start from a single case of probable zoonotic transmission, followed by human-to-human transmission via direct contact or contact with infected bodily fluids or contaminated fomites. EVD has a high case-fatality rate; it is characterized by fever, gastrointestinal signs..."</div>
@@ -5565,6 +5678,7 @@ This clinical feature is Vomiting (HP:0002013). HP:0002013 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5617,6 +5731,9 @@ This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from t
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -5645,6 +5762,7 @@ This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from t
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"EVD has a high case-fatality rate; it is characterized by fever, gastrointestinal signs and multiple organ dysfunction syndrome."</div>
@@ -5667,6 +5785,7 @@ This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from t
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Common gastrointestinal manifestations include diarrhea-70 %."</div>
@@ -5686,6 +5805,7 @@ This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5738,6 +5858,9 @@ This clinical feature is Hepatitis (HP:0012115). HP:0012115 is a phenotype from 
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -5764,6 +5887,7 @@ This clinical feature is Hepatitis (HP:0012115). HP:0012115 is a phenotype from 
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Even though HAV, HBV and HNANB viruses are responsible for most of the viral hepatitis cases, many other viruses have been reported to cause hepatic injury. These viruses may involve the liver, either as part of a systemic illness (e.g. EBV, CMV, HSV) or as the primary target organ (e.g. yellow..."</div>
@@ -5786,6 +5910,7 @@ This clinical feature is Hepatitis (HP:0012115). HP:0012115 is a phenotype from 
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"The mean serum AST and ALT levels are each about 200/UL, with an unusual pattern for viral hepatitis of AST &gt; ALT."</div>
@@ -5805,6 +5930,7 @@ This clinical feature is Hepatitis (HP:0012115). HP:0012115 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5869,6 +5995,9 @@ This clinical feature is Impaired Liver Function, annotated with Decreased liver
 
 
 
+
+
+
                 </div>
 
             </details>
@@ -5912,6 +6041,9 @@ This clinical feature is Maculopapular rash, annotated with Maculopapular exanth
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5926,6 +6058,7 @@ This clinical feature is Maculopapular rash, annotated with Maculopapular exanth
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5989,6 +6122,9 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6003,6 +6139,7 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6025,6 +6162,7 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
 
 
 
@@ -6083,6 +6221,9 @@ This clinical feature is Dehydration (HP:0001944). HP:0001944 is a phenotype fro
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-electrolyte-imbalances" data-dismech-node="Electrolyte Imbalances" data-dismech-type="phenotype">
@@ -6121,6 +6262,9 @@ This clinical feature is Electrolyte Imbalances, annotated with Abnormal blood i
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-elevated-liver-enzymes" data-dismech-node="Elevated Liver Enzymes" data-dismech-type="phenotype">
@@ -6150,6 +6294,9 @@ This clinical feature is Elevated Liver Enzymes, annotated with Elevated circula
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6200,6 +6347,9 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6214,6 +6364,7 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6239,6 +6390,7 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"In patients with EVD, neurologic manifestations range from mild symptoms such as confusion to severe neurologic diseases such as meningitis and encephalitis. Altered mental status, from mild confusion to delirium with hallucinations, may also occur."</div>
@@ -6258,6 +6410,7 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6321,6 +6474,9 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6335,6 +6491,7 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6389,6 +6546,9 @@ This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6403,6 +6563,7 @@ This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6457,6 +6618,9 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6471,6 +6635,7 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6493,6 +6658,7 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6534,6 +6700,9 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">HPO does not have a specific term for multiple organ dysfunction syndrome</div>
@@ -6621,6 +6790,9 @@ This disease-associated gene is NPC1 (hgnc:7897). hgnc:7897 is a gene from the H
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-havcr1" data-dismech-node="HAVCR1" data-dismech-type="genetic">
@@ -6652,6 +6824,9 @@ This disease-associated gene is HAVCR1 (hgnc:17866). hgnc:17866 is a gene from t
 
 
                 </div>
+
+
+
 
 
 
@@ -6695,6 +6870,9 @@ This disease-associated gene is SLC39A9 (hgnc:20182). hgnc:20182 is a gene from 
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-pik3c3" data-dismech-node="PIK3C3" data-dismech-type="genetic">
@@ -6726,6 +6904,9 @@ This disease-associated gene is PIK3C3 (hgnc:8974). hgnc:8974 is a gene from the
 
 
                 </div>
+
+
+
 
 
 
@@ -6769,6 +6950,9 @@ This disease-associated gene is CTSB (hgnc:2527). hgnc:2527 is a gene from the H
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-ctsl" data-dismech-node="CTSL" data-dismech-type="genetic">
@@ -6806,6 +6990,9 @@ This disease-associated gene is CTSL (hgnc:2537). hgnc:2537 is a gene from the H
 
 
 
+
+
+
             </div>
 
         </div>
@@ -6823,7 +7010,7 @@ This disease-associated gene is CTSL (hgnc:2537). hgnc:2537 is a gene from the H
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Medical Actions</h2>
-                <span class="card-count">3</span>
+                <span class="card-count">5</span>
             </div>
 
             <div class="item-box treatment-box anchor-target" id="treatment-supportive-care" data-dismech-node="Supportive Care" data-dismech-type="treatment">
@@ -6866,6 +7053,20 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Includes rehydration, symptomatic treatment to manage fever, bleeding, and pain.</div>
 
 
@@ -6887,6 +7088,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6912,6 +7114,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Clinical management of EVD combines supportive and symptomatic care while also addressing the patient&#39;s emotional and mental health needs."</div>
@@ -6931,6 +7134,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6993,6 +7197,20 @@ This treatment is antiviral agent therapy, annotated with Antiviral Therapy (NCI
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Includes antiviral drugs, immune therapies, and blood products from survivors containing antibodies.</div>
 
 
@@ -7014,6 +7232,7 @@ This treatment is antiviral agent therapy, annotated with Antiviral Therapy (NCI
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7039,6 +7258,7 @@ This treatment is antiviral agent therapy, annotated with Antiviral Therapy (NCI
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"This review describes Ebola viruses, with a particular focus on the status of research efforts to develop vaccines and therapeutics and to identify the immune mechanisms of protection."</div>
@@ -7058,6 +7278,7 @@ This treatment is antiviral agent therapy, annotated with Antiviral Therapy (NCI
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7081,6 +7302,460 @@ This treatment is antiviral agent therapy, annotated with Antiviral Therapy (NCI
 
             </div>
 
+            <div class="item-box treatment-box anchor-target" id="treatment-regn-eb3-inmazeb-atoltivimab-maftivimab-odesivimab" data-dismech-node="REGN-EB3 (Inmazeb; atoltivimab/maftivimab/odesivimab)" data-dismech-type="treatment">
+                <div class="item-name">
+                    REGN-EB3 (Inmazeb; atoltivimab/maftivimab/odesivimab)
+                </div>
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    </div>
+
+
+
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+
+
+
+                    <span class="tag tag-treatment">
+                        atoltivimab
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C169793" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-40">NCIT:C169793</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses atoltivimab (NCIT:C169793). NCIT:C169793 is a therapeutic agent from the NCI Thesaurus.</span>
+                    </span>
+
+
+
+                    <span class="tag tag-treatment">
+                        maftivimab
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C170146" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-41">NCIT:C170146</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses maftivimab (NCIT:C170146). NCIT:C170146 is a therapeutic agent from the NCI Thesaurus.</span>
+                    </span>
+
+
+
+                    <span class="tag tag-treatment">
+                        odesivimab
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C170242" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-42">NCIT:C170242</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses odesivimab (NCIT:C170242). NCIT:C170242 is a therapeutic agent from the NCI Thesaurus.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Monoclonal antibody</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
+                <div class="item-desc">Combination monoclonal antibody targeting multiple viral glycoprotein epitopes; reported to substantially improve survival, particularly when administered during earlier stages of infection.</div>
+
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            INHIBITS
+                        </span>
+                        <strong style="color: #5b21b6;">Immune Evasion and Viral Replication</strong>
+
+                        <span style="color: #7c3aed;"> &mdash; Neutralizing antibody bound to viral glycoprotein blocks circulating virions, limiting the systemic dissemination this node describes.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42579070" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42579070" target="_blank">PMID:42579070</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Monoclonal antibody therapies emerged as particularly promising interventions because of their capacity to neutralize circulating virus and limit systemic viral dissemination."</div>
+
+
+                <div class="evidence-explanation">States the mechanism by which these antibodies act on circulating virus and its dissemination, which is what this edge asserts.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42579070" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42579070" target="_blank">PMID:42579070</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Among these agents, REGN-EB3 and mAb114 demonstrated significant survival benefits during randomized clinical trials"</div>
+
+
+                <div class="evidence-explanation">Documents REGN-EB3 as a monoclonal antibody therapy with a significant survival benefit in randomized trials.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42579070" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42579070" target="_blank">PMID:42579070</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Both therapies substantially improved survival rates, particularly when administered during earlier stages of infection before progression to advanced multiorgan dysfunction"</div>
+
+
+                <div class="evidence-explanation">Source for the early-administration qualifier this description carries.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box treatment-box anchor-target" id="treatment-mab114-ebanga-ansuvimab" data-dismech-node="mAb114 (Ebanga; ansuvimab)" data-dismech-type="treatment">
+                <div class="item-name">
+                    mAb114 (Ebanga; ansuvimab)
+                </div>
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-43">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    </div>
+
+
+
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+
+
+
+                    <span class="tag tag-treatment">
+                        ansuvimab
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C175743" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-44">NCIT:C175743</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses ansuvimab (NCIT:C175743). NCIT:C175743 is a therapeutic agent from the NCI Thesaurus.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Monoclonal antibody</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
+                <div class="item-desc">Single monoclonal antibody isolated from a survivor of Ebola virus disease; reported to substantially improve survival, particularly when administered during earlier stages of infection.</div>
+
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            INHIBITS
+                        </span>
+                        <strong style="color: #5b21b6;">Immune Evasion and Viral Replication</strong>
+
+                        <span style="color: #7c3aed;"> &mdash; Neutralizing antibody bound to viral glycoprotein blocks circulating virions, limiting the systemic dissemination this node describes.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42579070" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42579070" target="_blank">PMID:42579070</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Monoclonal antibody therapies emerged as particularly promising interventions because of their capacity to neutralize circulating virus and limit systemic viral dissemination."</div>
+
+
+                <div class="evidence-explanation">States the mechanism by which these antibodies act on circulating virus and its dissemination, which is what this edge asserts.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42579070" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42579070" target="_blank">PMID:42579070</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Among these agents, REGN-EB3 and mAb114 demonstrated significant survival benefits during randomized clinical trials"</div>
+
+
+                <div class="evidence-explanation">Names mAb114, not only REGN-EB3, as showing a significant survival benefit in randomized trials.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42579070" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42579070" target="_blank">PMID:42579070</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"isolated from a survivor of Ebola virus disease. Both therapies substantially improved survival rates, particularly when administered during earlier stages of infection before progression to advanced multiorgan dysfunction"</div>
+
+
+                <div class="evidence-explanation">Source for the survivor derivation and for the early-administration qualifier.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
             <div class="item-box treatment-box anchor-target" id="treatment-vaccination" data-dismech-node="Vaccination" data-dismech-type="treatment">
                 <div class="item-name">
                     Vaccination
@@ -7089,7 +7764,7 @@ This treatment is antiviral agent therapy, annotated with Antiviral Therapy (NCI
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">Vaccination<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-45">Vaccination<span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7121,6 +7796,20 @@ This treatment is Vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">The rVSV-ZEBOV vaccine has been shown to be effective in preventing Ebola infection.</div>
 
 
@@ -7142,6 +7831,7 @@ This treatment is Vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7167,6 +7857,7 @@ This treatment is Vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Ervebo is the first licensed vaccine for prevention of Ebola virus disease."</div>
@@ -7186,6 +7877,7 @@ This treatment is Vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7234,11 +7926,11 @@ This treatment is Vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_3000001" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-40">ECTO:3000001</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_3000001" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-46">ECTO:3000001</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
 Relation: this environmental factor is this exposure
 This environmental factor is Animal reservoir exposure, annotated with exposure to virus (ECTO:3000001). ECTO:3000001 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
@@ -7274,6 +7966,7 @@ This environmental factor is Animal reservoir exposure, annotated with exposure 
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Among the various animals captured and analyzed, three species of fruit bats (suborder Megachiroptera) were found asymptomatically and naturally infected with Ebola virus: Hypsignathus monstrosus (hammer-headed fruit beats), Epomops franqueti (singing fruit bats), and Myonycteris torquata..."</div>
@@ -7296,6 +7989,7 @@ This environmental factor is Animal reservoir exposure, annotated with exposure 
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Although an ebolavirus natural reservoir has yet to be identified, the majority of disease ecologists believe the reservoir to belong to the order Chiroptera (bats)."</div>
@@ -7315,6 +8009,7 @@ This environmental factor is Animal reservoir exposure, annotated with exposure 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7380,6 +8075,7 @@ This environmental factor is Animal reservoir exposure, annotated with exposure 
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"The diagnosis of Ebola virus disease relies on the detection of viral RNA in blood by real-time reverse-transcription PCR."</div>
@@ -7399,6 +8095,7 @@ This environmental factor is Animal reservoir exposure, annotated with exposure 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7449,6 +8146,7 @@ This environmental factor is Animal reservoir exposure, annotated with exposure 
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"The diagnosis of Ebola virus disease relies on the detection of viral RNA in blood by real-time reverse-transcription PCR."</div>
@@ -7468,6 +8166,7 @@ This environmental factor is Animal reservoir exposure, annotated with exposure 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7537,6 +8236,7 @@ This environmental factor is Animal reservoir exposure, annotated with exposure 
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"The incubation period of the disease ranges from 2 to 21 days."</div>
@@ -7601,6 +8301,7 @@ This environmental factor is Animal reservoir exposure, annotated with exposure 
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Our results suggest a serologic prevalence of 2%-3.5% in the Republic of the Congo and the Democratic Republic of the Congo, which have reported outbreaks of infection with EBOV. In addition we detected a seroprevalence of 1.3% in southern Cameroon, which indicated a low risk for exposure in this region."</div>
@@ -7620,6 +8321,7 @@ This environmental factor is Animal reservoir exposure, annotated with exposure 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7673,11 +8375,11 @@ This environmental factor is Animal reservoir exposure, annotated with exposure 
         Ebola virus
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_1570291" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-41">NCBITaxon:1570291</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_1570291" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-47">NCBITaxon:1570291</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-41">NCBI Taxonomy (NCBITaxon)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-47">NCBI Taxonomy (NCBITaxon)</span>
     </span>
 
 
@@ -7716,6 +8418,7 @@ This environmental factor is Animal reservoir exposure, annotated with exposure 
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Ebola virus disease (EVD) is a severe and frequently lethal disease caused by Ebola virus (EBOV)."</div>
@@ -7738,6 +8441,7 @@ This environmental factor is Animal reservoir exposure, annotated with exposure 
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Ebola virus disease (EVD) in humans is associated with four ebolaviruses: Ebola virus (EBOV), Sudan virus (SUDV), Bundibugyo virus (BDBV), and Taï Forest virus"</div>
@@ -7757,6 +8461,7 @@ This environmental factor is Animal reservoir exposure, annotated with exposure 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7827,6 +8532,7 @@ This environmental factor is Animal reservoir exposure, annotated with exposure 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8573,6 +9279,92 @@ treatments:
     term:
       id: NCIT:C16119
       label: Antiviral Therapy
+- name: REGN-EB3 (Inmazeb; atoltivimab/maftivimab/odesivimab)
+  description: Combination monoclonal antibody targeting multiple viral glycoprotein epitopes; reported to substantially improve survival, particularly when administered during earlier stages of infection.
+  therapeutic_modality: MONOCLONAL_ANTIBODY
+  target_mechanisms:
+  - target: Immune Evasion and Viral Replication
+    treatment_effect: INHIBITS
+    description: &gt;-
+      Neutralizing antibody bound to viral glycoprotein blocks circulating virions,
+      limiting the systemic dissemination this node describes.
+    evidence:
+    - reference: PMID:42579070
+      reference_title: &#34;Ebola virus disease in the modern era: pathogenesis, therapeutic advances, vaccine strategies, and global health preparedness.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Monoclonal antibody therapies emerged as particularly promising interventions because of their capacity to neutralize circulating virus and limit systemic viral dissemination.&#34;
+      explanation: States the mechanism by which these antibodies act on circulating virus and its dissemination, which is what this edge asserts.
+  evidence:
+  - reference: PMID:42579070
+    reference_title: &#34;Ebola virus disease in the modern era: pathogenesis, therapeutic advances, vaccine strategies, and global health preparedness.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Among these agents, REGN-EB3 and mAb114 demonstrated significant survival benefits during randomized clinical trials&#34;
+    explanation: Documents REGN-EB3 as a monoclonal antibody therapy with a significant survival benefit in randomized trials.
+  - reference: PMID:42579070
+    reference_title: &#34;Ebola virus disease in the modern era: pathogenesis, therapeutic advances, vaccine strategies, and global health preparedness.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Both therapies substantially improved survival rates, particularly when administered during earlier stages of infection before progression to advanced multiorgan dysfunction&#34;
+    explanation: Source for the early-administration qualifier this description carries.
+  treatment_term:
+    preferred_term: Pharmacotherapy
+    term:
+      id: NCIT:C15986
+      label: Pharmacotherapy
+    therapeutic_agent:
+    - preferred_term: atoltivimab
+      term:
+        id: NCIT:C169793
+        label: Atoltivimab
+    - preferred_term: maftivimab
+      term:
+        id: NCIT:C170146
+        label: Maftivimab
+    - preferred_term: odesivimab
+      term:
+        id: NCIT:C170242
+        label: Odesivimab
+- name: mAb114 (Ebanga; ansuvimab)
+  description: Single monoclonal antibody isolated from a survivor of Ebola virus disease; reported to substantially improve survival, particularly when administered during earlier stages of infection.
+  therapeutic_modality: MONOCLONAL_ANTIBODY
+  target_mechanisms:
+  - target: Immune Evasion and Viral Replication
+    treatment_effect: INHIBITS
+    description: &gt;-
+      Neutralizing antibody bound to viral glycoprotein blocks circulating virions,
+      limiting the systemic dissemination this node describes.
+    evidence:
+    - reference: PMID:42579070
+      reference_title: &#34;Ebola virus disease in the modern era: pathogenesis, therapeutic advances, vaccine strategies, and global health preparedness.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Monoclonal antibody therapies emerged as particularly promising interventions because of their capacity to neutralize circulating virus and limit systemic viral dissemination.&#34;
+      explanation: States the mechanism by which these antibodies act on circulating virus and its dissemination, which is what this edge asserts.
+  evidence:
+  - reference: PMID:42579070
+    reference_title: &#34;Ebola virus disease in the modern era: pathogenesis, therapeutic advances, vaccine strategies, and global health preparedness.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Among these agents, REGN-EB3 and mAb114 demonstrated significant survival benefits during randomized clinical trials&#34;
+    explanation: Names mAb114, not only REGN-EB3, as showing a significant survival benefit in randomized trials.
+  - reference: PMID:42579070
+    reference_title: &#34;Ebola virus disease in the modern era: pathogenesis, therapeutic advances, vaccine strategies, and global health preparedness.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;isolated from a survivor of Ebola virus disease. Both therapies substantially improved survival rates, particularly when administered during earlier stages of infection before progression to advanced multiorgan dysfunction&#34;
+    explanation: Source for the survivor derivation and for the early-administration qualifier.
+  treatment_term:
+    preferred_term: Pharmacotherapy
+    term:
+      id: NCIT:C15986
+      label: Pharmacotherapy
+    therapeutic_agent:
+    - preferred_term: ansuvimab
+      term:
+        id: NCIT:C175743
+        label: Ansuvimab
 - name: Vaccination
   description: The rVSV-ZEBOV vaccine has been shown to be effective in preventing Ebola infection.
   evidence:
@@ -8679,6 +9471,8 @@ gene_sets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -8937,7 +9731,7 @@ EVD pathophysiology reflects a convergence of: (i) multistep entry culminating i
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Ebola Virus Disease (EVD)", "mondoId": "MONDO:0005737", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Ebola_Virus_Disease_EVD", "yamlRevision": "13bc225d740a"};
+        const OS_CONFIG = {"diseaseName": "Ebola Virus Disease (EVD)", "mondoId": "MONDO:0005737", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Ebola_Virus_Disease_EVD", "yamlRevision": "4a09b4f61058"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

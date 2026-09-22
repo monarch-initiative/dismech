@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4181,6 +4253,7 @@ The 2026 siblings added three features to the phenotype that a growth-restrictio
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4202,6 +4275,7 @@ The 2026 siblings added three features to the phenotype that a growth-restrictio
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4315,6 +4389,7 @@ The consequence for this entry is deliberate. The SMN and Cajal body node is kep
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4339,6 +4414,7 @@ The consequence for this entry is deliberate. The SMN and Cajal body node is kep
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4360,6 +4436,7 @@ The consequence for this entry is deliberate. The SMN and Cajal body node is kep
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4453,6 +4530,7 @@ A practical consequence follows for anyone reading a ZPR1 variant in a diagnosti
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4477,6 +4555,7 @@ A practical consequence follows for anyone reading a ZPR1 variant in a diagnosti
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4498,6 +4577,7 @@ A practical consequence follows for anyone reading a ZPR1 variant in a diagnosti
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4537,6 +4617,7 @@ A practical consequence follows for anyone reading a ZPR1 variant in a diagnosti
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-zpr1-p-ile196thr-homozygous-founder-variant" data-dismech-node="ZPR1 p.Ile196Thr Homozygous Founder Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">ZPR1 p.Ile196Thr Homozygous Founder Variant</div>
+
 
                 <div class="item-desc">ZPR1 c.587T&gt;C (p.Ile196Thr), homozygous, in every patient with a confirmed genotype. Structural modelling places the substituted isoleucine in the hydrophobic core of the protein, which predicts a folding rather than an interaction defect. It remains the only ZPR1 allele established as disease-causing. One further genotype has been reported - a compound heterozygous pair of variants of uncertain significance, including a truncating allele, in a child with an overlapping phenotype - but its phase was never established and neither variant is classified beyond uncertain, so the genotype-phenotype relationship of the gene as a whole is still unknown. The allelic spectrum is set out in full on the ZPR1 genetic record.</div>
 
@@ -4631,6 +4712,7 @@ This pathophysiological event involves ZPR1 (hgnc:13051). hgnc:13051 is a gene f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4652,6 +4734,7 @@ This pathophysiological event involves ZPR1 (hgnc:13051). hgnc:13051 is a gene f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4679,6 +4762,7 @@ This pathophysiological event involves ZPR1 (hgnc:13051). hgnc:13051 is a gene f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4701,6 +4785,7 @@ This pathophysiological event involves ZPR1 (hgnc:13051). hgnc:13051 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-absence-of-zpr1-protein" data-dismech-node="Absence of ZPR1 Protein" data-dismech-type="pathophysiology">
                 <div class="item-name">Absence of ZPR1 Protein</div>
+
 
                 <div class="item-desc">Patient fibroblasts contain no detectable ZPR1. That is a stronger result than the missense genotype would suggest and it is the single most important fact about this disease&#39;s mechanism: a core-destabilising substitution that leaves no protein behind makes the allele functionally null, at least in fibroblasts, and licenses reading the ZPR1-deficiency literature as relevant.
 The caveat is that fibroblasts are the only human tissue examined. Whether kidney, hair follicle, cochlea or brain also lack the protein entirely, or retain some, has not been tested, and a residual amount somewhere would matter - complete ZPR1 loss is embryonic lethal in mouse, and these children were liveborn.</div>
@@ -4793,6 +4878,7 @@ This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4814,6 +4900,7 @@ This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4839,6 +4926,7 @@ This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-subnuclear-localization-of-smn-and-npat" data-dismech-node="Disrupted Subnuclear Localization of SMN and NPAT" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Subnuclear Localization of SMN and NPAT</div>
+
 
                 <div class="item-desc">ZPR1 moves into the nucleus during S phase and concentrates with the survival motor neurons protein and the histone gene-specific transcription factor NPAT in subnuclear foci, including Cajal bodies sitting on histone gene clusters. Without ZPR1, both proteins lose that localisation and histone gene expression falls.
 This node is imported from ZPR1-deficiency work in cell lines and in Zpr1-null mouse embryos, not from patients. No patient tissue has been examined for SMN or NPAT localisation, so the node describes what ZPR1 loss does rather than what was observed in this disease.</div>
@@ -4932,6 +5020,7 @@ This pathophysiological event involves Cajal body (GO:0015030). GO:0015030 is a 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4953,6 +5042,7 @@ This pathophysiological event involves Cajal body (GO:0015030). GO:0015030 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4980,6 +5070,7 @@ This pathophysiological event involves Cajal body (GO:0015030). GO:0015030 is a 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5002,6 +5093,7 @@ This pathophysiological event involves Cajal body (GO:0015030). GO:0015030 is a 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cell-cycle-arrest-in-g1" data-dismech-node="Cell Cycle Arrest in G1" data-dismech-type="pathophysiology">
                 <div class="item-name">Cell Cycle Arrest in G1</div>
+
 
                 <div class="item-desc">ZPR1-deficient cells stop cycling. In patient fibroblasts a significant fraction is arrested in G1; in experimental ZPR1 deficiency the block is broader, halting S phase progression and arresting cells in G1 and G2 both. The patient measurement is the one this entry treats as the disease phenotype; the experimental one shows the arrest is not an artefact of one cell line.</div>
 
@@ -5091,6 +5183,7 @@ This pathophysiological event involves decreased cell cycle G1/S phase transitio
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5112,6 +5205,7 @@ This pathophysiological event involves decreased cell cycle G1/S phase transitio
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5137,6 +5231,7 @@ This pathophysiological event involves decreased cell cycle G1/S phase transitio
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-cell-proliferation-in-developing-tissues" data-dismech-node="Reduced Cell Proliferation in Developing Tissues" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Cell Proliferation in Developing Tissues</div>
+
 
                 <div class="item-desc">The tissue-level step, occurring in parallel across many organs: a ubiquitously expressed protein required for cell cycle progression is absent, so tissues that must proliferate in order to form do not reach their normal size or number. This is the node that accounts for the breadth of the syndrome - growth, head circumference, kidney, hair, ear and genital development are affected together because the constraint is on proliferation itself rather than on any organ&#39;s own programme.
 Direct evidence in humans is limited to the fibroblast arrest above; the proliferation deficit itself is demonstrated in the Zpr1-null mouse embryo, which shows reduced proliferation with increased apoptosis and dies early in development. No affected human tissue has been examined histologically.</div>
@@ -5313,6 +5408,7 @@ This pathophysiological event involves decreased cell population proliferation (
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5334,6 +5430,7 @@ This pathophysiological event involves decreased cell population proliferation (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5405,19 +5502,21 @@ This pathophysiological event involves decreased cell population proliferation (
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Genitourinary<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Ear<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Head and Neck<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Genitourinary<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Integument<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Head and Neck<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Metabolism<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Integument<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Nervous System<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Metabolism<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Nervous System<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Other<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Growth<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Other<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5474,6 +5573,9 @@ This clinical feature is Non-cirrhotic portal hypertension, annotated with Porta
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -5497,6 +5599,7 @@ This clinical feature is Non-cirrhotic portal hypertension, annotated with Porta
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5562,6 +5665,9 @@ This clinical feature is Esophageal varix (HP:0002040). HP:0002040 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5576,6 +5682,7 @@ This clinical feature is Esophageal varix (HP:0002040). HP:0002040 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5607,9 +5714,216 @@ This clinical feature is Esophageal varix (HP:0002040). HP:0002040 is a phenotyp
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Genitourinary
+                    Ear
                     <span class="cat-count">1</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-severe-congenital-sensorineural-hearing-loss" data-dismech-node="Severe Congenital Sensorineural Hearing Loss" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Severe Congenital Sensorineural Hearing Loss
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Congenital sensorineural hearing impairment</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008527" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0008527</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Severe congenital sensorineural hearing impairment, annotated with Congenital sensorineural hearing impairment (HP:0008527), qualified as severity severe. HP:0008527 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Severity: SEVERE</span>
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29851065" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29851065" target="_blank">PMID:29851065</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A novel autosomal recessive disorder characterized by pre- and postnatal growth restriction with microcephaly, distinctive craniofacial features, congenital alopecia, hypoplastic kidneys with renal insufficiency, global developmental delay, severe congenital sensorineural hearing loss, early..."</div>
+
+
+                <div class="evidence-explanation">The founding clinical description, which supplies both the congenital onset and the severity.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Genitourinary
+                    <span class="cat-count">3</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypoplastic-kidneys-with-renal-insufficiency" data-dismech-node="Hypoplastic Kidneys with Renal Insufficiency" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hypoplastic Kidneys with Renal Insufficiency
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Renal hypoplasia</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000089" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0000089</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Renal hypoplasia (HP:0000089). HP:0000089 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+                    <div class="item-meta">
+                        <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
+
+                        <span class="tag" style="background: #bbf7d0; color: #166534;">Renal Insufficiency</span>
+
+                    </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29851065" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29851065" target="_blank">PMID:29851065</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A novel autosomal recessive disorder characterized by pre- and postnatal growth restriction with microcephaly, distinctive craniofacial features, congenital alopecia, hypoplastic kidneys with renal insufficiency, global developmental delay, severe congenital sensorineural hearing loss, early..."</div>
+
+
+                <div class="evidence-explanation">The founding clinical description, naming both the hypoplasia and the resulting insufficiency.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40776660" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40776660" target="_blank">PMID:40776660</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We report two female siblings, a 13-month-old and a newborn, with multiple anomalies including hypoplastic kidneys, severe growth restriction, facial dysmorphism, and alopecia, both found to be homozygous for the c.587 T&gt;C variant in ZPR1."</div>
+
+
+                <div class="evidence-explanation">Replication of the renal finding in two further children.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-renal-insufficiency" data-dismech-node="Renal Insufficiency" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -5625,10 +5939,10 @@ This clinical feature is Esophageal varix (HP:0002040). HP:0002040 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000083" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0000083</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000083" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0000083</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Renal insufficiency (HP:0000083), qualified as course progressive. HP:0000083 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5652,6 +5966,9 @@ This clinical feature is Renal insufficiency (HP:0000083), qualified as course p
 
 
                     </div>
+
+
+
 
 
 
@@ -5681,6 +5998,7 @@ This clinical feature is Renal insufficiency (HP:0000083), qualified as course p
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5704,9 +6022,83 @@ This clinical feature is Renal insufficiency (HP:0000083), qualified as course p
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-genital-hypoplasia" data-dismech-node="Genital Hypoplasia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Genital Hypoplasia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">External genital hypoplasia</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003241" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0003241</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Genital hypoplasia, annotated with External genital hypoplasia (HP:0003241). HP:0003241 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29851065" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29851065" target="_blank">PMID:29851065</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A novel autosomal recessive disorder characterized by pre- and postnatal growth restriction with microcephaly, distinctive craniofacial features, congenital alopecia, hypoplastic kidneys with renal insufficiency, global developmental delay, severe congenital sensorineural hearing loss, early..."</div>
+
+
+                <div class="evidence-explanation">The founding clinical description.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
@@ -5727,15 +6119,18 @@ This clinical feature is Renal insufficiency (HP:0000083), qualified as course p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0000252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000252</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5755,6 +6150,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5797,15 +6193,18 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0001999</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001999</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Distinctive craniofacial features, annotated with Abnormal facial shape (HP:0001999). HP:0001999 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5825,6 +6224,7 @@ This clinical feature is Distinctive craniofacial features, annotated with Abnor
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5849,6 +6249,7 @@ This clinical feature is Distinctive craniofacial features, annotated with Abnor
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5877,7 +6278,7 @@ This clinical feature is Distinctive craniofacial features, annotated with Abnor
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-5">
+            <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Integument
@@ -5898,15 +6299,18 @@ This clinical feature is Distinctive craniofacial features, annotated with Abnor
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001596" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001596</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001596" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001596</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Congenital alopecia, annotated with Alopecia (HP:0001596). HP:0001596 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">HP:0005597 (Congenital alopecia totalis) would be the closer label but asserts totality, which neither abstract states. Following the ontology term contract, the specificity is carried in preferred_term instead of manufacturing a narrower ontology match.</div>
@@ -5931,6 +6335,7 @@ This clinical feature is Congenital alopecia, annotated with Alopecia (HP:000159
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5952,6 +6357,7 @@ This clinical feature is Congenital alopecia, annotated with Alopecia (HP:000159
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5980,7 +6386,7 @@ This clinical feature is Congenital alopecia, annotated with Alopecia (HP:000159
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-6">
+            <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
@@ -6001,15 +6407,18 @@ This clinical feature is Congenital alopecia, annotated with Alopecia (HP:000159
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011014" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0011014</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011014" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0011014</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal glucose homeostasis (HP:0011014). HP:0011014 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6029,6 +6438,7 @@ This clinical feature is Abnormal glucose homeostasis (HP:0011014). HP:0011014 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6057,7 +6467,7 @@ This clinical feature is Abnormal glucose homeostasis (HP:0011014). HP:0011014 i
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-7">
+            <details class="phenotype-category-group" id="pheno-cat-8">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
@@ -6078,15 +6488,18 @@ This clinical feature is Abnormal glucose homeostasis (HP:0011014). HP:0011014 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6106,6 +6519,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6146,15 +6560,18 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000238</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000238</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6174,6 +6591,7 @@ This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6202,7 +6620,7 @@ This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype f
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-8">
+            <details class="phenotype-category-group" id="pheno-cat-9">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Growth
@@ -6225,15 +6643,18 @@ This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001511" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001511</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001511" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001511</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intrauterine growth retardation (HP:0001511). HP:0001511 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Curated as one record covering both the prenatal and postnatal components because the two reports describe them together. The postnatal component is separately bindable to HP:0008897 (Postnatal growth retardation) if a later report gives it its own description.</div>
@@ -6258,6 +6679,7 @@ This clinical feature is Intrauterine growth retardation (HP:0001511). HP:000151
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6279,6 +6701,7 @@ This clinical feature is Intrauterine growth retardation (HP:0001511). HP:000151
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6307,113 +6730,12 @@ This clinical feature is Intrauterine growth retardation (HP:0001511). HP:000151
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-9">
+            <details class="phenotype-category-group" id="pheno-cat-10">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
-                    <span class="cat-count">5</span>
+                    <span class="cat-count">2</span>
                 </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hypoplastic-kidneys-with-renal-insufficiency" data-dismech-node="Hypoplastic Kidneys with Renal Insufficiency" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hypoplastic Kidneys with Renal Insufficiency
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Renal hypoplasia</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000089" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000089</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Renal hypoplasia (HP:0000089). HP:0000089 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-                    <div class="item-meta">
-                        <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
-
-                        <span class="tag" style="background: #bbf7d0; color: #166534;">Renal Insufficiency</span>
-
-                    </div>
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:29851065" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29851065" target="_blank">PMID:29851065</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"A novel autosomal recessive disorder characterized by pre- and postnatal growth restriction with microcephaly, distinctive craniofacial features, congenital alopecia, hypoplastic kidneys with renal insufficiency, global developmental delay, severe congenital sensorineural hearing loss, early..."</div>
-
-
-                <div class="evidence-explanation">The founding clinical description, naming both the hypoplasia and the resulting insufficiency.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:40776660" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40776660" target="_blank">PMID:40776660</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"We report two female siblings, a 13-month-old and a newborn, with multiple anomalies including hypoplastic kidneys, severe growth restriction, facial dysmorphism, and alopecia, both found to be homozygous for the c.587 T&gt;C variant in ZPR1."</div>
-
-
-                <div class="evidence-explanation">Replication of the renal finding in two further children.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-death-in-early-childhood" data-dismech-node="Death in Early Childhood" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6421,6 +6743,9 @@ This clinical feature is Renal hypoplasia (HP:0000089). HP:0000089 is a phenotyp
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Left unbound deliberately. HP:0003819 (Death in childhood) is the right concept, but it sits in the HPO Mortality/Aging branch rather than under HP:0000118 (Phenotypic abnormality), so it is not a member of the PhenotypeTerm dynamic enum and binding it fails term validation. The same is true of HP:0001522 (Death in infancy). Other entries in this repository handle it the same way - see Autosomal_Recessive_Spondylometaphyseal_Dysplasia_Megarbane_Type. The mortality is also recorded in `progression`.
@@ -6443,6 +6768,7 @@ Numerator and denominator: 3 of the 4 children in the founding cohort, before ag
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6469,170 +6795,15 @@ Numerator and denominator: 3 of the 4 children in the founding cohort, before ag
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-severe-congenital-sensorineural-hearing-loss" data-dismech-node="Severe Congenital Sensorineural Hearing Loss" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Severe Congenital Sensorineural Hearing Loss
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Congenital sensorineural hearing impairment</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0008527" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0008527</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Severe congenital sensorineural hearing impairment, annotated with Congenital sensorineural hearing impairment (HP:0008527), qualified as severity severe. HP:0008527 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Severity: SEVERE</span>
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:29851065" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29851065" target="_blank">PMID:29851065</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"A novel autosomal recessive disorder characterized by pre- and postnatal growth restriction with microcephaly, distinctive craniofacial features, congenital alopecia, hypoplastic kidneys with renal insufficiency, global developmental delay, severe congenital sensorineural hearing loss, early..."</div>
-
-
-                <div class="evidence-explanation">The founding clinical description, which supplies both the congenital onset and the severity.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-genital-hypoplasia" data-dismech-node="Genital Hypoplasia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Genital Hypoplasia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">External genital hypoplasia</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003241" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0003241</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Genital hypoplasia, annotated with External genital hypoplasia (HP:0003241). HP:0003241 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:29851065" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29851065" target="_blank">PMID:29851065</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"A novel autosomal recessive disorder characterized by pre- and postnatal growth restriction with microcephaly, distinctive craniofacial features, congenital alopecia, hypoplastic kidneys with renal insufficiency, global developmental delay, severe congenital sensorineural hearing loss, early..."</div>
-
-
-                <div class="evidence-explanation">The founding clinical description.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
                 <div class="item-box phenotype-box anchor-target" id="phenotype-growth-hormone-resistance" data-dismech-node="Growth Hormone Resistance" data-dismech-type="phenotype">
                     <div class="item-name">
                         Growth Hormone Resistance
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Deliberately left unbound. HPO has no term for growth hormone resistance or growth hormone insensitivity: a search of the ontology returned 52 terms matching &#34;growth hormone&#34;, none of which describes resistance, and targeted searches for &#34;resistance&#34;, &#34;insensitivity&#34; and &#34;Laron&#34; returned nothing applicable either. HP:0000845 (Elevated circulating growth hormone concentration) and HP:0030353 (Decreased circulating insulin-like growth factor 1 concentration) are the laboratory findings that would normally establish resistance, but the abstract reports neither value, so binding either would assert a measurement that was not published. No term beats a wrong one.</div>
@@ -6654,6 +6825,7 @@ This clinical feature is Genital hypoplasia, annotated with External genital hyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6752,6 +6924,9 @@ This disease-associated gene is ZPR1 (hgnc:13051). hgnc:13051 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (8 references)
@@ -6766,6 +6941,7 @@ This disease-associated gene is ZPR1 (hgnc:13051). hgnc:13051 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6793,6 +6969,7 @@ This disease-associated gene is ZPR1 (hgnc:13051). hgnc:13051 is a gene from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6814,6 +6991,7 @@ This disease-associated gene is ZPR1 (hgnc:13051). hgnc:13051 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6851,6 +7029,7 @@ This disease-associated gene is ZPR1 (hgnc:13051). hgnc:13051 is a gene from the
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -6870,11 +7049,17 @@ This variant is in ZPR1 (hgnc:13051). hgnc:13051 is a gene from the HUGO Gene No
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense variant</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The founder allele of the Middle Rio Grande Valley, homozygous in all six patients with a confirmed genotype. Structural modelling places the substituted isoleucine in the hydrophobic core of the protein, and patient fibroblasts contain no detectable ZPR1, so it behaves as a null in the one human tissue anybody has assayed.</div>
@@ -6904,6 +7089,7 @@ This variant is in ZPR1 (hgnc:13051). hgnc:13051 is a gene from the HUGO Gene No
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6925,6 +7111,7 @@ This variant is in ZPR1 (hgnc:13051). hgnc:13051 is a gene from the HUGO Gene No
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6960,6 +7147,7 @@ This variant is in ZPR1 (hgnc:13051). hgnc:13051 is a gene from the HUGO Gene No
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -6979,11 +7167,17 @@ This variant is in ZPR1 (hgnc:13051). hgnc:13051 is a gene from the HUGO Gene No
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">frameshift variant</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A maternally inherited frameshift, reported once, in a thirteen-month-old with a phenotype overlapping this syndrome and presumed - not shown - to be in trans with p.(Leu149Ser). The reporting authors predict it produces a null protein lacking all characterised functional domains. It is the only truncating ZPR1 allele reported in a patient, and it is classified as of uncertain significance in that report.</div>
@@ -7010,6 +7204,7 @@ This variant is in ZPR1 (hgnc:13051). hgnc:13051 is a gene from the HUGO Gene No
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7045,6 +7240,7 @@ This variant is in ZPR1 (hgnc:13051). hgnc:13051 is a gene from the HUGO Gene No
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7064,11 +7260,17 @@ This variant is in ZPR1 (hgnc:13051). hgnc:13051 is a gene from the HUGO Gene No
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense variant</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A missense change of unknown parental origin reported in the same child, placed by the reporting authors in the eEF1-alpha binding domain and compared by them with p.Ile196Thr as a hydrophobic-to-polar substitution in the same pocket. Classified as of uncertain significance in that report.</div>
@@ -7095,6 +7297,7 @@ This variant is in ZPR1 (hgnc:13051). hgnc:13051 is a gene from the HUGO Gene No
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7183,6 +7386,31 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Management of the renal insufficiency arising from hypoplastic kidneys is the intervention that would change the course, since uremia is a named cause of death in this disease. No treatment of any kind is described in either published report - no dialysis, no transplantation, no outcome - so this record states the target rather than an experience, and no treatment_effect is claimed.</div>
 
 
@@ -7222,6 +7450,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7286,6 +7515,31 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Recessive counselling with a 25 percent recurrence risk for a carrier couple. What is specific here is that a single founder allele explains every published case with a confirmed genotype in a defined region, which makes targeted carrier testing of extended family and of the wider Middle Rio Grande Valley population a coherent proposition rather than a theoretical one. It also means prenatal or preimplantation testing is a single-variant assay for that population. Outside it, the one further reported ZPR1 genotype is two variants of uncertain significance whose phase was never established, so there is nothing there to counsel from.</div>
 
 
@@ -7307,6 +7561,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7383,6 +7638,7 @@ Outside that ancestry there is no such shortcut, and a targeted founder-allele a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7404,6 +7660,7 @@ Outside that ancestry there is no such shortcut, and a targeted founder-allele a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7471,6 +7728,7 @@ Outside that ancestry there is no such shortcut, and a targeted founder-allele a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7543,6 +7801,7 @@ A seventh child, reported in 2026 with two ZPR1 variants of uncertain significan
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7564,6 +7823,7 @@ A seventh child, reported in 2026 with two ZPR1 variants of uncertain significan
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7779,6 +8039,7 @@ This experimental model concerns ZPR1 (hgnc:13051). hgnc:13051 is a gene from th
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7818,6 +8079,7 @@ This experimental model concerns ZPR1 (hgnc:13051). hgnc:13051 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7897,6 +8159,7 @@ This experimental model concerns ZPR1 (hgnc:13051). hgnc:13051 is a gene from th
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7936,6 +8199,7 @@ This experimental model concerns ZPR1 (hgnc:13051). hgnc:13051 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9537,6 +9801,31 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Growth Restriction, Hypoplastic Kidneys, Alopecia and Distinctive Facies (GKAF, ZPR1)</strong> · 2026-09-04T22:28:38Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Growth_Restriction_Hypoplastic_Kidneys_Alopecia_And_Distinctive_Facies/2026-09-04T222838Z-claude-code-41b471.yaml">View source</a></p>
+                        <p class="research-review-text">Identity resolved from the stub&#39;s MONDO xref chain, since MONDO records no causal gene for MONDO:0859146: OLS gave OMIM:619321, NCBI mim2gene_medgen mapped that MIM to GeneID 8882, and NCBI Gene resolved it to ZPR1 (11q23.3). Coverage recheck by gene against origin/main found no kb/ entry for ZPR1 (the only matches were an unrelated Wilson&#39;s-disease Biomni expression table), so this is a new Disease rather than a fold-in.
+
+Evidence base: two clinical reports totalling six children in five families (PMID:29851065 Ito 2018, four children from three New Mexican Hispanic families; PMID:40776660 2026, two sisters, identifying c.587T&gt;C as a Middle Rio Grande Valley founder variant), plus three ZPR1-deficiency mechanism papers (PMID:17068332 cell cycle and transcription, PMID:15767679 Zpr1-null mouse, PMID:16648254 Zpr1-deficient mouse neurodegeneration). Both clinical papers are abstract-only in the cache; the abstracts are unusually complete and carry the whole phenotype list, the mortality, the variant, the structural modelling and the fibroblast result.
+
+Mechanism curated as a general proliferation defect: p.Ile196Thr (predicted to disrupt the hydrophobic core, COMPUTATIONAL) -&gt; no detectable ZPR1 protein in patient fibroblasts -&gt; G1 cell cycle arrest, and in parallel disrupted subnuclear localisation of SMN and NPAT -&gt; reduced proliferation in developing tissues -&gt; the twelve organ phenotypes. That breadth is the point: the constraint is on proliferation itself, which is why one lesion touches growth, brain, kidney, hair, ear, gonad, liver and endocrine axis.
+
+The interpretive problem is recorded rather than smoothed over. Almost all ZPR1 biology comes from spinal muscular atrophy research, and the viable Zpr1+/- mouse develops axonal pathology and neurodegeneration, which no reported patient has. The Zpr1+/- model link to Global Developmental Delay is therefore curated as FAILS_TO_RECAPITULATE with both required limitations and evidence, and a HUMAN_MODEL_MISMATCH discussion sets out the three open explanations (dose difference, early renal death, or nobody looked). A second KNOWLEDGE_GAP records that one allele in one founder population cannot separate the gene&#39;s phenotype from p.Ile196Thr&#39;s, and notes the tension that a true ZPR1 null is embryonic lethal in mouse while these children were liveborn.
+
+Two phenotypes are deliberately left with preferred_term and no term:. Growth Hormone Resistance - HPO has no term for growth hormone resistance or insensitivity (52 &#39;growth hormone&#39; matches searched, plus targeted searches for resistance, insensitivity and Laron), and binding the laboratory findings that would establish it would assert measurements the abstract does not report. Death in Early Childhood - HP:0003819 and HP:0001522 sit in the HPO Mortality/Aging branch, outside the PhenotypeTerm dynamic enum; this follows the precedent in Autosomal_Recessive_Spondylometaphyseal_Dysplasia_Megarbane_Type, and the mortality is also recorded under progression.
+
+Deep research: falcon, on topic (ZPR1 50 mentions, p.Ile196Thr 15, no substituted disease; preflight-dr SKIPs because MONDO records no canonical gene, so substitution was checked by manual gene grep). Nothing was bound from the report; its own term validation flagged two mislabelled CURIEs.
+
+Validation: just validate (schema + terms + references) passed; 52/52 snippets verified, no prefix skips; check-entity-refs, check-duplicate-keys, check-causal-targets, check-enum-values, check-qualifier-terms all clean. Every phenotype is wired; the only node with no incoming edge is the variant, which is the root.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

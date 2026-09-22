@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4100,6 +4172,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4121,6 +4194,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4485,6 +4559,7 @@ This subtype is caused by variation in DEPDC5 (hgnc:18423). hgnc:18423 is a gene
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-inherited-adshe-gene-architecture" data-dismech-node="Inherited ADSHE gene architecture" data-dismech-type="pathophysiology">
                 <div class="item-name">Inherited ADSHE gene architecture</div>
 
+
                 <div class="item-desc">Familial SHE is initiated by heterozygous pathogenic variants in a genetically heterogeneous autosomal dominant set that includes nicotinic acetylcholine receptor genes, KCNT1, DEPDC5/GATOR1-related genes, and rarer reported loci.</div>
 
 
@@ -4752,6 +4827,7 @@ This pathophysiological event involves KCNT1 (hgnc:18865). hgnc:18865 is a gene 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4774,6 +4850,7 @@ This pathophysiological event involves KCNT1 (hgnc:18865). hgnc:18865 is a gene 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nicotinic-acetylcholine-receptor-dysfunction" data-dismech-node="Nicotinic acetylcholine receptor dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Nicotinic acetylcholine receptor dysfunction</div>
+
 
                 <div class="item-desc">CHRNA4, CHRNB2, and CHRNA2 pathogenic variants change alpha/beta nicotinic acetylcholine receptor function, altering cholinergic modulation of excitatory and inhibitory cortical transmission.</div>
 
@@ -5050,6 +5127,7 @@ This pathophysiological event involves dysregulated acetylcholine receptor signa
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5071,6 +5149,7 @@ This pathophysiological event involves dysregulated acetylcholine receptor signa
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5096,6 +5175,7 @@ This pathophysiological event involves dysregulated acetylcholine receptor signa
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-depdc5-gator1-mtor-signaling-dysregulation" data-dismech-node="DEPDC5-GATOR1 mTOR signaling dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">DEPDC5-GATOR1 mTOR signaling dysregulation</div>
+
 
                 <div class="item-desc">DEPDC5 loss-of-function reduces GATOR1 complex integrity, releasing downstream mTORC1 signaling and increasing risk of focal epilepsy and focal cortical dysplasia-associated SHE.</div>
 
@@ -5230,6 +5310,7 @@ This pathophysiological event involves increased TOR signaling (GO:0031929). GO:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5251,6 +5332,7 @@ This pathophysiological event involves increased TOR signaling (GO:0031929). GO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5276,6 +5358,7 @@ This pathophysiological event involves increased TOR signaling (GO:0031929). GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-kcnt1-slack-channel-altered-excitability" data-dismech-node="KCNT1 Slack channel altered excitability" data-dismech-type="pathophysiology">
                 <div class="item-name">KCNT1 Slack channel altered excitability</div>
+
 
                 <div class="item-desc">KCNT1 variants alter Slack sodium-activated potassium-channel behavior and can produce cortical network hyperexcitability through cell-type-specific effects on excitatory and inhibitory neurons.</div>
 
@@ -5444,6 +5527,7 @@ This pathophysiological event involves dysregulated regulation of membrane poten
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5466,6 +5550,7 @@ This pathophysiological event involves dysregulated regulation of membrane poten
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cortical-excitation-inhibition-imbalance" data-dismech-node="Cortical excitation-inhibition imbalance" data-dismech-type="pathophysiology">
                 <div class="item-name">Cortical excitation-inhibition imbalance</div>
+
 
                 <div class="item-desc">Convergent receptor, ion-channel, and mTOR mechanisms disturb the balance of excitatory and inhibitory cortical network activity, creating a seizure prone circuit state.</div>
 
@@ -5621,6 +5706,7 @@ This pathophysiological event involves dysregulated regulation of neuronal synap
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5642,6 +5728,7 @@ This pathophysiological event involves dysregulated regulation of neuronal synap
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5667,6 +5754,7 @@ This pathophysiological event involves dysregulated regulation of neuronal synap
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sleep-related-hypermotor-seizure-expression" data-dismech-node="Sleep-related hypermotor seizure expression" data-dismech-type="pathophysiology">
                 <div class="item-name">Sleep-related hypermotor seizure expression</div>
+
 
                 <div class="item-desc">The final clinical expression is clusters of stereotyped, brief, sleep-associated motor seizures that can include hyperkinetic, tonic, dystonic, arousal-like, or wandering behaviors.</div>
 
@@ -5744,6 +5832,7 @@ This pathophysiological event involves dysregulated regulation of neuronal synap
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5765,6 +5854,7 @@ This pathophysiological event involves dysregulated regulation of neuronal synap
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5832,13 +5922,11 @@ This pathophysiological event involves dysregulated regulation of neuronal synap
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Nervous System<span class="pill-count">(6)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Nervous System<span class="pill-count">(15)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Respiratory<span class="pill-count">(1)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Constitutional<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(9)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5848,14 +5936,14 @@ This pathophysiological event involves dysregulated regulation of neuronal synap
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">6</span>
+                    <span class="cat-count">15</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-involuntary-movements" data-dismech-node="Involuntary movements" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-nocturnal-seizures" data-dismech-node="Nocturnal seizures" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Involuntary movements
+                        Nocturnal seizures
 
-                        <span class="phenotype-freq">FREQUENT</span>
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
 
@@ -5867,15 +5955,18 @@ This pathophysiological event involves dysregulated regulation of neuronal synap
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004305" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0004305</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031951" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0031951</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Involuntary movements (HP:0004305). HP:0004305 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Nocturnal seizures (HP:0031951). HP:0031951 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5898,6 +5989,155 @@ This clinical feature is Involuntary movements (HP:0004305). HP:0004305 is a phe
 
 
 
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0031951 | Nocturnal seizures | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet lists nocturnal seizures as very frequent in SHE.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-paroxysmal-dystonia" data-dismech-node="Paroxysmal dystonia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Paroxysmal dystonia
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002268" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002268</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Paroxysmal dystonia (HP:0002268). HP:0002268 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:98784" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:98784" target="_blank">ORPHA:98784</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0002268 | Paroxysmal dystonia | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet lists paroxysmal dystonia as frequent in SHE.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-involuntary-movements" data-dismech-node="Involuntary movements" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Involuntary movements
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004305" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0004305</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Involuntary movements (HP:0004305). HP:0004305 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:98784" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:98784" target="_blank">ORPHA:98784</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5906,6 +6146,308 @@ This clinical feature is Involuntary movements (HP:0004305). HP:0004305 is a phe
 
 
                 <div class="evidence-explanation">Orphanet lists involuntary movements as frequent in SHE.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-repetitive-mannerisms" data-dismech-node="Abnormal repetitive mannerisms" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Abnormal repetitive mannerisms
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Motor stereotypy</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000733" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000733</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal repetitive mannerisms, annotated with Motor stereotypy (HP:0000733). HP:0000733 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:98784" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:98784" target="_blank">ORPHA:98784</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0000733 | Abnormal repetitive mannerisms | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet lists abnormal repetitive mannerisms as frequent in SHE.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hyperkinetic-seizures" data-dismech-node="Hyperkinetic seizures" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hyperkinetic seizures
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Focal hyperkinetic seizure</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011174" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0011174</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hyperkinetic seizures, annotated with Focal hyperkinetic seizure (HP:0011174). HP:0011174 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:98784" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:98784" target="_blank">ORPHA:98784</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0011174 | Hyperkinetic seizures | Occasional (29-5%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet lists hyperkinetic seizures as occasional in the structured phenotype table.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-interictal-epileptiform-activity" data-dismech-node="Interictal epileptiform activity" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Interictal epileptiform activity
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011182" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0011182</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Interictal epileptiform activity (HP:0011182). HP:0011182 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:98784" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:98784" target="_blank">ORPHA:98784</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0011182 | Interictal epileptiform activity | Occasional (29-5%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet lists interictal epileptiform activity as occasional in SHE.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-confusional-arousal" data-dismech-node="Confusional arousal" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Confusional arousal
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Sleep drunkeness</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_6000456" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:6000456</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Confusional arousal, annotated with Sleep drunkeness (HP:6000456). HP:6000456 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:98784" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:98784" target="_blank">ORPHA:98784</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0025237 | Confusional arousal | Occasional (29-5%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet lists confusional arousal as occasional in SHE.</div>
 
 
 
@@ -5937,15 +6479,18 @@ This clinical feature is Involuntary movements (HP:0004305). HP:0004305 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0100543</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0100543</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5965,6 +6510,7 @@ This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5989,6 +6535,7 @@ This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6031,15 +6578,18 @@ This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002069" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0002069</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002069" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0002069</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Bilateral tonic-clonic seizure (HP:0002069). HP:0002069 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6062,6 +6612,7 @@ This clinical feature is Bilateral tonic-clonic seizure (HP:0002069). HP:0002069
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6070,6 +6621,230 @@ This clinical feature is Bilateral tonic-clonic seizure (HP:0002069). HP:0002069
 
 
                 <div class="evidence-explanation">Orphanet lists bilateral tonic-clonic seizure as very rare in SHE.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-theta-frequency-activity-in-eeg" data-dismech-node="Increased theta frequency activity in EEG" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Increased theta frequency activity in EEG
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031535" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0031535</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Increased theta frequency activity in EEG (HP:0031535). HP:0031535 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:98784" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:98784" target="_blank">ORPHA:98784</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0031535 | Increased theta frequency activity in EEG | Occasional (29-5%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet lists increased theta frequency activity in EEG as occasional in SHE.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-nrem-parasomnia" data-dismech-node="NREM parasomnia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        NREM parasomnia
+
+                        <span class="phenotype-freq">VERY_RARE</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0025235" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0025235</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Non-rapid eye movement parasomnia, annotated with NREM parasomnia (HP:0025235). HP:0025235 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:98784" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:98784" target="_blank">ORPHA:98784</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0025235 | Non-rapid eye movement parasomnia | Very rare (&lt;4-1%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet lists non-rapid eye movement parasomnia as very rare in SHE.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-somnambulism" data-dismech-node="Somnambulism" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Somnambulism
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Sleep walking</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0025236" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0025236</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Somnambulism, annotated with Sleep walking (HP:0025236). HP:0025236 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:98784" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:98784" target="_blank">ORPHA:98784</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0025236 | Somnambulism | Occasional (29-5%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet lists somnambulism as occasional in SHE.</div>
 
 
 
@@ -6101,15 +6876,18 @@ This clinical feature is Bilateral tonic-clonic seizure (HP:0002069). HP:0002069
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000739" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000739</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000739" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0000739</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6129,6 +6907,7 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6171,15 +6950,18 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000716</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0000716</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6199,6 +6981,7 @@ This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6241,15 +7024,18 @@ This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031589" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0031589</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031589" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0031589</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Suicidal ideation (HP:0031589). HP:0031589 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6269,6 +7055,7 @@ This clinical feature is Suicidal ideation (HP:0031589). HP:0031589 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6320,15 +7107,18 @@ This clinical feature is Suicidal ideation (HP:0031589). HP:0031589 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002883" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002883</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002883" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0002883</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hyperventilation (HP:0002883). HP:0002883 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6348,6 +7138,7 @@ This clinical feature is Hyperventilation (HP:0002883). HP:0002883 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6399,15 +7190,18 @@ This clinical feature is Hyperventilation (HP:0002883). HP:0002883 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000020" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000020</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000020" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0000020</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Urinary incontinence (HP:0000020). HP:0000020 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6427,6 +7221,7 @@ This clinical feature is Urinary incontinence (HP:0000020). HP:0000020 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6438,653 +7233,6 @@ This clinical feature is Urinary incontinence (HP:0000020). HP:0000020 is a phen
 
 
                 <div class="evidence-explanation">Orphanet lists urinary incontinence as occasional in SHE.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">9</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-nocturnal-seizures" data-dismech-node="Nocturnal seizures" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Nocturnal seizures
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0031951" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0031951</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Nocturnal seizures (HP:0031951). HP:0031951 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:98784" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:98784" target="_blank">ORPHA:98784</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0031951 | Nocturnal seizures | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet lists nocturnal seizures as very frequent in SHE.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-paroxysmal-dystonia" data-dismech-node="Paroxysmal dystonia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Paroxysmal dystonia
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002268" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0002268</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Paroxysmal dystonia (HP:0002268). HP:0002268 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:98784" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:98784" target="_blank">ORPHA:98784</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0002268 | Paroxysmal dystonia | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet lists paroxysmal dystonia as frequent in SHE.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-repetitive-mannerisms" data-dismech-node="Abnormal repetitive mannerisms" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Abnormal repetitive mannerisms
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Motor stereotypy</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000733" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0000733</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal repetitive mannerisms, annotated with Motor stereotypy (HP:0000733). HP:0000733 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:98784" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:98784" target="_blank">ORPHA:98784</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0000733 | Abnormal repetitive mannerisms | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet lists abnormal repetitive mannerisms as frequent in SHE.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hyperkinetic-seizures" data-dismech-node="Hyperkinetic seizures" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hyperkinetic seizures
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Focal hyperkinetic seizure</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011174" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0011174</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hyperkinetic seizures, annotated with Focal hyperkinetic seizure (HP:0011174). HP:0011174 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:98784" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:98784" target="_blank">ORPHA:98784</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0011174 | Hyperkinetic seizures | Occasional (29-5%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet lists hyperkinetic seizures as occasional in the structured phenotype table.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-interictal-epileptiform-activity" data-dismech-node="Interictal epileptiform activity" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Interictal epileptiform activity
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011182" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0011182</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Interictal epileptiform activity (HP:0011182). HP:0011182 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:98784" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:98784" target="_blank">ORPHA:98784</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0011182 | Interictal epileptiform activity | Occasional (29-5%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet lists interictal epileptiform activity as occasional in SHE.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-confusional-arousal" data-dismech-node="Confusional arousal" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Confusional arousal
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Sleep drunkeness</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_6000456" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:6000456</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Confusional arousal, annotated with Sleep drunkeness (HP:6000456). HP:6000456 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:98784" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:98784" target="_blank">ORPHA:98784</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0025237 | Confusional arousal | Occasional (29-5%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet lists confusional arousal as occasional in SHE.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-theta-frequency-activity-in-eeg" data-dismech-node="Increased theta frequency activity in EEG" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Increased theta frequency activity in EEG
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0031535" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0031535</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Increased theta frequency activity in EEG (HP:0031535). HP:0031535 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:98784" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:98784" target="_blank">ORPHA:98784</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0031535 | Increased theta frequency activity in EEG | Occasional (29-5%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet lists increased theta frequency activity in EEG as occasional in SHE.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-nrem-parasomnia" data-dismech-node="NREM parasomnia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        NREM parasomnia
-
-                        <span class="phenotype-freq">VERY_RARE</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0025235" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0025235</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Non-rapid eye movement parasomnia, annotated with NREM parasomnia (HP:0025235). HP:0025235 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:98784" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:98784" target="_blank">ORPHA:98784</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0025235 | Non-rapid eye movement parasomnia | Very rare (&lt;4-1%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet lists non-rapid eye movement parasomnia as very rare in SHE.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-somnambulism" data-dismech-node="Somnambulism" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Somnambulism
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Sleep walking</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0025236" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0025236</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Somnambulism, annotated with Sleep walking (HP:0025236). HP:0025236 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:98784" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:98784" target="_blank">ORPHA:98784</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0025236 | Somnambulism | Occasional (29-5%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet lists somnambulism as occasional in SHE.</div>
 
 
 
@@ -7172,6 +7320,9 @@ This disease-associated gene is CHRNA4 (hgnc:1958). hgnc:1958 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7186,6 +7337,7 @@ This disease-associated gene is CHRNA4 (hgnc:1958). hgnc:1958 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7210,6 +7362,7 @@ This disease-associated gene is CHRNA4 (hgnc:1958). hgnc:1958 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7267,6 +7420,9 @@ This disease-associated gene is CHRNB2 (hgnc:1962). hgnc:1962 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7281,6 +7437,7 @@ This disease-associated gene is CHRNB2 (hgnc:1962). hgnc:1962 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7305,6 +7462,7 @@ This disease-associated gene is CHRNB2 (hgnc:1962). hgnc:1962 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7362,6 +7520,9 @@ This disease-associated gene is CHRNA2 (hgnc:1956). hgnc:1956 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7376,6 +7537,7 @@ This disease-associated gene is CHRNA2 (hgnc:1956). hgnc:1956 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7400,6 +7562,7 @@ This disease-associated gene is CHRNA2 (hgnc:1956). hgnc:1956 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7457,6 +7620,9 @@ This disease-associated gene is DEPDC5 (hgnc:18423). hgnc:18423 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7471,6 +7637,7 @@ This disease-associated gene is DEPDC5 (hgnc:18423). hgnc:18423 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7495,6 +7662,7 @@ This disease-associated gene is DEPDC5 (hgnc:18423). hgnc:18423 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7552,6 +7720,9 @@ This disease-associated gene is KCNT1 (hgnc:18865). hgnc:18865 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7566,6 +7737,7 @@ This disease-associated gene is KCNT1 (hgnc:18865). hgnc:18865 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7623,6 +7795,9 @@ This disease-associated gene is CABP4 (hgnc:1386). hgnc:1386 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7637,6 +7812,7 @@ This disease-associated gene is CABP4 (hgnc:1386). hgnc:1386 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7661,6 +7837,7 @@ This disease-associated gene is CABP4 (hgnc:1386). hgnc:1386 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7766,6 +7943,20 @@ This treatment uses carbamazepine (CHEBI:3387). CHEBI:3387 is a therapeutic agen
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Carbamazepine is the best-established first-line antiseizure medication for ADSHE and is associated with remission in many affected individuals.</div>
 
 
@@ -7809,6 +8000,7 @@ This treatment targets Nocturnal seizures (HP:0031951). HP:0031951 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7928,6 +8120,20 @@ This treatment uses fenofibrate (CHEBI:5001). CHEBI:5001 is a therapeutic agent 
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Selected genotypes may require alternatives or adjuncts, including zonisamide for some CHRNA4 variants, quinidine for KCNT1-related ADSHE, and fenofibrate as an adjunct for standard-ASM-resistant disease.</div>
 
 
@@ -7974,6 +8180,7 @@ This treatment targets Nocturnal seizures (HP:0031951). HP:0031951 is a phenotyp
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7995,6 +8202,7 @@ This treatment targets Nocturnal seizures (HP:0031951). HP:0031951 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8059,6 +8267,20 @@ This treatment is vagus nerve stimulation, annotated with Peripheral Nerve Stimu
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Vagus nerve stimulation is a nonpharmacologic adjunctive option for individuals with ADSHE that remains resistant to standard antiseizure medications.</div>
 
 
@@ -8102,6 +8324,7 @@ This treatment targets Nocturnal seizures (HP:0031951). HP:0031951 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8165,6 +8388,20 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Genetic counseling supports recurrence-risk assessment, evaluation of relatives, and reproductive counseling in autosomal dominant families.</div>
 
 
@@ -8186,6 +8423,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8296,6 +8534,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8382,6 +8621,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8474,6 +8714,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8541,6 +8782,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8588,6 +8830,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9998,6 +10241,8 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4288,6 +4360,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4355,6 +4428,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4591,6 +4665,7 @@
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4625,6 +4700,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tick-borne-rickettsia-rickettsii-inoculation" data-dismech-node="Tick-Borne Rickettsia rickettsii Inoculation" data-dismech-type="pathophysiology">
                 <div class="item-name">Tick-Borne Rickettsia rickettsii Inoculation</div>
+
 
                 <div class="item-desc">A feeding Dermacentor or Rhipicephalus tick inoculates R. rickettsii into the skin, initiating acute spotted fever rickettsiosis after an incubation period of 3-12 days. Unlike most other spotted fever group rickettsioses, an inoculation eschar is rarely present.</div>
 
@@ -4724,6 +4800,7 @@ This pathophysiological event involves abnormal response to bacterium (GO:000961
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4745,6 +4822,7 @@ This pathophysiological event involves abnormal response to bacterium (GO:000961
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4770,6 +4848,7 @@ This pathophysiological event involves abnormal response to bacterium (GO:000961
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-endothelial-cell-invasion-and-intracytoplasmic-replication" data-dismech-node="Endothelial Cell Invasion and Intracytoplasmic Replication" data-dismech-type="pathophysiology">
                 <div class="item-name">Endothelial Cell Invasion and Intracytoplasmic Replication</div>
+
 
                 <div class="item-desc">R. rickettsii is an obligate intracellular organism that primarily infects vascular endothelial cells, and less commonly the underlying smooth muscle cells of small and medium vessels. Adhesion and invasion are mediated by the conserved rOmpA and rOmpB surface autotransporters engaging host receptors (Ku70 identified for the closely related R. conorii); after entry the organism escapes into the cytoplasm and replicates. Individual adhesins are redundant - an isogenic rOmpA knockout in a virulent strain did not attenuate virulence in guinea pigs.</div>
 
@@ -4949,6 +5028,7 @@ This pathophysiological event involves increased symbiont entry into host (GO:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4970,6 +5050,7 @@ This pathophysiological event involves increased symbiont entry into host (GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4997,6 +5078,7 @@ This pathophysiological event involves increased symbiont entry into host (GO:00
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5019,6 +5101,7 @@ This pathophysiological event involves increased symbiont entry into host (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ve-cadherin-phosphorylation-and-adherens-junction-disruption" data-dismech-node="VE-Cadherin Phosphorylation and Adherens Junction Disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">VE-Cadherin Phosphorylation and Adherens Junction Disruption</div>
+
 
                 <div class="item-desc">Spotted fever group rickettsial infection of microvascular endothelial cells activates tyrosine phosphorylation of VE-cadherin, attenuating homophilic adherens-junction protein-protein interactions and producing paracellular barrier dysfunction. This is the best-characterized molecular route from endothelial infection to microvascular leak.</div>
 
@@ -5110,6 +5193,7 @@ This pathophysiological event involves decreased adherens junction organization 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5132,6 +5216,7 @@ This pathophysiological event involves decreased adherens junction organization 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disseminated-small-vessel-vasculitis" data-dismech-node="Disseminated Small-Vessel Vasculitis" data-dismech-type="pathophysiology">
                 <div class="item-name">Disseminated Small-Vessel Vasculitis</div>
+
 
                 <div class="item-desc">Infection of endothelium throughout the body produces a systemic small-vessel vasculitis. Cutaneously this is visible as the characteristic macular-to-petechial rash; systemically it is the substrate for end-organ injury. Infected human endothelial cells upregulate cyclooxygenase 2 and release vasoactive prostaglandins, contributing to the inflammatory and permeability changes.</div>
 
@@ -5297,6 +5382,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5318,6 +5404,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5345,6 +5432,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5367,6 +5455,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-microvascular-permeability" data-dismech-node="Increased Microvascular Permeability" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Microvascular Permeability</div>
+
 
                 <div class="item-desc">Pathogen-mediated injury to the vascular endothelium produces increased capillary permeability and microhemorrhage. The late-stage manifestations of noncardiogenic pulmonary edema (ARDS) and cerebral edema are direct consequences of this microvascular leakage, and hypovolemia from leak drives appropriate antidiuretic hormone secretion and hyponatremia.</div>
 
@@ -5482,6 +5571,7 @@ This pathophysiological event involves increased positive regulation of vascular
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5503,6 +5593,7 @@ This pathophysiological event involves increased positive regulation of vascular
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5530,6 +5621,7 @@ This pathophysiological event involves increased positive regulation of vascular
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5552,6 +5644,7 @@ This pathophysiological event involves increased positive regulation of vascular
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-platelet-consumption-and-coagulation-activation" data-dismech-node="Platelet Consumption and Coagulation Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Platelet Consumption and Coagulation Activation</div>
+
 
                 <div class="item-desc">Injured endothelium consumes platelets intravascularly and activates the coagulation system. In experimental canine infection, retinal vasculitic foci developed together with thrombocytopenia, increased circulating fibrinogen, and slight prolongation of the activated partial thromboplastin time - a mild consumptive coagulopathy that can progress to disseminated intravascular coagulation in severe disease.</div>
 
@@ -5685,6 +5778,7 @@ This pathophysiological event involves increased blood coagulation (GO:0007596).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5706,6 +5800,7 @@ This pathophysiological event involves increased blood coagulation (GO:0007596).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5731,6 +5826,7 @@ This pathophysiological event involves increased blood coagulation (GO:0007596).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cytotoxic-t-lymphocyte-clearance-of-infected-endothelium" data-dismech-node="Cytotoxic T Lymphocyte Clearance of Infected Endothelium" data-dismech-type="pathophysiology">
                 <div class="item-name">Cytotoxic T Lymphocyte Clearance of Infected Endothelium</div>
+
 
                 <div class="item-desc">Recovery depends on cell-mediated immunity: interferon-gamma- and TNF-alpha-activated endothelial cells kill intracellular rickettsiae by nitric-oxide-dependent mechanisms, and CD8 T lymphocyte cytotoxicity eliminates the remaining infected cells. MHC class I knockout mice are dramatically more susceptible to lethal rickettsial infection than wild-type animals, establishing CTL activity as the critical effector arm.</div>
 
@@ -5871,6 +5967,7 @@ This pathophysiological event involves increased T cell mediated cytotoxicity (G
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5892,6 +5989,7 @@ This pathophysiological event involves increased T cell mediated cytotoxicity (G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5917,6 +6015,7 @@ This pathophysiological event involves increased T cell mediated cytotoxicity (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-multiorgan-end-organ-injury" data-dismech-node="Multiorgan End-Organ Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Multiorgan End-Organ Injury</div>
+
 
                 <div class="item-desc">Sustained vasculopathy and microvascular leak injure the brain, kidney, lung, and skin, producing meningoencephalitis, acute renal failure, ARDS, cutaneous necrosis, shock, arrhythmia, and seizure. Survivors of severe disease may be left with long-term neurologic sequelae that are most likely the result of R. rickettsii-induced vasculopathy.</div>
 
@@ -6032,6 +6131,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6053,6 +6153,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6078,6 +6179,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fulminant-thrombotic-course-in-g6pd-deficiency" data-dismech-node="Fulminant Thrombotic Course in G6PD Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Fulminant Thrombotic Course in G6PD Deficiency</div>
+
 
                 <div class="item-desc">A minority of patients follow a hyperacute course with death on or before day 5 of illness. In the described fulminant cases, thrombosis was more extensive than in classic RMSF with fibrin thrombi at foci of rickettsial infection, rash was absent or only preterminal, and there was minimal mononuclear leukocytic response - a thrombotic rather than classically vasculitic pathology. All described patients were G6PD-deficient, and the CDC recommendations list G6PD deficiency as a risk factor for fulminant RMSF.</div>
 
@@ -6169,6 +6271,7 @@ This pathophysiological event involves increased blood coagulation (GO:0007596).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6190,6 +6293,7 @@ This pathophysiological event involves increased blood coagulation (GO:0007596).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6217,6 +6321,7 @@ This pathophysiological event involves increased blood coagulation (GO:0007596).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6239,6 +6344,7 @@ This pathophysiological event involves increased blood coagulation (GO:0007596).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-rickettsial-ribosomal-translation" data-dismech-node="Rickettsial Ribosomal Translation" data-dismech-type="pathophysiology">
                 <div class="item-name">Rickettsial Ribosomal Translation</div>
+
 
                 <div class="item-desc">R. rickettsii, like other bacteria, depends on 70S-ribosome translation of its mRNA. Doxycycline, a tetracycline, binds the 30S ribosomal subunit and blocks aminoacyl-tRNA delivery to the A site, arresting bacterial protein synthesis. This ribosomal target - not a cell-wall target - is why a tetracycline rather than a beta-lactam is the drug of choice.</div>
 
@@ -6311,6 +6417,7 @@ This pathophysiological event involves Translation (GO:0006412). GO:0006412 is a
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6333,6 +6440,7 @@ This pathophysiological event involves Translation (GO:0006412). GO:0006412 is a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-obligate-intracellular-niche-cell-penetrant-drug-requirement" data-dismech-node="Obligate Intracellular Niche (Cell-Penetrant Drug Requirement)" data-dismech-type="pathophysiology">
                 <div class="item-name">Obligate Intracellular Niche (Cell-Penetrant Drug Requirement)</div>
+
 
                 <div class="item-desc">R. rickettsii is an obligate intracellular bacterium that replicates within host endothelial cells. Effective therapy therefore requires an antibiotic that accumulates inside host cells; doxycycline does, whereas beta-lactams cannot reach the intracellular organism - the lifestyle gating that further constrains drug choice beyond the ribosomal target.</div>
 
@@ -6405,6 +6513,7 @@ This pathophysiological event involves Biological Process Involved in Interactio
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6426,6 +6535,7 @@ This pathophysiological event involves Biological Process Involved in Interactio
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6488,6 +6598,7 @@ This pathophysiological event involves Biological Process Involved in Interactio
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6537,6 +6648,7 @@ This pathophysiological event involves Biological Process Involved in Interactio
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6558,6 +6670,7 @@ This pathophysiological event involves Biological Process Involved in Interactio
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6610,6 +6723,7 @@ This pathophysiological event involves Biological Process Involved in Interactio
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6654,6 +6768,7 @@ This pathophysiological event involves Biological Process Involved in Interactio
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6730,7 +6845,7 @@ This pathophysiological event involves Biological Process Involved in Interactio
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Genitourinary<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Immune<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Immune<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Metabolism<span class="pill-count">(4)</span></button>
 
@@ -6739,8 +6854,6 @@ This pathophysiological event involves Biological Process Involved in Interactio
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Respiratory<span class="pill-count">(1)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-11">Constitutional<span class="pill-count">(4)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-12">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6781,6 +6894,9 @@ This clinical feature is Petechiae (HP:0000967). HP:0000967 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6795,6 +6911,7 @@ This clinical feature is Petechiae (HP:0000967). HP:0000967 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6851,6 +6968,9 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6865,6 +6985,7 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6889,6 +7010,7 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6943,6 +7065,9 @@ This clinical feature is Disseminated intravascular coagulation (HP:0005521). HP
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6957,6 +7082,7 @@ This clinical feature is Disseminated intravascular coagulation (HP:0005521). HP
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6981,6 +7107,7 @@ This clinical feature is Disseminated intravascular coagulation (HP:0005521). HP
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7044,6 +7171,9 @@ This clinical feature is Vasculitis (HP:0002633). HP:0002633 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7058,6 +7188,7 @@ This clinical feature is Vasculitis (HP:0002633). HP:0002633 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7112,6 +7243,9 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7126,6 +7260,7 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7189,6 +7324,9 @@ This clinical feature is Anorexia (HP:0002039). HP:0002039 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7203,6 +7341,7 @@ This clinical feature is Anorexia (HP:0002039). HP:0002039 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7259,6 +7398,9 @@ This clinical feature is Nausea and vomiting (HP:0002017). HP:0002017 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7273,6 +7415,7 @@ This clinical feature is Nausea and vomiting (HP:0002017). HP:0002017 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7297,6 +7440,7 @@ This clinical feature is Nausea and vomiting (HP:0002017). HP:0002017 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7351,6 +7495,9 @@ This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7365,6 +7512,7 @@ This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7419,6 +7567,9 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7433,6 +7584,7 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7496,6 +7648,9 @@ This clinical feature is Hearing loss, annotated with Hearing impairment (HP:000
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7510,6 +7665,7 @@ This clinical feature is Hearing loss, annotated with Hearing impairment (HP:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7573,6 +7729,9 @@ This clinical feature is Photophobia (HP:0000613). HP:0000613 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7587,6 +7746,7 @@ This clinical feature is Photophobia (HP:0000613). HP:0000613 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7650,6 +7810,9 @@ This clinical feature is Acute renal failure, annotated with Acute kidney injury
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7664,6 +7827,7 @@ This clinical feature is Acute renal failure, annotated with Acute kidney injury
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7696,7 +7860,7 @@ This clinical feature is Acute renal failure, annotated with Acute kidney injury
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Immune
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-skin-rash" data-dismech-node="Skin rash" data-dismech-type="phenotype">
@@ -7729,6 +7893,9 @@ This clinical feature is Skin rash (HP:0000988). HP:0000988 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7743,6 +7910,7 @@ This clinical feature is Skin rash (HP:0000988). HP:0000988 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7770,6 +7938,7 @@ This clinical feature is Skin rash (HP:0000988). HP:0000988 is a phenotype from 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7778,6 +7947,78 @@ This clinical feature is Skin rash (HP:0000988). HP:0000988 is a phenotype from 
 
 
                 <div class="evidence-explanation">The CDC report qualifies rash timing and its unreliability as an early sign.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-bacterial-encephalitis" data-dismech-node="Bacterial encephalitis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Bacterial encephalitis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0034387" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0034387</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Meningoencephalitis, annotated with Bacterial encephalitis (HP:0034387). HP:0034387 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27172113" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27172113" target="_blank">PMID:27172113</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Severe, late-stage manifestations of RMSF include meningoencephalitis, acute renal failure, ARDS, cutaneous necrosis, shock, arrhythmia, and seizure."</div>
+
+
+                <div class="evidence-explanation">The CDC report lists meningoencephalitis as a severe late manifestation.</div>
 
 
 
@@ -7818,10 +8059,10 @@ This clinical feature is Skin rash (HP:0000988). HP:0000988 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001945</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001945</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Fever (HP:0001945), qualified as temporality acute. HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7850,6 +8091,9 @@ This clinical feature is Fever (HP:0001945), qualified as temporality acute. HP:
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7864,6 +8108,7 @@ This clinical feature is Fever (HP:0001945), qualified as temporality acute. HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7888,6 +8133,7 @@ This clinical feature is Fever (HP:0001945), qualified as temporality acute. HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7930,15 +8176,18 @@ This clinical feature is Fever (HP:0001945), qualified as temporality acute. HP:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002902" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0002902</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002902" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0002902</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hyponatremia (HP:0002902). HP:0002902 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7958,6 +8207,7 @@ This clinical feature is Hyponatremia (HP:0002902). HP:0002902 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7982,6 +8232,7 @@ This clinical feature is Hyponatremia (HP:0002902). HP:0002902 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8022,15 +8273,18 @@ This clinical feature is Hyponatremia (HP:0002902). HP:0002902 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0002910</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0002910</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Elevated hepatic transaminases, annotated with Elevated circulating hepatic transaminase concentration (HP:0002910). HP:0002910 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8050,6 +8304,7 @@ This clinical feature is Elevated hepatic transaminases, annotated with Elevated
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8074,6 +8329,7 @@ This clinical feature is Elevated hepatic transaminases, annotated with Elevated
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8114,15 +8370,18 @@ This clinical feature is Elevated hepatic transaminases, annotated with Elevated
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002181" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0002181</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002181" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0002181</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cerebral edema (HP:0002181). HP:0002181 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8142,6 +8401,7 @@ This clinical feature is Cerebral edema (HP:0002181). HP:0002181 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8193,15 +8453,18 @@ This clinical feature is Cerebral edema (HP:0002181). HP:0002181 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0002315</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0002315</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8221,6 +8484,7 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8261,15 +8525,18 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0100543</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0100543</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8289,6 +8556,7 @@ This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8338,15 +8606,18 @@ This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033677" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0033677</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0033677" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0033677</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Acute respiratory distress syndrome (HP:0033677). HP:0033677 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8366,6 +8637,7 @@ This clinical feature is Acute respiratory distress syndrome (HP:0033677). HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8415,15 +8687,18 @@ This clinical feature is Acute respiratory distress syndrome (HP:0033677). HP:00
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0003326</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0003326</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8443,6 +8718,7 @@ This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8483,15 +8759,18 @@ This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033834" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0033834</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0033834" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0033834</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Malaise (HP:0033834). HP:0033834 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8511,6 +8790,7 @@ This clinical feature is Malaise (HP:0033834). HP:0033834 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8551,15 +8831,18 @@ This clinical feature is Malaise (HP:0033834). HP:0033834 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0002027</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0002027</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8579,6 +8862,7 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8619,15 +8903,18 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100758" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0100758</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100758" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0100758</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Gangrene (HP:0100758). HP:0100758 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8647,6 +8934,7 @@ This clinical feature is Gangrene (HP:0100758). HP:0100758 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8658,83 +8946,6 @@ This clinical feature is Gangrene (HP:0100758). HP:0100758 is a phenotype from t
 
 
                 <div class="evidence-explanation">The CDC report documents gangrene requiring amputation as a severe complication.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-12">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-bacterial-encephalitis" data-dismech-node="Bacterial encephalitis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Bacterial encephalitis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0034387" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0034387</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Meningoencephalitis, annotated with Bacterial encephalitis (HP:0034387). HP:0034387 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:27172113" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27172113" target="_blank">PMID:27172113</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Severe, late-stage manifestations of RMSF include meningoencephalitis, acute renal failure, ARDS, cutaneous necrosis, shock, arrhythmia, and seizure."</div>
-
-
-                <div class="evidence-explanation">The CDC report lists meningoencephalitis as a severe late manifestation.</div>
 
 
 
@@ -8826,6 +9037,9 @@ This disease-associated gene is G6PD (hgnc:4057). hgnc:4057 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8840,6 +9054,7 @@ This disease-associated gene is G6PD (hgnc:4057). hgnc:4057 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8864,6 +9079,7 @@ This disease-associated gene is G6PD (hgnc:4057). hgnc:4057 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8944,6 +9160,7 @@ This disease-associated gene is G6PD (hgnc:4057). hgnc:4057 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9042,6 +9259,31 @@ This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agen
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Doxycycline is the drug of choice for RMSF in patients of all ages, including children under 8 years, and should be started immediately on clinical suspicion without waiting for laboratory confirmation. Patients treated after the fifth day of illness are more likely to die. The historical reluctance to use doxycycline in young children is not supported: children who received courses of doxycycline before age 8 showed no tetracycline-like dental staining and no difference in tooth shade or enamel hypoplasia. Agents to avoid - sulfonamide antimicrobials can result in increased disease severity and death in RMSF.</div>
 
 
@@ -9097,6 +9339,7 @@ This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9121,6 +9364,7 @@ This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9142,6 +9386,7 @@ This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9229,6 +9474,31 @@ This treatment uses chloramphenicol (CHEBI:17698). CHEBI:17698 is a therapeutic 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Chloramphenicol is the only alternative drug that has been used to treat RMSF, and it is clearly inferior to doxycycline - CDC case-report data show higher mortality in chloramphenicol-treated patients. It is no longer available orally in the United States, requires monitoring of blood indices for hematologic toxicity, and does not cover ehrlichiosis or anaplasmosis, so empiric substitution leaves those co-endemic infections untreated. In pregnancy it is a potential alternative to doxycycline, but administration late in the third trimester carries a theoretical risk of gray baby syndrome. Because doxycycline has been used successfully in pregnant women and RMSF is potentially fatal, doxycycline remains preferred for suspected RMSF in pregnancy; chloramphenicol is reserved for true doxycycline intolerance.</div>
 
 
@@ -9271,6 +9541,7 @@ This treatment uses chloramphenicol (CHEBI:17698). CHEBI:17698 is a therapeutic 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9295,6 +9566,7 @@ This treatment uses chloramphenicol (CHEBI:17698). CHEBI:17698 is a therapeutic 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9316,6 +9588,7 @@ This treatment uses chloramphenicol (CHEBI:17698). CHEBI:17698 is a therapeutic 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9382,6 +9655,31 @@ This treatment is tick-bite prevention counseling, annotated with Behavioral Cou
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">No vaccine is licensed against tickborne rickettsial diseases, so primary prevention rests entirely on interrupting the tick-inoculation step that triggers the pathograph. Personal protective measures are DEET at 20-30 percent on skin, with IR3535 or picaridin above 15 percent as alternatives; permethrin applied to outer clothing but never to skin, which reduces tick bites by more than 80 percent among outdoor workers; protective clothing; and prompt tick checks and bathing after time in tick habitat, since several hours may elapse before an attached tick transmits the organism. Prophylactic doxycycline after a tick bite is explicitly not recommended, and asymptomatic seropositive persons should not be treated - antibody can persist for months to years, so serology cannot be used to monitor treatment response.</div>
 
 
@@ -9403,6 +9701,7 @@ This treatment is tick-bite prevention counseling, annotated with Behavioral Cou
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9430,6 +9729,7 @@ This treatment is tick-bite prevention counseling, annotated with Behavioral Cou
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9451,6 +9751,7 @@ This treatment is tick-bite prevention counseling, annotated with Behavioral Cou
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9519,6 +9820,31 @@ This treatment is pet ectoparasite control, annotated with Preventive Interventi
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Because dogs are the primary host of Rhipicephalus sanguineus, the brown dog tick that drives the epidemic RMSF foci in Arizona tribal communities and northern Mexico, controlling ticks on dogs is a population-level intervention against the same inoculation step. Monthly topical acaricides, acaricidal tick collars, oral acaricidal products, and acaricidal shampoos reduce human exposure to ticks carried by pets. This is the intervention that maps onto the peridomestic transmission cycle recorded in this entry&#39;s environmental risk factors, and it addresses a route that individual repellent use does not.</div>
 
 
@@ -9543,6 +9869,7 @@ This treatment is pet ectoparasite control, annotated with Preventive Interventi
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9564,6 +9891,7 @@ This treatment is pet ectoparasite control, annotated with Preventive Interventi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9627,6 +9955,31 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Severe RMSF requires supportive management of the vasculitic complications - fluid and electrolyte correction for hyponatremia, transfusion support for coagulopathy, and intensive care for ARDS, shock, and renal failure - alongside, never instead of, doxycycline.</div>
 
 
@@ -9669,6 +10022,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9693,6 +10047,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9757,6 +10112,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9778,6 +10134,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9829,6 +10186,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9886,6 +10244,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9907,6 +10266,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9958,6 +10318,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10069,6 +10430,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10090,6 +10452,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10182,6 +10545,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10203,6 +10567,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10295,6 +10660,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10384,6 +10750,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10405,6 +10772,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10497,6 +10865,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10518,6 +10887,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10588,6 +10958,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10635,6 +11006,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10688,6 +11060,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10709,6 +11082,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10759,6 +11133,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10835,6 +11210,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10890,6 +11266,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10962,6 +11339,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10983,6 +11361,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11043,6 +11422,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11064,6 +11444,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11113,6 +11494,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11166,6 +11548,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11263,6 +11646,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11321,6 +11705,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11342,6 +11727,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11391,6 +11777,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11412,6 +11799,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11503,6 +11891,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11568,6 +11957,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11639,6 +12029,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11706,6 +12097,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11799,6 +12191,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -11864,6 +12257,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11937,6 +12331,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14604,6 +14999,31 @@ datasets: []
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Rocky Mountain spotted fever</strong> · 2026-08-02T14:52:58Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Rocky_Mountain_Spotted_Fever/2026-08-02T145258Z-claude-code-294c7e.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo curation of Rocky Mountain spotted fever [MONDO:0019359, ORPHA:83311, Rickettsia rickettsii].
+
+Deep research: claude_code provider via `just research-disorder claude_code Rocky_Mountain_Spotted_Fever`; report at research/Rocky_Mountain_Spotted_Fever-deep-research-claude_code.md, 20 web searches, 28 citations. The report was treated as leads only: every PMID was fetched with `just fetch-reference` and every snippet verified against the cached text.
+
+NEC preflight: MONDO:0019359 checked with OAK. The report&#39;s disease identity - R. rickettsii, ORPHA:83311, ICD-10 A77.0, no OMIM entry - matches the MONDO record&#39;s xrefs and definition. No named-entity confusion with the sibling spotted fever group entries already in the KB, Boutonneuse_Fever / R. conorii and Murine_Typhus / R. typhi.
+
+GeneReviews: not applicable. PubMed search returned no GeneReviews chapter, which is expected for an acquired infectious disease; this is recorded in the entry&#39;s notes field.
+
+Content: 11 pathophysiology nodes forming the causal chain tick inoculation -&gt; endothelial invasion -&gt; VE-cadherin / adherens-junction disruption -&gt; disseminated small-vessel vasculitis -&gt; microvascular permeability and platelet consumption -&gt; multiorgan injury, plus a CD8 T-cell clearance node and a G6PD-associated fulminant thrombotic node. Two nodes declare module conformance: bacterial_protein_synthesis_inhibition#Bacterial mRNA Translation by the Ribosome and intracellular_pathogen_persistence#Intracellular Niche and Beta-Lactam Exclusion, the same pattern used by Murine_Typhus. 22 phenotypes with HPO bindings; frequency bands only where a quantitative source exists, from the PMID:17236897 pediatric series. Also structured prevalence for national and Arizona focal incidence, progression phases, epidemiology, infectious agent NCBITaxon:783, transmission, diagnosis, four differential diagnoses, doxycycline and supportive-care treatments with target_mechanisms, a G6PD MODIFIER genetic record, and three animal models.
+
+One HUMAN_MODEL_MISMATCH discussion records that the VE-cadherin hyperpermeability mechanism from PMID:22720111 was demonstrated with the non-pathogenic BSL2 surrogate R. montanensis rather than R. rickettsii, with three proposed experiments.
+
+Validation: `just validate` passes for schema, terms, and references; 102/102 snippets verified against cached references; `just validate-graphs` reports no dangling causal targets for this entry; compliance 82.5 percent global and 82.7 percent weighted.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4180,6 +4252,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-jak-stat-pathway-hyperactivation" data-dismech-node="JAK-STAT Pathway Hyperactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">JAK-STAT Pathway Hyperactivation</div>
 
+
                 <div class="item-desc">Driver mutations in JAK2, CALR, or MPL all converge on constitutive activation of JAK-STAT signaling. JAK2 V617F directly activates the kinase; CALR and MPL mutations lead to activation of MPL receptor signaling.</div>
 
 
@@ -4352,6 +4425,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-abnormal-megakaryopoiesis" data-dismech-node="Abnormal Megakaryopoiesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Abnormal Megakaryopoiesis</div>
 
+
                 <div class="item-desc">Driver mutations cause aberrant megakaryocyte proliferation and maturation. Megakaryocytes show characteristic atypia with clustering, abnormal lobation, and defective platelet production.</div>
 
 
@@ -4415,6 +4489,7 @@ This pathophysiological event involves abnormal megakaryocyte differentiation (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cytokine-mediated-marrow-fibrosis" data-dismech-node="Cytokine-Mediated Marrow Fibrosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Cytokine-Mediated Marrow Fibrosis</div>
+
 
                 <div class="item-desc">Atypical megakaryocytes release profibrotic cytokines including TGF-beta, PDGF, and bFGF, stimulating marrow stromal cells to deposit reticulin and collagen fibers. Progressive fibrosis replaces normal hematopoietic tissue.</div>
 
@@ -4506,6 +4581,7 @@ This pathophysiological event involves increased extracellular matrix organizati
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Primary myelofibrosis (PMF) is a Philadelphia chromosome (Ph)-negative myeloproliferative neoplasm (MPN) that features clonal proliferation of atypical megakaryocytes and myeloid cells, fibrosis of the bone marrow, extramedullary hematopoiesis, and increased risk of leukemic transformation to..."</div>
@@ -4526,6 +4602,7 @@ This pathophysiological event involves increased extracellular matrix organizati
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-extramedullary-hematopoiesis" data-dismech-node="Extramedullary Hematopoiesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Extramedullary Hematopoiesis</div>
+
 
                 <div class="item-desc">As bone marrow function declines due to fibrosis, hematopoiesis shifts to spleen, liver, and other sites. This causes massive splenomegaly and hepatomegaly with associated symptoms.</div>
 
@@ -4650,6 +4727,7 @@ This pathophysiological event occurs in spleen (UBERON:0002106). UBERON:0002106 
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Primary myelofibrosis (PMF) is a myeloproliferative neoplasm characterized by"</div>
@@ -4709,7 +4787,7 @@ This pathophysiological event occurs in spleen (UBERON:0002106). UBERON:0002106 
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(9)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(16)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(4)</span></button>
 
@@ -4717,11 +4795,11 @@ This pathophysiological event occurs in spleen (UBERON:0002106). UBERON:0002106 
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Integument<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Metabolism<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Metabolism<span class="pill-count">(3)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Constitutional<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Other<span class="pill-count">(10)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Growth<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4731,7 +4809,7 @@ This pathophysiological event occurs in spleen (UBERON:0002106). UBERON:0002106 
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Blood
-                    <span class="cat-count">9</span>
+                    <span class="cat-count">16</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-anemia" data-dismech-node="Anemia" data-dismech-type="phenotype">
@@ -4764,6 +4842,9 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -4778,6 +4859,7 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4800,6 +4882,7 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4856,6 +4939,9 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4873,12 +4959,182 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"HP:0001873 | Thrombocytopenia | Frequent (79-30%)"</div>
 
 
                 <div class="evidence-explanation">Orphanet classifies thrombocytopenia as frequent (79-30%) in primary myelofibrosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-megakaryocyte-morphology" data-dismech-node="Abnormal Megakaryocyte Morphology" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Abnormal Megakaryocyte Morphology
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012143" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0012143</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal megakaryocyte morphology (HP:0012143). HP:0012143 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:824" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:824" target="_blank">ORPHA:824</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0012143 | Abnormal megakaryocyte morphology | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet classifies abnormal megakaryocyte morphology as frequent (79-30%) in primary myelofibrosis.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41514563" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41514563" target="_blank">PMID:41514563</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Primary myelofibrosis (PMF) is a Philadelphia chromosome (Ph)-negative myeloproliferative neoplasm (MPN) that features clonal proliferation of atypical megakaryocytes and myeloid cells, fibrosis of the bone marrow, extramedullary hematopoiesis, and increased risk of leukemic transformation to..."</div>
+
+
+                <div class="evidence-explanation">Review highlights atypical megakaryocyte proliferation as a defining feature of PMF.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-bone-marrow-cell-morphology" data-dismech-node="Abnormal Bone Marrow Cell Morphology" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Abnormal Bone Marrow Cell Morphology
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005561" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0005561</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal bone marrow cell morphology (HP:0005561). HP:0005561 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:824" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:824" target="_blank">ORPHA:824</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0005561 | Abnormality of bone marrow cell morphology | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet classifies abnormality of bone marrow cell morphology as very frequent (99-80%) in primary myelofibrosis.</div>
 
 
 
@@ -4910,15 +5166,18 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001876" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001876</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001876" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001876</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pancytopenia (HP:0001876). HP:0001876 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -4938,6 +5197,7 @@ This clinical feature is Pancytopenia (HP:0001876). HP:0001876 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4978,15 +5238,18 @@ This clinical feature is Pancytopenia (HP:0001876). HP:0001876 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001894" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001894</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001894" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001894</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Thrombocytosis (HP:0001894). HP:0001894 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5006,6 +5269,7 @@ This clinical feature is Thrombocytosis (HP:0001894). HP:0001894 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5048,15 +5312,18 @@ This clinical feature is Thrombocytosis (HP:0001894). HP:0001894 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001974" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001974</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001974" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001974</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Leukocytosis, annotated with Increased total leukocyte count (HP:0001974). HP:0001974 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5079,6 +5346,7 @@ This clinical feature is Leukocytosis, annotated with Increased total leukocyte 
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"HP:0001974 | Leukocytosis | Occasional (29-5%)"</div>
@@ -5098,6 +5366,7 @@ This clinical feature is Leukocytosis, annotated with Increased total leukocyte 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5140,15 +5409,18 @@ This clinical feature is Leukocytosis, annotated with Increased total leukocyte 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001978" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001978</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001978" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001978</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Extramedullary hematopoiesis (HP:0001978). HP:0001978 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5168,6 +5440,7 @@ This clinical feature is Extramedullary hematopoiesis (HP:0001978). HP:0001978 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5193,6 +5466,7 @@ This clinical feature is Extramedullary hematopoiesis (HP:0001978). HP:0001978 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5201,6 +5475,78 @@ This clinical feature is Extramedullary hematopoiesis (HP:0001978). HP:0001978 i
 
 
                 <div class="evidence-explanation">Tefferi 2021 review lists extramedullary hematopoiesis as a core disease feature of PMF.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-poikilocytosis" data-dismech-node="Poikilocytosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Poikilocytosis
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004447" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0004447</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Poikilocytosis (HP:0004447). HP:0004447 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:824" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:824" target="_blank">ORPHA:824</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0004447 | Poikilocytosis | Occasional (29-5%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet classifies poikilocytosis as occasional (29-5%) in primary myelofibrosis.</div>
 
 
 
@@ -5232,15 +5578,18 @@ This clinical feature is Extramedullary hematopoiesis (HP:0001978). HP:0001978 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001892" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001892</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001892" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001892</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal bleeding (HP:0001892). HP:0001892 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5260,6 +5609,7 @@ This clinical feature is Abnormal bleeding (HP:0001892). HP:0001892 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5285,6 +5635,7 @@ This clinical feature is Abnormal bleeding (HP:0001892). HP:0001892 is a phenoty
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5293,6 +5644,200 @@ This clinical feature is Abnormal bleeding (HP:0001892). HP:0001892 is a phenoty
 
 
                 <div class="evidence-explanation">Review confirms bleeding as a recognized complication contributing to MF morbidity and mortality.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-arterial-thrombosis" data-dismech-node="Arterial Thrombosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Arterial Thrombosis
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004420" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0004420</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Arterial thrombosis (HP:0004420). HP:0004420 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:824" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:824" target="_blank">ORPHA:824</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0004420 | Arterial thrombosis | Occasional (29-5%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet classifies arterial thrombosis as occasional (29-5%) in primary myelofibrosis.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28808761" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28808761" target="_blank">PMID:28808761</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Both arterial and venous thrombotic events are not uncommon in patients with PMF"</div>
+
+
+                <div class="evidence-explanation">Review confirms arterial thrombosis as a recognized complication of PMF.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-venous-thrombosis" data-dismech-node="Venous Thrombosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Venous Thrombosis
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004936" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0004936</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Venous thrombosis (HP:0004936). HP:0004936 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:824" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:824" target="_blank">ORPHA:824</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0004936 | Venous thrombosis | Occasional (29-5%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet classifies venous thrombosis as occasional (29-5%) in primary myelofibrosis.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28808761" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28808761" target="_blank">PMID:28808761</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Both arterial and venous thrombotic events are not uncommon in patients with PMF"</div>
+
+
+                <div class="evidence-explanation">Review confirms venous thrombosis as a recognized complication of PMF.</div>
 
 
 
@@ -5324,15 +5869,18 @@ This clinical feature is Abnormal bleeding (HP:0001892). HP:0001892 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000967" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000967</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000967" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000967</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Petechiae (HP:0000967). HP:0000967 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5352,6 +5900,7 @@ This clinical feature is Petechiae (HP:0000967). HP:0000967 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5392,15 +5941,18 @@ This clinical feature is Petechiae (HP:0000967). HP:0000967 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000979" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000979</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000979" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000979</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Purpura (HP:0000979). HP:0000979 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5423,12 +5975,182 @@ This clinical feature is Purpura (HP:0000979). HP:0000979 is a phenotype from th
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"HP:0000979 | Purpura | Occasional (29-5%)"</div>
 
 
                 <div class="evidence-explanation">Orphanet classifies purpura as occasional (29-5%) in primary myelofibrosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-ecchymosis" data-dismech-node="Ecchymosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Ecchymosis
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031364" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0031364</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ecchymosis (HP:0031364). HP:0031364 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:824" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:824" target="_blank">ORPHA:824</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0031364 | Ecchymosis | Occasional (29-5%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet classifies ecchymosis as occasional (29-5%) in primary myelofibrosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-bone-marrow-hypercellularity" data-dismech-node="Bone Marrow Hypercellularity" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Bone Marrow Hypercellularity
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031020" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0031020</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Bone marrow hypercellularity (HP:0031020). HP:0031020 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:824" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:824" target="_blank">ORPHA:824</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0031020 | Bone marrow hypercellularity | Occasional (29-5%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet classifies bone marrow hypercellularity as occasional (29-5%) in primary myelofibrosis.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28808761" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28808761" target="_blank">PMID:28808761</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"megakaryocytic proliferation and atypia, without reticulin fibrosis &gt; grade 1, accompanied by increased age-adjusted bone marrow (BM) cellularity, granulocytic proliferation, and often decreased erythropoiesis"</div>
+
+
+                <div class="evidence-explanation">WHO diagnostic criteria for prefibrotic PMF include increased age-adjusted bone marrow cellularity.</div>
 
 
 
@@ -5469,15 +6191,18 @@ This clinical feature is Purpura (HP:0000979). HP:0000979 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001744" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001744</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001744" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001744</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5500,6 +6225,7 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"HP:0001744 | Splenomegaly | Frequent (79-30%)"</div>
@@ -5519,6 +6245,7 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5561,15 +6288,18 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001433" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001433</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001433" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001433</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hepatosplenomegaly (HP:0001433). HP:0001433 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5592,6 +6322,7 @@ This clinical feature is Hepatosplenomegaly (HP:0001433). HP:0001433 is a phenot
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"HP:0001433 | Hepatosplenomegaly | Frequent (79-30%)"</div>
@@ -5611,6 +6342,7 @@ This clinical feature is Hepatosplenomegaly (HP:0001433). HP:0001433 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5653,15 +6385,18 @@ This clinical feature is Hepatosplenomegaly (HP:0001433). HP:0001433 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001409" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001409</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001409" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001409</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Portal hypertension (HP:0001409). HP:0001409 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5684,6 +6419,7 @@ This clinical feature is Portal hypertension (HP:0001409). HP:0001409 is a pheno
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"HP:0001409 | Portal hypertension | Occasional (29-5%)"</div>
@@ -5703,6 +6439,7 @@ This clinical feature is Portal hypertension (HP:0001409). HP:0001409 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5745,15 +6482,18 @@ This clinical feature is Portal hypertension (HP:0001409). HP:0001409 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002716</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0002716</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5773,6 +6513,7 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5822,15 +6563,18 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002240</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0002240</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5850,6 +6594,7 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5890,15 +6635,18 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002039" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002039</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002039" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0002039</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Anorexia (HP:0002039). HP:0002039 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5918,6 +6666,7 @@ This clinical feature is Anorexia (HP:0002039). HP:0002039 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5967,15 +6716,18 @@ This clinical feature is Anorexia (HP:0002039). HP:0002039 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000980" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000980</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000980" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000980</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pallor (HP:0000980). HP:0000980 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5995,6 +6747,7 @@ This clinical feature is Pallor (HP:0000980). HP:0000980 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6025,12 +6778,12 @@ This clinical feature is Pallor (HP:0000980). HP:0000980 is a phenotype from the
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-fever" data-dismech-node="Fever" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-low-grade-fever" data-dismech-node="Low-Grade Fever" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Fever
+                        Low-Grade Fever
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
@@ -6044,15 +6797,18 @@ This clinical feature is Pallor (HP:0000980). HP:0000980 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001945</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011134" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0011134</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Low-grade fever (HP:0011134). HP:0011134 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6072,6 +6828,104 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0011134 | Low-grade fever | Occasional (29-5%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet classifies low-grade fever as occasional (29-5%) in primary myelofibrosis.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28808761" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28808761" target="_blank">PMID:28808761</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Clinical manifestations of MF include cytopenia, fatigue and constitutional symptoms such as low-grade fever, weight loss and night sweats."</div>
+
+
+                <div class="evidence-explanation">Review identifies low-grade fever as one of the constitutional symptoms of myelofibrosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-fever" data-dismech-node="Fever" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Fever
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001945</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:824" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:824" target="_blank">ORPHA:824</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6097,6 +6951,7 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6105,6 +6960,105 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
                 <div class="evidence-explanation">Confirms fever as a constitutional symptom directly caused by the inflammatory milieu in MPN including myelofibrosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-circulating-lactate-dehydrogenase-concentration" data-dismech-node="Increased Circulating Lactate Dehydrogenase Concentration" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Increased Circulating Lactate Dehydrogenase Concentration
+
+                        <span class="phenotype-freq">VERY_RARE</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0025435" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0025435</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Increased circulating lactate dehydrogenase concentration (HP:0025435). HP:0025435 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Orphanet classifies LDH elevation as very rare, but it is a WHO minor diagnostic criterion for PMF. The Orphanet frequency likely reflects population-level reporting rather than clinical prevalence among diagnosed patients, where LDH elevation is common.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:824" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:824" target="_blank">ORPHA:824</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0025435 | Increased circulating lactate dehydrogenase concentration | Very rare (&lt;4-1%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet classifies increased LDH as very rare in primary myelofibrosis.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28808761" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28808761" target="_blank">PMID:28808761</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Minor criteria, include a) anemia not attributed to a comorbid condition, b) leukocytosis ≥ 11 × 109, c) palpable splenomegaly, d) lactate dehydrogenase (LDH) level above normal limit of institutional reference range and e) leukoerythroblastosis"</div>
+
+
+                <div class="evidence-explanation">LDH above normal is a WHO minor diagnostic criterion for PMF.</div>
 
 
 
@@ -6145,15 +7099,18 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0012378</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0012378</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6176,6 +7133,7 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"HP:0012378 | Fatigue | Frequent (79-30%)"</div>
@@ -6195,6 +7153,7 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6237,15 +7196,18 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030157" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0030157</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030157" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0030157</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Flank pain (HP:0030157). HP:0030157 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6265,6 +7227,7 @@ This clinical feature is Flank pain (HP:0030157). HP:0030157 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6294,8 +7257,8 @@ This clinical feature is Flank pain (HP:0030157). HP:0030157 is a phenotype from
             <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">10</span>
+                    Growth
+                    <span class="cat-count">1</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-cachexia" data-dismech-node="Cachexia" data-dismech-type="phenotype">
@@ -6314,15 +7277,18 @@ This clinical feature is Flank pain (HP:0030157). HP:0030157 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004326" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0004326</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004326" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0004326</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cachexia (HP:0004326). HP:0004326 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6342,6 +7308,7 @@ This clinical feature is Cachexia (HP:0004326). HP:0004326 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6367,6 +7334,7 @@ This clinical feature is Cachexia (HP:0004326). HP:0004326 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6375,764 +7343,6 @@ This clinical feature is Cachexia (HP:0004326). HP:0004326 is a phenotype from t
 
 
                 <div class="evidence-explanation">Tefferi 2021 review lists cachexia as a recognized disease feature of PMF.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-megakaryocyte-morphology" data-dismech-node="Abnormal Megakaryocyte Morphology" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Abnormal Megakaryocyte Morphology
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012143" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0012143</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal megakaryocyte morphology (HP:0012143). HP:0012143 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:824" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:824" target="_blank">ORPHA:824</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0012143 | Abnormal megakaryocyte morphology | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet classifies abnormal megakaryocyte morphology as frequent (79-30%) in primary myelofibrosis.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:41514563" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41514563" target="_blank">PMID:41514563</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Primary myelofibrosis (PMF) is a Philadelphia chromosome (Ph)-negative myeloproliferative neoplasm (MPN) that features clonal proliferation of atypical megakaryocytes and myeloid cells, fibrosis of the bone marrow, extramedullary hematopoiesis, and increased risk of leukemic transformation to..."</div>
-
-
-                <div class="evidence-explanation">Review highlights atypical megakaryocyte proliferation as a defining feature of PMF.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-bone-marrow-cell-morphology" data-dismech-node="Abnormal Bone Marrow Cell Morphology" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Abnormal Bone Marrow Cell Morphology
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0005561" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0005561</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal bone marrow cell morphology (HP:0005561). HP:0005561 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:824" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:824" target="_blank">ORPHA:824</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0005561 | Abnormality of bone marrow cell morphology | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet classifies abnormality of bone marrow cell morphology as very frequent (99-80%) in primary myelofibrosis.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-low-grade-fever" data-dismech-node="Low-Grade Fever" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Low-Grade Fever
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011134" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0011134</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Low-grade fever (HP:0011134). HP:0011134 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:824" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:824" target="_blank">ORPHA:824</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0011134 | Low-grade fever | Occasional (29-5%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet classifies low-grade fever as occasional (29-5%) in primary myelofibrosis.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:28808761" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28808761" target="_blank">PMID:28808761</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Clinical manifestations of MF include cytopenia, fatigue and constitutional symptoms such as low-grade fever, weight loss and night sweats."</div>
-
-
-                <div class="evidence-explanation">Review identifies low-grade fever as one of the constitutional symptoms of myelofibrosis.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-poikilocytosis" data-dismech-node="Poikilocytosis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Poikilocytosis
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004447" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0004447</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Poikilocytosis (HP:0004447). HP:0004447 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:824" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:824" target="_blank">ORPHA:824</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0004447 | Poikilocytosis | Occasional (29-5%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet classifies poikilocytosis as occasional (29-5%) in primary myelofibrosis.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-arterial-thrombosis" data-dismech-node="Arterial Thrombosis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Arterial Thrombosis
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004420" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0004420</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Arterial thrombosis (HP:0004420). HP:0004420 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:824" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:824" target="_blank">ORPHA:824</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0004420 | Arterial thrombosis | Occasional (29-5%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet classifies arterial thrombosis as occasional (29-5%) in primary myelofibrosis.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:28808761" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28808761" target="_blank">PMID:28808761</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Both arterial and venous thrombotic events are not uncommon in patients with PMF"</div>
-
-
-                <div class="evidence-explanation">Review confirms arterial thrombosis as a recognized complication of PMF.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-venous-thrombosis" data-dismech-node="Venous Thrombosis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Venous Thrombosis
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004936" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0004936</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Venous thrombosis (HP:0004936). HP:0004936 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:824" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:824" target="_blank">ORPHA:824</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0004936 | Venous thrombosis | Occasional (29-5%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet classifies venous thrombosis as occasional (29-5%) in primary myelofibrosis.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:28808761" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28808761" target="_blank">PMID:28808761</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Both arterial and venous thrombotic events are not uncommon in patients with PMF"</div>
-
-
-                <div class="evidence-explanation">Review confirms venous thrombosis as a recognized complication of PMF.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-ecchymosis" data-dismech-node="Ecchymosis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Ecchymosis
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0031364" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0031364</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Ecchymosis (HP:0031364). HP:0031364 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:824" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:824" target="_blank">ORPHA:824</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0031364 | Ecchymosis | Occasional (29-5%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet classifies ecchymosis as occasional (29-5%) in primary myelofibrosis.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-circulating-lactate-dehydrogenase-concentration" data-dismech-node="Increased Circulating Lactate Dehydrogenase Concentration" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Increased Circulating Lactate Dehydrogenase Concentration
-
-                        <span class="phenotype-freq">VERY_RARE</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0025435" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0025435</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Increased circulating lactate dehydrogenase concentration (HP:0025435). HP:0025435 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Orphanet classifies LDH elevation as very rare, but it is a WHO minor diagnostic criterion for PMF. The Orphanet frequency likely reflects population-level reporting rather than clinical prevalence among diagnosed patients, where LDH elevation is common.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:824" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:824" target="_blank">ORPHA:824</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0025435 | Increased circulating lactate dehydrogenase concentration | Very rare (&lt;4-1%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet classifies increased LDH as very rare in primary myelofibrosis.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:28808761" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28808761" target="_blank">PMID:28808761</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Minor criteria, include a) anemia not attributed to a comorbid condition, b) leukocytosis ≥ 11 × 109, c) palpable splenomegaly, d) lactate dehydrogenase (LDH) level above normal limit of institutional reference range and e) leukoerythroblastosis"</div>
-
-
-                <div class="evidence-explanation">LDH above normal is a WHO minor diagnostic criterion for PMF.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-bone-marrow-hypercellularity" data-dismech-node="Bone Marrow Hypercellularity" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Bone Marrow Hypercellularity
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0031020" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0031020</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Bone marrow hypercellularity (HP:0031020). HP:0031020 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:824" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:824" target="_blank">ORPHA:824</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0031020 | Bone marrow hypercellularity | Occasional (29-5%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet classifies bone marrow hypercellularity as occasional (29-5%) in primary myelofibrosis.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:28808761" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28808761" target="_blank">PMID:28808761</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"megakaryocytic proliferation and atypia, without reticulin fibrosis &gt; grade 1, accompanied by increased age-adjusted bone marrow (BM) cellularity, granulocytic proliferation, and often decreased erythropoiesis"</div>
-
-
-                <div class="evidence-explanation">WHO diagnostic criteria for prefibrotic PMF include increased age-adjusted bone marrow cellularity.</div>
 
 
 
@@ -7220,6 +7430,9 @@ This disease-associated gene is JAK2 (hgnc:6192). hgnc:6192 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7234,6 +7447,7 @@ This disease-associated gene is JAK2 (hgnc:6192). hgnc:6192 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7289,6 +7503,9 @@ This disease-associated gene is CALR (hgnc:1455). hgnc:1455 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7303,6 +7520,7 @@ This disease-associated gene is CALR (hgnc:1455). hgnc:1455 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7358,6 +7576,9 @@ This disease-associated gene is MPL (hgnc:7217). hgnc:7217 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7372,6 +7593,7 @@ This disease-associated gene is MPL (hgnc:7217). hgnc:7217 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7427,6 +7649,9 @@ This disease-associated gene is TET2 (hgnc:25941). hgnc:25941 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7441,6 +7666,7 @@ This disease-associated gene is TET2 (hgnc:25941). hgnc:25941 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7496,6 +7722,9 @@ This disease-associated gene is ASXL1 (hgnc:18318). hgnc:18318 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7510,6 +7739,7 @@ This disease-associated gene is ASXL1 (hgnc:18318). hgnc:18318 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7569,6 +7799,9 @@ This disease-associated gene is EZH2 (hgnc:3527). hgnc:3527 is a gene from the H
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-srsf2" data-dismech-node="SRSF2" data-dismech-type="genetic">
@@ -7604,6 +7837,9 @@ This disease-associated gene is SRSF2 (hgnc:10783). hgnc:10783 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7618,6 +7854,7 @@ This disease-associated gene is SRSF2 (hgnc:10783). hgnc:10783 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7675,6 +7912,9 @@ This disease-associated gene is U2AF1 (hgnc:12453). hgnc:12453 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7689,6 +7929,7 @@ This disease-associated gene is U2AF1 (hgnc:12453). hgnc:12453 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7794,6 +8035,20 @@ This treatment uses ruxolitinib (CHEBI:66919). CHEBI:66919 is a therapeutic agen
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">JAK1/JAK2 inhibitor approved for intermediate-2 and high-risk PMF. Provides marked reduction in spleen size and constitutional symptoms but does not significantly alter disease course or prevent leukemic transformation.</div>
 
 
@@ -7867,6 +8122,20 @@ This treatment uses fedratinib (NCIT:C88293). NCIT:C88293 is a therapeutic agent
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">JAK2 inhibitor approved for intermediate-2 and high-risk PMF, including patients previously treated with ruxolitinib. Selective JAK2 inhibition with similar efficacy profile.</div>
 
 
@@ -7912,6 +8181,20 @@ This treatment is Allogeneic Stem Cell Transplantation (NCIT:C201466). NCIT:C201
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -7990,6 +8273,20 @@ This treatment uses hydroxyurea (CHEBI:44423). CHEBI:44423 is a therapeutic agen
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Cytoreductive therapy for symptomatic splenomegaly or thrombocytosis. Provides modest benefit but does not address constitutional symptoms as effectively as JAK inhibitors.</div>
 
 
@@ -8060,6 +8357,20 @@ This treatment uses anagrelide (CHEBI:142290). CHEBI:142290 is a therapeutic age
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -8135,6 +8446,20 @@ This treatment uses momelotinib (CHEBI:91407). CHEBI:91407 is a therapeutic agen
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">JAK1/JAK2 and ACVR1/ALK2 inhibitor FDA-approved in 2023 for intermediate- or high-risk PMF with anemia. Uniquely addresses anemia by suppressing hepcidin through ACVR1 inhibition. Demonstrated durable symptom, spleen, and anemia benefits in the MOMENTUM trial.</div>
 
 
@@ -8156,6 +8481,7 @@ This treatment uses momelotinib (CHEBI:91407). CHEBI:91407 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8241,6 +8567,20 @@ This treatment uses pacritinib (CHEBI:231350). CHEBI:231350 is a therapeutic age
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Selective JAK2/IRAK1/ACVR1 inhibitor, JAK1-sparing, FDA-approved in 2022 for PMF with severe thrombocytopenia (platelets less than 50 x 10^9/L). Can be administered at full dose regardless of baseline platelet count.</div>
 
 
@@ -8262,6 +8602,7 @@ This treatment uses pacritinib (CHEBI:231350). CHEBI:231350 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8419,6 +8760,7 @@ This treatment uses pacritinib (CHEBI:231350). CHEBI:231350 is a therapeutic age
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"1-9 / 100 000 | Europe | Annual incidence | EXPERT"</div>
@@ -8463,6 +8805,7 @@ This treatment uses pacritinib (CHEBI:231350). CHEBI:231350 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9977,6 +10320,7 @@ datasets:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10045,6 +10389,7 @@ datasets:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10119,6 +10464,7 @@ datasets:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10187,6 +10533,7 @@ datasets:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10261,6 +10608,7 @@ datasets:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10329,6 +10677,7 @@ datasets:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10440,6 +10789,7 @@ datasets:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10548,6 +10898,7 @@ datasets:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10616,6 +10967,7 @@ datasets:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10690,6 +11042,7 @@ datasets:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10758,6 +11111,7 @@ datasets:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10832,6 +11186,7 @@ datasets:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10900,6 +11255,7 @@ datasets:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10974,6 +11330,7 @@ datasets:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11042,6 +11399,7 @@ datasets:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11116,6 +11474,7 @@ datasets:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11184,6 +11543,7 @@ datasets:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11258,6 +11618,7 @@ datasets:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11292,6 +11653,8 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

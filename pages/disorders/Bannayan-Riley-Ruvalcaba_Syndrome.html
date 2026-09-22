@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4126,6 +4198,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4150,6 +4223,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4171,6 +4245,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4259,6 +4334,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4283,6 +4359,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4304,6 +4381,7 @@
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -4463,6 +4541,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4601,6 +4680,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4622,6 +4702,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4711,6 +4792,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4847,6 +4929,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4868,6 +4951,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4992,6 +5076,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5016,6 +5101,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5037,6 +5123,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5076,6 +5163,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-germline-pten-loss-of-function" data-dismech-node="Germline PTEN Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Germline PTEN Loss of Function</div>
+
 
                 <div class="item-desc">A heterozygous germline loss-of-function variant in PTEN at chromosome 10q23 is the initiating lesion. PTEN encodes a dual-specificity phosphatase whose principal physiological substrate is the membrane phospholipid phosphatidylinositol-3,4,5-trisphosphate. Germline PTEN variants are identified in roughly 60% of clinically diagnosed BRRS cases, so a negative test does not exclude the clinical diagnosis.</div>
 
@@ -5210,6 +5298,7 @@ This pathophysiological event involves decreased PIP3 3-phosphatase activity, an
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5231,6 +5320,7 @@ This pathophysiological event involves decreased PIP3 3-phosphatase activity, an
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5258,6 +5348,7 @@ This pathophysiological event involves decreased PIP3 3-phosphatase activity, an
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5280,6 +5371,7 @@ This pathophysiological event involves decreased PIP3 3-phosphatase activity, an
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pip3-accumulation-and-pi3k-akt-mtor-hyperactivation" data-dismech-node="PIP3 Accumulation and PI3K-AKT-mTOR Hyperactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">PIP3 Accumulation and PI3K-AKT-mTOR Hyperactivation</div>
+
 
                 <div class="item-desc">With PTEN-mediated dephosphorylation lost, PIP3 accumulates at the plasma membrane and recruits AKT, producing constitutive PI3K/AKT/mTOR signaling. The resulting mTOR overactivity increases cell growth, protein synthesis, and survival signaling across many lineages and is the shared molecular engine of every downstream BRRS manifestation. This node is also the pharmacological rationale for mTOR-inhibitor trials in PHTS.</div>
 
@@ -5527,6 +5619,7 @@ This pathophysiological event involves increased mTOR signaling, annotated with 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5549,6 +5642,7 @@ This pathophysiological event involves increased mTOR signaling, annotated with 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hamartomatous-tissue-overgrowth" data-dismech-node="Hamartomatous Tissue Overgrowth" data-dismech-type="pathophysiology">
                 <div class="item-name">Hamartomatous Tissue Overgrowth</div>
+
 
                 <div class="item-desc">Unrestrained growth signaling produces hamartomas: benign, disorganized overgrowths composed of cell types native to the tissue of origin. In BRRS this is expressed predominantly as hamartomatous polyps distributed throughout the gastrointestinal tract, subcutaneous and visceral lipomas, and vascular lesions, and it is the substrate for the syndrome&#39;s structural burden in childhood.</div>
 
@@ -5752,6 +5846,7 @@ This pathophysiological event involves increased cell proliferation, annotated w
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5773,6 +5868,7 @@ This pathophysiological event involves increased cell proliferation, annotated w
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5798,6 +5894,7 @@ This pathophysiological event involves increased cell proliferation, annotated w
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pten-hamartoma-of-soft-tissue-formation" data-dismech-node="PTEN Hamartoma of Soft Tissue Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">PTEN Hamartoma of Soft Tissue Formation</div>
+
 
                 <div class="item-desc">The distal, lesion-level node of the overgrowth arm. PTEN hamartoma of soft tissue (PHOST) is a distinctive, predominantly intramuscular lesion of PHTS: a disorganized overgrowth of mesenchymal elements combining ectopic adipose tissue, fibrous tissue, and malformed fast-flow vascular channels. It is radiologically mistaken for a simple arteriovenous malformation but is histologically distinct, and it is the lesion that drives pain, swelling, and functional loss in BRRS. It is the specific target of sirolimus therapy in this entry.</div>
 
@@ -5945,6 +6042,7 @@ This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5966,6 +6064,7 @@ This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5993,6 +6092,7 @@ This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6017,6 +6117,7 @@ This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neural-progenitor-overgrowth-and-brain-enlargement" data-dismech-node="Neural Progenitor Overgrowth and Brain Enlargement" data-dismech-type="pathophysiology">
                 <div class="item-name">Neural Progenitor Overgrowth and Brain Enlargement</div>
+
 
                 <div class="item-desc">The structural arm of PTEN loss in the nervous system. PTEN is a strong negative regulator of growth in neural lineages, so mTORC1-driven increases in cell size and progenitor output enlarge the brain. Clinically this is marked macrocephaly, typically evident from infancy and non-progressive after early childhood, and it is megalencephaly rather than hydrocephalus.</div>
 
@@ -6162,6 +6263,7 @@ This pathophysiological event involves increased neurogenesis (GO:0022008). GO:0
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6183,6 +6285,7 @@ This pathophysiological event involves increased neurogenesis (GO:0022008). GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6208,6 +6311,7 @@ This pathophysiological event involves increased neurogenesis (GO:0022008). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-synaptic-and-circuit-development-dysregulation" data-dismech-node="Synaptic and Circuit Development Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Synaptic and Circuit Development Dysregulation</div>
+
 
                 <div class="item-desc">The functional arm of PTEN loss in the nervous system, distinct from and not reducible to brain size. Disrupted synaptic and circuit development manifests as hypotonia, delayed motor milestones, global developmental delay, intellectual disability, and autism spectrum characteristics. Neonatal or infantile onset and delayed motor development are among the features that historically distinguished BRRS from adult-presenting Cowden syndrome. Candidate cellular intermediates include microglial activation with excessive synaptic pruning, demonstrated in the cytoplasmic-predominant Pten mouse but not yet confirmed in human tissue.</div>
 
@@ -6373,6 +6477,7 @@ This pathophysiological event involves abnormal neuron differentiation (GO:00301
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6394,6 +6499,7 @@ This pathophysiological event involves abnormal neuron differentiation (GO:00301
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6421,6 +6527,7 @@ This pathophysiological event involves abnormal neuron differentiation (GO:00301
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6443,6 +6550,7 @@ This pathophysiological event involves abnormal neuron differentiation (GO:00301
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lifelong-multiorgan-cancer-predisposition" data-dismech-node="Lifelong Multiorgan Cancer Predisposition" data-dismech-type="pathophysiology">
                 <div class="item-name">Lifelong Multiorgan Cancer Predisposition</div>
+
 
                 <div class="item-desc">Because every cell carries one inactivated PTEN allele, somatic loss of the second allele in a susceptible tissue removes tumor-suppressor function entirely and permits malignant transformation. The resulting lifetime risks span breast, thyroid, endometrial, renal, colorectal, and cutaneous melanocytic malignancy. This node carries the central nosological insight of the entry: although malignancy was not formally documented in the original BRRS descriptions, PTEN-positive BRRS and Cowden syndrome are allelic presentations of one disorder and therefore warrant identical cancer surveillance. Cancer risk in BRRS is largely realized in adulthood, so the childhood diagnosis obligates lifelong follow-up rather than pediatric oncologic treatment.</div>
 
@@ -6634,6 +6742,7 @@ This pathophysiological event involves increased negative regulation of apoptosi
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6658,6 +6767,7 @@ This pathophysiological event involves increased negative regulation of apoptosi
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6679,6 +6789,7 @@ This pathophysiological event involves increased negative regulation of apoptosi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6754,9 +6865,9 @@ This pathophysiological event involves increased negative regulation of apoptosi
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Digestive<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Endocrine<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Endocrine<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Genitourinary<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Genitourinary<span class="pill-count">(3)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Head and Neck<span class="pill-count">(1)</span></button>
 
@@ -6764,7 +6875,7 @@ This pathophysiological event involves increased negative regulation of apoptosi
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Nervous System<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Other<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Neoplasm<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6805,6 +6916,9 @@ This clinical feature is Breast carcinoma (HP:0003002). HP:0003002 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6819,6 +6933,7 @@ This clinical feature is Breast carcinoma (HP:0003002). HP:0003002 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6846,6 +6961,7 @@ This clinical feature is Breast carcinoma (HP:0003002). HP:0003002 is a phenotyp
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6867,6 +6983,7 @@ This clinical feature is Breast carcinoma (HP:0003002). HP:0003002 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6930,6 +7047,9 @@ This clinical feature is Hemangioma (HP:0001028). HP:0001028 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6944,6 +7064,7 @@ This clinical feature is Hemangioma (HP:0001028). HP:0001028 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6998,6 +7119,9 @@ This clinical feature is Arteriovenous malformation (HP:0100026). HP:0100026 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7012,6 +7136,7 @@ This clinical feature is Arteriovenous malformation (HP:0100026). HP:0100026 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7039,6 +7164,7 @@ This clinical feature is Arteriovenous malformation (HP:0100026). HP:0100026 is 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7060,6 +7186,7 @@ This clinical feature is Arteriovenous malformation (HP:0100026). HP:0100026 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7123,6 +7250,9 @@ This clinical feature is Hamartomatous polyposis (HP:0004390). HP:0004390 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7137,6 +7267,7 @@ This clinical feature is Hamartomatous polyposis (HP:0004390). HP:0004390 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7164,6 +7295,7 @@ This clinical feature is Hamartomatous polyposis (HP:0004390). HP:0004390 is a p
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7185,6 +7317,7 @@ This clinical feature is Hamartomatous polyposis (HP:0004390). HP:0004390 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7239,6 +7372,9 @@ This clinical feature is Colorectal carcinoma, annotated with Colon cancer (HP:0
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7253,6 +7389,7 @@ This clinical feature is Colorectal carcinoma, annotated with Colon cancer (HP:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7285,8 +7422,105 @@ This clinical feature is Colorectal carcinoma, annotated with Colon cancer (HP:0
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Endocrine
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hashimoto-thyroiditis" data-dismech-node="Hashimoto thyroiditis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hashimoto thyroiditis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000872" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000872</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hashimoto thyroiditis (HP:0000872). HP:0000872 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10400993" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10400993" target="_blank">PMID:10400993</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Additional features observed in BRR, which may also occur in a minority of CS patients, include Hashimoto&#39;s thyroiditis, vascular malformations and mental retardation."</div>
+
+
+                <div class="evidence-explanation">Documents Hashimoto thyroiditis as a recognized BRRS feature.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28526761" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28526761" target="_blank">PMID:28526761</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Clinical features included dermatological findings (66 %), gastrointestinal (GI) symptoms (34 %), ASD diagnosis (50 %), abnormal brain imaging (53 % of those examined) and abnormal thyroid imaging (26 %)."</div>
+
+
+                <div class="evidence-explanation">Recorded as PARTIAL because abnormal thyroid imaging in 26% of a pediatric PHTS cohort establishes that thyroid involvement is already present in childhood, but does not itself establish autoimmune thyroiditis as the pathology.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-thyroid-carcinoma" data-dismech-node="Thyroid carcinoma" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -7302,15 +7536,18 @@ This clinical feature is Colorectal carcinoma, annotated with Colon cancer (HP:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002890" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002890</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002890" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002890</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Thyroid carcinoma (HP:0002890). HP:0002890 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7330,6 +7567,7 @@ This clinical feature is Thyroid carcinoma (HP:0002890). HP:0002890 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7354,6 +7592,7 @@ This clinical feature is Thyroid carcinoma (HP:0002890). HP:0002890 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7386,8 +7625,130 @@ This clinical feature is Thyroid carcinoma (HP:0002890). HP:0002890 is a phenoty
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Genitourinary
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">3</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-penile-freckling" data-dismech-node="Penile freckling" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Penile freckling
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031447" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0031447</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pigmented macules of the glans penis, annotated with Penile freckling (HP:0031447). HP:0031447 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301661" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301661" target="_blank">PMID:20301661</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"BRRS is a congenital disorder characterized by macrocephaly, intestinal hamartomatous polyposis, lipomas, and pigmented macules of the glans penis."</div>
+
+
+                <div class="evidence-explanation">GeneReviews names pigmented macules of the glans penis as a defining BRRS feature.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10400993" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10400993" target="_blank">PMID:10400993</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Pigmented macules of the glans penis, delayed motor development and neonatal or infant onset are noted only in BRR."</div>
+
+
+                <div class="evidence-explanation">Directly supports the diagnostic specificity claim: this sign is restricted to BRRS within the PHTS spectrum.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39256443" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39256443" target="_blank">PMID:39256443</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Pigmented penile macules were described in the majority of male reports (21/28)."</div>
+
+
+                <div class="evidence-explanation">BRRS-specific frequency in male cases. Note this sign is sex-limited, which is also why the same review found a male predominance among published cases; no whole-cohort frequency band is asserted here for that reason.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-endometrial-carcinoma" data-dismech-node="Endometrial carcinoma" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -7403,15 +7764,18 @@ This clinical feature is Thyroid carcinoma (HP:0002890). HP:0002890 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012114" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0012114</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012114" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0012114</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Endometrial carcinoma (HP:0012114). HP:0012114 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7434,6 +7798,7 @@ This clinical feature is Endometrial carcinoma (HP:0012114). HP:0012114 is a phe
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7442,6 +7807,78 @@ This clinical feature is Endometrial carcinoma (HP:0012114). HP:0012114 is a phe
 
 
                 <div class="evidence-explanation">GeneReviews gives the endometrial cancer lifetime risk estimate.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-renal-cell-carcinoma" data-dismech-node="Renal cell carcinoma" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Renal cell carcinoma
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005584" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0005584</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Renal cell carcinoma (HP:0005584). HP:0005584 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301661" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301661" target="_blank">PMID:20301661</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The lifetime risk for renal cell cancer (predominantly of papillary histology) is 34%."</div>
+
+
+                <div class="evidence-explanation">GeneReviews gives the renal cell carcinoma lifetime risk and histologic pattern.</div>
 
 
 
@@ -7482,15 +7919,18 @@ This clinical feature is Endometrial carcinoma (HP:0012114). HP:0012114 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000256" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000256</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000256" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000256</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7510,6 +7950,7 @@ This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7537,6 +7978,7 @@ This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7558,6 +8000,7 @@ This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7609,15 +8052,18 @@ This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012032" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0012032</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012032" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0012032</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Lipoma (HP:0012032). HP:0012032 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7637,6 +8083,7 @@ This clinical feature is Lipoma (HP:0012032). HP:0012032 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7664,6 +8111,7 @@ This clinical feature is Lipoma (HP:0012032). HP:0012032 is a phenotype from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7685,6 +8133,7 @@ This clinical feature is Lipoma (HP:0012032). HP:0012032 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7725,15 +8174,18 @@ This clinical feature is Lipoma (HP:0012032). HP:0012032 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001252</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7753,6 +8205,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7780,6 +8233,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7801,6 +8255,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7850,15 +8305,18 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7878,6 +8336,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7902,6 +8361,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7944,15 +8404,18 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000717" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000717</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000717" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000717</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Autism spectrum characteristics, annotated with Autism (HP:0000717). HP:0000717 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7972,6 +8435,7 @@ This clinical feature is Autism spectrum characteristics, annotated with Autism 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7996,6 +8460,7 @@ This clinical feature is Autism spectrum characteristics, annotated with Autism 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8036,15 +8501,18 @@ This clinical feature is Autism spectrum characteristics, annotated with Autism 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001249</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8064,6 +8532,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8088,6 +8557,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8119,285 +8589,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
             <details class="phenotype-category-group" id="pheno-cat-9">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">4</span>
+                    Neoplasm
+                    <span class="cat-count">1</span>
                 </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-penile-freckling" data-dismech-node="Penile freckling" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Penile freckling
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0031447" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0031447</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Pigmented macules of the glans penis, annotated with Penile freckling (HP:0031447). HP:0031447 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (3 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20301661" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301661" target="_blank">PMID:20301661</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"BRRS is a congenital disorder characterized by macrocephaly, intestinal hamartomatous polyposis, lipomas, and pigmented macules of the glans penis."</div>
-
-
-                <div class="evidence-explanation">GeneReviews names pigmented macules of the glans penis as a defining BRRS feature.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:10400993" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10400993" target="_blank">PMID:10400993</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Pigmented macules of the glans penis, delayed motor development and neonatal or infant onset are noted only in BRR."</div>
-
-
-                <div class="evidence-explanation">Directly supports the diagnostic specificity claim: this sign is restricted to BRRS within the PHTS spectrum.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:39256443" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39256443" target="_blank">PMID:39256443</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Pigmented penile macules were described in the majority of male reports (21/28)."</div>
-
-
-                <div class="evidence-explanation">BRRS-specific frequency in male cases. Note this sign is sex-limited, which is also why the same review found a male predominance among published cases; no whole-cohort frequency band is asserted here for that reason.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hashimoto-thyroiditis" data-dismech-node="Hashimoto thyroiditis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hashimoto thyroiditis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000872" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000872</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hashimoto thyroiditis (HP:0000872). HP:0000872 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:10400993" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10400993" target="_blank">PMID:10400993</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Additional features observed in BRR, which may also occur in a minority of CS patients, include Hashimoto&#39;s thyroiditis, vascular malformations and mental retardation."</div>
-
-
-                <div class="evidence-explanation">Documents Hashimoto thyroiditis as a recognized BRRS feature.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:28526761" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28526761" target="_blank">PMID:28526761</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Clinical features included dermatological findings (66 %), gastrointestinal (GI) symptoms (34 %), ASD diagnosis (50 %), abnormal brain imaging (53 % of those examined) and abnormal thyroid imaging (26 %)."</div>
-
-
-                <div class="evidence-explanation">Recorded as PARTIAL because abnormal thyroid imaging in 26% of a pediatric PHTS cohort establishes that thyroid involvement is already present in childhood, but does not itself establish autoimmune thyroiditis as the pathology.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-renal-cell-carcinoma" data-dismech-node="Renal cell carcinoma" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Renal cell carcinoma
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0005584" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0005584</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Renal cell carcinoma (HP:0005584). HP:0005584 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20301661" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301661" target="_blank">PMID:20301661</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The lifetime risk for renal cell cancer (predominantly of papillary histology) is 34%."</div>
-
-
-                <div class="evidence-explanation">GeneReviews gives the renal cell carcinoma lifetime risk and histologic pattern.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-melanoma" data-dismech-node="Melanoma" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -8427,6 +8621,9 @@ This clinical feature is Melanoma (HP:0002861). HP:0002861 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8441,6 +8638,7 @@ This clinical feature is Melanoma (HP:0002861). HP:0002861 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8541,6 +8739,9 @@ This disease-associated gene is PTEN (hgnc:9588). hgnc:9588 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -8555,6 +8756,7 @@ This disease-associated gene is PTEN (hgnc:9588). hgnc:9588 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8582,6 +8784,7 @@ This disease-associated gene is PTEN (hgnc:9588). hgnc:9588 is a gene from the H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8603,6 +8806,7 @@ This disease-associated gene is PTEN (hgnc:9588). hgnc:9588 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8664,6 +8868,9 @@ This disease-associated gene is TTN (hgnc:12403). hgnc:12403 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -8678,6 +8885,7 @@ This disease-associated gene is TTN (hgnc:12403). hgnc:12403 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8705,6 +8913,7 @@ This disease-associated gene is TTN (hgnc:12403). hgnc:12403 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8726,6 +8935,7 @@ This disease-associated gene is TTN (hgnc:12403). hgnc:12403 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8809,6 +9019,20 @@ This treatment is cancer surveillance, annotated with Cancer Screening (NCIT:C15
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">The central management intervention. Because PTEN-positive BRRS carries the same cancer burden as Cowden syndrome, surveillance is identical and lifelong: annual thyroid ultrasound and skin examination from the time of diagnosis in childhood; in adults, annual thyroid ultrasound and dermatologic evaluation; from age 30 in women, breast screening with consideration of endometrial assessment from age 35; colonoscopy from age 35 with intervals set by polyp burden; and biennial renal imaging from age 40. Family history of early-onset cancer should pull screening earlier by 5 to 10 years.</div>
 
 
@@ -8830,6 +9054,7 @@ This treatment is cancer surveillance, annotated with Cancer Screening (NCIT:C15
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8857,6 +9082,7 @@ This treatment is cancer surveillance, annotated with Cancer Screening (NCIT:C15
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8878,6 +9104,7 @@ This treatment is cancer surveillance, annotated with Cancer Screening (NCIT:C15
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8944,6 +9171,31 @@ This treatment is endoscopic polypectomy, annotated with Surgical Procedure (NCI
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Symptomatic or large hamartomatous polyps are managed endoscopically with polypectomy, with colonoscopic surveillance intervals determined by polyp burden. Benign gastrointestinal lesions are common enough in PTEN carriers that structured colorectal screening is recommended rather than symptom-driven assessment alone.</div>
 
 
@@ -8965,6 +9217,7 @@ This treatment is endoscopic polypectomy, annotated with Surgical Procedure (NCI
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9029,6 +9282,31 @@ This treatment is surgical excision, annotated with Surgical Procedure (NCIT:C15
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Lipomas, vascular lesions, and other benign manifestations are treated the same way as their sporadic counterparts, with excision reserved for lesions causing pain, functional impairment, deformity, or diagnostic uncertainty rather than performed prophylactically.</div>
 
 
@@ -9053,6 +9331,7 @@ This treatment is surgical excision, annotated with Surgical Procedure (NCIT:C15
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9074,6 +9353,7 @@ This treatment is surgical excision, annotated with Surgical Procedure (NCIT:C15
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9138,6 +9418,31 @@ This treatment is rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Because developmental delay, intellectual disability, and autism spectrum characteristics are core to the BRRS presentation, early developmental assessment and intervention (speech, motor, and educational support) is a management priority independent of the cancer-surveillance agenda.</div>
 
 
@@ -9159,6 +9464,7 @@ This treatment is rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9245,6 +9551,31 @@ This treatment uses everolimus (CHEBI:68478). CHEBI:68478 is a therapeutic agent
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Everolimus targets the mTOR overactivity that follows PTEN loss, giving a direct mechanistic rationale. A 6-month phase II randomized placebo-controlled trial in 46 individuals with PHTS aged 5 to 45 found the drug tolerable but did not meet its primary neurocognitive endpoint, with gastrointestinal adverse events more common on treatment. mTOR inhibition therefore remains investigational for the neurodevelopmental features of BRRS and is not routine care.</div>
 
 
@@ -9287,6 +9618,7 @@ This treatment uses everolimus (CHEBI:68478). CHEBI:68478 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9311,6 +9643,7 @@ This treatment uses everolimus (CHEBI:68478). CHEBI:68478 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9332,6 +9665,7 @@ This treatment uses everolimus (CHEBI:68478). CHEBI:68478 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9418,6 +9752,31 @@ This treatment uses sirolimus (CHEBI:9168). CHEBI:9168 is a therapeutic agent fr
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Sirolimus (rapamycin) is the lesion-directed mTOR-inhibitor use in BRRS, distinct from the neurocognitive indication that the everolimus trial tested and missed. It is used off-label for symptomatic vascular anomalies when other treatments have failed, and the BRRS-specific published experience is a single pediatric case in the 2024 systematic review. Evidence is therefore anecdotal, and this is curated as an off-label option under investigation rather than standard care.</div>
 
 
@@ -9473,6 +9832,7 @@ This treatment uses sirolimus (CHEBI:9168). CHEBI:9168 is a therapeutic agent fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9497,6 +9857,7 @@ This treatment uses sirolimus (CHEBI:9168). CHEBI:9168 is a therapeutic agent fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9518,6 +9879,7 @@ This treatment uses sirolimus (CHEBI:9168). CHEBI:9168 is a therapeutic agent fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9581,6 +9943,31 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Genetic counseling covers the autosomal dominant 50% transmission risk, the variable expressivity that lets one PTEN variant produce BRRS in one relative and Cowden syndrome in another, and the value of predictive testing in at-risk relatives so that carriers can enter surveillance.</div>
 
 
@@ -9605,6 +9992,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9626,6 +10014,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9702,6 +10091,7 @@ Testing is tiered, and sequencing alone is not sufficient. Coding-region sequenc
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9726,6 +10116,7 @@ Testing is tiered, and sequencing alone is not sufficient. Coding-region sequenc
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9747,6 +10138,7 @@ Testing is tiered, and sequencing alone is not sufficient. Coding-region sequenc
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9804,6 +10196,7 @@ Testing is tiered, and sequencing alone is not sufficient. Coding-region sequenc
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9825,6 +10218,7 @@ Testing is tiered, and sequencing alone is not sufficient. Coding-region sequenc
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9899,6 +10293,7 @@ Testing is tiered, and sequencing alone is not sufficient. Coding-region sequenc
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9984,6 +10379,7 @@ Testing is tiered, and sequencing alone is not sufficient. Coding-region sequenc
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10036,6 +10432,7 @@ Testing is tiered, and sequencing alone is not sufficient. Coding-region sequenc
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11877,6 +12274,19 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Bannayan-Riley-Ruvalcaba Syndrome</strong> · 2026-08-04T00:54:55Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Bannayan-Riley-Ruvalcaba_Syndrome/2026-08-04T005455Z-claude-code-3fd906.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of BRRS as a standalone entry, paralleling the existing Cowden_Syndrome entry (both are PHTS subtypes; BRRS previously existed only as a ~20-line subtype stub inside PTEN_Hamartoma_Tumor_Syndrome). Deep research: claude_code provider (research/Bannayan-Riley-Ruvalcaba_Syndrome-deep-research-claude_code.md; 27 web searches, 24 citations, 998s). DR output was treated as leads only: every PMID was independently fetched and every snippet verified as an exact substring of the cached abstract or full text. DR-suggested figures were re-derived from the cached source rather than copied; where the report gave a percentage, the underlying count was quoted instead (e.g. genital macules curated as 21/28 male reports). GeneReviews baseline: PMID:20301661 (PTEN Hamartoma Tumor Syndrome) fetched, tagged, and cross-referenced; the BRRS core tetrad and full surveillance schedule are curated from it. Five-node pathograph from germline PTEN loss through PIP3/PI3K-AKT-mTOR hyperactivation to hamartomatous overgrowth, neurodevelopmental dysregulation, and lifelong multiorgan cancer predisposition, with no orphan nodes. Central curated insight: PTEN-positive BRRS and Cowden syndrome are allelic, so a childhood BRRS diagnosis obligates lifelong Cowden-equivalent cancer surveillance; the entry records via PARTIAL evidence that this risk is inferred from allelism and has not been confirmed in BRRS-ascertained cohorts. Honest negative-result curation: the everolimus phase II RCT (PMID:35594551) missed its primary neurocognitive endpoint, curated with supports REFUTE so mTOR inhibition reads as investigational rather than established. TTN curated as SUSCEPTIBILITY (not CAUSATIVE) per the authors own candidate-gene framing. Two KNOWLEDGE_GAP discussions with proposed experiments cover pediatric-ascertained cancer risk and the PTEN-mutation-negative 40 percent. Validation: schema clean, term validation passed, 95/95 snippets verified against cached references, compliance 89.3 percent global / 89.7 percent weighted. A pre-PR red-team self-review was run in a fresh-context subagent; it raised 3 blocking findings (macrocephaly frequency band anchored on the wrong statistic, AVM phenotype asserted on evidence that only said vascular malformations, hypotonia evidence that never mentioned hypotonia) and these were fixed by re-quoting already-cached full text. Also from that review: ascertainment caveat added to the PTEN detection rate (60 percent classic vs 75/83 modern), cancer risks reframed as cross-cohort ranges, autism band choice documented explicitly, the historical-absence cancer snippet retyped from PARTIAL to NO_EVIDENCE, and sirolimus added as the lesion-directed mTOR use distinct from the negative neurocognitive everolimus trial.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

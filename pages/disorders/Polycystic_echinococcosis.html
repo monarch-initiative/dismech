@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3761,6 +3826,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3968,7 +4040,7 @@
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
-                <div class="stat-value">2</div>
+                <div class="stat-value">3</div>
                 <div class="stat-label">Medical Actions</div>
             </div>
             </a>
@@ -4044,6 +4116,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatic-metacestode-implantation" data-dismech-node="Hepatic metacestode implantation" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatic metacestode implantation</div>
 
+
                 <div class="item-desc">Oncospheres establish metacestode vesicles within the liver parenchyma, the primary site of E. vogeli infection in humans, forming the characteristic three-layered (adventitious, laminated, germinal) cyst wall.</div>
 
 
@@ -4102,6 +4175,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4123,6 +4197,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4148,6 +4223,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-exogenous-metacestode-proliferation-and-daughter-cyst-formation" data-dismech-node="Exogenous metacestode proliferation and daughter-cyst formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Exogenous metacestode proliferation and daughter-cyst formation</div>
+
 
                 <div class="item-desc">Unlike the unicystic neotropical species E. oligarthrus, the E. vogeli metacestode undergoes exogenous proliferation, budding daughter cysts from the germinal layer that coalesce into the characteristic multilocular (polycystic) mass that expands through hepatic tissue.</div>
 
@@ -4207,6 +4283,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4228,6 +4305,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4253,6 +4331,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mass-effect-and-local-invasion" data-dismech-node="Mass effect and local invasion" data-dismech-type="pathophysiology">
                 <div class="item-name">Mass effect and local invasion</div>
+
 
                 <div class="item-desc">The enlarging multilocular cyst complex compresses adjacent hepatic tissue and can invade neighboring structures, generating space-occupying effects.</div>
 
@@ -4312,6 +4391,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4333,6 +4413,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4379,7 +4460,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Metabolism<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4424,6 +4505,9 @@ This clinical feature is Hepatic cysts (HP:0001407). HP:0001407 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4438,6 +4522,7 @@ This clinical feature is Hepatic cysts (HP:0001407). HP:0001407 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4494,6 +4579,9 @@ This clinical feature is Liver abscess (HP:0100523). HP:0100523 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4508,6 +4596,7 @@ This clinical feature is Liver abscess (HP:0100523). HP:0100523 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4537,7 +4626,7 @@ This clinical feature is Liver abscess (HP:0100523). HP:0100523 is a phenotype f
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
+                    Metabolism
                     <span class="cat-count">1</span>
                 </summary>
 
@@ -4571,6 +4660,9 @@ This clinical feature is Thoracic empyema from hepato-pleural fistula, annotated
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4585,6 +4677,7 @@ This clinical feature is Thoracic empyema from hepato-pleural fistula, annotated
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4654,7 +4747,7 @@ This clinical feature is Thoracic empyema from hepato-pleural fistula, annotated
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Medical Actions</h2>
-                <span class="card-count">2</span>
+                <span class="card-count">3</span>
             </div>
 
             <div class="item-box treatment-box anchor-target" id="treatment-albendazole-therapy" data-dismech-node="Albendazole therapy" data-dismech-type="treatment">
@@ -4719,6 +4812,31 @@ This treatment uses albendazole (CHEBI:16664). CHEBI:16664 is a therapeutic agen
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Benzimidazole antiparasitic; the most efficacious medical therapy for polycystic echinococcosis and an adjunct around surgery, though it rarely achieves cure on its own.</div>
 
 
@@ -4740,6 +4858,7 @@ This treatment uses albendazole (CHEBI:16664). CHEBI:16664 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4767,6 +4886,7 @@ This treatment uses albendazole (CHEBI:16664). CHEBI:16664 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4787,6 +4907,138 @@ This treatment uses albendazole (CHEBI:16664). CHEBI:16664 is a therapeutic agen
 
             </div>
 
+            <div class="item-box treatment-box anchor-target" id="treatment-praziquantel-adjunct-combination-therapy" data-dismech-node="Praziquantel (adjunct combination therapy)" data-dismech-type="treatment">
+                <div class="item-name">
+                    Praziquantel (adjunct combination therapy)
+                </div>
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-9">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-9">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    </div>
+
+
+
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+
+
+
+                    <span class="tag tag-treatment">
+                        praziquantel
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_45267" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-10">CHEBI:45267</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses praziquantel (CHEBI:45267). CHEBI:45267 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
+                <div class="item-desc">Added to albendazole, rather than used as monotherapy, for smaller uncomplicated cysts; general hydatid-disease guidance applied here by cross-species extension, since no PE-specific praziquantel trial has been reported.</div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34034501" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34034501" target="_blank">PMID:34034501</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Treatment with albendazole, whether combined or not with praziquantel, is useful for smaller, uncomplicated cysts (&lt; 5 cm)."</div>
+
+
+                <div class="evidence-explanation">General hydatid-disease guidance recommends adding praziquantel to albendazole for smaller uncomplicated cysts; cited as cross-species pharmacological support since no PE-specific praziquantel trial has been published.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
             <div class="item-box treatment-box anchor-target" id="treatment-surgical-resection" data-dismech-node="Surgical resection" data-dismech-type="treatment">
                 <div class="item-name">
                     Surgical resection
@@ -4795,7 +5047,7 @@ This treatment uses albendazole (CHEBI:16664). CHEBI:16664 is a therapeutic agen
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-9">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-9">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-11">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-11">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -4828,6 +5080,31 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Surgical removal of involved hepatic/abdominal cyst masses is the primary treatment for resectable polycystic echinococcosis, though extensive liver involvement or low hepatic reserve can contraindicate it.</div>
 
 
@@ -4852,6 +5129,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4873,6 +5151,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4922,11 +5201,11 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ENVO_01000763" target="_blank" class="curie-chip curie-chip-envo" aria-describedby="pill-tip-10">ENVO:01000763</a>
+    <a href="http://purl.obolibrary.org/obo/ENVO_01000763" target="_blank" class="curie-chip curie-chip-envo" aria-describedby="pill-tip-12">ENVO:01000763</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Environment Ontology (ENVO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Environment Ontology (ENVO)
 Relation: this environmental factor occurs in this environment
 This environmental factor occurs in rural settlement (ENVO:01000763). ENVO:01000763 is an environment from the Environment Ontology.</span>
                     </span>
@@ -4961,12 +5240,17 @@ This environmental factor occurs in rural settlement (ENVO:01000763). ENVO:01000
 
 
 
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
                 </div>
 
                 <div class="evidence-snippet">"Its definitive hosts are Speothos venaticus (bush dog) and Canis familiaris (domestic dog), while Cuniculus paca (paca) serves as the intermediate host... Humans become accidental hosts by consuming food or water contaminated with eggs of this helminth."</div>
 
 
-                <div class="evidence-explanation">The case report outlines the Amazon sylvatic cycle (bush dog–paca) and how domestic dogs bridge to humans in forest settings.</div>
+                <div class="evidence-explanation">The case report outlines the Amazon sylvatic cycle (bush dog–paca) and how domestic dogs bridge to humans in forest settings. Graded OTHER because the quoted span is parasite host-range and transmission biology rather than a human clinical observation.</div>
 
 
 
@@ -4980,6 +5264,7 @@ This environmental factor occurs in rural settlement (ENVO:01000763). ENVO:01000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5029,6 +5314,7 @@ This environmental factor occurs in rural settlement (ENVO:01000763). ENVO:01000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5111,6 +5397,7 @@ This environmental factor occurs in rural settlement (ENVO:01000763). ENVO:01000
 
 
 
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -5132,6 +5419,7 @@ This environmental factor occurs in rural settlement (ENVO:01000763). ENVO:01000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5189,11 +5477,11 @@ This environmental factor occurs in rural settlement (ENVO:01000763). ENVO:01000
         Echinococcus vogeli
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_6213" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-11">NCBITaxon:6213</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_6213" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-13">NCBITaxon:6213</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-11">NCBI Taxonomy (NCBITaxon)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-13">NCBI Taxonomy (NCBITaxon)</span>
     </span>
 
 
@@ -5229,6 +5517,7 @@ This environmental factor occurs in rural settlement (ENVO:01000763). ENVO:01000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5288,12 +5577,17 @@ This environmental factor occurs in rural settlement (ENVO:01000763). ENVO:01000
 
 
 
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
                 </div>
 
                 <div class="evidence-snippet">"Humans become accidental hosts by consuming food or water contaminated with eggs of this helminth."</div>
 
 
-                <div class="evidence-explanation">The case report describes the fecal-oral route from definitive hosts as the human exposure pathway.</div>
+                <div class="evidence-explanation">The case report describes the fecal-oral route from definitive hosts as the human exposure pathway. Graded OTHER because the sentence is transmission biology rather than a human clinical observation; its snippet is a substring of the environmental entry&#39;s, so the two are graded alike.</div>
 
 
 
@@ -5376,6 +5670,7 @@ This environmental factor occurs in rural settlement (ENVO:01000763). ENVO:01000
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"The review highlights the challenges associated with diagnosing the different echinococcosis types, including cystic echinococcosis, alveolar echinococcosis, and polycystic echinococcosis."</div>
@@ -5444,6 +5739,7 @@ This environmental factor occurs in rural settlement (ENVO:01000763). ENVO:01000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5528,6 +5824,73 @@ infectious_agent:
       characterization.
     explanation: Molecular confirmation links human infection to Echinococcus
       vogeli.
+agent_life_cycle:
+  description: &gt;-
+    Echinococcus vogeli is maintained in a sylvatic cycle between bush dogs
+    (definitive host) and pacas (intermediate host), with domestic dogs able
+    to serve as a second definitive host that bridges the cycle to human
+    settlements. Adult tapeworms in a definitive host&#39;s gut shed eggs; pacas
+    ingest these and develop hepatic larval cysts, and the cycle closes when
+    a canid eats the viscera of an infected paca. Humans are accidental,
+    dead-end hosts, infected by ingesting food or water contaminated with
+    eggs shed by an infected canid.
+  hosts:
+  - preferred_term: bush dog
+    term:
+      id: NCBITaxon:68741
+      label: Speothos venaticus
+    role: definitive host
+  - preferred_term: domestic dog
+    term:
+      id: NCBITaxon:9615
+      label: Canis lupus familiaris
+    role: definitive host
+    description: &gt;-
+      A second definitive host alongside the wild bush dog, bridging the
+      sylvatic cycle to human settlements when fed the viscera of hunted
+      pacas.
+  - preferred_term: paca
+    term:
+      id: NCBITaxon:108852
+      label: Cuniculus paca
+    role: intermediate host
+  - preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+    role: accidental intermediate host
+  life_cycle_stages:
+  - name: Paca intermediate host stage
+    life_cycle_stage_term:
+      preferred_term: parasitic worm stage
+      term:
+        id: OPL:0000082
+        label: parasitic worm stage
+    description: &gt;-
+      Hunted pacas carry E. vogeli larval cysts in their viscera; when the
+      viscera are fed to a domestic dog or taken by a bush dog, the cycle
+      closes in a new definitive host.
+    evidence:
+    - reference: PMID:41431593
+      reference_title: &#34;Neotropical Echinococcosis Complicated by Hepatic Abscess and Hepato-Pleural Fistula: A Case Report From the State of Acre, Brazil.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      quote_role: BACKGROUND
+      snippet: &#34;The viscera of pacas are used to feed domestic dogs, perpetuating the life cycle of E. vogeli.&#34;
+      explanation: Describes the closing step of the sylvatic cycle, in which
+        paca viscera fed to domestic dogs sustains transmission back into a
+        definitive host.
+  evidence:
+  - reference: PMID:41431593
+    reference_title: &#34;Neotropical Echinococcosis Complicated by Hepatic Abscess and Hepato-Pleural Fistula: A Case Report From the State of Acre, Brazil.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    quote_role: BACKGROUND
+    snippet: &#34;Its definitive hosts are Speothos venaticus (bush dog) and Canis familiaris (domestic dog), while Cuniculus paca (paca) serves as the intermediate host.&#34;
+    explanation: Names the definitive (bush dog, domestic dog) and
+      intermediate (paca) hosts of the E. vogeli sylvatic cycle. Graded OTHER
+      because the sentence is parasite host-range biology carrying no human
+      clinical observation, even though the citing publication is a case report.
 transmission:
 - name: Food or water contaminated by dog or bush dog feces
   description: Human infection occurs after ingestion of E. vogeli eggs shed by
@@ -5536,10 +5899,14 @@ transmission:
   - reference: PMID:41431593
     reference_title: &#34;Neotropical Echinococcosis Complicated by Hepatic Abscess and Hepato-Pleural Fistula: A Case Report From the State of Acre, Brazil.&#34;
     supports: SUPPORT
+    evidence_source: OTHER
+    quote_role: BACKGROUND
     snippet: Humans become accidental hosts by consuming food or water
       contaminated with eggs of this helminth.
     explanation: The case report describes the fecal-oral route from definitive
-      hosts as the human exposure pathway.
+      hosts as the human exposure pathway. Graded OTHER because the sentence is
+      transmission biology rather than a human clinical observation; its snippet
+      is a substring of the environmental entry&#39;s, so the two are graded alike.
 prevalence:
 - population: Pan-Amazonia (Central and South America)
   measure_type: CASES_IN_LITERATURE
@@ -5717,12 +6084,16 @@ environmental:
   - reference: PMID:41431593
     reference_title: &#34;Neotropical Echinococcosis Complicated by Hepatic Abscess and Hepato-Pleural Fistula: A Case Report From the State of Acre, Brazil.&#34;
     supports: SUPPORT
+    evidence_source: OTHER
+    quote_role: BACKGROUND
     snippet: Its definitive hosts are Speothos venaticus (bush dog) and Canis
       familiaris (domestic dog), while Cuniculus paca (paca) serves as the
       intermediate host... Humans become accidental hosts by consuming food or
       water contaminated with eggs of this helminth.
     explanation: The case report outlines the Amazon sylvatic cycle (bush
       dog–paca) and how domestic dogs bridge to humans in forest settings.
+      Graded OTHER because the quoted span is parasite host-range and
+      transmission biology rather than a human clinical observation.
   - reference: PMID:37549288
     reference_title: &#34;Climate determines transmission hotspots of Polycystic Echinococcosis, a life-threatening zoonotic disease, across Pan-Amazonia.&#34;
     supports: SUPPORT
@@ -5750,6 +6121,7 @@ treatments:
   description: Benzimidazole antiparasitic; the most efficacious medical therapy
     for polycystic echinococcosis and an adjunct around surgery, though it rarely
     achieves cure on its own.
+  therapeutic_modality: SMALL_MOLECULE
   treatment_term:
     preferred_term: Pharmacotherapy
     term:
@@ -5778,6 +6150,33 @@ treatments:
     explanation: General hydatid-disease guidance highlights albendazole
       (with or without praziquantel) as standard medical therapy; cited as
       cross-species pharmacological support.
+- name: Praziquantel (adjunct combination therapy)
+  therapeutic_modality: SMALL_MOLECULE
+  description: Added to albendazole, rather than used as monotherapy, for
+    smaller uncomplicated cysts; general hydatid-disease guidance applied here
+    by cross-species extension, since no PE-specific praziquantel trial has
+    been reported.
+  treatment_term:
+    preferred_term: Pharmacotherapy
+    term:
+      id: NCIT:C15986
+      label: Pharmacotherapy
+    therapeutic_agent:
+    - preferred_term: praziquantel
+      term:
+        id: CHEBI:45267
+        label: praziquantel
+  evidence:
+  - reference: PMID:34034501
+    reference_title: &#34;A review of the diagnosis and management of liver hydatid cyst.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: Treatment with albendazole, whether combined or not with
+      praziquantel, is useful for smaller, uncomplicated cysts (&lt; 5 cm).
+    explanation: General hydatid-disease guidance recommends adding
+      praziquantel to albendazole for smaller uncomplicated cysts; cited as
+      cross-species pharmacological support since no PE-specific praziquantel
+      trial has been published.
 - name: Surgical resection
   therapeutic_modality: SURGERY
   description: Surgical removal of involved hepatic/abdominal cyst masses is the
@@ -5938,6 +6337,8 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -6314,7 +6715,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Polycystic echinococcosis", "mondoId": "MONDO:0000288", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Polycystic_echinococcosis", "yamlRevision": "dae22e7239bc"};
+        const OS_CONFIG = {"diseaseName": "Polycystic echinococcosis", "mondoId": "MONDO:0000288", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Polycystic_echinococcosis", "yamlRevision": "7e923ab13e67"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4089,7 +4161,7 @@
                 <div class="item-desc" style="margin-top: 8px;">Klinefelter syndrome (47,XXY) results from supernumerary X chromosome(s) acquired through meiotic non-disjunction, producing progressive seminiferous tubule hyalinization and germ-cell loss during puberty. The resulting primary hypogonadism produces small firm testes, azoospermia, low testosterone, elevated FSH/LH, and incomplete pubertal virilization. X-linked gene dosage effects from incomplete X-inactivation (escape genes including KDM6A, USP9X, DDX3X) contribute to the cognitive, language, social, and metabolic phenotype that extends beyond androgen deficiency. Testosterone replacement reverses the hypogonadal syndrome but does not correct cognitive/behavioral features or infertility. Mouse XXY models and X-escape-gene knockouts have validated both the androgen-deficiency and X-gene-dosage axes of the canonical model.</div>
 
 
-                <div class="mapping-notes">Retained as CANONICAL with multi-component framing. The 2026 falcon hypothesis-search report (kb/hypotheses/Klinefelter_Syndrome/canonical_xxy_gene_dosage_androgen_deficiency_model; openscientist timed out at 3600s) finds PARTIALLY SUPPORTED. Core endocrine/testicular axis — progressive seminiferous- tubule degeneration with pubertal transition to hypergonadotropic hypogonadism — is well-supported by pediatric imaging/hormone trajectories and pubertal endocrine studies. Gene-dosage axis is supported at the molecular level by quantitative transcriptomic evidence: inactive X (Xi) copy number drives widespread X-linked expression changes, with escape/dosage-sensitive genes (DDX3X, USP9X, KDM6A) as candidate drivers beyond androgen deficiency. Three qualifications: (1) early-life structural testis changes (bilateral microlithiasis, reduced echogenicity in infants) occur BEFORE endocrine failure, complicating a &#39;puberty-only&#39; trigger model; (2) tissue-specific downstream (trans) gene- network effects limit extrapolation from accessible tissues to brain/testis outcomes — Xi also modulates expression from the active X in trans, expanding the dosage mechanism space; (3) emerging testis-niche mechanisms — microvascular immaturity / inflammation and Leydig metabolic / INSL3–AR imbalance — provide plausible competing proximal causes for low circulating testosterone and fertility heterogeneity. Model is best curated as MULTI-COMPONENT with explicit knowledge gaps and competing proximal mechanisms.</div>
+                <div class="mapping-notes">Retained as CANONICAL with multi-component framing. The 2026 falcon hypothesis-search report (kb/hypotheses/Klinefelter_Syndrome/canonical_xxy_gene_dosage_androgen_deficiency_model; openscientist timed out at 3600s) finds PARTIALLY SUPPORTED. Core endocrine/testicular axis — progressive seminiferous-tubule degeneration with pubertal transition to hypergonadotropic hypogonadism — is well-supported by pediatric imaging/hormone trajectories and pubertal endocrine studies. Gene-dosage axis is supported at the molecular level by quantitative transcriptomic evidence: inactive X (Xi) copy number drives widespread X-linked expression changes, with escape/dosage-sensitive genes (DDX3X, USP9X, KDM6A) as candidate drivers beyond androgen deficiency. Three qualifications: (1) early-life structural testis changes (bilateral microlithiasis, reduced echogenicity in infants) occur BEFORE endocrine failure, complicating a &#39;puberty-only&#39; trigger model; (2) tissue-specific downstream (trans) gene-network effects limit extrapolation from accessible tissues to brain/testis outcomes — Xi also modulates expression from the active X in trans, expanding the dosage mechanism space; (3) emerging testis-niche mechanisms — microvascular immaturity / inflammation and Leydig metabolic / INSL3–AR imbalance — provide plausible competing proximal causes for low circulating testosterone and fertility heterogeneity. Model is best curated as MULTI-COMPONENT with explicit knowledge gaps and competing proximal mechanisms.</div>
 
 
 
@@ -4132,6 +4204,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4170,6 +4243,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-presence-of-extra-x-chromosome" data-dismech-node="Presence of Extra X Chromosome" data-dismech-type="pathophysiology">
                 <div class="item-name">Presence of Extra X Chromosome</div>
+
 
                 <div class="item-desc">Typically results in a 47,XXY karyotype, leading to a range of physical, developmental, and reproductive issues.</div>
 
@@ -4231,6 +4305,7 @@
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"The term Klinefelter syndrome (KS) describes a group of chromosomal disorder in which there is at least one extra X chromosome to a normal male karyotype, 46,XY. XXY aneuploidy is the most common disorder of sex chromosomes in humans, with prevalence of one in 500 males."</div>
@@ -4250,6 +4325,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4275,6 +4351,7 @@
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Klinefelter syndrome is the most common sex-chromosome disorder in humans, affecting one in 660 men. The key findings in Klinefelter syndrome are small testes, hypergonadotropic hypogonadism and cognitive impairment."</div>
@@ -4295,6 +4372,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-x-chromosome-inactivation-escape-gene-dosage-imbalance" data-dismech-node="X-chromosome Inactivation Escape / Gene Dosage Imbalance" data-dismech-type="pathophysiology">
                 <div class="item-name">X-chromosome Inactivation Escape / Gene Dosage Imbalance</div>
+
 
                 <div class="item-desc">In 47,XXY, the inactive X chromosome (Xi) does not fully silence expression of a subset of X-linked escape genes (notably DDX3X, USP9X, KDM6A, and other dosage-sensitive loci). The resulting bi-allelic expression of these genes elevates effective gene dosage above the typical male single-X level, contributing to neurodevelopmental, cognitive, and metabolic phenotypes independent of androgen deficiency. The Xi also exerts trans regulatory effects on active-X and autosomal gene expression, broadening the molecular impact of sex-chromosome aneuploidy beyond classic escape.</div>
 
@@ -4372,6 +4450,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4393,6 +4472,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4418,6 +4498,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-testicular-microenvironment-dysfunction" data-dismech-node="Testicular Microenvironment Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Testicular Microenvironment Dysfunction</div>
+
 
                 <div class="item-desc">Immature Sertoli and Leydig cells, proinflammatory macrophage enrichment, extracellular matrix remodeling and microvascular dysfunction impair spermatogenesis and testosterone export.</div>
 
@@ -4762,6 +4843,7 @@ This pathophysiological event occurs in Seminiferous Tubule, annotated with semi
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-germ-cell-loss" data-dismech-node="Progressive Germ Cell Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Germ Cell Loss</div>
 
+
                 <div class="item-desc">Accelerated germ cell apoptosis beginning around puberty leads to spermatogenic failure and azoospermia in adulthood.</div>
 
 
@@ -4921,6 +5003,7 @@ This pathophysiological event occurs in Seminiferous Tubule, annotated with semi
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypergonadotropic-hypogonadism" data-dismech-node="Hypergonadotropic Hypogonadism" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypergonadotropic Hypogonadism</div>
+
 
                 <div class="item-desc">Leydig cell insufficiency and impaired testosterone export result in elevated LH/FSH and low systemic testosterone despite potentially elevated intratesticular testosterone.</div>
 
@@ -5167,11 +5250,11 @@ This pathophysiological event occurs in Testis (UBERON:0000473). UBERON:0000473 
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Musculoskeletal<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Nervous System<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Nervous System<span class="pill-count">(3)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Growth<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Other<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5211,6 +5294,9 @@ This clinical feature is Gynecomastia (HP:0000771). HP:0000771 is a phenotype fr
                     </div>
 
 
+
+
+
                     <div class="item-desc">Androgen/estrogen imbalance predisposes to breast tissue development</div>
 
 
@@ -5230,6 +5316,7 @@ This clinical feature is Gynecomastia (HP:0000771). HP:0000771 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5292,6 +5379,9 @@ This clinical feature is Abnormality of the Cardiovascular System (HP:0001626). 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Elevated risk of cardiovascular disease related to hypogonadism and metabolic dysregulation</div>
 
 
@@ -5311,6 +5401,7 @@ This clinical feature is Abnormality of the Cardiovascular System (HP:0001626). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5374,6 +5465,9 @@ This clinical feature is Hypogonadism (HP:0000135). HP:0000135 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -5388,6 +5482,7 @@ This clinical feature is Hypogonadism (HP:0000135). HP:0000135 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5413,6 +5508,7 @@ This clinical feature is Hypogonadism (HP:0000135). HP:0000135 is a phenotype fr
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Klinefelter&#39;s syndrome, the most common sex disorder associated with chromosomal aberrations, is characterized by a plethora of clinical features."</div>
@@ -5432,6 +5528,7 @@ This clinical feature is Hypogonadism (HP:0000135). HP:0000135 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5492,6 +5589,9 @@ This clinical feature is Micropenis (HP:0000054). HP:0000054 is a phenotype from
                     </div>
 
 
+
+
+
                     <div class="item-desc">Not a feature of classic non-mosaic 47,XXY, where external genitalia are typically normal at birth. Reported chiefly in higher-grade X-aneuploidy variants of the Klinefelter spectrum (e.g., 48,XXXY, 49,XXXXY, 49,XXXYY).</div>
 
 
@@ -5514,6 +5614,7 @@ This clinical feature is Micropenis (HP:0000054). HP:0000054 is a phenotype from
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Subsequent examinations were conducted due to various symptoms, including delayed motor development, intellectual disability, facial dysmorphisms, forearm deformities, hip dysplasia, cryptorchidism, micropenis, primary hypogonadism, and essential tremor"</div>
@@ -5533,6 +5634,7 @@ This clinical feature is Micropenis (HP:0000054). HP:0000054 is a phenotype from
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -5584,6 +5686,9 @@ This clinical feature is Azoospermia (HP:0000027). HP:0000027 is a phenotype fro
                     </div>
 
 
+
+
+
                     <div class="item-desc">Severe spermatogenic failure is common, often leading to infertility</div>
 
 
@@ -5603,6 +5708,7 @@ This clinical feature is Azoospermia (HP:0000027). HP:0000027 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5656,6 +5762,9 @@ This clinical feature is Small Testes, annotated with Decreased testicular size 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Testicular atrophy with small firm testes reflects germ cell loss and fibrosis</div>
 
 
@@ -5675,6 +5784,7 @@ This clinical feature is Small Testes, annotated with Decreased testicular size 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5735,6 +5845,9 @@ This clinical feature is Insulin Resistance (HP:0000855). HP:0000855 is a phenot
                     </div>
 
 
+
+
+
                     <div class="item-desc">Increased risk of metabolic syndrome and type 2 diabetes</div>
 
 
@@ -5754,6 +5867,7 @@ This clinical feature is Insulin Resistance (HP:0000855). HP:0000855 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5814,6 +5928,9 @@ This clinical feature is Reduced Muscle Tone, annotated with Hypotonia (HP:00012
                     </div>
 
 
+
+
+
                     <div class="item-desc">A recognized infancy/childhood feature (mild hypotonia and motor delay), though not prominent in adult clinical descriptions. Evidence gap: a quotable primary source for hypotonia in 47,XXY has not yet been cited here. No `frequency:` band is asserted. The band this record previously carried (OCCASIONAL) was left behind when its evidence item was removed, and per the frequency-evidence SOP a band is a separate quantitative claim that needs its own source rather than an inherited default. It would also probably have been the wrong band: infantile hypotonia is described as common in 47,XXY, so OCCASIONAL understates it. Restore a band only together with a quantitative source.</div>
 
 
@@ -5852,6 +5969,9 @@ This clinical feature is Osteopenia (HP:0000938). HP:0000938 is a phenotype from
                     </div>
 
 
+
+
+
                     <div class="item-desc">Low testosterone and altered bone metabolism contribute to reduced bone density</div>
 
 
@@ -5871,6 +5991,7 @@ This clinical feature is Osteopenia (HP:0000938). HP:0000938 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5901,7 +6022,7 @@ This clinical feature is Osteopenia (HP:0000938). HP:0000938 is a phenotype from
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-delayed-speech-and-language-development" data-dismech-node="Delayed Speech and Language Development" data-dismech-type="phenotype">
@@ -5934,6 +6055,9 @@ This clinical feature is Delayed Speech and Language Development (HP:0000750). H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5948,6 +6072,7 @@ This clinical feature is Delayed Speech and Language Development (HP:0000750). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5973,12 +6098,110 @@ This clinical feature is Delayed Speech and Language Development (HP:0000750). H
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"The behavioral phenotype of 47,XXY (Klinefelter syndrome) includes increased risks for developmental delays, language-based learning disabilities..."</div>
 
 
                 <div class="evidence-explanation">This reference supports the statement that delayed speech and language development is a common phenotype among individuals with Klinefelter Syndrome, as part of broader developmental delays.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-learning-disabilities" data-dismech-node="Learning Disabilities" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Learning Disabilities
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Specific learning disability</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001328" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001328</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Learning Disabilities, annotated with Specific learning disability (HP:0001328). HP:0001328 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20014369" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20014369" target="_blank">PMID:20014369</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Most studies support that males with KS have an increased risk of language disorders and reading disabilities."</div>
+
+
+                <div class="evidence-explanation">The abstract indicates an increased risk of language disorders and reading disabilities, which fits under learning disabilities.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21217607" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21217607" target="_blank">PMID:21217607</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"The behavioral phenotype of 47,XXY (Klinefelter syndrome) includes increased risks for developmental delays, language-based learning disabilities, executive dysfunction/ADHD, and socialemotional difficulties."</div>
+
+
+                <div class="evidence-explanation">The abstract directly mentions the increased risk of language-based learning disabilities in individuals with Klinefelter syndrome.</div>
 
 
 
@@ -6012,15 +6235,18 @@ This clinical feature is Delayed Speech and Language Development (HP:0000750). H
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007018" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0007018</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007018" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0007018</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Attention Deficit Hyperactivity Disorder (HP:0007018). HP:0007018 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">ADD/ADHD is more common than general population</div>
@@ -6045,6 +6271,7 @@ This clinical feature is Attention Deficit Hyperactivity Disorder (HP:0007018). 
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"A high rate of Attention Deficit/Hyperactivity Disorder (ADHD)-like characteristics has been reported in a wide variety of disorders including syndromes with known genetic causes... and Klinefelter Syndrome."</div>
@@ -6064,6 +6291,7 @@ This clinical feature is Attention Deficit Hyperactivity Disorder (HP:0007018). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6113,15 +6341,18 @@ This clinical feature is Attention Deficit Hyperactivity Disorder (HP:0007018). 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000098" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000098</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000098" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000098</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Tall Stature (HP:0000098). HP:0000098 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6141,6 +6372,7 @@ This clinical feature is Tall Stature (HP:0000098). HP:0000098 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6171,100 +6403,8 @@ This clinical feature is Tall Stature (HP:0000098). HP:0000098 is a phenotype fr
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">1</span>
                 </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-learning-disabilities" data-dismech-node="Learning Disabilities" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Learning Disabilities
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Specific learning disability</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001328" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001328</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Learning Disabilities, annotated with Specific learning disability (HP:0001328). HP:0001328 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20014369" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20014369" target="_blank">PMID:20014369</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                </div>
-
-                <div class="evidence-snippet">"Most studies support that males with KS have an increased risk of language disorders and reading disabilities."</div>
-
-
-                <div class="evidence-explanation">The abstract indicates an increased risk of language disorders and reading disabilities, which fits under learning disabilities.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:21217607" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21217607" target="_blank">PMID:21217607</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                </div>
-
-                <div class="evidence-snippet">"The behavioral phenotype of 47,XXY (Klinefelter syndrome) includes increased risks for developmental delays, language-based learning disabilities, executive dysfunction/ADHD, and socialemotional difficulties."</div>
-
-
-                <div class="evidence-explanation">The abstract directly mentions the increased risk of language-based learning disabilities in individuals with Klinefelter syndrome.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-psychosocial-difficulties" data-dismech-node="Psychosocial Difficulties" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6274,6 +6414,9 @@ This clinical feature is Learning Disabilities, annotated with Specific learning
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">May include shyness, low self-esteem, reduced assertiveness</div>
@@ -6295,6 +6438,7 @@ This clinical feature is Learning Disabilities, annotated with Specific learning
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6320,6 +6464,7 @@ This clinical feature is Learning Disabilities, annotated with Specific learning
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"The behavioral phenotype of 47,XXY (Klinefelter syndrome) includes increased risks for developmental delays, language-based learning disabilities, executive dysfunction/ADHD, and socialemotional difficulties"</div>
@@ -6339,6 +6484,7 @@ This clinical feature is Learning Disabilities, annotated with Specific learning
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6437,6 +6583,9 @@ This disease-associated gene is DDX3X (hgnc:2745). hgnc:2745 is a gene from the 
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-usp9x" data-dismech-node="USP9X" data-dismech-type="genetic">
@@ -6468,6 +6617,9 @@ This disease-associated gene is USP9X (hgnc:12632). hgnc:12632 is a gene from th
 
 
                 </div>
+
+
+
 
 
 
@@ -6511,6 +6663,9 @@ This disease-associated gene is KDM6A (hgnc:12637). hgnc:12637 is a gene from th
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-47-xxy-karyotype" data-dismech-node="47,XXY Karyotype" data-dismech-type="genetic">
@@ -6518,6 +6673,9 @@ This disease-associated gene is KDM6A (hgnc:12637). hgnc:12637 is a gene from th
                     47,XXY Karyotype
 
                 </div>
+
+
+
 
 
 
@@ -6536,6 +6694,7 @@ This disease-associated gene is KDM6A (hgnc:12637). hgnc:12637 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6561,6 +6720,7 @@ This disease-associated gene is KDM6A (hgnc:12637). hgnc:12637 is a gene from th
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Cytogenetic surveys of neonates have found that approximately one boy in 500 is born with an extra sex chromosome. ... This study estimates what proportion of those not detected prenatally will be diagnosed postnatally and what the indications for karyotyping are likely to be."</div>
@@ -6580,6 +6740,7 @@ This disease-associated gene is KDM6A (hgnc:12637). hgnc:12637 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6639,6 +6800,9 @@ This disease-associated gene is SHOX (hgnc:10853). hgnc:10853 is a gene from the
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-tlr7" data-dismech-node="TLR7" data-dismech-type="genetic">
@@ -6670,6 +6834,9 @@ This disease-associated gene is TLR7 (hgnc:15631). hgnc:15631 is a gene from the
 
 
                 </div>
+
+
+
 
 
 
@@ -6713,6 +6880,9 @@ This disease-associated gene is AR (hgnc:644). hgnc:644 is a gene from the HUGO 
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-insl3" data-dismech-node="INSL3" data-dismech-type="genetic">
@@ -6750,6 +6920,9 @@ This disease-associated gene is INSL3 (hgnc:6086). hgnc:6086 is a gene from the 
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-mosaicism-46-xy-47-xxy" data-dismech-node="Mosaicism (46,XY/47,XXY)" data-dismech-type="genetic">
@@ -6757,6 +6930,9 @@ This disease-associated gene is INSL3 (hgnc:6086). hgnc:6086 is a gene from the 
                     Mosaicism (46,XY/47,XXY)
 
                 </div>
+
+
+
 
 
 
@@ -6775,6 +6951,7 @@ This disease-associated gene is INSL3 (hgnc:6086). hgnc:6086 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6797,6 +6974,7 @@ This disease-associated gene is INSL3 (hgnc:6086). hgnc:6086 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6878,6 +7056,20 @@ This treatment is hormone modifying therapy, annotated with Hormone Therapy (NCI
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Helps address symptoms of hypogonadism such as low energy, reduced muscle mass, and libido.</div>
 
 
@@ -6899,6 +7091,7 @@ This treatment is hormone modifying therapy, annotated with Hormone Therapy (NCI
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6924,6 +7117,7 @@ This treatment is hormone modifying therapy, annotated with Hormone Therapy (NCI
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"The mainstay of medical treatment is testosterone replacement therapy to both attenuate acute and long-term consequences of hypogonadism and possibly prevent the frequent comorbidity."</div>
@@ -6943,6 +7137,7 @@ This treatment is hormone modifying therapy, annotated with Hormone Therapy (NCI
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7007,6 +7202,31 @@ This treatment is speech therapy, annotated with Speech Language Therapy (NCIT:C
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Special education services and speech therapy to improve language and academic skills.</div>
 
 
@@ -7031,6 +7251,7 @@ This treatment is speech therapy, annotated with Speech Language Therapy (NCIT:C
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Boys with Klinefelter syndrome are often in the need of speech therapy and many suffer from learning disability and may benefit from special education."</div>
@@ -7050,6 +7271,7 @@ This treatment is speech therapy, annotated with Speech Language Therapy (NCIT:C
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7112,6 +7334,31 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Assisted reproductive technologies such as testicular sperm extraction (TESE) and intracytoplasmic sperm injection (ICSI) may help those who wish to have children.</div>
 
 
@@ -7133,6 +7380,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7158,6 +7406,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"In conclusion, patients with non-mosaic Klinefelter syndrome have sperm recovery and pregnancy rates comparable with patients having non-obstructive azoospermia and normal karyotype."</div>
@@ -7177,6 +7426,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7241,6 +7491,31 @@ This treatment is behavioral counseling (NCIT:C181743). NCIT:C181743 is a clinic
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Counseling and psychological support to address social, emotional, and behavioral challenges.</div>
 
 
@@ -7287,6 +7562,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -7348,6 +7637,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"FSH and LH levels increase to hypergonadotropic levels, inhibin B decreases to undetectable levels, and testosterone after an initial increase levels off at a low or low-normal level."</div>
@@ -7370,6 +7660,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"FSH and LH levels in both NOA and KFS patients were significantly higher than the normal range, and the testosterone level in KFS patients was significantly lower."</div>
@@ -7389,6 +7680,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7443,6 +7735,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"During childhood, and even during early puberty, pituitary-gonadal function in 47,XXY subjects is relatively normal, but from midpuberty onwards, FSH and LH levels increase to hypergonadotropic levels."</div>
@@ -7465,6 +7758,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Primary gonadal failure characteristically resulted in exaggerated gonadotrophin response."</div>
@@ -7484,6 +7778,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7553,6 +7848,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"This study suggests that most males born with these chromosome patterns will go through life without being karyotyped, ... that the commonest indication for a Klinefelter male to be karyotyped will be hypogonadism and/or infertility."</div>
@@ -7575,6 +7871,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"The karyotypes were identified using high resolution GTL banding at the Genetics Department."</div>
@@ -7594,6 +7891,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7651,6 +7949,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"The most important data for diagnosis are testicular volume, hormone levels and presence of azoospermia in spermiogram, especially in puberty and adult life."</div>
@@ -7673,6 +7972,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Hypogonadism and testicular degeneration are almost universal. Truncal adiposity, metabolic syndrome, and low bone mass occur frequently."</div>
@@ -7692,6 +7992,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7773,6 +8074,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"The birth prevalence of KS in Victoria is estimated to be 223 per 100,000 males (95% CI, 195-254), with about 50% of cases remaining undiagnosed."</div>
@@ -7792,6 +8094,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8081,8 +8384,8 @@ mechanistic_hypotheses:
     framing. The 2026 falcon hypothesis-search report
     (kb/hypotheses/Klinefelter_Syndrome/canonical_xxy_gene_dosage_androgen_deficiency_model;
     openscientist timed out at 3600s) finds PARTIALLY SUPPORTED.
-    Core endocrine/testicular axis — progressive seminiferous-
-    tubule degeneration with pubertal transition to
+    Core endocrine/testicular axis — progressive seminiferous-tubule
+    degeneration with pubertal transition to
     hypergonadotropic hypogonadism — is well-supported by
     pediatric imaging/hormone trajectories and pubertal endocrine
     studies. Gene-dosage axis is supported at the molecular level
@@ -8093,8 +8396,8 @@ mechanistic_hypotheses:
     qualifications: (1) early-life structural testis changes
     (bilateral microlithiasis, reduced echogenicity in infants)
     occur BEFORE endocrine failure, complicating a &#39;puberty-only&#39;
-    trigger model; (2) tissue-specific downstream (trans) gene-
-    network effects limit extrapolation from accessible tissues to
+    trigger model; (2) tissue-specific downstream (trans) gene-network
+    effects limit extrapolation from accessible tissues to
     brain/testis outcomes — Xi also modulates expression from the
     active X in trans, expanding the dosage mechanism space;
     (3) emerging testis-niche mechanisms — microvascular
@@ -9170,6 +9473,8 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -9734,7 +10039,7 @@ datasets:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Klinefelter Syndrome", "mondoId": "MONDO:0006823", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Klinefelter_Syndrome", "yamlRevision": "6e3b2e938367"};
+        const OS_CONFIG = {"diseaseName": "Klinefelter Syndrome", "mondoId": "MONDO:0006823", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Klinefelter_Syndrome", "yamlRevision": "819c1a9adac0"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

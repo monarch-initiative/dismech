@@ -9,6 +9,7 @@ own, which is how the synthetic negative tests exercise them.
 
 import glob
 import inspect
+import subprocess
 import sys
 import warnings
 from collections import Counter
@@ -262,6 +263,40 @@ def validator():
     )
 
 
+@pytest.mark.parametrize(
+    ("fixture_name", "target_class"),
+    [
+        ("validator", "Disease"),
+        ("synthesis_validator", "ResearchSynthesis"),
+        ("hypothesis_assessment_validator", "HypothesisAssessment"),
+        ("hypothesis_reconciliation_validator", "HypothesisReconciliation"),
+    ],
+)
+def test_validator_fixtures_are_not_inert(request, fixture_name, target_class):
+    """Guard: every shared validator fixture must actually validate.
+
+    ``Validator.iter_results_from_source`` short-circuits with ``return []``
+    when no plugins are configured, so a ``Validator(SCHEMA_PATH)`` built
+    without ``validation_plugins`` yields an empty report for *any* instance
+    and every assertion built on it passes vacuously. That is how the #8217
+    ``AnimalModel`` regression invalidated 224 entries while the whole-KB
+    conformance sweep reported all-green (dismech#8320).
+
+    A document missing its required ``name`` must produce an ERROR. Each
+    fixture is covered, not just ``validator``, because any one of them can
+    regress the same way independently.
+    """
+    validator = request.getfixturevalue(fixture_name)
+    report = validator.validate({"description": "no name"}, target_class=target_class)
+    errors = [r for r in report.results if r.severity.name == "ERROR"]
+
+    assert errors, (
+        f"{fixture_name} produced no errors for a {target_class} missing its "
+        "required `name` — it has no validation plugins and every test using "
+        "it is vacuous"
+    )
+
+
 def check_valid_disorder_files(filepath, validator, data=None):
     """Test that all disorder files validate against the schema."""
     data = _document(filepath, data)
@@ -270,6 +305,24 @@ def check_valid_disorder_files(filepath, validator, data=None):
 
     # ValidationReport has a results list with ValidationResult objects
     # Only errors are issues, not informational messages
+    errors = [r for r in report.results if r.severity.name == "ERROR"]
+
+    assert not errors, f"Validation errors in {filepath}: {[str(e) for e in errors]}"
+
+
+def check_valid_module_files(filepath, validator, data=None):
+    """Mechanism modules validate against the same ``Disease`` class as disorders.
+
+    A schema tightening invalidates a module exactly as it invalidates a
+    disorder entry, but the whole-KB conformance sweep covered disorders,
+    comorbidities and groupings and left ``kb/modules/`` out (dismech#8320).
+    ``just validate-modules`` catches this locally and is in ``just qc``, but
+    CI only ever runs it over *changed* files — which is the blind spot #8320
+    was filed about.
+    """
+    data = _document(filepath, data)
+
+    report = validator.validate(data, target_class="Disease")
     errors = [r for r in report.results if r.severity.name == "ERROR"]
 
     assert not errors, f"Validation errors in {filepath}: {[str(e) for e in errors]}"
@@ -1893,27 +1946,45 @@ def check_grouping_member_foreign_keys(filepath, data=None):
 
 
 def check_grouping_module_references(filepath, data=None):
-    """Every `module` reference in a grouping must resolve to a module file."""
+    """Every `module` reference in a grouping must resolve to a module file.
+
+    The optional ``#Node Name`` anchor is checked too, matching what
+    `check_conforms_to_module_node_references` already does for the entry side.
+    Until dismech#9403 the two sides were asymmetric: an entry's `conforms_to`
+    anchor was node-checked but a criterion's was not, so a criterion naming a
+    renamed or mistyped node passed CI silently — precisely because the
+    evaluator drops the anchor as well. That silence is what makes the
+    stem-matching advisory in `dismech.groupings` safe to read.
+    """
     data = _document(filepath, data)
 
-    module_stems = _module_stems()
+    module_nodes = _module_node_names()
     errors = []
+
+    def check(ref, where):
+        stem, _, node = ref.partition("#")
+        stem, node = stem.strip(), node.strip()
+        if stem not in module_nodes:
+            errors.append(f"{where}={ref!r}: no kb/modules/{stem}.yaml")
+        elif node and node not in module_nodes[stem]:
+            errors.append(
+                f"{where}={ref!r}: module {stem!r} has no pathophysiology node "
+                f"named {node!r}"
+            )
 
     # Module refs inside the structured membership criteria expressions.
     for c, criteria in enumerate(data.get("membership_criteria", []) or []):
         for node in _iter_logic_nodes(criteria.get("logic")):
             ref = node.get("module")
-            if ref and _module_stem(ref) not in module_stems:
-                errors.append(f"membership_criteria[{c}].logic module={ref!r}")
+            if ref:
+                check(ref, f"membership_criteria[{c}].logic module")
 
     # Module refs inside per-member differentiating mechanisms.
     for i, member in enumerate(data.get("members", [])):
         for j, mech in enumerate(member.get("differentiating_mechanisms", []) or []):
             ref = mech.get("module")
-            if ref and _module_stem(ref) not in module_stems:
-                errors.append(
-                    f"members[{i}].differentiating_mechanisms[{j}].module={ref!r}"
-                )
+            if ref:
+                check(ref, f"members[{i}].differentiating_mechanisms[{j}].module")
 
     assert not errors, (
         f"Grouping module reference mismatches in {Path(filepath).name}. "
@@ -2343,10 +2414,15 @@ def test_disorder_file(filepath, validator):
 
 @pytest.mark.kb_data
 @pytest.mark.parametrize("filepath", MODULE_FILES, ids=_file_id)
-def test_module_file(filepath):
-    """Model-link and conforms_to checks for one mechanism module."""
+def test_module_file(filepath, validator):
+    """Schema conformance plus model-link and conforms_to checks for one module."""
     data = _document(filepath)
-    failures = _failures(filepath, data, (*MODEL_BEARING_CHECKS, *CONFORMS_TO_CHECKS))
+    failures = _failures(
+        filepath,
+        data,
+        (check_valid_module_files, *MODEL_BEARING_CHECKS, *CONFORMS_TO_CHECKS),
+        validator=validator,
+    )
     _assert_all_passed(filepath, failures)
 
 
@@ -2449,8 +2525,8 @@ def test_entity_reference_file(filepath):
     _assert_all_passed(filepath, _failures(filepath, data, checks))
 
 
-# The frozen shared dataset-verification blob. Kept in git only because ~200 open
-# PRs still carry edits to it; deleting it now would conflict with all of them.
+# The retired shared dataset-verification blob, now deleted after a temporary
+# freeze to reduce conflicts with older PRs. Keep those PRs from restoring it.
 # Nothing may read or write it: dataset verification moved to per-record files
 # under references_cache/, which two PRs can add to without colliding.
 FROZEN_DATASET_CACHE = "cache/dataset_accessions.json"
@@ -2472,6 +2548,20 @@ def test_no_automation_touches_the_frozen_dataset_cache():
     Documentation may still name the file -- that is how curators learn not to
     touch it -- so only code and automation are scanned.
     """
+    # Inspect index metadata only, never the retired blob. Unlike a filesystem
+    # check, this also detects a tracked copy omitted by a sparse checkout.
+    tracked = subprocess.run(
+        ["git", "ls-files", "--", FROZEN_DATASET_CACHE],
+        cwd=ROOT_DIR,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
+    assert not tracked, (
+        f"{FROZEN_DATASET_CACHE} is retired and must stay deleted. "
+        "Keep its deletion when resolving old PRs; do not restore or regenerate it."
+    )
+
     scanned = [
         *ROOT_DIR.glob("src/**/*.py"),
         *ROOT_DIR.glob("scripts/**/*.py"),
@@ -2498,7 +2588,7 @@ def test_no_automation_touches_the_frozen_dataset_cache():
             offenders.append(str(path.relative_to(ROOT_DIR)))
 
     assert not offenders, (
-        f"{FROZEN_DATASET_CACHE} is frozen and must not be read or written.\n"
+        f"{FROZEN_DATASET_CACHE} is retired and must not be read or written.\n"
         "Cache dataset records per-record under references_cache/ instead "
         "(see scripts/verify_dataset_accessions.py).\nFound in:\n"
         + "\n".join(f"  - {o}" for o in offenders)

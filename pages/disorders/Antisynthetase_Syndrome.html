@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4213,6 +4285,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4322,6 +4395,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4410,6 +4484,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4484,6 +4559,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4518,6 +4594,13 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-tolerance-to-aminoacyl-trna-synthetases" data-dismech-node="Loss of Tolerance to Aminoacyl-tRNA Synthetases" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Tolerance to Aminoacyl-tRNA Synthetases</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">The defining upstream event is breakdown of immune tolerance to one of the cytoplasmic aminoacyl-tRNA synthetase (aaRS) enzymes, generating circulating anti-aaRS autoantibodies. These antibodies are defining biomarkers and plausible mechanistic participants, but their precise pathogenic contribution is not yet established. The aaRS enzymes are housekeeping enzymes whose native role is tRNA aminoacylation.</div>
 
@@ -4880,6 +4963,7 @@ This pathophysiological event involves Aminoacyl-tRNA ligase activity (autoantig
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4902,6 +4986,13 @@ This pathophysiological event involves Aminoacyl-tRNA ligase activity (autoantig
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tissue-specific-secretion-of-aminoacyl-trna-synthetases" data-dismech-node="Tissue-Specific Secretion of Aminoacyl-tRNA Synthetases" data-dismech-type="pathophysiology">
                 <div class="item-name">Tissue-Specific Secretion of Aminoacyl-tRNA Synthetases</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">Damaged or regenerating muscle and inflamed lung secrete certain aaRS enzymes extracellularly; this tissue-specific secretion is proposed as a key determinant of which aaRS becomes an autoantigen, exposing the enzyme to the immune system outside its normal cytoplasmic compartment.</div>
 
@@ -5051,6 +5142,7 @@ This pathophysiological event involves Aminoacyl-tRNA ligase activity (secreted 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5073,6 +5165,13 @@ This pathophysiological event involves Aminoacyl-tRNA ligase activity (secreted 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-trna-triggered-toll-like-receptor-and-interferon-amplification" data-dismech-node="tRNA-Triggered Toll-Like Receptor and Interferon Amplification" data-dismech-type="pathophysiology">
                 <div class="item-name">tRNA-Triggered Toll-Like Receptor and Interferon Amplification</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">Anti-aaRS antibodies bind the synthetase together with bound tRNA or tRNA fragments, forming immune complexes that are internalized into endosomes where the nucleic-acid cargo engages Toll-like receptor signaling and drives type I interferon release - a self-amplifying innate-plus-adaptive loop that perpetuates autoantibody production and tissue inflammation.</div>
 
@@ -5260,6 +5359,7 @@ This pathophysiological event involves increased Type I interferon production (G
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5282,6 +5382,13 @@ This pathophysiological event involves increased Type I interferon production (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-autoantibody-and-cytotoxic-immune-effector-production" data-dismech-node="Autoantibody and Cytotoxic Immune Effector Production" data-dismech-type="pathophysiology">
                 <div class="item-name">Autoantibody and Cytotoxic Immune Effector Production</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">aaRS-specific CD4+ T-cell help drives B cells and plasma cells to produce class-switched anti-aaRS autoantibodies, while cytotoxic effector cells are recruited; the adaptive response targets aaRS-expressing or aaRS-secreting tissues (lung, muscle, joint).</div>
 
@@ -5525,6 +5632,7 @@ This pathophysiological event involves Adaptive immune response (GO:0002250). GO
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5547,6 +5655,13 @@ This pathophysiological event involves Adaptive immune response (GO:0002250). GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hars-immune-complex-activation-of-alveolar-monocyte-macrophages" data-dismech-node="HARS Immune-Complex Activation of Alveolar Monocyte-Macrophages" data-dismech-type="pathophysiology">
                 <div class="item-name">HARS Immune-Complex Activation of Alveolar Monocyte-Macrophages</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">In a small 2026 paired blood/BALF multi-omics study, inflammatory monocyte-macrophage populations were expanded in antisynthetase-syndrome ILD, and HARS-containing immune complexes activated primary human macrophages in vitro. This provides provisional, anti-Jo-1-specific support for an immune-complex-to-lung inflammation route; it does not establish that this mechanism explains other anti-synthetase specificities or clinical outcomes.</div>
 
@@ -5713,6 +5828,7 @@ This pathophysiological event involves increased Macrophage activation (GO:00421
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5734,6 +5850,7 @@ This pathophysiological event involves increased Macrophage activation (GO:00421
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5759,6 +5876,13 @@ This pathophysiological event involves increased Macrophage activation (GO:00421
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-immune-mediated-alveolar-injury-and-interstitial-lung-disease" data-dismech-node="Immune-Mediated Alveolar Injury and Interstitial Lung Disease" data-dismech-type="pathophysiology">
                 <div class="item-name">Immune-Mediated Alveolar Injury and Interstitial Lung Disease</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Immune effectors and interferon programs injure the alveolar interstitium, producing interstitial lung inflammation that can progress to fibrosis (NSIP &gt; organizing pneumonia &gt; UIP patterns). ILD frequently predominates at presentation and is the principal driver of morbidity and mortality.</div>
 
@@ -5930,6 +6054,7 @@ This pathophysiological event involves increased Inflammatory response (GO:00069
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5952,6 +6077,13 @@ This pathophysiological event involves increased Inflammatory response (GO:00069
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-immune-mediated-myofiber-injury" data-dismech-node="Immune-Mediated Myofiber Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Immune-Mediated Myofiber Injury</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Skeletal myofibers undergo immune-mediated injury with characteristic perimysial fragmentation, perifascicular necrosis, and aberrant sarcolemmal MHC class I upregulation, producing inflammatory myositis with proximal muscle weakness and elevated muscle enzymes.</div>
 
@@ -6129,6 +6261,7 @@ This pathophysiological event involves increased MHC class I antigen processing 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6174,7 +6307,7 @@ This pathophysiological event involves increased MHC class I antigen processing 
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AARS1 (autoantigen; anti-PL-12 target)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"AARS1\"], \"gene_terms\": [{\"label\": \"AARS1\", \"id\": \"hgnc:20\"}], \"association\": \"Autoantigen\"}}, {\"id\": \"Autoantibody and Cytotoxic Immune Effector Production\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"aaRS-specific CD4+ T-cell help drives B cells and plasma cells to produce class-switched anti-aaRS autoantibodies, while cytotoxic effector cells are recruited; the adaptive response targets aaRS-expressing or aaRS-secreting tissues (lung, muscle, joint).\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"CD4+ T cell\", \"B cell\", \"Plasma cell\"], \"biological_processes\": [\"Immunoglobulin production\", \"Adaptive immune response\"]}}, {\"id\": \"Corticosteroids\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line therapy for active muscle and/or lung disease. Corticosteroid monotherapy is frequently insufficient (lung disease recurs with tapering), so adjunctive immunosuppression is usually added.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"prednisone\", \"prednisolone\"]}}, {\"id\": \"Dysphagia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Swallowing difficulty from striated pharyngeal/esophageal muscle involvement in the myositis component.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002015\"}}, {\"id\": \"Dyspnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Exertional breathlessness from interstitial lung disease, frequently the presenting symptom in ILD-predominant disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002094\"}}, {\"id\": \"Elevated Creatine Kinase\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated serum creatine kinase reflecting myofiber injury; present when myositis is active, but may be normal in amyopathic/ILD-predominant disease.\", \"meta\": {\"evidence_count\": 1, \"reports_on\": [{\"target\": \"Immune-Mediated Myofiber Injury\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Serum creatine kinase reflects immune-mediated myofiber injury/necrosis.\"}], \"term_id\": \"HP:0003236\"}}, {\"id\": \"GARS1 (autoantigen; anti-EJ target)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"GARS1\"], \"gene_terms\": [{\"label\": \"GARS1\", \"id\": \"hgnc:4162\"}], \"association\": \"Autoantigen\"}}, {\"id\": \"HARS Immune-Complex Activation of Alveolar Monocyte-Macrophages\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In a small 2026 paired blood/BALF multi-omics study, inflammatory monocyte-macrophage populations were expanded in antisynthetase-syndrome ILD, and HARS-containing immune complexes activated primary human macrophages in vitro. This provides provisional, anti-Jo-1-specific support for an immune-complex-to-lung inflammation route; it does not establish that this mechanism explains other anti-synthetase specificities or clinical outcomes.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Macrophage\"], \"biological_processes\": [\"Macrophage activation\"], \"genes\": [\"HARS1\"], \"gene_terms\": [{\"label\": \"HARS1\", \"id\": \"hgnc:4816\"}]}}, {\"id\": \"HARS1 (autoantigen; anti-Jo-1 target)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"HARS1\"], \"gene_terms\": [{\"label\": \"HARS1\", \"id\": \"hgnc:4816\"}], \"association\": \"Autoantigen\"}}, {\"id\": \"HLA-DRB1 (8.1 ancestral haplotype) susceptibility\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"HLA-DRB1\"], \"gene_terms\": [{\"label\": \"HLA-DRB1\", \"id\": \"hgnc:4948\"}], \"association\": \"Risk Factor\", \"relationship_type\": \"SUSCEPTIBILITY\"}}, {\"id\": \"IARS1 (autoantigen; anti-OJ target)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"IARS1\"], \"gene_terms\": [{\"label\": \"IARS1\", \"id\": \"hgnc:5330\"}], \"association\": \"Autoantigen\"}}, {\"id\": \"Immune-Mediated Alveolar Injury and Interstitial Lung Disease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Immune effectors and interferon programs injure the alveolar interstitium, producing interstitial lung inflammation that can progress to fibrosis (NSIP \u003e organizing pneumonia \u003e UIP patterns). ILD frequently predominates at presentation and is the principal driver of morbidity and mortality.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Type II pneumocyte\", \"Pulmonary interstitial fibroblast\"], \"biological_processes\": [\"Inflammatory response\"]}}, {\"id\": \"Immune-Mediated Myofiber Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Skeletal myofibers undergo immune-mediated injury with characteristic perimysial fragmentation, perifascicular necrosis, and aberrant sarcolemmal MHC class I upregulation, producing inflammatory myositis with proximal muscle weakness and elevated muscle enzymes.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Skeletal muscle cell\", \"CD8+ cytotoxic T cell\"], \"biological_processes\": [\"MHC class I antigen processing and presentation\"]}}, {\"id\": \"Inflammatory Arthritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Symmetric, usually non-erosive polyarthritis that can mimic rheumatoid arthritis; arthralgia/arthritis prevalence ~60% in a 203-patient cohort.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001369\"}}, {\"id\": \"Inflammatory Myositis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Inflammatory myopathy with symmetric proximal muscle weakness; may be absent or appear later in the disease course (notably in ILD-predominant, non-Jo-1 patients). Prevalence ~73% in a 203-patient cohort.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003198\"}}, {\"id\": \"Interstitial Lung Disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The dominant organ manifestation; NSIP is the most common pattern, followed by organizing pneumonia and UIP. Often predominates at presentation and may be rapidly progressive. Prevalence ~86% in a 203-patient cohort.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0006515\"}}, {\"id\": \"Loss of Tolerance to Aminoacyl-tRNA Synthetases\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The defining upstream event is breakdown of immune tolerance to one of the cytoplasmic aminoacyl-tRNA synthetase (aaRS) enzymes, generating circulating anti-aaRS autoantibodies. These antibodies are defining biomarkers and plausible mechanistic participants, but their precise pathogenic contribution is not yet established. The aaRS enzymes are housekeeping enzymes whose native role is tRNA aminoacylation.\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"Aminoacyl-tRNA ligase activity (autoantigen native function)\"], \"genes\": [\"HLA-DRB1\", \"HARS1\", \"TARS1\", \"AARS1\", \"GARS1\", \"IARS1\", \"NARS1\"], \"gene_terms\": [{\"label\": \"HLA-DRB1\", \"id\": \"hgnc:4948\"}, {\"label\": \"HARS1\", \"id\": \"hgnc:4816\"}, {\"label\": \"TARS1\", \"id\": \"hgnc:11572\"}, {\"label\": \"AARS1\", \"id\": \"hgnc:20\"}, {\"label\": \"GARS1\", \"id\": \"hgnc:4162\"}, {\"label\": \"IARS1\", \"id\": \"hgnc:5330\"}, {\"label\": \"NARS1\", \"id\": \"hgnc:7643\"}], \"role\": \"trigger\"}}, {\"id\": \"Mechanic\u0027s Hands\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hyperkeratotic, fissured, scaling skin on the radial/ulnar surfaces of the fingers; a characteristic but often subtle sign whose presence should prompt anti-synthetase antibody testing.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:6001013\"}}, {\"id\": \"Myalgia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Muscle pain accompanying the inflammatory myopathy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003326\"}}, {\"id\": \"Mycophenolate Mofetil\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A frequently used adjunctive steroid-sparing immunosuppressant; inhibits proliferating lymphocytes by altering purine synthesis. Often combined with prednisone for ILD.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"mycophenolate mofetil\"]}}, {\"id\": \"NARS1 (autoantigen; anti-KS target)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NARS1\"], \"gene_terms\": [{\"label\": \"NARS1\", \"id\": \"hgnc:7643\"}], \"association\": \"Autoantigen\"}}, {\"id\": \"Proximal Muscle Weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Symmetric proximal limb weakness reflecting the inflammatory myopathy component.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003701\"}}, {\"id\": \"Pulmonary Fibrosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fibrotic progression of the interstitial lung disease (e.g., fibrotic NSIP or UIP pattern), a leading cause of death.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002206\"}}, {\"id\": \"Pulmonary Hypertension Secondary to ILD\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pulmonary hypertension can complicate chronic interstitial lung disease and is associated with poor prognosis. It should not be conflated with pulmonary arterial hypertension, which did not distinguish cases from mimics in the CLASS cohort.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Raynaud Phenomenon\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Episodic digital vasospasm; a connective-tissue-disease-associated feature commonly seen in antisynthetase syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0030880\"}}, {\"id\": \"Rituximab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anti-CD20 monoclonal antibody depleting B cells; used for severe, progressive, or refractory ILD (\\\"rescue therapy\\\"), with case series showing FVC improvement.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"rituximab\"]}}, {\"id\": \"TARS1 (autoantigen; anti-PL-7 target)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TARS1\"], \"gene_terms\": [{\"label\": \"TARS1\", \"id\": \"hgnc:11572\"}], \"association\": \"Autoantigen\"}}, {\"id\": \"Tacrolimus\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Calcineurin inhibitor used as add-on therapy, particularly for more severe ILD; case series in antisynthetase-syndrome-ILD show improved lung function and reduced corticosteroid dose.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"tacrolimus\"]}}, {\"id\": \"Tissue-Specific Secretion of Aminoacyl-tRNA Synthetases\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Damaged or regenerating muscle and inflamed lung secrete certain aaRS enzymes extracellularly; this tissue-specific secretion is proposed as a key determinant of which aaRS becomes an autoantigen, exposing the enzyme to the immune system outside its normal cytoplasmic compartment.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Skeletal muscle cell\", \"Alveolar macrophage\"], \"molecular_functions\": [\"Aminoacyl-tRNA ligase activity (secreted autoantigen)\"]}}, {\"id\": \"Unexplained Fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Unexplained fever, often accompanying disease flares, is part of the antisynthetase constellation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001945\"}}, {\"id\": \"tRNA-Triggered Toll-Like Receptor and Interferon Amplification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Anti-aaRS antibodies bind the synthetase together with bound tRNA or tRNA fragments, forming immune complexes that are internalized into endosomes where the nucleic-acid cargo engages Toll-like receptor signaling and drives type I interferon release - a self-amplifying innate-plus-adaptive loop that perpetuates autoantibody production and tissue inflammation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Dendritic cell\", \"Monocyte\"], \"biological_processes\": [\"Toll-like receptor signaling pathway\", \"Type I interferon production\"]}}], \"edges\": [{\"source\": \"Loss of Tolerance to Aminoacyl-tRNA Synthetases\", \"target\": \"Tissue-Specific Secretion of Aminoacyl-tRNA Synthetases\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Tissue-Specific Secretion of Aminoacyl-tRNA Synthetases\", \"target\": \"tRNA-Triggered Toll-Like Receptor and Interferon Amplification\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"tRNA-Triggered Toll-Like Receptor and Interferon Amplification\", \"target\": \"Autoantibody and Cytotoxic Immune Effector Production\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Autoantibody and Cytotoxic Immune Effector Production\", \"target\": \"HARS Immune-Complex Activation of Alveolar Monocyte-Macrophages\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Autoantibody and Cytotoxic Immune Effector Production\", \"target\": \"Immune-Mediated Myofiber Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Autoantibody and Cytotoxic Immune Effector Production\", \"target\": \"Inflammatory Arthritis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Autoantibody and Cytotoxic Immune Effector Production\", \"target\": \"Mechanic\u0027s Hands\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Autoantibody and Cytotoxic Immune Effector Production\", \"target\": \"Raynaud Phenomenon\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Autoantibody and Cytotoxic Immune Effector Production\", \"target\": \"Unexplained Fever\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"HARS Immune-Complex Activation of Alveolar Monocyte-Macrophages\", \"target\": \"Immune-Mediated Alveolar Injury and Interstitial Lung Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Immune-Mediated Alveolar Injury and Interstitial Lung Disease\", \"target\": \"Interstitial Lung Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Immune-Mediated Alveolar Injury and Interstitial Lung Disease\", \"target\": \"Dyspnea\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Immune-Mediated Alveolar Injury and Interstitial Lung Disease\", \"target\": \"Pulmonary Fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Immune-Mediated Alveolar Injury and Interstitial Lung Disease\", \"target\": \"Pulmonary Hypertension Secondary to ILD\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Immune-Mediated Myofiber Injury\", \"target\": \"Inflammatory Myositis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Immune-Mediated Myofiber Injury\", \"target\": \"Proximal Muscle Weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Immune-Mediated Myofiber Injury\", \"target\": \"Dysphagia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Immune-Mediated Myofiber Injury\", \"target\": \"Myalgia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Immune-Mediated Myofiber Injury\", \"target\": \"Elevated Creatine Kinase\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Corticosteroids\", \"target\": \"Immune-Mediated Alveolar Injury and Interstitial Lung Disease\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Mycophenolate Mofetil\", \"target\": \"Autoantibody and Cytotoxic Immune Effector Production\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Tacrolimus\", \"target\": \"Autoantibody and Cytotoxic Immune Effector Production\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Rituximab\", \"target\": \"Autoantibody and Cytotoxic Immune Effector Production\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Immune-Mediated Myofiber Injury\", \"target\": \"Elevated Creatine Kinase\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Serum creatine kinase reflects immune-mediated myofiber injury/necrosis.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"HLA-DRB1 (8.1 ancestral haplotype) susceptibility\", \"target\": \"Loss of Tolerance to Aminoacyl-tRNA Synthetases\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"HARS1 (autoantigen; anti-Jo-1 target)\", \"target\": \"HARS Immune-Complex Activation of Alveolar Monocyte-Macrophages\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"HARS1 (autoantigen; anti-Jo-1 target)\", \"target\": \"Loss of Tolerance to Aminoacyl-tRNA Synthetases\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TARS1 (autoantigen; anti-PL-7 target)\", \"target\": \"Loss of Tolerance to Aminoacyl-tRNA Synthetases\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"AARS1 (autoantigen; anti-PL-12 target)\", \"target\": \"Loss of Tolerance to Aminoacyl-tRNA Synthetases\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GARS1 (autoantigen; anti-EJ target)\", \"target\": \"Loss of Tolerance to Aminoacyl-tRNA Synthetases\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"IARS1 (autoantigen; anti-OJ target)\", \"target\": \"Loss of Tolerance to Aminoacyl-tRNA Synthetases\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NARS1 (autoantigen; anti-KS target)\", \"target\": \"Loss of Tolerance to Aminoacyl-tRNA Synthetases\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AARS1 (autoantigen; anti-PL-12 target)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"AARS1\"], \"gene_terms\": [{\"label\": \"AARS1\", \"id\": \"hgnc:20\"}], \"association\": \"Autoantigen\"}}, {\"id\": \"Autoantibody and Cytotoxic Immune Effector Production\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"aaRS-specific CD4+ T-cell help drives B cells and plasma cells to produce class-switched anti-aaRS autoantibodies, while cytotoxic effector cells are recruited; the adaptive response targets aaRS-expressing or aaRS-secreting tissues (lung, muscle, joint).\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"CD4+ T cell\", \"B cell\", \"Plasma cell\"], \"biological_processes\": [\"Immunoglobulin production\", \"Adaptive immune response\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Corticosteroids\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line therapy for active muscle and/or lung disease. Corticosteroid monotherapy is frequently insufficient (lung disease recurs with tapering), so adjunctive immunosuppression is usually added.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"prednisone\", \"prednisolone\"]}}, {\"id\": \"Dysphagia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Swallowing difficulty from striated pharyngeal/esophageal muscle involvement in the myositis component.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002015\"}}, {\"id\": \"Dyspnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Exertional breathlessness from interstitial lung disease, frequently the presenting symptom in ILD-predominant disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002094\"}}, {\"id\": \"Elevated Creatine Kinase\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated serum creatine kinase reflecting myofiber injury; present when myositis is active, but may be normal in amyopathic/ILD-predominant disease.\", \"meta\": {\"evidence_count\": 1, \"reports_on\": [{\"target\": \"Immune-Mediated Myofiber Injury\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Serum creatine kinase reflects immune-mediated myofiber injury/necrosis.\"}], \"term_id\": \"HP:0003236\"}}, {\"id\": \"GARS1 (autoantigen; anti-EJ target)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"GARS1\"], \"gene_terms\": [{\"label\": \"GARS1\", \"id\": \"hgnc:4162\"}], \"association\": \"Autoantigen\"}}, {\"id\": \"HARS Immune-Complex Activation of Alveolar Monocyte-Macrophages\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In a small 2026 paired blood/BALF multi-omics study, inflammatory monocyte-macrophage populations were expanded in antisynthetase-syndrome ILD, and HARS-containing immune complexes activated primary human macrophages in vitro. This provides provisional, anti-Jo-1-specific support for an immune-complex-to-lung inflammation route; it does not establish that this mechanism explains other anti-synthetase specificities or clinical outcomes.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Macrophage\"], \"biological_processes\": [\"Macrophage activation\"], \"genes\": [\"HARS1\"], \"gene_terms\": [{\"label\": \"HARS1\", \"id\": \"hgnc:4816\"}], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"HARS1 (autoantigen; anti-Jo-1 target)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"HARS1\"], \"gene_terms\": [{\"label\": \"HARS1\", \"id\": \"hgnc:4816\"}], \"association\": \"Autoantigen\"}}, {\"id\": \"HLA-DRB1 (8.1 ancestral haplotype) susceptibility\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"HLA-DRB1\"], \"gene_terms\": [{\"label\": \"HLA-DRB1\", \"id\": \"hgnc:4948\"}], \"association\": \"Risk Factor\", \"relationship_type\": \"SUSCEPTIBILITY\"}}, {\"id\": \"IARS1 (autoantigen; anti-OJ target)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"IARS1\"], \"gene_terms\": [{\"label\": \"IARS1\", \"id\": \"hgnc:5330\"}], \"association\": \"Autoantigen\"}}, {\"id\": \"Immune-Mediated Alveolar Injury and Interstitial Lung Disease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Immune effectors and interferon programs injure the alveolar interstitium, producing interstitial lung inflammation that can progress to fibrosis (NSIP \u003e organizing pneumonia \u003e UIP patterns). ILD frequently predominates at presentation and is the principal driver of morbidity and mortality.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Type II pneumocyte\", \"Pulmonary interstitial fibroblast\"], \"biological_processes\": [\"Inflammatory response\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Immune-Mediated Myofiber Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Skeletal myofibers undergo immune-mediated injury with characteristic perimysial fragmentation, perifascicular necrosis, and aberrant sarcolemmal MHC class I upregulation, producing inflammatory myositis with proximal muscle weakness and elevated muscle enzymes.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Skeletal muscle cell\", \"CD8+ cytotoxic T cell\"], \"biological_processes\": [\"MHC class I antigen processing and presentation\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Inflammatory Arthritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Symmetric, usually non-erosive polyarthritis that can mimic rheumatoid arthritis; arthralgia/arthritis prevalence ~60% in a 203-patient cohort.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001369\"}}, {\"id\": \"Inflammatory Myositis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Inflammatory myopathy with symmetric proximal muscle weakness; may be absent or appear later in the disease course (notably in ILD-predominant, non-Jo-1 patients). Prevalence ~73% in a 203-patient cohort.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003198\"}}, {\"id\": \"Interstitial Lung Disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The dominant organ manifestation; NSIP is the most common pattern, followed by organizing pneumonia and UIP. Often predominates at presentation and may be rapidly progressive. Prevalence ~86% in a 203-patient cohort.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0006515\"}}, {\"id\": \"Loss of Tolerance to Aminoacyl-tRNA Synthetases\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The defining upstream event is breakdown of immune tolerance to one of the cytoplasmic aminoacyl-tRNA synthetase (aaRS) enzymes, generating circulating anti-aaRS autoantibodies. These antibodies are defining biomarkers and plausible mechanistic participants, but their precise pathogenic contribution is not yet established. The aaRS enzymes are housekeeping enzymes whose native role is tRNA aminoacylation.\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"Aminoacyl-tRNA ligase activity (autoantigen native function)\"], \"genes\": [\"HLA-DRB1\", \"HARS1\", \"TARS1\", \"AARS1\", \"GARS1\", \"IARS1\", \"NARS1\"], \"gene_terms\": [{\"label\": \"HLA-DRB1\", \"id\": \"hgnc:4948\"}, {\"label\": \"HARS1\", \"id\": \"hgnc:4816\"}, {\"label\": \"TARS1\", \"id\": \"hgnc:11572\"}, {\"label\": \"AARS1\", \"id\": \"hgnc:20\"}, {\"label\": \"GARS1\", \"id\": \"hgnc:4162\"}, {\"label\": \"IARS1\", \"id\": \"hgnc:5330\"}, {\"label\": \"NARS1\", \"id\": \"hgnc:7643\"}], \"role\": \"trigger\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Mechanic\u0027s Hands\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hyperkeratotic, fissured, scaling skin on the radial/ulnar surfaces of the fingers; a characteristic but often subtle sign whose presence should prompt anti-synthetase antibody testing.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:6001013\"}}, {\"id\": \"Myalgia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Muscle pain accompanying the inflammatory myopathy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003326\"}}, {\"id\": \"Mycophenolate Mofetil\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A frequently used adjunctive steroid-sparing immunosuppressant; inhibits proliferating lymphocytes by altering purine synthesis. Often combined with prednisone for ILD.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"mycophenolate mofetil\"]}}, {\"id\": \"NARS1 (autoantigen; anti-KS target)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NARS1\"], \"gene_terms\": [{\"label\": \"NARS1\", \"id\": \"hgnc:7643\"}], \"association\": \"Autoantigen\"}}, {\"id\": \"Proximal Muscle Weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Symmetric proximal limb weakness reflecting the inflammatory myopathy component.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003701\"}}, {\"id\": \"Pulmonary Fibrosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fibrotic progression of the interstitial lung disease (e.g., fibrotic NSIP or UIP pattern), a leading cause of death.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002206\"}}, {\"id\": \"Pulmonary Hypertension Secondary to ILD\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pulmonary hypertension can complicate chronic interstitial lung disease and is associated with poor prognosis. It should not be conflated with pulmonary arterial hypertension, which did not distinguish cases from mimics in the CLASS cohort.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Raynaud Phenomenon\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Episodic digital vasospasm; a connective-tissue-disease-associated feature commonly seen in antisynthetase syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0030880\"}}, {\"id\": \"Rituximab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anti-CD20 monoclonal antibody depleting B cells; used for severe, progressive, or refractory ILD (\\\"rescue therapy\\\"), with case series showing FVC improvement.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"rituximab\"]}}, {\"id\": \"TARS1 (autoantigen; anti-PL-7 target)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TARS1\"], \"gene_terms\": [{\"label\": \"TARS1\", \"id\": \"hgnc:11572\"}], \"association\": \"Autoantigen\"}}, {\"id\": \"Tacrolimus\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Calcineurin inhibitor used as add-on therapy, particularly for more severe ILD; case series in antisynthetase-syndrome-ILD show improved lung function and reduced corticosteroid dose.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"tacrolimus\"]}}, {\"id\": \"Tissue-Specific Secretion of Aminoacyl-tRNA Synthetases\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Damaged or regenerating muscle and inflamed lung secrete certain aaRS enzymes extracellularly; this tissue-specific secretion is proposed as a key determinant of which aaRS becomes an autoantigen, exposing the enzyme to the immune system outside its normal cytoplasmic compartment.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Skeletal muscle cell\", \"Alveolar macrophage\"], \"molecular_functions\": [\"Aminoacyl-tRNA ligase activity (secreted autoantigen)\"], \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Unexplained Fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Unexplained fever, often accompanying disease flares, is part of the antisynthetase constellation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001945\"}}, {\"id\": \"tRNA-Triggered Toll-Like Receptor and Interferon Amplification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Anti-aaRS antibodies bind the synthetase together with bound tRNA or tRNA fragments, forming immune complexes that are internalized into endosomes where the nucleic-acid cargo engages Toll-like receptor signaling and drives type I interferon release - a self-amplifying innate-plus-adaptive loop that perpetuates autoantibody production and tissue inflammation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Dendritic cell\", \"Monocyte\"], \"biological_processes\": [\"Toll-like receptor signaling pathway\", \"Type I interferon production\"], \"mechanism_confidence\": \"HYPOTHETICAL\"}}], \"edges\": [{\"source\": \"Loss of Tolerance to Aminoacyl-tRNA Synthetases\", \"target\": \"Tissue-Specific Secretion of Aminoacyl-tRNA Synthetases\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Tissue-Specific Secretion of Aminoacyl-tRNA Synthetases\", \"target\": \"tRNA-Triggered Toll-Like Receptor and Interferon Amplification\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"tRNA-Triggered Toll-Like Receptor and Interferon Amplification\", \"target\": \"Autoantibody and Cytotoxic Immune Effector Production\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Autoantibody and Cytotoxic Immune Effector Production\", \"target\": \"HARS Immune-Complex Activation of Alveolar Monocyte-Macrophages\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Autoantibody and Cytotoxic Immune Effector Production\", \"target\": \"Immune-Mediated Myofiber Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Autoantibody and Cytotoxic Immune Effector Production\", \"target\": \"Inflammatory Arthritis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Autoantibody and Cytotoxic Immune Effector Production\", \"target\": \"Mechanic\u0027s Hands\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Autoantibody and Cytotoxic Immune Effector Production\", \"target\": \"Raynaud Phenomenon\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Autoantibody and Cytotoxic Immune Effector Production\", \"target\": \"Unexplained Fever\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"HARS Immune-Complex Activation of Alveolar Monocyte-Macrophages\", \"target\": \"Immune-Mediated Alveolar Injury and Interstitial Lung Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Immune-Mediated Alveolar Injury and Interstitial Lung Disease\", \"target\": \"Interstitial Lung Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Immune-Mediated Alveolar Injury and Interstitial Lung Disease\", \"target\": \"Dyspnea\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Immune-Mediated Alveolar Injury and Interstitial Lung Disease\", \"target\": \"Pulmonary Fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Immune-Mediated Alveolar Injury and Interstitial Lung Disease\", \"target\": \"Pulmonary Hypertension Secondary to ILD\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Immune-Mediated Myofiber Injury\", \"target\": \"Inflammatory Myositis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Immune-Mediated Myofiber Injury\", \"target\": \"Proximal Muscle Weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Immune-Mediated Myofiber Injury\", \"target\": \"Dysphagia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Immune-Mediated Myofiber Injury\", \"target\": \"Myalgia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Immune-Mediated Myofiber Injury\", \"target\": \"Elevated Creatine Kinase\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Corticosteroids\", \"target\": \"Immune-Mediated Alveolar Injury and Interstitial Lung Disease\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Mycophenolate Mofetil\", \"target\": \"Autoantibody and Cytotoxic Immune Effector Production\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Tacrolimus\", \"target\": \"Autoantibody and Cytotoxic Immune Effector Production\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Rituximab\", \"target\": \"Autoantibody and Cytotoxic Immune Effector Production\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Immune-Mediated Myofiber Injury\", \"target\": \"Elevated Creatine Kinase\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Serum creatine kinase reflects immune-mediated myofiber injury/necrosis.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"HLA-DRB1 (8.1 ancestral haplotype) susceptibility\", \"target\": \"Loss of Tolerance to Aminoacyl-tRNA Synthetases\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"HARS1 (autoantigen; anti-Jo-1 target)\", \"target\": \"HARS Immune-Complex Activation of Alveolar Monocyte-Macrophages\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"HARS1 (autoantigen; anti-Jo-1 target)\", \"target\": \"Loss of Tolerance to Aminoacyl-tRNA Synthetases\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TARS1 (autoantigen; anti-PL-7 target)\", \"target\": \"Loss of Tolerance to Aminoacyl-tRNA Synthetases\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"AARS1 (autoantigen; anti-PL-12 target)\", \"target\": \"Loss of Tolerance to Aminoacyl-tRNA Synthetases\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GARS1 (autoantigen; anti-EJ target)\", \"target\": \"Loss of Tolerance to Aminoacyl-tRNA Synthetases\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"IARS1 (autoantigen; anti-OJ target)\", \"target\": \"Loss of Tolerance to Aminoacyl-tRNA Synthetases\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NARS1 (autoantigen; anti-KS target)\", \"target\": \"Loss of Tolerance to Aminoacyl-tRNA Synthetases\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6197,15 +6330,17 @@ This pathophysiological event involves increased MHC class I antigen processing 
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Metabolism<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Integument<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Musculoskeletal<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Metabolism<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Respiratory<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Constitutional<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Respiratory<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Other<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Constitutional<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6246,6 +6381,9 @@ This clinical feature is Raynaud phenomenon (HP:0030880). HP:0030880 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6260,6 +6398,7 @@ This clinical feature is Raynaud phenomenon (HP:0030880). HP:0030880 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6323,6 +6462,9 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6337,6 +6479,7 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6368,13 +6511,13 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Metabolism
-                    <span class="cat-count">2</span>
+                    Integument
+                    <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-unexplained-fever" data-dismech-node="Unexplained Fever" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-mechanic-s-hands" data-dismech-node="Mechanic&#39;s Hands" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Unexplained Fever
+                        Mechanic&#39;s Hands
 
 
 
@@ -6386,15 +6529,18 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001945</a>
+    <a href="http://purl.obolibrary.org/obo/HP_6001013" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:6001013</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Mechanic&#39;s hands (HP:6001013). HP:6001013 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6414,6 +6560,88 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the hyperkeratosis and scaling characteristic of mechanic’s hands are often subtle findings whose presence should prompt further testing for anti-synthetase antibodies"</div>
+
+
+                <div class="evidence-explanation">Supports mechanic&#39;s hands (finger hyperkeratosis/scaling) as a characteristic cutaneous feature of the syndrome.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Metabolism
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-unexplained-fever" data-dismech-node="Unexplained Fever" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Unexplained Fever
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001945</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27594777" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27594777" target="_blank">PMID:27594777</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6451,20 +6679,23 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
                     <span class="phenotype-id">
 
-                        <span class="phenotype-term-label">Elevated circulating creatine kinase concentration</span>
+                        <span class="phenotype-term-label">Elevated circulating creatine kinase activity</span>
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003236" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0003236</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003236" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0003236</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Elevated circulating creatine kinase concentration (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Elevated circulating creatine kinase activity (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6484,6 +6715,7 @@ This clinical feature is Elevated circulating creatine kinase concentration (HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6512,7 +6744,7 @@ This clinical feature is Elevated circulating creatine kinase concentration (HP:
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
@@ -6537,15 +6769,18 @@ This clinical feature is Elevated circulating creatine kinase concentration (HP:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003198" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0003198</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003198" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0003198</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Myopathy (HP:0003198). HP:0003198 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6565,6 +6800,7 @@ This clinical feature is Myopathy (HP:0003198). HP:0003198 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6605,15 +6841,18 @@ This clinical feature is Myopathy (HP:0003198). HP:0003198 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003701" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0003701</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003701" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0003701</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Proximal muscle weakness (HP:0003701). HP:0003701 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6633,6 +6872,7 @@ This clinical feature is Proximal muscle weakness (HP:0003701). HP:0003701 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6675,15 +6915,18 @@ This clinical feature is Proximal muscle weakness (HP:0003701). HP:0003701 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001369" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0001369</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001369" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0001369</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Arthritis (HP:0001369). HP:0001369 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6703,6 +6946,7 @@ This clinical feature is Arthritis (HP:0001369). HP:0001369 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6731,16 +6975,18 @@ This clinical feature is Arthritis (HP:0001369). HP:0001369 is a phenotype from 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-5">
+            <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Respiratory
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-dyspnea" data-dismech-node="Dyspnea" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-interstitial-lung-disease" data-dismech-node="Interstitial Lung Disease" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Dyspnea
+                        Interstitial Lung Disease
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
 
@@ -6749,18 +6995,41 @@ This clinical feature is Arthritis (HP:0001369). HP:0001369 is a phenotype from 
 
                     <span class="phenotype-id">
 
+                        <span class="phenotype-term-label">Interstitial pneumonitis</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0002094</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006515" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0006515</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Interstitial lung disease, annotated with Interstitial pneumonitis (HP:0006515), qualified as course progressive. HP:0006515 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Course: PROGRESSIVE</span>
+
+
+
+
+
+                    </div>
+
+
+
 
 
 
@@ -6780,6 +7049,79 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In a 2013 study of 203 anti-synthetase syndrome patients, the prevalence of ILD was 86%, more common than the prevalence of myositis (73%) or arthralgia/arthritis (60%)"</div>
+
+
+                <div class="evidence-explanation">Supports both the association and a very-frequent (&gt;80%) frequency band for ILD in antisynthetase syndrome.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dyspnea" data-dismech-node="Dyspnea" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Dyspnea
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0002094</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27594777" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27594777" target="_blank">PMID:27594777</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6820,10 +7162,10 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002206" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0002206</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002206" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0002206</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pulmonary fibrosis (HP:0002206), qualified as course progressive. HP:0002206 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6852,6 +7194,9 @@ This clinical feature is Pulmonary fibrosis (HP:0002206), qualified as course pr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6866,6 +7211,7 @@ This clinical feature is Pulmonary fibrosis (HP:0002206), qualified as course pr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6894,7 +7240,7 @@ This clinical feature is Pulmonary fibrosis (HP:0002206), qualified as course pr
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-6">
+            <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Constitutional
@@ -6915,15 +7261,18 @@ This clinical feature is Pulmonary fibrosis (HP:0002206), qualified as course pr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0003326</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0003326</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6943,6 +7292,7 @@ This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6971,170 +7321,12 @@ This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from th
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-7">
+            <details class="phenotype-category-group" id="pheno-cat-8">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">1</span>
                 </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-interstitial-lung-disease" data-dismech-node="Interstitial Lung Disease" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Interstitial Lung Disease
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Interstitial pneumonitis</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0006515" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0006515</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Interstitial lung disease, annotated with Interstitial pneumonitis (HP:0006515), qualified as course progressive. HP:0006515 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Course: PROGRESSIVE</span>
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:27594777" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27594777" target="_blank">PMID:27594777</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"In a 2013 study of 203 anti-synthetase syndrome patients, the prevalence of ILD was 86%, more common than the prevalence of myositis (73%) or arthralgia/arthritis (60%)"</div>
-
-
-                <div class="evidence-explanation">Supports both the association and a very-frequent (&gt;80%) frequency band for ILD in antisynthetase syndrome.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-mechanic-s-hands" data-dismech-node="Mechanic&#39;s Hands" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Mechanic&#39;s Hands
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_6001013" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:6001013</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Mechanic&#39;s hands (HP:6001013). HP:6001013 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:27594777" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27594777" target="_blank">PMID:27594777</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"the hyperkeratosis and scaling characteristic of mechanic’s hands are often subtle findings whose presence should prompt further testing for anti-synthetase antibodies"</div>
-
-
-                <div class="evidence-explanation">Supports mechanic&#39;s hands (finger hyperkeratosis/scaling) as a characteristic cutaneous feature of the syndrome.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-pulmonary-hypertension-secondary-to-ild" data-dismech-node="Pulmonary Hypertension Secondary to ILD" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -7142,6 +7334,9 @@ This clinical feature is Mechanic&#39;s hands (HP:6001013). HP:6001013 is a phen
 
 
                     </div>
+
+
+
 
 
 
@@ -7161,6 +7356,7 @@ This clinical feature is Mechanic&#39;s hands (HP:6001013). HP:6001013 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7261,6 +7457,9 @@ This disease-associated gene is HLA-DRB1 (hgnc:4948). hgnc:4948 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7275,6 +7474,7 @@ This disease-associated gene is HLA-DRB1 (hgnc:4948). hgnc:4948 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7299,6 +7499,7 @@ This disease-associated gene is HLA-DRB1 (hgnc:4948). hgnc:4948 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7356,6 +7557,9 @@ This disease-associated gene is HARS1 (hgnc:4816). hgnc:4816 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7370,6 +7574,7 @@ This disease-associated gene is HARS1 (hgnc:4816). hgnc:4816 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7427,6 +7632,9 @@ This disease-associated gene is TARS1 (hgnc:11572). hgnc:11572 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7441,6 +7649,7 @@ This disease-associated gene is TARS1 (hgnc:11572). hgnc:11572 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7498,6 +7707,9 @@ This disease-associated gene is AARS1 (hgnc:20). hgnc:20 is a gene from the HUGO
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7512,6 +7724,7 @@ This disease-associated gene is AARS1 (hgnc:20). hgnc:20 is a gene from the HUGO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7569,6 +7782,9 @@ This disease-associated gene is GARS1 (hgnc:4162). hgnc:4162 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7583,6 +7799,7 @@ This disease-associated gene is GARS1 (hgnc:4162). hgnc:4162 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7640,6 +7857,9 @@ This disease-associated gene is IARS1 (hgnc:5330). hgnc:5330 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7654,6 +7874,7 @@ This disease-associated gene is IARS1 (hgnc:5330). hgnc:5330 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7711,6 +7932,9 @@ This disease-associated gene is NARS1 (hgnc:7643). hgnc:7643 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7725,6 +7949,7 @@ This disease-associated gene is NARS1 (hgnc:7643). hgnc:7643 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7784,6 +8009,9 @@ This disease-associated gene is TRIM21 (hgnc:11312). hgnc:11312 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7798,6 +8026,7 @@ This disease-associated gene is TRIM21 (hgnc:11312). hgnc:11312 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7919,6 +8148,31 @@ This treatment uses prednisolone (CHEBI:8378). CHEBI:8378 is a therapeutic agent
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">First-line therapy for active muscle and/or lung disease. Corticosteroid monotherapy is frequently insufficient (lung disease recurs with tapering), so adjunctive immunosuppression is usually added.</div>
 
 
@@ -7949,6 +8203,7 @@ This treatment uses prednisolone (CHEBI:8378). CHEBI:8378 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7995,6 +8250,7 @@ This treatment uses prednisolone (CHEBI:8378). CHEBI:8378 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8016,6 +8272,7 @@ This treatment uses prednisolone (CHEBI:8378). CHEBI:8378 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8101,6 +8358,31 @@ This treatment uses mycophenolate mofetil (CHEBI:8764). CHEBI:8764 is a therapeu
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">A frequently used adjunctive steroid-sparing immunosuppressant; inhibits proliferating lymphocytes by altering purine synthesis. Often combined with prednisone for ILD.</div>
 
 
@@ -8131,6 +8413,7 @@ This treatment uses mycophenolate mofetil (CHEBI:8764). CHEBI:8764 is a therapeu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8174,6 +8457,7 @@ This treatment uses mycophenolate mofetil (CHEBI:8764). CHEBI:8764 is a therapeu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8259,6 +8543,31 @@ This treatment uses azathioprine (CHEBI:2948). CHEBI:2948 is a therapeutic agent
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Adjunctive steroid-sparing immunosuppressant; halts purine synthesis. Most frequently used as maintenance therapy in conjunction with prednisone.</div>
 
 
@@ -8280,6 +8589,7 @@ This treatment uses azathioprine (CHEBI:2948). CHEBI:2948 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8365,6 +8675,31 @@ This treatment uses tacrolimus, annotated with tacrolimus (anhydrous) (CHEBI:610
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Calcineurin inhibitor used as add-on therapy, particularly for more severe ILD; case series in antisynthetase-syndrome-ILD show improved lung function and reduced corticosteroid dose.</div>
 
 
@@ -8395,6 +8730,7 @@ This treatment uses tacrolimus, annotated with tacrolimus (anhydrous) (CHEBI:610
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8438,6 +8774,7 @@ This treatment uses tacrolimus, annotated with tacrolimus (anhydrous) (CHEBI:610
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8523,6 +8860,31 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Monoclonal antibody</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Anti-CD20 monoclonal antibody depleting B cells; used for severe, progressive, or refractory ILD (&#34;rescue therapy&#34;), with case series showing FVC improvement.</div>
 
 
@@ -8553,6 +8915,7 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8599,6 +8962,7 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8620,6 +8984,7 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8705,6 +9070,31 @@ This treatment uses cyclophosphamide (CHEBI:4027). CHEBI:4027 is a therapeutic a
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Cytotoxic alkylating agent reserved for severe IIM-ILD, particularly acute respiratory distress syndrome / rapidly progressive ILD, given its toxicity profile.</div>
 
 
@@ -8729,6 +9119,7 @@ This treatment uses cyclophosphamide (CHEBI:4027). CHEBI:4027 is a therapeutic a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8750,6 +9141,7 @@ This treatment uses cyclophosphamide (CHEBI:4027). CHEBI:4027 is a therapeutic a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8813,6 +9205,31 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Pooled donor IgG used as adjunctive therapy, especially for refractory myositis; a case report suggests possible benefit in IIM-related ILD.</div>
 
 
@@ -8834,6 +9251,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8898,6 +9316,31 @@ This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Reserved for end-stage progressive interstitial lung disease refractory to medical therapy.</div>
 
 
@@ -8919,6 +9362,7 @@ This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8988,6 +9432,7 @@ This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9039,6 +9484,7 @@ This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9087,6 +9533,7 @@ This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9156,6 +9603,7 @@ This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9177,6 +9625,7 @@ This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9231,6 +9680,7 @@ This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9299,6 +9749,7 @@ This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9320,6 +9771,7 @@ This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9390,6 +9842,7 @@ This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9411,6 +9864,7 @@ This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9508,6 +9962,7 @@ This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9571,6 +10026,7 @@ This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9716,6 +10172,7 @@ This clinical trial targets Interstitial lung disease, annotated with Interstiti
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9766,6 +10223,7 @@ This clinical trial targets Interstitial lung disease, annotated with Interstiti
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9913,6 +10371,7 @@ This experimental model concerns Hars1 (hgnc:4816). hgnc:4816 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10731,10 +11190,10 @@ phenotypes:
     Elevated serum creatine kinase reflecting myofiber injury; present when myositis is
     active, but may be normal in amyopathic/ILD-predominant disease.
   phenotype_term:
-    preferred_term: Elevated circulating creatine kinase concentration
+    preferred_term: Elevated circulating creatine kinase activity
     term:
       id: HP:0003236
-      label: Elevated circulating creatine kinase concentration
+      label: Elevated circulating creatine kinase activity
   evidence:
   - reference: PMID:27594777
     reference_title: &#34;The Diagnosis and Treatment of Antisynthetase Syndrome.&#34;
@@ -11894,6 +12353,8 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -12354,7 +12815,7 @@ datasets:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Antisynthetase Syndrome", "mondoId": "MONDO:0019344", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Antisynthetase_Syndrome", "yamlRevision": "9dafb4f60a9d"};
+        const OS_CONFIG = {"diseaseName": "Antisynthetase Syndrome", "mondoId": "MONDO:0019344", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Antisynthetase_Syndrome", "yamlRevision": "d65904cacd37"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

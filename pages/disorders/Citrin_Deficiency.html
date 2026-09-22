@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4092,6 +4164,25 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                SLC25A13
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:10983" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:10983</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in SLC25A13 (hgnc:10983). hgnc:10983 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">Neonatal-onset presentation with intrahepatic cholestasis, conjugated hyperbilirubinemia, hepatomegaly, and transient liver dysfunction. Usually resolves by age one year with appropriate dietary management, though liver failure and transplantation are rarely required.
@@ -4116,6 +4207,25 @@
 
                     </div>
                     <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                SLC25A13
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:10983" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:10983</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in SLC25A13 (hgnc:10983). hgnc:10983 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
 
 
 
@@ -4151,6 +4261,25 @@
 
                     </div>
                     <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                SLC25A13
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:10983" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:10983</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in SLC25A13 (hgnc:10983). hgnc:10983 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
 
 
 
@@ -4197,6 +4326,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-slc25a13-transporter-molecular-function-deficiency" data-dismech-node="SLC25A13 transporter molecular function deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">SLC25A13 transporter molecular function deficiency</div>
 
+
                 <div class="item-desc">Biallelic SLC25A13 pathogenic variants reduce mitochondrial aspartate-glutamate carrier transport activity.
 </div>
 
@@ -4212,11 +4342,11 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000182</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4254,11 +4384,11 @@ This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a 
         SLC25A13
 
 
-    <a href="https://bioregistry.io/hgnc:10983" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:10983</a>
+    <a href="https://bioregistry.io/hgnc:10983" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:10983</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves SLC25A13 (hgnc:10983). hgnc:10983 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -4297,11 +4427,11 @@ This pathophysiological event involves SLC25A13 (hgnc:10983). hgnc:10983 is a ge
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0022857" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0022857</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0022857" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0022857</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
 Relation: this pathophysiological event involves this molecular function
 This pathophysiological event involves transmembrane transporter activity (GO:0022857). GO:0022857 is a molecular function from the Gene Ontology.</span>
                     </span>
@@ -4333,11 +4463,11 @@ This pathophysiological event involves transmembrane transporter activity (GO:00
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005743" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0005743</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005743" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0005743</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in mitochondrial inner membrane (GO:0005743). GO:0005743 is an anatomical location from the Gene Ontology.</span>
                     </span>
@@ -4390,6 +4520,7 @@ This pathophysiological event occurs in mitochondrial inner membrane (GO:0005743
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4415,6 +4546,7 @@ cytosol in exchange for glutamate."</div>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-malate-aspartate-shuttle-dysfunction-and-hepatocellular-energy-crisis" data-dismech-node="Malate-aspartate shuttle dysfunction and hepatocellular energy crisis" data-dismech-type="pathophysiology">
                 <div class="item-name">Malate-aspartate shuttle dysfunction and hepatocellular energy crisis</div>
 
+
                 <div class="item-desc">Loss of citrin impairs cytosolic NADH transfer into mitochondria and reduces cytosolic aspartate, NAD+, and ATP, creating a fundamental hepatocellular energy and redox deficiency.
 </div>
 
@@ -4430,11 +4562,11 @@ cytosol in exchange for glutamate."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000182</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4471,11 +4603,11 @@ This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043490" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0043490</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043490" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0043490</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves malate-aspartate shuttle (GO:0043490). GO:0043490 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4501,11 +4633,11 @@ This pathophysiological event involves malate-aspartate shuttle (GO:0043490). GO
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045454" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0045454</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045454" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0045454</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves cellular redox homeostasis, annotated with cell redox homeostasis (GO:0045454). GO:0045454 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4538,11 +4670,11 @@ This pathophysiological event involves cellular redox homeostasis, annotated wit
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-8">UBERON:0002107</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-11">UBERON:0002107</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -4627,6 +4759,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4652,6 +4785,7 @@ synthesis."</div>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-hepatic-glycolysis-and-carbohydrate-toxicity" data-dismech-node="Impaired hepatic glycolysis and carbohydrate toxicity" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired hepatic glycolysis and carbohydrate toxicity</div>
 
+
                 <div class="item-desc">Because glycolysis depends on cytosolic NAD+ regenerated via the MAS, citrin-deficient hepatocytes cannot sustain glycolysis efficiently. Under high carbohydrate load, metabolism is blocked at the glyceraldehyde-3-phosphate dehydrogenase (GAPDH) step, leading to accumulation of glucose metabolites, depletion of inorganic phosphate, and further ATP loss. This creates an actively harmful state termed carbohydrate toxicity.
 </div>
 
@@ -4667,11 +4801,11 @@ synthesis."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000182</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4708,11 +4842,11 @@ This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006096" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0006096</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006096" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0006096</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves glycolytic process (GO:0006096). GO:0006096 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4778,6 +4912,7 @@ This pathophysiological event involves glycolytic process (GO:0006096). GO:00060
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-urea-cycle-and-ammonia-detoxification" data-dismech-node="Impaired urea cycle and ammonia detoxification" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired urea cycle and ammonia detoxification</div>
 
+
                 <div class="item-desc">Citrin deficiency limits cytosolic aspartate availability, which is required by argininosuccinate synthetase 1 (ASS1) for the urea cycle. This results in citrulline accumulation and impaired ureagenesis. Additionally, hyperammonemia may be driven by failure of glutamine-synthetase-dependent perivenous ammonia detoxification due to glutamate and ATP deficiency, rather than solely by ASS1 dysfunction.
 </div>
 
@@ -4793,11 +4928,11 @@ This pathophysiological event involves glycolytic process (GO:0006096). GO:00060
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000182</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4834,11 +4969,11 @@ This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000050" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0000050</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000050" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0000050</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves urea cycle (GO:0000050). GO:0000050 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4864,11 +4999,11 @@ This pathophysiological event involves urea cycle (GO:0000050). GO:0000050 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_1901704" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:1901704</a>
+    <a href="http://purl.obolibrary.org/obo/GO_1901704" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:1901704</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves glutamine biosynthetic process, annotated with L-glutamine biosynthetic process (GO:1901704). GO:1901704 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4901,11 +5036,11 @@ This pathophysiological event involves glutamine biosynthetic process, annotated
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-14">UBERON:0002107</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-17">UBERON:0002107</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -5006,6 +5141,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5030,6 +5166,7 @@ older children as failure to thrive and dyslipidemia caused by citrin deficiency
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5059,6 +5196,7 @@ citrullinemia (CTLN2)."</div>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-de-novo-lipogenesis-defects-and-pparalpha-mediated-beta-oxidation-impairment" data-dismech-node="De novo lipogenesis defects and PPARalpha-mediated beta-oxidation impairment" data-dismech-type="pathophysiology">
                 <div class="item-name">De novo lipogenesis defects and PPARalpha-mediated beta-oxidation impairment</div>
 
+
                 <div class="item-desc">Citrin-deficient hepatocytes have primary defects in de novo lipogenesis and exhibit secondarily downregulated PPARalpha, leading to impaired fatty acid beta-oxidation. This dual impairment contributes to dyslipidemia and hepatic steatosis.
 </div>
 
@@ -5074,11 +5212,11 @@ citrullinemia (CTLN2)."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-18">CL:0000182</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5115,11 +5253,11 @@ This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006633" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0006633</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006633" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0006633</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves fatty acid biosynthetic process (GO:0006633). GO:0006633 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5145,11 +5283,11 @@ This pathophysiological event involves fatty acid biosynthetic process (GO:00066
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006635" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0006635</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006635" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0006635</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves fatty acid beta-oxidation (GO:0006635). GO:0006635 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5207,6 +5345,7 @@ This pathophysiological event involves fatty acid beta-oxidation (GO:0006635). G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aspartate-and-glutamate-transmembrane-transport-disruption" data-dismech-node="Aspartate and glutamate transmembrane transport disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">Aspartate and glutamate transmembrane transport disruption</div>
 
+
                 <div class="item-desc">Citrin (AGC2) normally transports aspartate from the mitochondrial matrix to the cytosol in exchange for glutamate. Loss of this transport function impairs compartmentalized amino acid metabolism, affecting ureagenesis, gluconeogenesis, protein synthesis, and nucleotide biosynthesis.
 </div>
 
@@ -5229,11 +5368,11 @@ This pathophysiological event involves fatty acid beta-oxidation (GO:0006635). G
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0015810" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0015810</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0015810" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-21">GO:0015810</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves L-aspartate transmembrane transport, annotated with aspartate transmembrane transport (GO:0015810). GO:0015810 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5266,11 +5405,11 @@ This pathophysiological event involves L-aspartate transmembrane transport, anno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005743" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0005743</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005743" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-22">GO:0005743</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Gene Ontology (GO)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in mitochondrial inner membrane (GO:0005743). GO:0005743 is an anatomical location from the Gene Ontology.</span>
                     </span>
@@ -5315,6 +5454,7 @@ This pathophysiological event occurs in mitochondrial inner membrane (GO:0005743
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5340,6 +5480,7 @@ cytosol in exchange for glutamate."</div>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neonatal-cholestatic-hepatopathy" data-dismech-node="Neonatal cholestatic hepatopathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Neonatal cholestatic hepatopathy</div>
 
+
                 <div class="item-desc">In NICCD, citrin deficiency manifests as transient infantile intrahepatic cholestasis with low birth weight or growth restriction, hepatomegaly, fatty liver, hepatic fibrosis or cellular infiltration, variable liver dysfunction, and hypoglycemia.
 </div>
 
@@ -5355,11 +5496,11 @@ cytosol in exchange for glutamate."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-20">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-23">CL:0000182</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5396,11 +5537,11 @@ This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008206" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-21">GO:0008206</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008206" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-24">GO:0008206</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves bile acid metabolic process (GO:0008206). GO:0008206 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5433,11 +5574,11 @@ This pathophysiological event involves bile acid metabolic process (GO:0008206).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-22">UBERON:0002107</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-25">UBERON:0002107</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -5538,6 +5679,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5587,7 +5729,7 @@ dysfunction, hypoproteinemia,..."</div>
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal food preference\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Patients characteristically prefer protein- and lipid-rich foods and show aversion to carbohydrate-rich foods. This dietary self-selection is now understood as a physiological adaptation to the underlying hepatocellular energy deficiency and carbohydrate intolerance.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"FTTDCD (Failure to Thrive and Dyslipidemia caused by Citrin Deficiency)\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100738\"}}, {\"id\": \"Ammonia\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"readouts\": [{\"target\": \"Impaired urea cycle and ammonia detoxification\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated ammonia reports impaired hepatic nitrogen disposal and hyperammonemic CTLN2 episodes.\"}]}}, {\"id\": \"Aspartate and glutamate transmembrane transport disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Citrin (AGC2) normally transports aspartate from the mitochondrial matrix to the cytosol in exchange for glutamate. Loss of this transport function impairs compartmentalized amino acid metabolism, affecting ureagenesis, gluconeogenesis, protein synthesis, and nucleotide biosynthesis.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"L-aspartate transmembrane transport\"], \"locations\": [\"mitochondrial inner membrane\"]}}, {\"id\": \"Avoidance of contraindicated agents and diets\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Citrin deficiency has a distinctive and partly counterintuitive contraindication set. Intravenous glycerol-, fructose- and glucose-containing solutions are contraindicated and potentially lethal - they exacerbate the GAPDH-step metabolic block and worsen hepatocyte ATP depletion under impaired MAS function, with a documented risk of brain edema. Critically, LOW-PROTEIN, HIGH-CARBOHYDRATE diets are also contraindicated: this is the opposite of the protein restriction that is standard management in most urea cycle disorders, and treating citrin deficiency as a conventional urea cycle defect will worsen it. Alcohol is a further avoidance and a recognised CTLN2 crisis precipitant.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Citrulline\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"readouts\": [{\"target\": \"Impaired urea cycle and ammonia detoxification\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated citrulline reports impaired ASS1 flux from limited cytosolic aspartate in citrin deficiency.\"}]}}, {\"id\": \"Conjugated bilirubin\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"readouts\": [{\"target\": \"Neonatal cholestatic hepatopathy\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated conjugated bilirubin reports the neonatal cholestatic hepatopathy branch.\"}]}}, {\"id\": \"Conjugated hyperbilirubinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Conjugated hyperbilirubinemia is a key laboratory manifestation of neonatal intrahepatic cholestasis caused by citrin deficiency.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"NICCD (Neonatal Intrahepatic Cholestasis caused by Citrin Deficiency)\"], \"term_id\": \"HP:0002908\"}}, {\"id\": \"De novo lipogenesis defects and PPARalpha-mediated beta-oxidation impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Citrin-deficient hepatocytes have primary defects in de novo lipogenesis and exhibit secondarily downregulated PPARalpha, leading to impaired fatty acid beta-oxidation. This dual impairment contributes to dyslipidemia and hepatic steatosis.\\n\", \"meta\": {\"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"fatty acid biosynthetic process\", \"fatty acid beta-oxidation\"]}}, {\"id\": \"Dyslipidemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dyslipidemia is a characteristic feature of FTTDCD and reflects disrupted de novo lipogenesis and fatty acid oxidation in citrin-deficient hepatocytes.\\n\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"FTTDCD (Failure to Thrive and Dyslipidemia caused by Citrin Deficiency)\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003119\"}}, {\"id\": \"Elevated circulating hepatic transaminase concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated liver enzymes reflect hepatocellular injury during the neonatal cholestatic hepatopathy stage.\", \"meta\": {\"evidence_count\": 1, \"reports_on\": [{\"target\": \"Neonatal cholestatic hepatopathy\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Cholestatic hepatopathy causes hepatocellular injury reflected by elevated liver enzymes.\"}], \"term_id\": \"HP:0002910\"}}, {\"id\": \"Elevated plasma citrulline\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated plasma or serum citrulline is a characteristic biochemical analyte of citrin deficiency and reflects impaired urea-cycle flux.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011966\"}}, {\"id\": \"Encephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hyperammonemic encephalopathy with neuropsychiatric symptoms is the defining feature of adult-onset CTLN2. Symptoms include confusion, disorientation, seizures, and altered consciousness.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"CTLN2 (Adult-onset Type II Citrullinemia)\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001298\"}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Growth impairment is a feature of FTTDCD and can also occur in severe NICCD. In a nationwide Japanese study of 222 patients, growth impairment during adolescence was noted particularly in CTLN2 patients.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001508\"}}, {\"id\": \"Hepatic steatosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fatty liver results from impaired de novo lipogenesis and PPARalpha-mediated downregulation of beta-oxidation. It occurs across multiple disease stages.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001397\"}}, {\"id\": \"Hepatomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Liver enlargement is commonly observed in the neonatal (NICCD) stage, associated with cholestatic hepatitis and steatosis.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002240\"}}, {\"id\": \"Hyperammonemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated plasma ammonia is a defining feature of CTLN2 and can occur in other stages during catabolic stress. It results from impaired ureagenesis due to cytosolic aspartate and ATP deficiency.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001987\"}}, {\"id\": \"Hypoglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypoketotic hypoglycemia is mechanistically linked to impaired glycogenesis, gluconeogenesis, and ketogenesis in citrin-deficient hepatocytes.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001943\"}}, {\"id\": \"IVS16ins3kb hotspot structural variant\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"IVS16ins3kb is a hotspot structural variant in SLC25A13 that requires specific copy number variant calling approaches for detection. It is particularly relevant for newborn screening programs in East Asian populations.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Impaired hepatic glycolysis and carbohydrate toxicity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because glycolysis depends on cytosolic NAD+ regenerated via the MAS, citrin-deficient hepatocytes cannot sustain glycolysis efficiently. Under high carbohydrate load, metabolism is blocked at the glyceraldehyde-3-phosphate dehydrogenase (GAPDH) step, leading to accumulation of glucose metabolites, depletion of inorganic phosphate, and further ATP loss. This creates an actively harmful state termed carbohydrate toxicity.\\n\", \"meta\": {\"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"glycolytic process\"]}}, {\"id\": \"Impaired urea cycle and ammonia detoxification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Citrin deficiency limits cytosolic aspartate availability, which is required by argininosuccinate synthetase 1 (ASS1) for the urea cycle. This results in citrulline accumulation and impaired ureagenesis. Additionally, hyperammonemia may be driven by failure of glutamine-synthetase-dependent perivenous ammonia detoxification due to glutamate and ATP deficiency, rather than solely by ASS1 dysfunction.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"urea cycle\", \"glutamine biosynthetic process\"], \"locations\": [\"liver\"]}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Irreversible brain damage may occur in patients with citrin deficiency, particularly with delayed diagnosis or inadequate treatment. MCT supplementation with minimal carbohydrate diet aims to prevent this.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001249\"}}, {\"id\": \"Jaundice\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Prolonged neonatal jaundice with conjugated hyperbilirubinemia is a cardinal feature of NICCD.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"NICCD (Neonatal Intrahepatic Cholestasis caused by Citrin Deficiency)\"], \"term_id\": \"HP:0000952\"}}, {\"id\": \"Liver transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Liver transplantation is reserved for patients with severe or refractory CTLN2, recurrent hyperammonemic episodes unresponsive to medical management, or liver failure. In the Japanese nationwide study of 222 patients, transplantation was performed in only 4 patients (1 NICCD, 3 CTLN2) with good response thereafter.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Low birth weight\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Patients with citrin deficiency have an increased risk for low weight and length at birth, as demonstrated in a nationwide Japanese cohort.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"NICCD (Neonatal Intrahepatic Cholestasis caused by Citrin Deficiency)\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001518\"}}, {\"id\": \"MCT supplementation with low-carbohydrate diet\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Medium-chain triglyceride (MCT) supplementation combined with a diet containing minimal carbohydrates is the primary therapeutic strategy. MCTs provide energy directly to hepatocytes, increase lipogenesis, and activate the malate-citrate shuttle as a compensatory pathway. Early intervention is recommended promptly after diagnosis to prevent irreversible brain and liver damage.\\n\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Malate-aspartate shuttle dysfunction and hepatocellular energy crisis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of citrin impairs cytosolic NADH transfer into mitochondria and reduces cytosolic aspartate, NAD+, and ATP, creating a fundamental hepatocellular energy and redox deficiency.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"malate-aspartate shuttle\", \"cellular redox homeostasis\"], \"locations\": [\"liver\"]}}, {\"id\": \"Neonatal cholestasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intrahepatic cholestasis is the hallmark neonatal presentation (NICCD), with conjugated hyperbilirubinemia, jaundice, and hepatomegaly. Usually resolves by age one year with dietary management.\\n\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"NICCD (Neonatal Intrahepatic Cholestasis caused by Citrin Deficiency)\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0006566\"}}, {\"id\": \"Neonatal cholestatic hepatopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In NICCD, citrin deficiency manifests as transient infantile intrahepatic cholestasis with low birth weight or growth restriction, hepatomegaly, fatty liver, hepatic fibrosis or cellular infiltration, variable liver dysfunction, and hypoglycemia.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"bile acid metabolic process\"], \"locations\": [\"liver\"]}}, {\"id\": \"Novel nonsense, frameshift, and deletion variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The variant spectrum of SLC25A13 continues to expand. A 2023 case series identified three novel variants including a nonsense mutation in exon 17 (c.1803C\u003eG), a frameshift mutation in exon 11 (c.1141delG), and a whole exon 11 deletion.\\n\"}, {\"id\": \"Pancreatitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pancreatitis is a recognized complication in the disease spectrum of citrin deficiency, particularly associated with CTLN2.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"CTLN2 (Adult-onset Type II Citrullinemia)\"], \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001733\"}}, {\"id\": \"Pharmacotherapy for hyperammonemia\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Arginine administration decreases blood ammonia concentration in CTLN2, and sodium pyruvate can increase weight and decrease the frequency of hyperammonemia. These pharmacologic measures support ammonia control alongside dietary and MCT-based management.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Plasma glutamine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"readouts\": [{\"target\": \"Impaired urea cycle and ammonia detoxification\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Low or inappropriately normal plasma glutamine reports impaired glutamine-synthetase-dependent ammonia detoxification.\"}]}}, {\"id\": \"SLC25A13 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"SLC25A13\"], \"gene_terms\": [{\"label\": \"SLC25A13\", \"id\": \"hgnc:10983\"}], \"variant_count\": 2}}, {\"id\": \"SLC25A13 transporter molecular function deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic SLC25A13 pathogenic variants reduce mitochondrial aspartate-glutamate carrier transport activity.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"molecular_functions\": [\"transmembrane transporter activity\"], \"genes\": [\"SLC25A13\"], \"gene_terms\": [{\"label\": \"SLC25A13\", \"id\": \"hgnc:10983\"}], \"locations\": [\"mitochondrial inner membrane\"]}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures may occur in the context of severe hyperammonemic episodes in CTLN2 and during neonatal metabolic instability.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Supportive care during acute hyperammonemia\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Acute hyperammonemic episodes in CTLN2 require emergency metabolic stabilization with citrin-specific ammonia-lowering measures such as arginine and MCT-based therapy. Care must avoid glucose-, fructose-, or glycerol-containing solutions and high-carbohydrate management that can worsen the metabolic crisis.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Transaminases\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"readouts\": [{\"target\": \"Neonatal cholestatic hepatopathy\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated transaminases report hepatocellular injury in the neonatal cholestatic hepatopathy stage.\"}]}}], \"edges\": [{\"source\": \"SLC25A13 transporter molecular function deficiency\", \"target\": \"Malate-aspartate shuttle dysfunction and hepatocellular energy crisis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of AGC2 transport function disrupts hepatic MAS redox transfer and aspartate export.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"SLC25A13 transporter molecular function deficiency\", \"target\": \"Aspartate and glutamate transmembrane transport disruption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Defective carrier exchange directly reduces cytosolic aspartate availability.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Malate-aspartate shuttle dysfunction and hepatocellular energy crisis\", \"target\": \"Impaired hepatic glycolysis and carbohydrate toxicity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"MAS failure impairs cytosolic NADH disposal needed for glycolytic flux.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Malate-aspartate shuttle dysfunction and hepatocellular energy crisis\", \"target\": \"De novo lipogenesis defects and PPARalpha-mediated beta-oxidation impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hepatocellular redox and energy failure disrupts lipogenesis and secondarily impairs beta-oxidation.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Malate-aspartate shuttle dysfunction and hepatocellular energy crisis\", \"target\": \"Impaired urea cycle and ammonia detoxification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced aspartate export and hepatocellular ATP deficiency limit urea-cycle nitrogen disposal.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Cytosolic aspartate normally supplies one nitrogen atom for ureagenesis.\"]}, {\"source\": \"Malate-aspartate shuttle dysfunction and hepatocellular energy crisis\", \"target\": \"Neonatal cholestatic hepatopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hepatocyte energy and redox failure presents in infancy as transient cholestatic liver disease.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Malate-aspartate shuttle dysfunction and hepatocellular energy crisis\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hepatocellular energy deficiency contributes to growth impairment and failure to thrive.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Inability to efficiently use glucose and free fatty acids limits hepatic energy availability.\"]}, {\"source\": \"Malate-aspartate shuttle dysfunction and hepatocellular energy crisis\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recurrent metabolic energy failure and hyperammonemic episodes create risk for irreversible brain injury.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Energy deficiency and episodic hyperammonemia can injure the developing or adult brain.\"]}, {\"source\": \"Impaired hepatic glycolysis and carbohydrate toxicity\", \"target\": \"Impaired urea cycle and ammonia detoxification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"High carbohydrate load worsens ATP depletion, reducing energy available for hepatic ammonia detoxification.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired hepatic glycolysis and carbohydrate toxicity\", \"target\": \"Abnormal food preference\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Protein- and lipid-rich food preference with carbohydrate aversion reflects physiologic avoidance of carbohydrate toxicity.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired hepatic glycolysis and carbohydrate toxicity\", \"target\": \"Hypoglycemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired glycolysis, gluconeogenesis, and hepatic energy handling contribute to recurrent hypoglycemia.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired urea cycle and ammonia detoxification\", \"target\": \"Hyperammonemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failed hepatic ureagenesis manifests clinically as recurrent hyperammonemia, especially in CTLN2.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired urea cycle and ammonia detoxification\", \"target\": \"Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recurrent hyperammonemia in CTLN2 produces neuropsychiatric and neurologic manifestations captured as hyperammonemic encephalopathy.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"ammonia neurotoxicity\", \"cerebral metabolic stress\"]}, {\"source\": \"Impaired urea cycle and ammonia detoxification\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe CTLN2 hyperammonemic neurologic episodes can include convulsive seizures.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"hyperammonemic encephalopathy\", \"lowered seizure threshold\"]}, {\"source\": \"Impaired urea cycle and ammonia detoxification\", \"target\": \"Ammonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired ureagenesis raises blood or plasma ammonia concentration.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired urea cycle and ammonia detoxification\", \"target\": \"Citrulline\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Limited cytosolic aspartate availability at ASS1 causes citrulline accumulation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired urea cycle and ammonia detoxification\", \"target\": \"Elevated plasma citrulline\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired urea-cycle flux is clinically measured as elevated plasma citrulline.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired urea cycle and ammonia detoxification\", \"target\": \"Plasma glutamine\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ATP and glutamate limitation can blunt glutamine-synthetase-dependent ammonia detoxification, producing absent or low glutamine elevation despite hyperammonemia.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Perivenous glutamine synthetase depends on adequate glutamate and ATP substrates.\"]}, {\"source\": \"Impaired urea cycle and ammonia detoxification\", \"target\": \"Pancreatitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pancreatitis is a recognized CTLN2 complication, but the intermediate causal steps are not fully resolved in the cached evidence.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"De novo lipogenesis defects and PPARalpha-mediated beta-oxidation impairment\", \"target\": \"Dyslipidemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired de novo lipogenesis and beta-oxidation disrupt circulating lipid metabolism.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"De novo lipogenesis defects and PPARalpha-mediated beta-oxidation impairment\", \"target\": \"Hepatic steatosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Defective lipid synthesis and fatty-acid oxidation contribute to diffuse fatty liver and severe liver steatosis.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Aspartate and glutamate transmembrane transport disruption\", \"target\": \"Impaired urea cycle and ammonia detoxification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced mitochondrial export of aspartate limits aspartate input into the urea cycle.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neonatal cholestatic hepatopathy\", \"target\": \"Neonatal cholestasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Transient intrahepatic cholestasis is the defining neonatal presentation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neonatal cholestatic hepatopathy\", \"target\": \"Jaundice\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cholestatic liver dysfunction presents clinically with neonatal jaundice.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neonatal cholestatic hepatopathy\", \"target\": \"Hepatomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Infantile cholestatic hepatopathy includes liver enlargement.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neonatal cholestatic hepatopathy\", \"target\": \"Conjugated bilirubin\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intrahepatic cholestasis causes conjugated bilirubin retention.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neonatal cholestatic hepatopathy\", \"target\": \"Conjugated hyperbilirubinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intrahepatic cholestasis is measured clinically as conjugated hyperbilirubinemia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neonatal cholestatic hepatopathy\", \"target\": \"Transaminases\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Variable liver dysfunction in NICCD includes abnormal liver function tests.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Neonatal cholestatic hepatopathy\", \"target\": \"Low birth weight\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Low birth weight with growth restriction is part of the infantile NICCD presentation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neonatal cholestatic hepatopathy\", \"target\": \"Hepatic steatosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"NICCD includes diffuse fatty liver, while CTLN2 can develop severe steatosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hyperammonemia\", \"target\": \"Encephalopathy\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Hyperammonemia produces the neuropsychiatric and neurologic CTLN2 syndrome.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Ammonia neurotoxicity and downstream cerebral metabolic stress.\"]}, {\"source\": \"Hyperammonemia\", \"target\": \"Seizures\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Severe hyperammonemic neurologic episodes can include convulsive seizures.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Hyperammonemic encephalopathy lowers seizure threshold.\"]}, {\"source\": \"MCT supplementation with low-carbohydrate diet\", \"target\": \"Malate-aspartate shuttle dysfunction and hepatocellular energy crisis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"MCT supplementation with low-carbohydrate diet\", \"target\": \"De novo lipogenesis defects and PPARalpha-mediated beta-oxidation impairment\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"MCT supplementation with low-carbohydrate diet\", \"target\": \"Impaired urea cycle and ammonia detoxification\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"MCT supplementation with low-carbohydrate diet\", \"target\": \"Failure to thrive\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"MCT supplementation with low-carbohydrate diet\", \"target\": \"Hyperammonemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"MCT supplementation with low-carbohydrate diet\", \"target\": \"Dyslipidemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Avoidance of contraindicated agents and diets\", \"target\": \"Impaired hepatic glycolysis and carbohydrate toxicity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Liver transplantation\", \"target\": \"Malate-aspartate shuttle dysfunction and hepatocellular energy crisis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Liver transplantation\", \"target\": \"Impaired urea cycle and ammonia detoxification\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Liver transplantation\", \"target\": \"Hyperammonemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Liver transplantation\", \"target\": \"Abnormal food preference\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive care during acute hyperammonemia\", \"target\": \"Impaired urea cycle and ammonia detoxification\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Supportive care during acute hyperammonemia\", \"target\": \"Hyperammonemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive care during acute hyperammonemia\", \"target\": \"Encephalopathy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Pharmacotherapy for hyperammonemia\", \"target\": \"Impaired urea cycle and ammonia detoxification\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Pharmacotherapy for hyperammonemia\", \"target\": \"Hyperammonemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Impaired urea cycle and ammonia detoxification\", \"target\": \"Citrulline\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated citrulline reports impaired ASS1 flux from limited cytosolic aspartate in citrin deficiency.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Impaired urea cycle and ammonia detoxification\", \"target\": \"Ammonia\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated ammonia reports impaired hepatic nitrogen disposal and hyperammonemic CTLN2 episodes.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Neonatal cholestatic hepatopathy\", \"target\": \"Conjugated bilirubin\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated conjugated bilirubin reports the neonatal cholestatic hepatopathy branch.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Impaired urea cycle and ammonia detoxification\", \"target\": \"Plasma glutamine\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Low or inappropriately normal plasma glutamine reports impaired glutamine-synthetase-dependent ammonia detoxification.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Neonatal cholestatic hepatopathy\", \"target\": \"Transaminases\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated transaminases report hepatocellular injury in the neonatal cholestatic hepatopathy stage.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Neonatal cholestatic hepatopathy\", \"target\": \"Elevated circulating hepatic transaminase concentration\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Cholestatic hepatopathy causes hepatocellular injury reflected by elevated liver enzymes.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"SLC25A13 pathogenic variants\", \"target\": \"SLC25A13 transporter molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"IVS16ins3kb hotspot structural variant\", \"target\": \"SLC25A13 pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Novel nonsense, frameshift, and deletion variants\", \"target\": \"SLC25A13 pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal food preference\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Patients characteristically prefer protein- and lipid-rich foods and show aversion to carbohydrate-rich foods. This dietary self-selection is now understood as a physiological adaptation to the underlying hepatocellular energy deficiency and carbohydrate intolerance.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"FTTDCD (Failure to Thrive and Dyslipidemia caused by Citrin Deficiency)\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100738\"}}, {\"id\": \"Ammonia\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"readouts\": [{\"target\": \"Impaired urea cycle and ammonia detoxification\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated ammonia reports impaired hepatic nitrogen disposal and hyperammonemic CTLN2 episodes.\"}]}}, {\"id\": \"Aspartate and glutamate transmembrane transport disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Citrin (AGC2) normally transports aspartate from the mitochondrial matrix to the cytosol in exchange for glutamate. Loss of this transport function impairs compartmentalized amino acid metabolism, affecting ureagenesis, gluconeogenesis, protein synthesis, and nucleotide biosynthesis.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"L-aspartate transmembrane transport\"], \"locations\": [\"mitochondrial inner membrane\"]}}, {\"id\": \"Avoidance of contraindicated agents and diets\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Citrin deficiency has a distinctive and partly counterintuitive contraindication set. Intravenous glycerol-, fructose- and glucose-containing solutions are contraindicated and potentially lethal - they exacerbate the GAPDH-step metabolic block and worsen hepatocyte ATP depletion under impaired MAS function, with a documented risk of brain edema. Critically, LOW-PROTEIN, HIGH-CARBOHYDRATE diets are also contraindicated: this is the opposite of the protein restriction that is standard management in most urea cycle disorders, and treating citrin deficiency as a conventional urea cycle defect will worsen it. Alcohol is a further avoidance and a recognised CTLN2 crisis precipitant.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Citrulline\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"readouts\": [{\"target\": \"Impaired urea cycle and ammonia detoxification\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated citrulline reports impaired ASS1 flux from limited cytosolic aspartate in citrin deficiency.\"}]}}, {\"id\": \"Conjugated bilirubin\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"readouts\": [{\"target\": \"Neonatal cholestatic hepatopathy\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated conjugated bilirubin reports the neonatal cholestatic hepatopathy branch.\"}]}}, {\"id\": \"Conjugated hyperbilirubinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Conjugated hyperbilirubinemia is a key laboratory manifestation of neonatal intrahepatic cholestasis caused by citrin deficiency.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"NICCD (Neonatal Intrahepatic Cholestasis caused by Citrin Deficiency)\"], \"term_id\": \"HP:0002908\"}}, {\"id\": \"De novo lipogenesis defects and PPARalpha-mediated beta-oxidation impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Citrin-deficient hepatocytes have primary defects in de novo lipogenesis and exhibit secondarily downregulated PPARalpha, leading to impaired fatty acid beta-oxidation. This dual impairment contributes to dyslipidemia and hepatic steatosis.\\n\", \"meta\": {\"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"fatty acid biosynthetic process\", \"fatty acid beta-oxidation\"]}}, {\"id\": \"Dyslipidemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dyslipidemia is a characteristic feature of FTTDCD and reflects disrupted de novo lipogenesis and fatty acid oxidation in citrin-deficient hepatocytes.\\n\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"FTTDCD (Failure to Thrive and Dyslipidemia caused by Citrin Deficiency)\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003119\"}}, {\"id\": \"Elevated circulating hepatic transaminase concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated liver enzymes reflect hepatocellular injury during the neonatal cholestatic hepatopathy stage.\", \"meta\": {\"evidence_count\": 1, \"reports_on\": [{\"target\": \"Neonatal cholestatic hepatopathy\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Cholestatic hepatopathy causes hepatocellular injury reflected by elevated liver enzymes.\"}], \"term_id\": \"HP:0002910\"}}, {\"id\": \"Elevated plasma citrulline\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated plasma or serum citrulline is a characteristic biochemical analyte of citrin deficiency and reflects impaired urea-cycle flux.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011966\"}}, {\"id\": \"Encephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hyperammonemic encephalopathy with neuropsychiatric symptoms is the defining feature of adult-onset CTLN2. Symptoms include confusion, disorientation, seizures, and altered consciousness.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"CTLN2 (Adult-onset Type II Citrullinemia)\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001298\"}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Growth impairment is a feature of FTTDCD and can also occur in severe NICCD. In a nationwide Japanese study of 222 patients, growth impairment during adolescence was noted particularly in CTLN2 patients.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001508\"}}, {\"id\": \"Hepatic steatosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fatty liver results from impaired de novo lipogenesis and PPARalpha-mediated downregulation of beta-oxidation. It occurs across multiple disease stages.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001397\"}}, {\"id\": \"Hepatomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Liver enlargement is commonly observed in the neonatal (NICCD) stage, associated with cholestatic hepatitis and steatosis.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002240\"}}, {\"id\": \"Hyperammonemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated plasma ammonia is a defining feature of CTLN2 and can occur in other stages during catabolic stress. It results from impaired ureagenesis due to cytosolic aspartate and ATP deficiency.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001987\"}}, {\"id\": \"Hypoglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypoketotic hypoglycemia is mechanistically linked to impaired glycogenesis, gluconeogenesis, and ketogenesis in citrin-deficient hepatocytes.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001943\"}}, {\"id\": \"IVS16ins3kb hotspot structural variant\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"IVS16ins3kb is a hotspot structural variant in SLC25A13 that requires specific copy number variant calling approaches for detection. It is particularly relevant for newborn screening programs in East Asian populations.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Impaired hepatic glycolysis and carbohydrate toxicity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because glycolysis depends on cytosolic NAD+ regenerated via the MAS, citrin-deficient hepatocytes cannot sustain glycolysis efficiently. Under high carbohydrate load, metabolism is blocked at the glyceraldehyde-3-phosphate dehydrogenase (GAPDH) step, leading to accumulation of glucose metabolites, depletion of inorganic phosphate, and further ATP loss. This creates an actively harmful state termed carbohydrate toxicity.\\n\", \"meta\": {\"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"glycolytic process\"]}}, {\"id\": \"Impaired urea cycle and ammonia detoxification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Citrin deficiency limits cytosolic aspartate availability, which is required by argininosuccinate synthetase 1 (ASS1) for the urea cycle. This results in citrulline accumulation and impaired ureagenesis. Additionally, hyperammonemia may be driven by failure of glutamine-synthetase-dependent perivenous ammonia detoxification due to glutamate and ATP deficiency, rather than solely by ASS1 dysfunction.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"urea cycle\", \"glutamine biosynthetic process\"], \"locations\": [\"liver\"]}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Irreversible brain damage may occur in patients with citrin deficiency, particularly with delayed diagnosis or inadequate treatment. MCT supplementation with minimal carbohydrate diet aims to prevent this.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001249\"}}, {\"id\": \"Jaundice\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Prolonged neonatal jaundice with conjugated hyperbilirubinemia is a cardinal feature of NICCD.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"NICCD (Neonatal Intrahepatic Cholestasis caused by Citrin Deficiency)\"], \"term_id\": \"HP:0000952\"}}, {\"id\": \"Liver transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Liver transplantation is reserved for patients with severe or refractory CTLN2, recurrent hyperammonemic episodes unresponsive to medical management, or liver failure. In the Japanese nationwide study of 222 patients, transplantation was performed in only 4 patients (1 NICCD, 3 CTLN2) with good response thereafter.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Low birth weight\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Patients with citrin deficiency have an increased risk for low weight and length at birth, as demonstrated in a nationwide Japanese cohort.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"NICCD (Neonatal Intrahepatic Cholestasis caused by Citrin Deficiency)\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001518\"}}, {\"id\": \"MCT supplementation with low-carbohydrate diet\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Medium-chain triglyceride (MCT) supplementation combined with a diet containing minimal carbohydrates is the primary therapeutic strategy. MCTs provide energy directly to hepatocytes, increase lipogenesis, and activate the malate-citrate shuttle as a compensatory pathway. Early intervention is recommended promptly after diagnosis to prevent irreversible brain and liver damage.\\n\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Malate-aspartate shuttle dysfunction and hepatocellular energy crisis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of citrin impairs cytosolic NADH transfer into mitochondria and reduces cytosolic aspartate, NAD+, and ATP, creating a fundamental hepatocellular energy and redox deficiency.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"malate-aspartate shuttle\", \"cellular redox homeostasis\"], \"locations\": [\"liver\"]}}, {\"id\": \"Neonatal cholestasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intrahepatic cholestasis is the hallmark neonatal presentation (NICCD), with conjugated hyperbilirubinemia, jaundice, and hepatomegaly. Usually resolves by age one year with dietary management.\\n\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"NICCD (Neonatal Intrahepatic Cholestasis caused by Citrin Deficiency)\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0006566\"}}, {\"id\": \"Neonatal cholestatic hepatopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In NICCD, citrin deficiency manifests as transient infantile intrahepatic cholestasis with low birth weight or growth restriction, hepatomegaly, fatty liver, hepatic fibrosis or cellular infiltration, variable liver dysfunction, and hypoglycemia.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"bile acid metabolic process\"], \"locations\": [\"liver\"]}}, {\"id\": \"Novel nonsense, frameshift, and deletion variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The variant spectrum of SLC25A13 continues to expand. A 2023 case series identified three novel variants including a nonsense mutation in exon 17 (c.1803C\u003eG), a frameshift mutation in exon 11 (c.1141delG), and a whole exon 11 deletion.\\n\"}, {\"id\": \"Pancreatitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pancreatitis is a recognized complication in the disease spectrum of citrin deficiency, particularly associated with CTLN2.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"CTLN2 (Adult-onset Type II Citrullinemia)\"], \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001733\"}}, {\"id\": \"Pharmacotherapy for hyperammonemia\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Arginine administration decreases blood ammonia concentration in CTLN2, and sodium pyruvate can increase weight and decrease the frequency of hyperammonemia. These pharmacologic measures support ammonia control alongside dietary and MCT-based management.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Plasma glutamine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"readouts\": [{\"target\": \"Impaired urea cycle and ammonia detoxification\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Low or inappropriately normal plasma glutamine reports impaired glutamine-synthetase-dependent ammonia detoxification.\"}]}}, {\"id\": \"SLC25A13 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"genes\": [\"SLC25A13\"], \"gene_terms\": [{\"label\": \"SLC25A13\", \"id\": \"hgnc:10983\"}], \"variant_count\": 2}}, {\"id\": \"SLC25A13 transporter molecular function deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic SLC25A13 pathogenic variants reduce mitochondrial aspartate-glutamate carrier transport activity.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"molecular_functions\": [\"transmembrane transporter activity\"], \"genes\": [\"SLC25A13\"], \"gene_terms\": [{\"label\": \"SLC25A13\", \"id\": \"hgnc:10983\"}], \"locations\": [\"mitochondrial inner membrane\"]}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures may occur in the context of severe hyperammonemic episodes in CTLN2 and during neonatal metabolic instability.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Supportive care during acute hyperammonemia\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Acute hyperammonemic episodes in CTLN2 require emergency metabolic stabilization with citrin-specific ammonia-lowering measures such as arginine and MCT-based therapy. Care must avoid glucose-, fructose-, or glycerol-containing solutions and high-carbohydrate management that can worsen the metabolic crisis.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Transaminases\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"readouts\": [{\"target\": \"Neonatal cholestatic hepatopathy\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated transaminases report hepatocellular injury in the neonatal cholestatic hepatopathy stage.\"}]}}], \"edges\": [{\"source\": \"SLC25A13 transporter molecular function deficiency\", \"target\": \"Malate-aspartate shuttle dysfunction and hepatocellular energy crisis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of AGC2 transport function disrupts hepatic MAS redox transfer and aspartate export.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"SLC25A13 transporter molecular function deficiency\", \"target\": \"Aspartate and glutamate transmembrane transport disruption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Defective carrier exchange directly reduces cytosolic aspartate availability.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Malate-aspartate shuttle dysfunction and hepatocellular energy crisis\", \"target\": \"Impaired hepatic glycolysis and carbohydrate toxicity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"MAS failure impairs cytosolic NADH disposal needed for glycolytic flux.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Malate-aspartate shuttle dysfunction and hepatocellular energy crisis\", \"target\": \"De novo lipogenesis defects and PPARalpha-mediated beta-oxidation impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hepatocellular redox and energy failure disrupts lipogenesis and secondarily impairs beta-oxidation.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Malate-aspartate shuttle dysfunction and hepatocellular energy crisis\", \"target\": \"Impaired urea cycle and ammonia detoxification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced aspartate export and hepatocellular ATP deficiency limit urea-cycle nitrogen disposal.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Cytosolic aspartate normally supplies one nitrogen atom for ureagenesis.\"]}, {\"source\": \"Malate-aspartate shuttle dysfunction and hepatocellular energy crisis\", \"target\": \"Neonatal cholestatic hepatopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hepatocyte energy and redox failure presents in infancy as transient cholestatic liver disease.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Malate-aspartate shuttle dysfunction and hepatocellular energy crisis\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hepatocellular energy deficiency contributes to growth impairment and failure to thrive.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Inability to efficiently use glucose and free fatty acids limits hepatic energy availability.\"]}, {\"source\": \"Malate-aspartate shuttle dysfunction and hepatocellular energy crisis\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recurrent metabolic energy failure and hyperammonemic episodes create risk for irreversible brain injury.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Energy deficiency and episodic hyperammonemia can injure the developing or adult brain.\"]}, {\"source\": \"Impaired hepatic glycolysis and carbohydrate toxicity\", \"target\": \"Impaired urea cycle and ammonia detoxification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"High carbohydrate load worsens ATP depletion, reducing energy available for hepatic ammonia detoxification.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired hepatic glycolysis and carbohydrate toxicity\", \"target\": \"Abnormal food preference\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Protein- and lipid-rich food preference with carbohydrate aversion reflects physiologic avoidance of carbohydrate toxicity.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired hepatic glycolysis and carbohydrate toxicity\", \"target\": \"Hypoglycemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired glycolysis, gluconeogenesis, and hepatic energy handling contribute to recurrent hypoglycemia.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired urea cycle and ammonia detoxification\", \"target\": \"Hyperammonemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failed hepatic ureagenesis manifests clinically as recurrent hyperammonemia, especially in CTLN2.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired urea cycle and ammonia detoxification\", \"target\": \"Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recurrent hyperammonemia in CTLN2 produces neuropsychiatric and neurologic manifestations captured as hyperammonemic encephalopathy.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"ammonia neurotoxicity\", \"cerebral metabolic stress\"]}, {\"source\": \"Impaired urea cycle and ammonia detoxification\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe CTLN2 hyperammonemic neurologic episodes can include convulsive seizures.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"hyperammonemic encephalopathy\", \"lowered seizure threshold\"]}, {\"source\": \"Impaired urea cycle and ammonia detoxification\", \"target\": \"Ammonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired ureagenesis raises blood or plasma ammonia concentration.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired urea cycle and ammonia detoxification\", \"target\": \"Citrulline\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Limited cytosolic aspartate availability at ASS1 causes citrulline accumulation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired urea cycle and ammonia detoxification\", \"target\": \"Elevated plasma citrulline\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired urea-cycle flux is clinically measured as elevated plasma citrulline.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired urea cycle and ammonia detoxification\", \"target\": \"Plasma glutamine\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ATP and glutamate limitation can blunt glutamine-synthetase-dependent ammonia detoxification, producing absent or low glutamine elevation despite hyperammonemia.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Perivenous glutamine synthetase depends on adequate glutamate and ATP substrates.\"]}, {\"source\": \"Impaired urea cycle and ammonia detoxification\", \"target\": \"Pancreatitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pancreatitis is a recognized CTLN2 complication, but the intermediate causal steps are not fully resolved in the cached evidence.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"De novo lipogenesis defects and PPARalpha-mediated beta-oxidation impairment\", \"target\": \"Dyslipidemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired de novo lipogenesis and beta-oxidation disrupt circulating lipid metabolism.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"De novo lipogenesis defects and PPARalpha-mediated beta-oxidation impairment\", \"target\": \"Hepatic steatosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Defective lipid synthesis and fatty-acid oxidation contribute to diffuse fatty liver and severe liver steatosis.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Aspartate and glutamate transmembrane transport disruption\", \"target\": \"Impaired urea cycle and ammonia detoxification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced mitochondrial export of aspartate limits aspartate input into the urea cycle.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neonatal cholestatic hepatopathy\", \"target\": \"Neonatal cholestasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Transient intrahepatic cholestasis is the defining neonatal presentation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neonatal cholestatic hepatopathy\", \"target\": \"Jaundice\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cholestatic liver dysfunction presents clinically with neonatal jaundice.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neonatal cholestatic hepatopathy\", \"target\": \"Hepatomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Infantile cholestatic hepatopathy includes liver enlargement.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neonatal cholestatic hepatopathy\", \"target\": \"Conjugated bilirubin\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intrahepatic cholestasis causes conjugated bilirubin retention.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neonatal cholestatic hepatopathy\", \"target\": \"Conjugated hyperbilirubinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intrahepatic cholestasis is measured clinically as conjugated hyperbilirubinemia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neonatal cholestatic hepatopathy\", \"target\": \"Transaminases\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Variable liver dysfunction in NICCD includes abnormal liver function tests.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Neonatal cholestatic hepatopathy\", \"target\": \"Low birth weight\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Low birth weight with growth restriction is part of the infantile NICCD presentation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neonatal cholestatic hepatopathy\", \"target\": \"Hepatic steatosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"NICCD includes diffuse fatty liver, while CTLN2 can develop severe steatosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hyperammonemia\", \"target\": \"Encephalopathy\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Hyperammonemia produces the neuropsychiatric and neurologic CTLN2 syndrome.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Ammonia neurotoxicity and downstream cerebral metabolic stress.\"]}, {\"source\": \"Hyperammonemia\", \"target\": \"Seizures\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Severe hyperammonemic neurologic episodes can include convulsive seizures.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Hyperammonemic encephalopathy lowers seizure threshold.\"]}, {\"source\": \"MCT supplementation with low-carbohydrate diet\", \"target\": \"Malate-aspartate shuttle dysfunction and hepatocellular energy crisis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"MCT supplementation with low-carbohydrate diet\", \"target\": \"De novo lipogenesis defects and PPARalpha-mediated beta-oxidation impairment\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"MCT supplementation with low-carbohydrate diet\", \"target\": \"Impaired urea cycle and ammonia detoxification\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"MCT supplementation with low-carbohydrate diet\", \"target\": \"Failure to thrive\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"MCT supplementation with low-carbohydrate diet\", \"target\": \"Hyperammonemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"MCT supplementation with low-carbohydrate diet\", \"target\": \"Dyslipidemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Avoidance of contraindicated agents and diets\", \"target\": \"Impaired hepatic glycolysis and carbohydrate toxicity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Liver transplantation\", \"target\": \"Malate-aspartate shuttle dysfunction and hepatocellular energy crisis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Liver transplantation\", \"target\": \"Impaired urea cycle and ammonia detoxification\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Liver transplantation\", \"target\": \"Hyperammonemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Liver transplantation\", \"target\": \"Abnormal food preference\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive care during acute hyperammonemia\", \"target\": \"Impaired urea cycle and ammonia detoxification\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Supportive care during acute hyperammonemia\", \"target\": \"Hyperammonemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive care during acute hyperammonemia\", \"target\": \"Encephalopathy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Pharmacotherapy for hyperammonemia\", \"target\": \"Impaired urea cycle and ammonia detoxification\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Pharmacotherapy for hyperammonemia\", \"target\": \"Hyperammonemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Impaired urea cycle and ammonia detoxification\", \"target\": \"Citrulline\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated citrulline reports impaired ASS1 flux from limited cytosolic aspartate in citrin deficiency.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Impaired urea cycle and ammonia detoxification\", \"target\": \"Ammonia\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated ammonia reports impaired hepatic nitrogen disposal and hyperammonemic CTLN2 episodes.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Neonatal cholestatic hepatopathy\", \"target\": \"Conjugated bilirubin\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated conjugated bilirubin reports the neonatal cholestatic hepatopathy branch.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Impaired urea cycle and ammonia detoxification\", \"target\": \"Plasma glutamine\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Low or inappropriately normal plasma glutamine reports impaired glutamine-synthetase-dependent ammonia detoxification.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Neonatal cholestatic hepatopathy\", \"target\": \"Transaminases\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated transaminases report hepatocellular injury in the neonatal cholestatic hepatopathy stage.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Neonatal cholestatic hepatopathy\", \"target\": \"Elevated circulating hepatic transaminase concentration\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Cholestatic hepatopathy causes hepatocellular injury reflected by elevated liver enzymes.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"SLC25A13 pathogenic variants\", \"target\": \"SLC25A13 transporter molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"IVS16ins3kb hotspot structural variant\", \"target\": \"SLC25A13 pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Novel nonsense, frameshift, and deletion variants\", \"target\": \"SLC25A13 pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5608,13 +5750,11 @@ dysfunction, hypoproteinemia,..."</div>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(5)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Metabolism<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Metabolism<span class="pill-count">(6)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(4)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Growth<span class="pill-count">(2)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5645,15 +5785,18 @@ dysfunction, hypoproteinemia,..."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006566" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0006566</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006566" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0006566</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Neonatal cholestatic liver disease (HP:0006566). HP:0006566 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5673,6 +5816,7 @@ This clinical feature is Neonatal cholestatic liver disease (HP:0006566). HP:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5700,6 +5844,7 @@ older children as failure to thrive and dyslipidemia caused by citrin deficiency
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5743,15 +5888,18 @@ older children as failure to thrive and dyslipidemia caused by citrin deficiency
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002240</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0002240</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5771,6 +5919,7 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5814,15 +5963,18 @@ intrahepatic cholestasis, hepatomegaly, diffuse fatty liver"</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001397" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001397</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001397" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001397</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hepatic steatosis (HP:0001397). HP:0001397 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5842,6 +5994,7 @@ This clinical feature is Hepatic steatosis (HP:0001397). HP:0001397 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5882,15 +6035,18 @@ This clinical feature is Hepatic steatosis (HP:0001397). HP:0001397 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000952" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000952</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000952" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000952</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Jaundice (HP:0000952). HP:0000952 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5910,6 +6066,7 @@ This clinical feature is Jaundice (HP:0000952). HP:0000952 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5952,15 +6109,18 @@ This clinical feature is Jaundice (HP:0000952). HP:0000952 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001733" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001733</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001733" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001733</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pancreatitis (HP:0001733). HP:0001733 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Pancreatitis is reported as a complication of citrin deficiency, particularly associated with CTLN2, in the clinical literature.</div>
@@ -5982,6 +6142,7 @@ This clinical feature is Pancreatitis (HP:0001733). HP:0001733 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6014,7 +6175,7 @@ This clinical feature is Pancreatitis (HP:0001733). HP:0001733 is a phenotype fr
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
-                    <span class="cat-count">4</span>
+                    <span class="cat-count">6</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-hyperammonemia" data-dismech-node="Hyperammonemia" data-dismech-type="phenotype">
@@ -6033,15 +6194,18 @@ This clinical feature is Pancreatitis (HP:0001733). HP:0001733 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001987" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001987</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001987" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001987</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hyperammonemia (HP:0001987). HP:0001987 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6073,6 +6237,7 @@ This clinical feature is Hyperammonemia (HP:0001987). HP:0001987 is a phenotype 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6100,6 +6265,7 @@ older children as failure to thrive and dyslipidemia caused by citrin deficiency
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6111,6 +6277,80 @@ failure to thrive, and dyslipidemia by citrin deficiency (FTTDCD),..."</div>
 
 
                 <div class="evidence-explanation">Large Japanese cohort study confirming the age-dependent clinical spectrum including hyperammonemia in CTLN2.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-elevated-plasma-citrulline" data-dismech-node="Elevated plasma citrulline" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Elevated plasma citrulline
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011966" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0011966</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Elevated plasma citrulline (HP:0011966). HP:0011966 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301360" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301360" target="_blank">PMID:20301360</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"characteristic biochemical analytes (increased blood or plasma
+concentration of ammonia, plasma or serum concentration of citrulline and
+arginine, plasma or serum threonine-to-serine ratio)"</div>
+
+
+                <div class="evidence-explanation">GeneReviews identifies increased plasma or serum citrulline as a characteristic biochemical analyte.</div>
 
 
 
@@ -6144,15 +6384,18 @@ failure to thrive, and dyslipidemia by citrin deficiency (FTTDCD),..."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003119" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0003119</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003119" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0003119</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dyslipidemia, annotated with Abnormal circulating lipid concentration (HP:0003119). HP:0003119 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6172,6 +6415,7 @@ This clinical feature is Dyslipidemia, annotated with Abnormal circulating lipid
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6201,6 +6445,7 @@ older children as failure to thrive and dyslipidemia caused by citrin deficiency
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6209,6 +6454,81 @@ older children as failure to thrive and dyslipidemia caused by citrin deficiency
 
 
                 <div class="evidence-explanation">Large cohort confirms dyslipidemia as a defining feature of FTTDCD.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-conjugated-hyperbilirubinemia" data-dismech-node="Conjugated hyperbilirubinemia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Conjugated hyperbilirubinemia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002908" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0002908</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Conjugated hyperbilirubinemia (HP:0002908). HP:0002908 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17982687" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17982687" target="_blank">PMID:17982687</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"They were
+associated with conjugated hyperbilirubinemia, elevated liver enzymes,
+hypoalbuminemia, mild hyperammonemia, elevated citrulline, methionine and
+threonine."</div>
+
+
+                <div class="evidence-explanation">Korean NICCD cases directly report conjugated hyperbilirubinemia.</div>
 
 
 
@@ -6238,15 +6558,18 @@ older children as failure to thrive and dyslipidemia caused by citrin deficiency
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0002910</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0002910</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Elevated circulating hepatic transaminase concentration (HP:0002910). HP:0002910 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6266,6 +6589,7 @@ This clinical feature is Elevated circulating hepatic transaminase concentration
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6311,15 +6635,18 @@ threonine."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001943" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001943</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001943" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0001943</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypoglycemia (HP:0001943). HP:0001943 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6339,6 +6666,7 @@ This clinical feature is Hypoglycemia (HP:0001943). HP:0001943 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6391,15 +6719,18 @@ lactate-to-pyruvate ratio"</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001298" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001298</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001298" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0001298</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Encephalopathy (HP:0001298). HP:0001298 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6419,6 +6750,7 @@ This clinical feature is Encephalopathy (HP:0001298). HP:0001298 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6464,15 +6796,18 @@ symptoms in citrullinemia type II (CTLN2)."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100738" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0100738</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100738" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0100738</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Unusual eating behavior, annotated with Abnormal eating behavior (HP:0100738). HP:0100738 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6492,6 +6827,7 @@ This clinical feature is Unusual eating behavior, annotated with Abnormal eating
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6534,15 +6870,18 @@ aversion to carbohydrate-rich foods."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0001249</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6562,6 +6901,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6605,15 +6945,18 @@ irreversible brain and/or liver damage."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6633,6 +6976,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6684,15 +7028,18 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0001508</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0001508</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6712,6 +7059,7 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6758,15 +7106,18 @@ adolescence."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001518" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0001518</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001518" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0001518</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Small for gestational age (HP:0001518). HP:0001518 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6789,6 +7140,7 @@ This clinical feature is Small for gestational age (HP:0001518). HP:0001518 is a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6798,156 +7150,6 @@ at birth"</div>
 
 
                 <div class="evidence-explanation">Directly quantifies increased risk for low birth parameters in citrin deficiency.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-elevated-plasma-citrulline" data-dismech-node="Elevated plasma citrulline" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Elevated plasma citrulline
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011966" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0011966</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Elevated plasma citrulline (HP:0011966). HP:0011966 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20301360" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301360" target="_blank">PMID:20301360</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"characteristic biochemical analytes (increased blood or plasma
-concentration of ammonia, plasma or serum concentration of citrulline and
-arginine, plasma or serum threonine-to-serine ratio)"</div>
-
-
-                <div class="evidence-explanation">GeneReviews identifies increased plasma or serum citrulline as a characteristic biochemical analyte.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-conjugated-hyperbilirubinemia" data-dismech-node="Conjugated hyperbilirubinemia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Conjugated hyperbilirubinemia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002908" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0002908</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Conjugated hyperbilirubinemia (HP:0002908). HP:0002908 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:17982687" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17982687" target="_blank">PMID:17982687</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"They were
-associated with conjugated hyperbilirubinemia, elevated liver enzymes,
-hypoalbuminemia, mild hyperammonemia, elevated citrulline, methionine and
-threonine."</div>
-
-
-                <div class="evidence-explanation">Korean NICCD cases directly report conjugated hyperbilirubinemia.</div>
 
 
 
@@ -7018,10 +7220,10 @@ threonine."</div>
                         Gene: SLC25A13
 
 
-    <a href="https://bioregistry.io/hgnc:10983" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-40">hgnc:10983</a>
+    <a href="https://bioregistry.io/hgnc:10983" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-43">hgnc:10983</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is SLC25A13 (hgnc:10983). hgnc:10983 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -7029,6 +7231,9 @@ This disease-associated gene is SLC25A13 (hgnc:10983). hgnc:10983 is a gene from
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -7041,7 +7246,7 @@ This disease-associated gene is SLC25A13 (hgnc:10983). hgnc:10983 is a gene from
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (4 references)
+            Show evidence (5 references)
         </summary>
         <div class="evidence-list">
 
@@ -7053,6 +7258,7 @@ This disease-associated gene is SLC25A13 (hgnc:10983). hgnc:10983 is a gene from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7080,6 +7286,7 @@ This disease-associated gene is SLC25A13 (hgnc:10983). hgnc:10983 is a gene from
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7093,10 +7300,10 @@ This disease-associated gene is SLC25A13 (hgnc:10983). hgnc:10983 is a gene from
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:35142380" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:40551388" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35142380" target="_blank">PMID:35142380</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40551388" target="_blank">PMID:40551388</a>
                     </span>
 
 
@@ -7104,22 +7311,22 @@ This disease-associated gene is SLC25A13 (hgnc:10983). hgnc:10983 is a gene from
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"Citrin deficiency is an autosomal recessive disorder caused by mutations in the
-SLC25A13 gene."</div>
+                <div class="evidence-snippet">"pathogenic variants inSLC25A13, located on chromosome 7q21.3"</div>
 
 
-                <div class="evidence-explanation">Nationwide study confirms SLC25A13 as the causal gene.</div>
+                <div class="evidence-explanation">Substantiates the cytogenetic location stated in the features text, which was previously carried as an unattributed assertion.</div>
 
 
 
             </div>
 
 
-            <div class="evidence-more">+ 1 more reference</div>
+            <div class="evidence-more">+ 2 more references</div>
 
         </div>
     </details>
@@ -7136,6 +7343,12 @@ SLC25A13 gene."</div>
         IVS16ins3kb hotspot structural variant
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">IVS16ins3kb is a hotspot structural variant in SLC25A13 that requires specific copy number variant calling approaches for detection. It is particularly relevant for newborn screening programs in East Asian populations.
@@ -7163,6 +7376,7 @@ SLC25A13 gene."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7197,6 +7411,12 @@ also specifically screen for the presence of the hotspot variant IVS16ins3kb"</d
         Novel nonsense, frameshift, and deletion variants
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">The variant spectrum of SLC25A13 continues to expand. A 2023 case series identified three novel variants including a nonsense mutation in exon 17 (c.1803C&gt;G), a frameshift mutation in exon 11 (c.1141delG), and a whole exon 11 deletion.
@@ -7245,7 +7465,7 @@ also specifically screen for the presence of the hotspot variant IVS16ins3kb"</d
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">dietary intervention<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-44">dietary intervention<span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7273,6 +7493,31 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -7309,6 +7554,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7362,6 +7608,7 @@ shuttle."</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7412,6 +7659,7 @@ shuttle."</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7448,11 +7696,11 @@ detoxification in hepatocytes."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0001508</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0001508</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7465,11 +7713,11 @@ This treatment targets Failure to thrive (HP:0001508). HP:0001508 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001987" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0001987</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001987" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0001987</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Hyperammonemia (HP:0001987). HP:0001987 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7482,11 +7730,11 @@ This treatment targets Hyperammonemia (HP:0001987). HP:0001987 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003119" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0003119</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003119" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0003119</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Dyslipidemia, annotated with Abnormal circulating lipid concentration (HP:0003119). HP:0003119 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7510,6 +7758,7 @@ This treatment targets Dyslipidemia, annotated with Abnormal circulating lipid c
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7540,6 +7789,7 @@ shuttle."</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7562,6 +7812,7 @@ carbohydrates is recommended promptly after the diagnosis."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7595,7 +7846,7 @@ unconsciousness in a few days."</div>
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-45">dietary intervention<span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-48">dietary intervention<span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7623,6 +7874,31 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -7659,6 +7935,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7707,6 +7984,7 @@ of brain edema; alcohol."</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7737,7 +8015,7 @@ of brain edema; alcohol."</div>
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-46">liver transplantation<span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-49">liver transplantation<span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is liver transplantation (NCIT:C15271). NCIT:C15271 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7765,6 +8043,20 @@ This treatment is liver transplantation (NCIT:C15271). NCIT:C15271 is a clinical
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -7801,6 +8093,7 @@ This treatment is liver transplantation (NCIT:C15271). NCIT:C15271 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7852,6 +8145,7 @@ metabolic disturbances, and eliminates preferences for protein-rich foods."</div
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7887,11 +8181,11 @@ metabolic disturbances, and eliminates preferences for protein-rich foods."</div
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001987" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0001987</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001987" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0001987</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Hyperammonemia (HP:0001987). HP:0001987 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7904,11 +8198,11 @@ This treatment targets Hyperammonemia (HP:0001987). HP:0001987 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100738" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0100738</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100738" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0100738</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Unusual eating behavior, annotated with Abnormal eating behavior (HP:0100738). HP:0100738 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7935,6 +8229,7 @@ This treatment targets Unusual eating behavior, annotated with Abnormal eating b
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7957,6 +8252,7 @@ NICCD, 3 CTLN2) with a good response thereafter."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7991,7 +8287,7 @@ instances."</div>
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-49">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-52">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-52">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8019,6 +8315,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -8058,6 +8368,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8093,11 +8404,11 @@ concentration; MCT oil can decrease frequency of hyperammonemia"</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001987" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0001987</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001987" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0001987</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Hyperammonemia (HP:0001987). HP:0001987 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8110,11 +8421,11 @@ This treatment targets Hyperammonemia (HP:0001987). HP:0001987 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001298" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0001298</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001298" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0001298</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Encephalopathy (HP:0001298). HP:0001298 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8138,6 +8449,7 @@ This treatment targets Encephalopathy (HP:0001298). HP:0001298 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8170,7 +8482,7 @@ concentration; MCT oil can decrease frequency of hyperammonemia"</div>
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-52">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-52">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-55">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-55">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8197,6 +8509,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -8236,6 +8562,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8272,11 +8599,11 @@ concentration"</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001987" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0001987</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001987" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-56">HP:0001987</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Hyperammonemia (HP:0001987). HP:0001987 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8300,6 +8627,7 @@ This treatment targets Hyperammonemia (HP:0001987). HP:0001987 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8402,6 +8730,7 @@ concentration"</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8486,6 +8815,7 @@ arginine, plasma or serum threonine-to-serine ratio)"</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8567,6 +8897,7 @@ arginine, plasma or serum threonine-to-serine ratio)"</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8655,6 +8986,7 @@ threonine."</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8739,6 +9071,7 @@ range in some patients."</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8797,11 +9130,11 @@ threonine."</div>
         disease screening
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15419" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-54">NCIT:C15419</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15419" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-57">NCIT:C15419</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-54">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-57">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -8841,6 +9174,7 @@ threonine."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8917,6 +9251,7 @@ if only biochemical first-tier testing was performed."</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8972,6 +9307,7 @@ if only biochemical first-tier testing was performed."</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8993,6 +9329,7 @@ if only biochemical first-tier testing was performed."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9051,6 +9388,7 @@ if only biochemical first-tier testing was performed."</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9075,6 +9413,7 @@ if only biochemical first-tier testing was performed."</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9096,6 +9435,7 @@ if only biochemical first-tier testing was performed."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9173,6 +9513,7 @@ if only biochemical first-tier testing was performed."</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9232,6 +9573,7 @@ if only biochemical first-tier testing was performed."</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9288,6 +9630,7 @@ if only biochemical first-tier testing was performed."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9430,6 +9773,11 @@ has_subtypes:
   description: &#39;Neonatal-onset presentation with intrahepatic cholestasis, conjugated hyperbilirubinemia, hepatomegaly, and transient liver dysfunction. Usually resolves by age one year with appropriate dietary management, though liver failure and transplantation are rarely required.
 
     &#39;
+  genes:
+  - preferred_term: SLC25A13
+    term:
+      id: hgnc:10983
+      label: SLC25A13
 - name: FTTDCD (Failure to Thrive and Dyslipidemia caused by Citrin Deficiency)
   review_notes: &gt;-
     No subtype_term is bound because MONDO has no class for FTTDCD. The only
@@ -9440,6 +9788,11 @@ has_subtypes:
   description: &#39;Childhood-onset presentation characterized by growth impairment, dyslipidemia, fatigue, and food preference for protein- and lipid-rich foods with aversion to carbohydrate-rich foods. Occurs after resolution of NICCD or as the first recognized clinical stage.
 
     &#39;
+  genes:
+  - preferred_term: SLC25A13
+    term:
+      id: hgnc:10983
+      label: SLC25A13
 - name: CTLN2 (Adult-onset Type II Citrullinemia)
   subtype_term:
     preferred_term: citrullinemia, type II, adult-onset
@@ -9459,6 +9812,11 @@ has_subtypes:
   description: &#39;Adult-onset presentation with recurrent hyperammonemic encephalopathy, elevated plasma citrulline, neuropsychiatric symptoms, and risk of hepatocellular carcinoma. Affects approximately 5% of patients with citrin deficiency, with onset ranging from 10 to 70 years of age.
 
     &#39;
+  genes:
+  - preferred_term: SLC25A13
+    term:
+      id: hgnc:10983
+      label: SLC25A13
 progression:
 - subtype: NICCD (Neonatal Intrahepatic Cholestasis caused by Citrin Deficiency)
   phase: Neonatal-infantile cholestatic phase
@@ -10495,6 +10853,14 @@ genetic:
     evidence_source: HUMAN_CLINICAL
     snippet: Data from a recent large-scale newborn screening study in China revealed a disease-associated allele frequency of approximately 1/45
     explanation: Substantiates the Chinese allele-frequency figure and provides the Thai and Korean comparators.
+  - reference: PMID:40551388
+    reference_title: &#34;Carrier Frequency and Prevalence of Citrin Deficiency in East Asians and Koreans Based on Comprehensive Analysis of Pathogenic SLC25A13 Variants.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;pathogenic variants inSLC25A13, located on chromosome 7q21.3&#34;
+    explanation: &gt;-
+      Substantiates the cytogenetic location stated in the features text, which
+      was previously carried as an unattributed assertion.
   - reference: PMID:35142380
     reference_title: &#34;Clinical manifestation and long-term outcome of citrin deficiency: Report from a nationwide study in Japan.&#34;
     supports: SUPPORT
@@ -10803,6 +11169,8 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -11203,7 +11571,7 @@ Because the extracted 2023–2024 texts did not display PMIDs, evidence is provi
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Citrin Deficiency", "mondoId": "MONDO:0016602", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Citrin_Deficiency", "yamlRevision": "d24e481cbff6"};
+        const OS_CONFIG = {"diseaseName": "Citrin Deficiency", "mondoId": "MONDO:0016602", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Citrin_Deficiency", "yamlRevision": "b0d9a4ac7898"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

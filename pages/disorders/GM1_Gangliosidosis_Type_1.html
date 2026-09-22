@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4324,6 +4396,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4405,6 +4478,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4426,6 +4500,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4475,6 +4550,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-glb1-loss-of-function-and-beta-galactosidase-deficiency" data-dismech-node="GLB1 Loss of Function and Beta-Galactosidase Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">GLB1 Loss of Function and Beta-Galactosidase Deficiency</div>
+
 
                 <div class="item-desc">Biallelic loss-of-function variants in GLB1 abolish lysosomal beta-galactosidase activity. The enzyme normally cleaves the terminal beta-1,4-linked galactose from GM1 ganglioside and also degrades oligosaccharides and keratan sulfate; its loss is the primary biochemical lesion. Disease severity tracks residual enzyme activity, which is nearly absent in type 1-associated mutations.</div>
 
@@ -4607,6 +4683,7 @@ This pathophysiological event involves decreased ganglioside catabolic process (
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4628,6 +4705,7 @@ This pathophysiological event involves decreased ganglioside catabolic process (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4655,6 +4733,7 @@ This pathophysiological event involves decreased ganglioside catabolic process (
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4677,6 +4756,7 @@ This pathophysiological event involves decreased ganglioside catabolic process (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lysosomal-gm1-ganglioside-accumulation-in-neurons" data-dismech-node="Lysosomal GM1 Ganglioside Accumulation in Neurons" data-dismech-type="pathophysiology">
                 <div class="item-name">Lysosomal GM1 Ganglioside Accumulation in Neurons</div>
+
 
                 <div class="item-desc">GM1 ganglioside and other beta-galactose-terminal glycoconjugates accumulate in neuronal lysosomes (and, via keratan sulfate/oligosaccharide storage, in somatic tissues such as heart, bone, liver, and spleen), impairing cell physiology.</div>
 
@@ -4831,6 +4911,7 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4852,6 +4933,7 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4877,6 +4959,7 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuronal-apoptosis" data-dismech-node="Neuronal Apoptosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Neuronal Apoptosis</div>
+
 
                 <div class="item-desc">Toxic lysosomal storage of GM1 ganglioside and related substrates precipitates neuronal apoptotic cell death, a key route to the progressive neuron loss of the disease. (Model-system work in beta-gal-deficient mice further implicates GM1-driven ER-stress/unfolded-protein-response and mitochondrial calcium dysregulation upstream of this apoptosis, but that specific cascade is model-derived and not asserted here as a human-established mechanism.)</div>
 
@@ -5002,6 +5085,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5024,6 +5108,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-neurodegeneration" data-dismech-node="Progressive Neurodegeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Neurodegeneration</div>
+
 
                 <div class="item-desc">Progressive neuronal loss produces the central-nervous-system arm of the disease: rapidly progressive neurodegeneration with developmental regression, hypotonia, spasticity, seizures, visual and hearing loss, bulbar dysfunction, and, in the retina, the macular cherry-red spot.</div>
 
@@ -5229,6 +5314,7 @@ This pathophysiological event involves retinal ganglion cell (CL:0000740). CL:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5251,6 +5337,7 @@ This pathophysiological event involves retinal ganglion cell (CL:0000740). CL:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-multisystem-somatic-storage" data-dismech-node="Multisystem Somatic Storage" data-dismech-type="pathophysiology">
                 <div class="item-name">Multisystem Somatic Storage</div>
+
 
                 <div class="item-desc">Keratan sulfate and oligosaccharide storage in peripheral organs produces the somatic arm of the disease: visceral organomegaly, skeletal dysostosis, coarse facies, cardiac involvement, and prenatal-onset manifestations.</div>
 
@@ -5352,6 +5439,7 @@ This pathophysiological event involves retinal ganglion cell (CL:0000740). CL:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5408,6 +5496,7 @@ This pathophysiological event involves retinal ganglion cell (CL:0000740). CL:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5482,15 +5571,15 @@ This pathophysiological event involves retinal ganglion cell (CL:0000740). CL:00
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Head and Neck<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Metabolism<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Integument<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Musculoskeletal<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Metabolism<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Nervous System<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Musculoskeletal<span class="pill-count">(4)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Nervous System<span class="pill-count">(4)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Other<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Growth<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5533,6 +5622,9 @@ This clinical feature is Hepatosplenomegaly (HP:0001433). HP:0001433 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5547,6 +5639,7 @@ This clinical feature is Hepatosplenomegaly (HP:0001433). HP:0001433 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5603,6 +5696,9 @@ This clinical feature is Cardiomyopathy (HP:0001638). HP:0001638 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5617,6 +5713,7 @@ This clinical feature is Cardiomyopathy (HP:0001638). HP:0001638 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5673,6 +5770,9 @@ This clinical feature is Cherry red spot of the macula (HP:0010729). HP:0010729 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5687,6 +5787,7 @@ This clinical feature is Cherry red spot of the macula (HP:0010729). HP:0010729 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5750,6 +5851,9 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5764,6 +5868,7 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5827,6 +5932,9 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5841,6 +5949,7 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5904,6 +6013,9 @@ This clinical feature is Blindness (HP:0000618). HP:0000618 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5918,6 +6030,7 @@ This clinical feature is Blindness (HP:0000618). HP:0000618 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5981,6 +6094,9 @@ This clinical feature is Drooling (HP:0002307). HP:0002307 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5995,6 +6111,7 @@ This clinical feature is Drooling (HP:0002307). HP:0002307 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6051,6 +6168,9 @@ This clinical feature is Coarse facial features (HP:0000280). HP:0000280 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6065,6 +6185,7 @@ This clinical feature is Coarse facial features (HP:0000280). HP:0000280 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6089,6 +6210,7 @@ This clinical feature is Coarse facial features (HP:0000280). HP:0000280 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6120,13 +6242,13 @@ This clinical feature is Coarse facial features (HP:0000280). HP:0000280 is a ph
             <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Metabolism
+                    Integument
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-nonimmune-hydrops-fetalis" data-dismech-node="Nonimmune hydrops fetalis" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-mongolian-blue-spot" data-dismech-node="Mongolian blue spot" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Nonimmune hydrops fetalis
+                        Mongolian blue spot
 
 
 
@@ -6138,15 +6260,18 @@ This clinical feature is Coarse facial features (HP:0000280). HP:0000280 is a ph
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001790" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001790</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011369" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0011369</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Nonimmune hydrops fetalis (HP:0001790). HP:0001790 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Mongolian blue spot (HP:0011369). HP:0011369 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6166,6 +6291,88 @@ This clinical feature is Nonimmune hydrops fetalis (HP:0001790). HP:0001790 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"congenital dermal melanocytosis (Mongolian spots) may be observed"</div>
+
+
+                <div class="evidence-explanation">Congenital dermal melanocytosis (Mongolian spots) is a recognized dermatologic sign of infantile GM1.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-7">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Metabolism
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-nonimmune-hydrops-fetalis" data-dismech-node="Nonimmune hydrops fetalis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Nonimmune hydrops fetalis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001790" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001790</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Nonimmune hydrops fetalis (HP:0001790). HP:0001790 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24156116" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24156116" target="_blank">PMID:24156116</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6194,11 +6401,11 @@ This clinical feature is Nonimmune hydrops fetalis (HP:0001790). HP:0001790 is a
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-7">
+            <details class="phenotype-category-group" id="pheno-cat-8">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">4</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-hypotonia" data-dismech-node="Hypotonia" data-dismech-type="phenotype">
@@ -6217,15 +6424,18 @@ This clinical feature is Nonimmune hydrops fetalis (HP:0001790). HP:0001790 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001252</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6245,6 +6455,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6272,6 +6483,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6280,6 +6492,78 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                 <div class="evidence-explanation">Quantifies hypotonia frequency (94.4%) in early-onset GM1 gangliosidosis, supporting the VERY_FREQUENT band.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-decerebrate-rigidity" data-dismech-node="Decerebrate rigidity" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Decerebrate rigidity
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0025013" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0025013</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Decerebrate rigidity (HP:0025013). HP:0025013 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24156116" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24156116" target="_blank">PMID:24156116</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"blindness, deafness, decerebrate rigidity, seizures, feeding difficulties, and oral secretions are observed"</div>
+
+
+                <div class="evidence-explanation">Decerebrate rigidity is an observed feature of progressive infantile GM1.</div>
 
 
 
@@ -6311,15 +6595,18 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000943" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000943</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000943" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000943</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dysostosis multiplex (HP:0000943). HP:0000943 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6339,6 +6626,7 @@ This clinical feature is Dysostosis multiplex (HP:0000943). HP:0000943 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6379,15 +6667,18 @@ This clinical feature is Dysostosis multiplex (HP:0000943). HP:0000943 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001257</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001257</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6407,6 +6698,7 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6435,12 +6727,84 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-8">
+            <details class="phenotype-category-group" id="pheno-cat-9">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">4</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-neurodegeneration" data-dismech-node="Neurodegeneration" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Neurodegeneration
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002180" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002180</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Neurodegeneration (HP:0002180). HP:0002180 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33859490" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33859490" target="_blank">PMID:33859490</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"precipitates dysfunction of the nervous system"</div>
+
+
+                <div class="evidence-explanation">Progressive nervous-system dysfunction/neurodegeneration is the core feature.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-developmental-regression" data-dismech-node="Developmental regression" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6458,15 +6822,18 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002376" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002376</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002376" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002376</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6486,6 +6853,7 @@ This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6530,15 +6898,18 @@ dysfunction and neurodevelopmental regression, particularly in the 6- to
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6558,6 +6929,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6598,15 +6970,18 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6626,6 +7001,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6650,6 +7026,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6678,7 +7055,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-9">
+            <details class="phenotype-category-group" id="pheno-cat-10">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Growth
@@ -6699,15 +7076,18 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001511" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001511</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001511" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001511</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intrauterine growth retardation (HP:0001511). HP:0001511 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6730,6 +7110,7 @@ This clinical feature is Intrauterine growth retardation (HP:0001511). HP:000151
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6738,219 +7119,6 @@ This clinical feature is Intrauterine growth retardation (HP:0001511). HP:000151
 
 
                 <div class="evidence-explanation">Intrauterine growth retardation is a reported perinatal-onset manifestation of type 1 GM1.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-10">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">3</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-neurodegeneration" data-dismech-node="Neurodegeneration" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Neurodegeneration
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002180" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002180</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Neurodegeneration (HP:0002180). HP:0002180 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33859490" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33859490" target="_blank">PMID:33859490</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"precipitates dysfunction of the nervous system"</div>
-
-
-                <div class="evidence-explanation">Progressive nervous-system dysfunction/neurodegeneration is the core feature.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-decerebrate-rigidity" data-dismech-node="Decerebrate rigidity" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Decerebrate rigidity
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0025013" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0025013</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Decerebrate rigidity (HP:0025013). HP:0025013 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:24156116" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24156116" target="_blank">PMID:24156116</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"blindness, deafness, decerebrate rigidity, seizures, feeding difficulties, and oral secretions are observed"</div>
-
-
-                <div class="evidence-explanation">Decerebrate rigidity is an observed feature of progressive infantile GM1.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-mongolian-blue-spot" data-dismech-node="Mongolian blue spot" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Mongolian blue spot
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011369" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0011369</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Mongolian blue spot (HP:0011369). HP:0011369 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:24156116" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24156116" target="_blank">PMID:24156116</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"congenital dermal melanocytosis (Mongolian spots) may be observed"</div>
-
-
-                <div class="evidence-explanation">Congenital dermal melanocytosis (Mongolian spots) is a recognized dermatologic sign of infantile GM1.</div>
 
 
 
@@ -7042,6 +7210,9 @@ This disease-associated gene is GLB1 (hgnc:4298). hgnc:4298 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7056,6 +7227,7 @@ This disease-associated gene is GLB1 (hgnc:4298). hgnc:4298 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7083,6 +7255,7 @@ This disease-associated gene is GLB1 (hgnc:4298). hgnc:4298 is a gene from the H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7104,6 +7277,7 @@ This disease-associated gene is GLB1 (hgnc:4298). hgnc:4298 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7232,6 +7406,31 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">No FDA-approved disease-modifying therapy exists; management is palliative and supportive (nutritional, respiratory, seizure, and palliative care).</div>
 
 
@@ -7253,6 +7452,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7316,6 +7516,31 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">GeneReviews-recommended surveillance for GM1 gangliosidosis: assess yearly for seizure risk (neurologist), cervical spine stability, and hip dislocation risk, plus quality of life; perform electrocardiogram, echocardiogram, and eye examination every one to three years. Agents/circumstances to avoid include unplanned anesthesia, psychotropic medications (risk of worsening neurologic disease), aspiration-risk feeding positioning, and over-sedating seizure-medication dosing.</div>
 
 
@@ -7340,6 +7565,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7361,6 +7587,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7425,6 +7652,31 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Gene therapy</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">AAV-mediated GLB1 gene delivery (e.g., intravenous AAV9-GLB1, intracisternal AAVhu68/AAVrh.10 vectors) is under investigation in Phase I/II trials as a disease-modifying approach.</div>
 
 
@@ -7446,6 +7698,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7531,6 +7784,31 @@ This treatment uses miglustat (CHEBI:50381). CHEBI:50381 is a therapeutic agent 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Substrate reduction therapy has been explored, including the Syner-G regimen (miglustat plus ketogenic diet) for infantile/juvenile gangliosidoses. The US infantile-gangliosidosis trial of miglustat (NCT02030015) was ultimately unsuccessful, with death in 13 of 16 patients prior to its 2021 termination; efficacy in type 1 remains unproven.</div>
 
 
@@ -7555,6 +7833,7 @@ This treatment uses miglustat (CHEBI:50381). CHEBI:50381 is a therapeutic agent 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7576,6 +7855,7 @@ This treatment uses miglustat (CHEBI:50381). CHEBI:50381 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7642,6 +7922,7 @@ This treatment uses miglustat (CHEBI:50381). CHEBI:50381 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7726,6 +8007,7 @@ This treatment uses miglustat (CHEBI:50381). CHEBI:50381 is a therapeutic agent 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7774,6 +8056,7 @@ This treatment uses miglustat (CHEBI:50381). CHEBI:50381 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7878,6 +8161,7 @@ This treatment uses miglustat (CHEBI:50381). CHEBI:50381 is a therapeutic agent 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7962,6 +8246,7 @@ This treatment uses miglustat (CHEBI:50381). CHEBI:50381 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8052,6 +8337,7 @@ This treatment uses miglustat (CHEBI:50381). CHEBI:50381 is a therapeutic agent 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8117,6 +8403,7 @@ This treatment uses miglustat (CHEBI:50381). CHEBI:50381 is a therapeutic agent 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8167,6 +8454,7 @@ This treatment uses miglustat (CHEBI:50381). CHEBI:50381 is a therapeutic agent 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8191,6 +8479,7 @@ This treatment uses miglustat (CHEBI:50381). CHEBI:50381 is a therapeutic agent 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8212,6 +8501,7 @@ This treatment uses miglustat (CHEBI:50381). CHEBI:50381 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8291,6 +8581,7 @@ This treatment uses miglustat (CHEBI:50381). CHEBI:50381 is a therapeutic agent 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8312,6 +8603,7 @@ This treatment uses miglustat (CHEBI:50381). CHEBI:50381 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8416,6 +8708,7 @@ This treatment uses miglustat (CHEBI:50381). CHEBI:50381 is a therapeutic agent 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8437,6 +8730,7 @@ This treatment uses miglustat (CHEBI:50381). CHEBI:50381 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8508,6 +8802,7 @@ This treatment uses miglustat (CHEBI:50381). CHEBI:50381 is a therapeutic agent 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8558,6 +8853,7 @@ This treatment uses miglustat (CHEBI:50381). CHEBI:50381 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8614,6 +8910,7 @@ This treatment uses miglustat (CHEBI:50381). CHEBI:50381 is a therapeutic agent 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8664,6 +8961,7 @@ This treatment uses miglustat (CHEBI:50381). CHEBI:50381 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9748,6 +10046,97 @@ definitions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Augment: GM1 Gangliosidosis Type 1</strong> · 2026-07-31T01:44:16Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/GM1_Gangliosidosis_Type_1/2026-07-31T014416Z-claude-code-64d5e0.yaml">View source</a></p>
+                        <p class="research-review-text">Augmented the existing infantile GM1 gangliosidosis entry (GLB1 deficiency,
+MONDO:0009260) using the falcon deep-research report
+(research/GM1_Gangliosidosis_Type_1-deep-research-falcon.md) as leads, with the
+GLB1-Related Disorders GeneReviews chapter (PMID:24156116) as the mandatory
+phenotype baseline.
+
+Additions:
+- classifications: sphingolipidosis (lysosomal_storage_category) + Harrison&#39;s
+  ENDOCRINOLOGY_METABOLISM chapter.
+- pathophysiology: new &#34;Neuronal Apoptosis&#34; node inserted in the causal chain;
+  biological_scale tags added to all nodes; enriched substrate detail
+  (GA1/oligosaccharides/keratan sulfate) and residual-activity severity gradient.
+- phenotypes: added hypotonia, global developmental delay, seizures, cardiomyopathy,
+  spasticity, blindness, hearing impairment, feeding difficulties, Mongolian blue
+  spot, nonimmune hydrops fetalis, and IUGR, with FrequencyEnum bands where the
+  cited snippet supports them (VERY_FREQUENT for near-universal features, FREQUENT
+  for &#34;frequently&#34;-qualified somatic features, OCCASIONAL for seizures).
+- prevalence: structured birth-prevalence block (reported incidence 1:100,000-200,000
+  live births; BAND_1_9_PER_1000000).
+- genetic: enriched with GLB1 variant spectrum (261 pathogenic variants, p.R59H).
+- progression: natural-history timing (mean onset 2.8mo, diagnosis 8.7mo, death
+  18.9mo; RETRIEVE median survival 19mo).
+- biochemical: beta-galactosidase deficiency, H3N2b pentasaccharide pharmacodynamic
+  biomarker, and screening abnormalities (ASAT, chitotriosidase, urinary
+  oligosaccharides).
+- clinical_trials: NCT03952637 (AAV9-GLB1 IV), NCT04713475 (PBGM01), NCT04273269
+  (LYS-GM101, terminated), NCT02030015 (Syner-G/miglustat SRT).
+- treatments: added investigational substrate reduction therapy; tagged
+  therapeutic_modality on all treatments.
+
+New references fetched and cited: PMID:24156116 (GeneReviews, tagged), PMID:31761138
+(Arash-Kaps), PMID:37267847 (Kell, H3N2b), PMID:39639297 (Heron RETRIEVE).
+
+Deep-research provider: falcon (Edison). GeneReviews cross-referenced for clinical
+characteristics coverage. Validation: `just validate` passes (schema + terms +
+references); all 51 evidence snippets independently confirmed as exact
+whitespace-normalized substrings of their cached references; 27 pytest data tests
+pass; weighted compliance 83.6%.
+
+Follow-up (red-team review response, same session): mined the GeneReviews chapter&#39;s
+Management and Genetic Counseling sections (previously unused) — added a
+&#34;Multidisciplinary Surveillance and Symptom Management&#34; treatment with the GR annual
+surveillance schedule and agents-to-avoid (psychotropic medications) evidence, and a
+GR 25%-recurrence-risk evidence item on the inheritance block. Softened the Neuronal
+Apoptosis node description so the model-derived UPR/mitochondrial-Ca2+ cascade is not
+asserted as a human-established mechanism (evidence remains the Lang human-review
+&#34;cellular apoptosis&#34; statement). Dropped the seizure OCCASIONAL frequency band (the 9%
+figure is only in the Lang Table-1 artifact, not the citable cache text). Wired the
+seven previously-unconnected distal phenotypes (spasticity, blindness, hearing
+impairment, feeding difficulties, Mongolian blue spot, hydrops fetalis, IUGR) into the
+pathograph as downstream edges. Re-validated: just validate passes; all 54 snippets
+confirmed as exact substrings.
+
+Follow-up 2 (PR #7400 ai4c-reviewer REQUEST_CHANGES response): (1) added conforms_to
+anchors to the last two pathophysiology nodes; (2) split the bundled &#34;Neurodegeneration
+and Multisystem Storage&#34; node into an atomic CNS &#34;Progressive Neurodegeneration&#34; node
+and a &#34;Multisystem Somatic Storage&#34; node, reassigning each distal phenotype edge to the
+arm that produces it and adding a parallel somatic-storage arm from the accumulation
+node; (3) added the exact Lang seizure-timing snippet as second evidence for the 10-12
+month onset claim; (4) added the two omitted GeneReviews Type-I manifestations
+decerebrate rigidity (HP:0025013) and drooling/oral secretions (HP:0002307). Suggestions
+applied: fuller prevalence quote + founder-population evidence; new histopathology
+section (bone-marrow foamy cells); richer survival-curve snippet; newborn-screening
+diagnosis entry; OMIM:230500 external_assertion; therapeutic_modality BEHAVIORAL-&gt;OTHER
+on supportive-care/surveillance; retinal ganglion cell (CL:0000740) on the cherry-red-spot
+arm; corrected NCT04273269 reference_title to the cached official title; RETRIEVE
+&lt;24-month population caveat; Syner-G outcome stated plainly (Foster PMID:38737101, death
+in 13/16). Re-validated: just validate passes; all 63 snippets confirmed as exact
+substrings; 27 pytest tests pass.
+
+Follow-up 3 (CI + APPROVE polish): CI term validation rejected MAXO:0000124 on the
+newborn-screening diagnosis_term (not reachable from the TreatmentActionTerm enum root
+in CI&#39;s fresh ontology expansion, though the local enum cache included it) — first
+dropped the term, then, per the reviewer, restored it as the reachable NCIT equivalent
+NCIT:C81178 &#34;Newborn Screening&#34; (NCIT:C81178 -&gt; ... -&gt; NCIT:C25218). Also wired the last
+unconnected phenotype, Global developmental delay, into the Progressive Neurodegeneration
+node. Left OMIM:230500 in external_assertions (the mappings block has no OMIM sub-slot,
+only icd10cm/icd11f/mondo/ncit), kept BIRTH_PREVALENCE (live-birth denominator), and did
+not model placental vacuolization (no precise HP term). ai4c-reviewer APPROVED.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4175,6 +4247,7 @@
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Short-rib polydactyly (SRP) syndrome type III, or Verma-Naumoff syndrome, is an autosomal-recessive chondrodysplasia characterized by short ribs, a narrow thorax, short long bones, an abnormal acetabulum, and numerous extraskeletal malformations and is lethal in the perinatal period."</div>
@@ -4240,6 +4313,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4340,6 +4414,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4405,6 +4480,7 @@ Curated in full as its own entry, Short-Rib Thoracic Dysplasia 6 With or Without
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4464,6 +4540,7 @@ Curated in full as its own entry, Short-Rib Thoracic Dysplasia 6 With or Without
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4529,6 +4606,7 @@ Curated in full as its own entry, Short-Rib Thoracic Dysplasia 6 With or Without
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4573,6 +4651,7 @@ Curated in full as its own entry, Short-Rib Thoracic Dysplasia 6 With or Without
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-intraflagellar-transport-and-ciliogenesis-defects" data-dismech-node="Intraflagellar Transport and Ciliogenesis Defects" data-dismech-type="pathophysiology">
                 <div class="item-name">Intraflagellar Transport and Ciliogenesis Defects</div>
+
 
                 <div class="item-desc">SRPS are caused by mutations in genes encoding components of the intraflagellar transport (IFT) machinery, dynein motor complexes, and basal body proteins. These mutations disrupt primary cilium assembly and maintenance, producing structurally abnormal cilia (shortened, bulbous tips) or reduced cilia number.
 </div>
@@ -4752,6 +4831,7 @@ This pathophysiological event involves Primary Cilium, annotated with cilium (GO
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"10 different genes have been identified as responsible for seven &#34;skeletal&#34; ciliopathies. Mutations have been identified in dynein motor (DYNC2H1), in intraflagellar transport (IFT) complexes (IFT80, IFT122, IFT43, WDR35, WDR19, and TTC21B) as well as in genes responsible for the basal body..."</div>
@@ -4771,6 +4851,7 @@ This pathophysiological event involves Primary Cilium, annotated with cilium (GO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4796,6 +4877,7 @@ This pathophysiological event involves Primary Cilium, annotated with cilium (GO
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"primary cilia in WDR34 mutant fibroblasts were significantly shorter than normal and had a bulbous tip"</div>
@@ -4818,6 +4900,7 @@ This pathophysiological event involves Primary Cilium, annotated with cilium (GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hedgehog-signaling-disruption-in-skeletal-development" data-dismech-node="Hedgehog Signaling Disruption in Skeletal Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Hedgehog Signaling Disruption in Skeletal Development</div>
+
 
                 <div class="item-desc">Primary cilia are essential for transduction of Hedgehog signaling, which is critical for endochondral ossification and limb patterning. Ciliary dysfunction from IFT/dynein defects disrupts Hedgehog-dependent chondrocyte proliferation and differentiation, leading to severe skeletal shortening and polydactyly. The skeletal and organ phenotypes in SRPS are more severe than in Jeune syndrome, reflecting a greater degree of ciliary dysfunction.
 </div>
@@ -5004,6 +5087,7 @@ This pathophysiological event involves Hedgehog Signaling, annotated with smooth
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"primary cilia play a vital role in transduction of signals in the hedgehog pathway that is especially important in skeletal development"</div>
@@ -5068,21 +5152,19 @@ This pathophysiological event involves Hedgehog Signaling, annotated with smooth
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Genitourinary<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Genitourinary<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Head and Neck<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Head and Neck<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Limbs<span class="pill-count">(6)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Musculoskeletal<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Musculoskeletal<span class="pill-count">(4)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Prenatal and Birth<span class="pill-count">(1)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Respiratory<span class="pill-count">(2)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Other<span class="pill-count">(5)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5129,6 +5211,9 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
 
 
 
+
+
+
                 </div>
 
             </details>
@@ -5137,7 +5222,7 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Digestive
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-congenital-hepatic-fibrosis" data-dismech-node="Congenital Hepatic Fibrosis" data-dismech-type="phenotype">
@@ -5168,6 +5253,9 @@ This clinical feature is Hepatic fibrosis (HP:0001395). HP:0001395 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5182,6 +5270,7 @@ This clinical feature is Hepatic fibrosis (HP:0001395). HP:0001395 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5208,13 +5297,87 @@ This clinical feature is Hepatic fibrosis (HP:0001395). HP:0001395 is a phenotyp
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-congenital-hepatic-fibrosis-2" data-dismech-node="Congenital Hepatic Fibrosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Congenital Hepatic Fibrosis
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002612" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0002612</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Congenital hepatic fibrosis (HP:0002612). HP:0002612 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:93271" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:93271" target="_blank">ORPHA:93271</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0002612 | Congenital hepatic fibrosis | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet lists congenital hepatic fibrosis as a frequent feature of SRPS Verma-Naumoff type.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Genitourinary
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-renal-cystic-disease" data-dismech-node="Renal Cystic Disease" data-dismech-type="phenotype">
@@ -5231,15 +5394,18 @@ This clinical feature is Hepatic fibrosis (HP:0001395). HP:0001395 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000107" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0000107</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000107" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0000107</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Renal cyst (HP:0000107). HP:0000107 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5259,6 +5425,7 @@ This clinical feature is Renal cyst (HP:0000107). HP:0000107 is a phenotype from
 
 
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
 
 
 
@@ -5283,13 +5450,87 @@ This clinical feature is Renal cyst (HP:0000107). HP:0000107 is a phenotype from
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-renal-hypoplasia" data-dismech-node="Renal Hypoplasia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Renal Hypoplasia
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000089" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0000089</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Renal hypoplasia (HP:0000089). HP:0000089 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:93271" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:93271" target="_blank">ORPHA:93271</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0000089 | Renal hypoplasia | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet lists renal hypoplasia as a frequent feature of SRPS Verma-Naumoff type.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
             <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-cleft-palate" data-dismech-node="Cleft Palate" data-dismech-type="phenotype">
@@ -5306,15 +5547,18 @@ This clinical feature is Renal cyst (HP:0000107). HP:0000107 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0000175</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0000175</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5337,6 +5581,7 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5345,6 +5590,80 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
 
 
                 <div class="evidence-explanation">Documents cleft lip and/or palate as a characteristic craniofacial feature in SRPS.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cleft-upper-lip" data-dismech-node="Cleft Upper Lip" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Cleft Upper Lip
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000204" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000204</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cleft upper lip (HP:0000204). HP:0000204 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:93271" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:93271" target="_blank">ORPHA:93271</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0000204 | Cleft upper lip | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet lists cleft upper lip as a frequent feature of SRPS Verma-Naumoff type.</div>
 
 
 
@@ -5383,15 +5702,18 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010442" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0010442</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010442" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0010442</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Polydactyly (HP:0010442). HP:0010442 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5411,6 +5733,7 @@ This clinical feature is Polydactyly (HP:0010442). HP:0010442 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5451,15 +5774,18 @@ This clinical feature is Polydactyly (HP:0010442). HP:0010442 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009826" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0009826</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0009826" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0009826</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Limb undergrowth (HP:0009826). HP:0009826 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5479,6 +5805,7 @@ This clinical feature is Limb undergrowth (HP:0009826). HP:0009826 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5519,15 +5846,18 @@ This clinical feature is Limb undergrowth (HP:0009826). HP:0009826 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002983" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0002983</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002983" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002983</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Micromelia (HP:0002983). HP:0002983 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5547,6 +5877,7 @@ This clinical feature is Micromelia (HP:0002983). HP:0002983 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5589,15 +5920,18 @@ This clinical feature is Micromelia (HP:0002983). HP:0002983 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001773" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001773</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001773" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001773</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Short foot (HP:0001773). HP:0001773 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5617,6 +5951,7 @@ This clinical feature is Short foot (HP:0001773). HP:0001773 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5659,15 +5994,18 @@ This clinical feature is Short foot (HP:0001773). HP:0001773 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000944" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000944</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000944" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000944</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal metaphysis morphology (HP:0000944). HP:0000944 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5687,6 +6025,7 @@ This clinical feature is Abnormal metaphysis morphology (HP:0000944). HP:0000944
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5729,15 +6068,18 @@ This clinical feature is Abnormal metaphysis morphology (HP:0000944). HP:0000944
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001162" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001162</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001162" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001162</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Postaxial hand polydactyly (HP:0001162). HP:0001162 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5757,6 +6099,7 @@ This clinical feature is Postaxial hand polydactyly (HP:0001162). HP:0001162 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5789,7 +6132,7 @@ This clinical feature is Postaxial hand polydactyly (HP:0001162). HP:0001162 is 
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">4</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-extremely-short-ribs" data-dismech-node="Extremely Short Ribs" data-dismech-type="phenotype">
@@ -5806,15 +6149,18 @@ This clinical feature is Postaxial hand polydactyly (HP:0001162). HP:0001162 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000773" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000773</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000773" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000773</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Short ribs (HP:0000773). HP:0000773 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5837,6 +6183,7 @@ This clinical feature is Short ribs (HP:0000773). HP:0000773 is a phenotype from
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"characterized by short ribs, a narrow thorax, short long bones, an abnormal acetabulum, and numerous extraskeletal malformations and is lethal in the perinatal period"</div>
@@ -5856,6 +6203,7 @@ This clinical feature is Short ribs (HP:0000773). HP:0000773 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5896,15 +6244,18 @@ This clinical feature is Short ribs (HP:0000773). HP:0000773 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000774" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000774</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000774" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000774</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Narrow chest (HP:0000774). HP:0000774 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5924,6 +6275,7 @@ This clinical feature is Narrow chest (HP:0000774). HP:0000774 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5947,253 +6299,6 @@ This clinical feature is Narrow chest (HP:0000774). HP:0000774 is a phenotype fr
 
 
                 </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-7">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Prenatal and Birth
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-polyhydramnios" data-dismech-node="Polyhydramnios" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Polyhydramnios
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001561" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001561</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Polyhydramnios (HP:0001561). HP:0001561 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-8">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Respiratory
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-respiratory-insufficiency-and-pulmonary-hypoplasia" data-dismech-node="Respiratory Insufficiency and Pulmonary Hypoplasia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Respiratory Insufficiency and Pulmonary Hypoplasia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002093</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Respiratory insufficiency (HP:0002093). HP:0002093 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:25313840" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25313840" target="_blank">PMID:25313840</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The affected child died in the neonatal period due to pulmonary hypoplasia leading to respiratory insufficiency"</div>
-
-
-                <div class="evidence-explanation">Directly documents perinatal death from pulmonary hypoplasia and respiratory insufficiency in a newborn with short-rib syndrome.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:24183449" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24183449" target="_blank">PMID:24183449</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"lethal in the perinatal period"</div>
-
-
-                <div class="evidence-explanation">Perinatal lethality due to respiratory failure is a defining feature across SRPS subtypes.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-respiratory-insufficiency" data-dismech-node="Respiratory Insufficiency" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Respiratory Insufficiency
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002093</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Respiratory insufficiency (HP:0002093). HP:0002093 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:93271" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:93271" target="_blank">ORPHA:93271</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0002093 | Respiratory insufficiency | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet lists respiratory insufficiency as a very frequent feature of SRPS Verma-Naumoff type.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:24183449" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24183449" target="_blank">PMID:24183449</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"numerous extraskeletal malformations and is lethal in the perinatal period"</div>
-
-
-                <div class="evidence-explanation">Confirms that the extreme thoracic restriction in SRPS type III leads to lethal respiratory compromise in the perinatal period.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-9">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">5</span>
-                </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-short-thorax" data-dismech-node="Short Thorax" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6225,6 +6330,9 @@ This clinical feature is Short thorax (HP:0010306). HP:0010306 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6239,6 +6347,7 @@ This clinical feature is Short thorax (HP:0010306). HP:0010306 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6295,6 +6404,9 @@ This clinical feature is Absent or minimally ossified vertebral bodies (HP:00045
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6309,6 +6421,7 @@ This clinical feature is Absent or minimally ossified vertebral bodies (HP:00045
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6335,11 +6448,18 @@ This clinical feature is Absent or minimally ossified vertebral bodies (HP:00045
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-renal-hypoplasia" data-dismech-node="Renal Hypoplasia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Renal Hypoplasia
+            </details>
 
-                        <span class="phenotype-freq">FREQUENT</span>
+            <details class="phenotype-category-group" id="pheno-cat-7">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Prenatal and Birth
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-polyhydramnios" data-dismech-node="Polyhydramnios" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Polyhydramnios
 
 
 
@@ -6351,12 +6471,12 @@ This clinical feature is Absent or minimally ossified vertebral bodies (HP:00045
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000089" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000089</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001561" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001561</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Renal hypoplasia (HP:0000089). HP:0000089 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Polyhydramnios (HP:0001561). HP:0001561 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6365,39 +6485,8 @@ This clinical feature is Renal hypoplasia (HP:0000089). HP:0000089 is a phenotyp
 
 
 
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:93271" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:93271" target="_blank">ORPHA:93271</a>
-                    </span>
 
 
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0000089 | Renal hypoplasia | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet lists renal hypoplasia as a frequent feature of SRPS Verma-Naumoff type.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
 
 
 
@@ -6405,11 +6494,18 @@ This clinical feature is Renal hypoplasia (HP:0000089). HP:0000089 is a phenotyp
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-congenital-hepatic-fibrosis-2" data-dismech-node="Congenital Hepatic Fibrosis" data-dismech-type="phenotype">
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-8">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Respiratory
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-respiratory-insufficiency-and-pulmonary-hypoplasia" data-dismech-node="Respiratory Insufficiency and Pulmonary Hypoplasia" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Congenital Hepatic Fibrosis
-
-                        <span class="phenotype-freq">FREQUENT</span>
+                        Respiratory Insufficiency and Pulmonary Hypoplasia
 
 
 
@@ -6421,12 +6517,12 @@ This clinical feature is Renal hypoplasia (HP:0000089). HP:0000089 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002612" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002612</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002093</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Congenital hepatic fibrosis (HP:0002612). HP:0002612 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Respiratory insufficiency (HP:0002093). HP:0002093 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6435,16 +6531,19 @@ This clinical feature is Congenital hepatic fibrosis (HP:0002612). HP:0002612 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="ORPHA:93271" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:25313840" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:93271" target="_blank">ORPHA:93271</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25313840" target="_blank">PMID:25313840</a>
                     </span>
 
 
@@ -6452,14 +6551,40 @@ This clinical feature is Congenital hepatic fibrosis (HP:0002612). HP:0002612 is
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"HP:0002612 | Congenital hepatic fibrosis | Frequent (79-30%)"</div>
+                <div class="evidence-snippet">"The affected child died in the neonatal period due to pulmonary hypoplasia leading to respiratory insufficiency"</div>
 
 
-                <div class="evidence-explanation">Orphanet lists congenital hepatic fibrosis as a frequent feature of SRPS Verma-Naumoff type.</div>
+                <div class="evidence-explanation">Directly documents perinatal death from pulmonary hypoplasia and respiratory insufficiency in a newborn with short-rib syndrome.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24183449" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24183449" target="_blank">PMID:24183449</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"lethal in the perinatal period"</div>
+
+
+                <div class="evidence-explanation">Perinatal lethality due to respiratory failure is a defining feature across SRPS subtypes.</div>
 
 
 
@@ -6475,11 +6600,11 @@ This clinical feature is Congenital hepatic fibrosis (HP:0002612). HP:0002612 is
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-cleft-upper-lip" data-dismech-node="Cleft Upper Lip" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-respiratory-insufficiency" data-dismech-node="Respiratory Insufficiency" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Cleft Upper Lip
+                        Respiratory Insufficiency
 
-                        <span class="phenotype-freq">FREQUENT</span>
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
 
@@ -6491,12 +6616,12 @@ This clinical feature is Congenital hepatic fibrosis (HP:0002612). HP:0002612 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000204" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000204</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002093</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cleft upper lip (HP:0000204). HP:0000204 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Respiratory insufficiency (HP:0002093). HP:0002093 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6505,9 +6630,12 @@ This clinical feature is Cleft upper lip (HP:0000204). HP:0000204 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -6522,14 +6650,40 @@ This clinical feature is Cleft upper lip (HP:0000204). HP:0000204 is a phenotype
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"HP:0000204 | Cleft upper lip | Frequent (79-30%)"</div>
+                <div class="evidence-snippet">"HP:0002093 | Respiratory insufficiency | Very frequent (99-80%)"</div>
 
 
-                <div class="evidence-explanation">Orphanet lists cleft upper lip as a frequent feature of SRPS Verma-Naumoff type.</div>
+                <div class="evidence-explanation">Orphanet lists respiratory insufficiency as a very frequent feature of SRPS Verma-Naumoff type.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24183449" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24183449" target="_blank">PMID:24183449</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"numerous extraskeletal malformations and is lethal in the perinatal period"</div>
+
+
+                <div class="evidence-explanation">Confirms that the extreme thoracic restriction in SRPS type III leads to lethal respiratory compromise in the perinatal period.</div>
 
 
 
@@ -6595,6 +6749,9 @@ This clinical feature is Cleft upper lip (HP:0000204). HP:0000204 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6609,6 +6766,7 @@ This clinical feature is Cleft upper lip (HP:0000204). HP:0000204 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6631,6 +6789,7 @@ This clinical feature is Cleft upper lip (HP:0000204). HP:0000204 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6664,6 +6823,9 @@ This clinical feature is Cleft upper lip (HP:0000204). HP:0000204 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6678,6 +6840,7 @@ This clinical feature is Cleft upper lip (HP:0000204). HP:0000204 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6703,6 +6866,7 @@ This clinical feature is Cleft upper lip (HP:0000204). HP:0000204 is a phenotype
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"NEK1 encodes a serine/threonine kinase with proposed function in DNA double-strand repair, neuronal development, and coordination of cell-cycle-associated ciliogenesis"</div>
@@ -6722,6 +6886,7 @@ This clinical feature is Cleft upper lip (HP:0000204). HP:0000204 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6755,6 +6920,9 @@ This clinical feature is Cleft upper lip (HP:0000204). HP:0000204 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6769,6 +6937,7 @@ This clinical feature is Cleft upper lip (HP:0000204). HP:0000204 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6791,6 +6960,7 @@ This clinical feature is Cleft upper lip (HP:0000204). HP:0000204 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6824,6 +6994,9 @@ This clinical feature is Cleft upper lip (HP:0000204). HP:0000204 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6838,6 +7011,7 @@ This clinical feature is Cleft upper lip (HP:0000204). HP:0000204 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6860,6 +7034,7 @@ This clinical feature is Cleft upper lip (HP:0000204). HP:0000204 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6941,6 +7116,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">SRPS is uniformly lethal in the perinatal period due to pulmonary hypoplasia. Management is directed toward comfort care and family support. Advance care planning, goals-of-care discussions with parents, neonatal palliative care, and bereavement support are integral to management. Mechanical ventilation does not alter the lethal outcome and is rarely attempted outside of diagnostic uncertainty contexts.
 </div>
 
@@ -6963,6 +7152,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7026,6 +7216,20 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Genetic counseling is essential for all families with an affected infant given the autosomal recessive inheritance (25% recurrence risk). Counseling encompasses explanation of the causative gene variant and inheritance pattern, recurrence risk quantification, reproductive options including prenatal diagnosis and preimplantation genetic diagnosis, and psychosocial support for grief and bereavement. Cascade testing of at-risk family members is indicated.
 </div>
 
@@ -7048,6 +7252,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7156,6 +7361,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7243,6 +7449,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7264,6 +7471,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7341,6 +7549,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7362,6 +7571,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8297,6 +8507,64 @@ datasets: []
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Review: Short-Rib Polydactyly Syndrome (Changes required)</strong> · 2026-05-30T02:48:42Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Short-Rib_Polydactyly_Syndrome/2026-05-30T024842Z-github-review-3396.yaml">View source</a></p>
+                        <p class="research-review-text">GitHub review issue: https://github.com/monarch-initiative/dismech/issues/3396
+Issue state: OPEN
+Issue created: 2026-05-30T02:48:42Z
+Issue updated: 2026-05-30T02:51:42Z
+Issue closed: not closed
+Review decision: Changes required
+Labels: curation, medium_effort, review
+
+## Completed curation review
+
+- Disease: **Short-Rib Polydactyly Syndrome**
+- Entry: `kb/disorders/Short-Rib_Polydactyly_Syndrome.yaml`
+- Selection basis: #9 of 50 least-recently edited Mendelian entries
+- Review decision: **Changes required**
+- Validation stance: assumes schema/term/reference validation passes; this is a biological and clinical-content review.
+
+## Findings
+
+1. **The entry is likely too lumped for the current disease concept.** The YAML has no `has_subtypes:` but lists genes/labels corresponding to SRP type II/Majewski, SRP type III/Verma-Naumoff, and other short-rib thoracic dysplasia genes. NCBI/GTR frames short-rib thoracic dysplasia as a heterogeneous group overlapping Jeune/ATD, SRPS, Mainzer-Saldino, and EVC. The current entry should either explicitly model subtypes or narrow its disease boundary.
+2. **Prenatal/lethal presentation is under-modeled.** The phenotype list captures short ribs, narrow thorax, limb shortening, polydactyly, renal cystic disease, cardiovascular defects, and polyhydramnios. For SRPS, prenatal ultrasound diagnosis, perinatal lethality/respiratory insufficiency, and visceral malformations are central and should be represented.
+3. **Gene coverage is incomplete and needs subtype mapping.** DYNC2H1, NEK1, WDR34, and IFT80 are present, but the broader SRPS/SRTD spectrum includes additional dynein-2 and IFT genes. More importantly, each gene should be tied to the correct subtype/disease term rather than placed in one undifferentiated genetic section.
+4. **Mechanism should distinguish dynein-2/IFT branches.** The YAML has IFT/ciliogenesis defects and Hedgehog disruption. The research artifacts support more atomic dynein-2 retrograde IFT, IFT-A/B transport, ciliary transition-zone/gating, and growth-plate chondrocyte Hedgehog/IHH effects.
+5. **Management is too generic.** `Supportive Care` is insufficient for a lethal/prenatally diagnosed skeletal ciliopathy group. The entry should include prenatal counseling/diagnosis, neonatal respiratory planning, renal/hepatic/cardiac evaluation where applicable, and palliative/perinatal management distinctions.
+
+## Research-artifact cross-check
+
+Checked `research/Short-Rib_Polydactyly_Syndrome-deep-research-falcon.md`, `.citations.md`, `research/Short-Rib_Polydactyly_Syndrome-deep-research-cyberian-codex.md`, and `.citations.md`. The YAML consumes the broad ciliopathy mechanism but under-consumes subtype/gene specificity and prenatal/perinatal clinical context.
+
+## Content-completeness summary
+
+- **Phenotypes:** core skeletal/visceral phenotypes present; prenatal lethality and organ-system specifics need strengthening.
+- **Subtype/lumping:** major gap. Add subtype structure or narrow the entry.
+- **Pathophysiology:** split IFT/dynein/Hedgehog mechanisms by gene/subtype where evidence supports.
+- **Management/diagnosis:** add prenatal diagnosis, counseling, neonatal respiratory/perinatal care, and organ surveillance.
+- **References:** verify subtype PMIDs before adding new evidence.
+
+## Suggested remediation
+
+Define the scope against SRTD/SRPS, add subtype mappings, expand gene-specific mechanisms, and replace generic supportive care with prenatal/perinatal and organ-system management.
+
+## Sources used
+
+- NCBI GTR short-rib thoracic dysplasia overview: https://www.ncbi.nlm.nih.gov/gtr/conditions/C4479416/
+
+No YAML files or `references_cache/*.md` files were edited.
+
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

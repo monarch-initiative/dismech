@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4090,6 +4162,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4200,6 +4273,7 @@ This subtype is caused by variation in ZNF469 (hgnc:23216). hgnc:23216 is a gene
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4280,6 +4354,7 @@ This subtype is caused by variation in PRDM5 (hgnc:9349). hgnc:9349 is a gene fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4376,6 +4451,7 @@ This subtype is caused by variation in PRDM5 (hgnc:9349). hgnc:9349 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-prdm5-or-znf469-transcriptional-regulator-function" data-dismech-node="Loss of PRDM5 or ZNF469 Transcriptional Regulator Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of PRDM5 or ZNF469 Transcriptional Regulator Function</div>
+
 
                 <div class="item-desc">The initiating lesion is biallelic loss of function in one of two transcriptional regulators that act in a shared pathway. PRDM5 is a PR-domain zinc finger repressor; ZNF469 is a zinc finger protein of previously undefined function identified as a quantitative trait locus for central corneal thickness. The demonstration that they participate in the same regulatory pathway is what licenses curating BCS as one disease with two genotypic subtypes rather than two sibling diseases.</div>
 
@@ -4557,6 +4633,7 @@ This pathophysiological event involves regulation of DNA-templated transcription
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4579,6 +4656,7 @@ This pathophysiological event involves regulation of DNA-templated transcription
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-repressive-chromatin-complex-recruitment-at-ecm-target-genes" data-dismech-node="Failure of Repressive Chromatin Complex Recruitment at ECM Target Genes" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Repressive Chromatin Complex Recruitment at ECM Target Genes</div>
+
 
                 <div class="item-desc">PRDM5 acts by recruiting repressive complexes and depositing H3K9 di-methylation at target genes. The BCS2 missense allele p.Arg83Cys is mechanistically informative because it leaves the DNA-binding zinc fingers intact and instead diminishes interaction with the NuRD component CHD4 and with HP1BP3, showing that loss of the protein-protein interaction alone is sufficient to cause disease. Patient fibroblasts carrying truncating alleles show dysregulated H3K9me2, and ECM stability mediators are upregulated - the direction expected from loss of a repressor, and worth noting because the net downstream consequence is nonetheless a structurally deficient matrix.</div>
 
@@ -4747,6 +4825,7 @@ This pathophysiological event involves negative regulation of transcription by R
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4768,6 +4847,7 @@ This pathophysiological event involves negative regulation of transcription by R
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4793,6 +4873,7 @@ This pathophysiological event involves negative regulation of transcription by R
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-fibrillar-collagen-and-extracellular-matrix-gene-expression" data-dismech-node="Dysregulated Fibrillar Collagen and Extracellular Matrix Gene Expression" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysregulated Fibrillar Collagen and Extracellular Matrix Gene Expression</div>
+
 
                 <div class="item-desc">The shared downstream lesion is loss of transcriptional control over extracellular matrix components, particularly the fibrillar collagens. This is the node the authors identify as the key molecular mechanism underlying corneal fragility, and it is the node at which the two genotypic subtypes become indistinguishable.</div>
 
@@ -4973,6 +5054,7 @@ This pathophysiological event occurs in substantia propria of cornea (UBERON:000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4995,6 +5077,7 @@ This pathophysiological event occurs in substantia propria of cornea (UBERON:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-corneal-stromal-thinning-and-biomechanical-failure" data-dismech-node="Corneal Stromal Thinning and Biomechanical Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Corneal Stromal Thinning and Biomechanical Failure</div>
+
 
                 <div class="item-desc">The cornea becomes extremely thin - central corneal thickness below 400 micrometres in the large majority of patients, against a normal range of 515 to 575, with a thinnest point of 151 and 157 micrometres in two reported cases - and loses the tensile strength needed to contain intraocular pressure. Thinning is most pronounced centrally, with the periphery relatively preserved. The same matrix deficiency produces protrusion (keratoglobus, keratoconus), scleral thinning visible as blue sclerae, and axial elongation manifesting as high myopia.</div>
 
@@ -5103,6 +5186,7 @@ This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5125,6 +5209,7 @@ This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-corneal-rupture" data-dismech-node="Corneal Rupture" data-dismech-type="pathophysiology">
                 <div class="item-name">Corneal Rupture</div>
+
 
                 <div class="item-desc">Rupture is the event that defines the disease&#39;s severity and its management. It occurs spontaneously or after minimal trauma, and historically enucleation was frequently the only option, causing blindness. Because rupture can be the presenting feature in a child, it has been misattributed to non-accidental injury - a diagnostic error with obvious consequences, and a reason recognition matters beyond the eye clinic.</div>
 
@@ -5184,6 +5269,7 @@ This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5205,6 +5291,7 @@ This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5272,11 +5359,11 @@ This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Eye<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Ear<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Musculoskeletal<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(6)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5285,627 +5372,9 @@ This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Eye
-                    <span class="cat-count">3</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-high-myopia" data-dismech-node="High Myopia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        High Myopia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011003" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0011003</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is High myopia (HP:0011003). HP:0011003 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:23642083" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23642083" target="_blank">PMID:23642083</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Clinical features include extreme corneal thinning with rupture, high myopia, blue sclerae, deafness of mixed aetiology with hypercompliant tympanic membranes, and variable skeletal manifestations."</div>
-
-
-                <div class="evidence-explanation">The consensus clinical feature list from the series that defined molecular diagnosis in BCS.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-keratoconus" data-dismech-node="Keratoconus" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Keratoconus
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000563" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000563</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Keratoconus (HP:0000563). HP:0000563 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:21664999" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21664999" target="_blank">PMID:21664999</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Even when the cornea remains grossly intact, visual function could also be impaired by a high degree of myopia and keratoconus."</div>
-
-
-                <div class="evidence-explanation">Records that vision is threatened by refractive and ectatic change even without rupture.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-blue-sclerae" data-dismech-node="Blue Sclerae" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Blue Sclerae
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000592" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000592</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Blue sclerae (HP:0000592). HP:0000592 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:23642083" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23642083" target="_blank">PMID:23642083</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Clinical features include extreme corneal thinning with rupture, high myopia, blue sclerae, deafness of mixed aetiology with hypercompliant tympanic membranes, and variable skeletal manifestations."</div>
-
-
-                <div class="evidence-explanation">Lists blue sclerae among the defining clinical features.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Musculoskeletal
+                    Ear
                     <span class="cat-count">2</span>
                 </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-joint-hypermobility" data-dismech-node="Joint Hypermobility" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Joint Hypermobility
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001382" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001382</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Joint hypermobility (HP:0001382). HP:0001382 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:35791165" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35791165" target="_blank">PMID:35791165</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"A systemic evaluation revealed sensorineural hearing loss and hyperextensible joints."</div>
-
-
-                <div class="evidence-explanation">Documents joint hyperextensibility on systemic evaluation in a BCS sibship. Note this report describes the hearing loss as sensorineural, where the definitive review describes deafness of mixed aetiology; the auditory phenotype is curated from the latter.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-developmental-dysplasia-of-the-hip" data-dismech-node="Developmental Dysplasia of the Hip" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Developmental Dysplasia of the Hip
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Hip dysplasia</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001385" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001385</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hip dysplasia (HP:0001385). HP:0001385 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:23642083" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23642083" target="_blank">PMID:23642083</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Mainstays of management include the prevention of ocular rupture by provision of protective polycarbonate spectacles, careful monitoring of visual and auditory function, and assessment for skeletal complications such as developmental dysplasia of the hip."</div>
-
-
-                <div class="evidence-explanation">Names developmental dysplasia of the hip as the skeletal complication requiring active assessment. This snippet previously sat on the joint hypermobility phenotype, which it does not mention.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">5</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-extreme-corneal-thinning" data-dismech-node="Extreme Corneal Thinning" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Extreme Corneal Thinning
-
-                        <span class="phenotype-freq">OBLIGATE</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Decreased corneal thickness</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100689" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0100689</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Decreased corneal thickness (HP:0100689). HP:0100689 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (5 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:23642083" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23642083" target="_blank">PMID:23642083</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Brittle cornea syndrome (BCS) is an autosomal recessive disorder characterised by extreme corneal thinning and fragility."</div>
-
-
-                <div class="evidence-explanation">Corneal thinning is definitional for BCS, which is what supports the OBLIGATE band.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:40647596" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40647596" target="_blank">PMID:40647596</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"From a clinical standpoint, BCS is marked by severe corneal thinning, with central corneal thickness (CCT) often measuring below 400 µm and, in extreme cases, even below 300 µm"</div>
-
-
-                <div class="evidence-explanation">Supplies the quantitative thresholds the description states, in central corneal thickness terms.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:23642083" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23642083" target="_blank">PMID:23642083</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"the large majority of patients with BCS have had central corneal thickness (CCT) of less than 400 μm (normal range 515– 575 μm"</div>
-
-
-                <div class="evidence-explanation">Gives the normal central corneal thickness range the disease figure is measured against, so the comparison is cited rather than assumed.</div>
-
-
-
-            </div>
-
-
-            <div class="evidence-more">+ 2 more references</div>
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-corneal-perforation" data-dismech-node="Corneal Perforation" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Corneal Perforation
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100583" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0100583</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Corneal perforation (HP:0100583). HP:0100583 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:23642083" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23642083" target="_blank">PMID:23642083</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Corneal rupture can therefore occur either spontaneously or following minimal trauma in affected patients."</div>
-
-
-                <div class="evidence-explanation">Establishes rupture as a discrete event distinct from the thinning.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-keratoglobus" data-dismech-node="Keratoglobus" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Keratoglobus
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001119" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001119</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Keratoglobus (HP:0001119). HP:0001119 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:40647596" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40647596" target="_blank">PMID:40647596</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Detailed ophthalmologic evaluation revealed keratoglobus, high myopia, and irregular astigmatism."</div>
-
-
-                <div class="evidence-explanation">Documents keratoglobus in genetically confirmed PRDM5 disease, alongside the refractive consequences.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-mixed-deafness" data-dismech-node="Mixed Deafness" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -5923,15 +5392,18 @@ This clinical feature is Keratoglobus (HP:0001119). HP:0001119 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000410" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000410</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000410" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000410</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Mixed hearing impairment (HP:0000410). HP:0000410 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5951,6 +5423,7 @@ This clinical feature is Mixed hearing impairment (HP:0000410). HP:0000410 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5975,6 +5448,7 @@ This clinical feature is Mixed hearing impairment (HP:0000410). HP:0000410 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6017,15 +5491,18 @@ This clinical feature is Mixed hearing impairment (HP:0000410). HP:0000410 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_6000015" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:6000015</a>
+    <a href="http://purl.obolibrary.org/obo/HP_6000015" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:6000015</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Tympanic membrane hypermobility (HP:6000015). HP:6000015 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6048,6 +5525,7 @@ This clinical feature is Tympanic membrane hypermobility (HP:6000015). HP:600001
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6056,6 +5534,658 @@ This clinical feature is Tympanic membrane hypermobility (HP:6000015). HP:600001
 
 
                 <div class="evidence-explanation">Names hypercompliant tympanic membranes explicitly among the defining clinical features.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Eye
+                    <span class="cat-count">6</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-extreme-corneal-thinning" data-dismech-node="Extreme Corneal Thinning" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Extreme Corneal Thinning
+
+                        <span class="phenotype-freq">OBLIGATE</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Decreased corneal thickness</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100689" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0100689</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Decreased corneal thickness (HP:0100689). HP:0100689 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (5 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23642083" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23642083" target="_blank">PMID:23642083</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Brittle cornea syndrome (BCS) is an autosomal recessive disorder characterised by extreme corneal thinning and fragility."</div>
+
+
+                <div class="evidence-explanation">Corneal thinning is definitional for BCS, which is what supports the OBLIGATE band.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40647596" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40647596" target="_blank">PMID:40647596</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"From a clinical standpoint, BCS is marked by severe corneal thinning, with central corneal thickness (CCT) often measuring below 400 µm and, in extreme cases, even below 300 µm"</div>
+
+
+                <div class="evidence-explanation">Supplies the quantitative thresholds the description states, in central corneal thickness terms.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23642083" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23642083" target="_blank">PMID:23642083</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the large majority of patients with BCS have had central corneal thickness (CCT) of less than 400 μm (normal range 515– 575 μm"</div>
+
+
+                <div class="evidence-explanation">Gives the normal central corneal thickness range the disease figure is measured against, so the comparison is cited rather than assumed.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 2 more references</div>
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-corneal-perforation" data-dismech-node="Corneal Perforation" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Corneal Perforation
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100583" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0100583</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Corneal perforation (HP:0100583). HP:0100583 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23642083" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23642083" target="_blank">PMID:23642083</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Corneal rupture can therefore occur either spontaneously or following minimal trauma in affected patients."</div>
+
+
+                <div class="evidence-explanation">Establishes rupture as a discrete event distinct from the thinning.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-high-myopia" data-dismech-node="High Myopia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        High Myopia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011003" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0011003</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is High myopia (HP:0011003). HP:0011003 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23642083" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23642083" target="_blank">PMID:23642083</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Clinical features include extreme corneal thinning with rupture, high myopia, blue sclerae, deafness of mixed aetiology with hypercompliant tympanic membranes, and variable skeletal manifestations."</div>
+
+
+                <div class="evidence-explanation">The consensus clinical feature list from the series that defined molecular diagnosis in BCS.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-keratoconus" data-dismech-node="Keratoconus" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Keratoconus
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000563" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000563</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Keratoconus (HP:0000563). HP:0000563 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21664999" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21664999" target="_blank">PMID:21664999</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Even when the cornea remains grossly intact, visual function could also be impaired by a high degree of myopia and keratoconus."</div>
+
+
+                <div class="evidence-explanation">Records that vision is threatened by refractive and ectatic change even without rupture.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-keratoglobus" data-dismech-node="Keratoglobus" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Keratoglobus
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001119" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001119</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Keratoglobus (HP:0001119). HP:0001119 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40647596" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40647596" target="_blank">PMID:40647596</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Detailed ophthalmologic evaluation revealed keratoglobus, high myopia, and irregular astigmatism."</div>
+
+
+                <div class="evidence-explanation">Documents keratoglobus in genetically confirmed PRDM5 disease, alongside the refractive consequences.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-blue-sclerae" data-dismech-node="Blue Sclerae" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Blue Sclerae
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000592" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000592</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Blue sclerae (HP:0000592). HP:0000592 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23642083" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23642083" target="_blank">PMID:23642083</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Clinical features include extreme corneal thinning with rupture, high myopia, blue sclerae, deafness of mixed aetiology with hypercompliant tympanic membranes, and variable skeletal manifestations."</div>
+
+
+                <div class="evidence-explanation">Lists blue sclerae among the defining clinical features.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Musculoskeletal
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-joint-hypermobility" data-dismech-node="Joint Hypermobility" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Joint Hypermobility
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001382" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001382</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Joint hypermobility (HP:0001382). HP:0001382 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35791165" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35791165" target="_blank">PMID:35791165</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A systemic evaluation revealed sensorineural hearing loss and hyperextensible joints."</div>
+
+
+                <div class="evidence-explanation">Documents joint hyperextensibility on systemic evaluation in a BCS sibship. Note this report describes the hearing loss as sensorineural, where the definitive review describes deafness of mixed aetiology; the auditory phenotype is curated from the latter.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-developmental-dysplasia-of-the-hip" data-dismech-node="Developmental Dysplasia of the Hip" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Developmental Dysplasia of the Hip
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Hip dysplasia</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001385" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001385</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hip dysplasia (HP:0001385). HP:0001385 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23642083" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23642083" target="_blank">PMID:23642083</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Mainstays of management include the prevention of ocular rupture by provision of protective polycarbonate spectacles, careful monitoring of visual and auditory function, and assessment for skeletal complications such as developmental dysplasia of the hip."</div>
+
+
+                <div class="evidence-explanation">Names developmental dysplasia of the hip as the skeletal complication requiring active assessment. This snippet previously sat on the joint hypermobility phenotype, which it does not mention.</div>
 
 
 
@@ -6143,6 +6273,9 @@ This disease-associated gene is PRDM5 (hgnc:9349). hgnc:9349 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6157,6 +6290,7 @@ This disease-associated gene is PRDM5 (hgnc:9349). hgnc:9349 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6214,6 +6348,9 @@ This disease-associated gene is ZNF469 (hgnc:23216). hgnc:23216 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6228,6 +6365,7 @@ This disease-associated gene is ZNF469 (hgnc:23216). hgnc:23216 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6311,6 +6449,31 @@ This treatment is protective eyewear, annotated with Supportive Care (NCIT:C1574
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Device</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">The primary preventive intervention. Because the treatable event is rupture rather than the matrix lesion, physical protection of the globe is the mainstay of management and is not a stopgap for something better.</div>
 
 
@@ -6341,6 +6504,7 @@ This treatment is protective eyewear, annotated with Supportive Care (NCIT:C1574
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6384,6 +6548,7 @@ This treatment is protective eyewear, annotated with Supportive Care (NCIT:C1574
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6448,6 +6613,31 @@ This treatment is corneal transplantation (NCIT:C210959). NCIT:C210959 is a clin
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Corneal transplantation, penetrating or deep anterior lamellar. In a recent genetically confirmed sibling pair both achieved good corrected acuity and remained complication-free at seven years, though one planned lamellar procedure had to be converted intraoperatively because of central endothelial perforation - which is the operative expression of the tissue fragility the disease is named for.</div>
 
 
@@ -6469,6 +6659,7 @@ This treatment is corneal transplantation (NCIT:C210959). NCIT:C210959 is a clin
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6533,6 +6724,31 @@ This treatment is corneal collagen cross-linking, annotated with Therapeutic Pro
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Device</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Photochemical stiffening of the corneal stroma. It is the only reported intervention that acts on the biomechanical lesion itself rather than on the rupture event, but the evidence is two paediatric cases, not a series. The standard (Dresden) protocol is contraindicated below 200 micrometres, which excludes most brittle corneas; both reported patients were treated with a transepithelial protocol and UV fluence scaled to their thickness. Curated as an emerging option, not a standard of care.</div>
 
 
@@ -6563,6 +6779,7 @@ This treatment is corneal collagen cross-linking, annotated with Therapeutic Pro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6609,6 +6826,7 @@ This treatment is corneal collagen cross-linking, annotated with Therapeutic Pro
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6633,6 +6851,7 @@ This treatment is corneal collagen cross-linking, annotated with Therapeutic Pro
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6654,6 +6873,7 @@ This treatment is corneal collagen cross-linking, annotated with Therapeutic Pro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6731,6 +6951,7 @@ This treatment is corneal collagen cross-linking, annotated with Therapeutic Pro
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6752,6 +6973,7 @@ This treatment is corneal collagen cross-linking, annotated with Therapeutic Pro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6806,6 +7028,7 @@ This treatment is corneal collagen cross-linking, annotated with Therapeutic Pro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 

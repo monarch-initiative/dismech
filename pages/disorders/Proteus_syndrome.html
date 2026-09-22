@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4266,6 +4338,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4396,6 +4469,7 @@
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4430,6 +4504,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-somatic-akt1-p-e17k-activation-in-mosaic-cell-clones" data-dismech-node="Somatic AKT1 p.E17K activation in mosaic cell clones" data-dismech-type="pathophysiology">
                 <div class="item-name">Somatic AKT1 p.E17K activation in mosaic cell clones</div>
+
 
                 <div class="item-desc">Proteus syndrome is caused by a post-zygotic activating AKT1 p.E17K variant present in a mosaic subset of cells.
 </div>
@@ -4488,6 +4563,7 @@
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"A somatic activating mutation in AKT1, c.49G&gt;A, pGlu17Lys, that results in elevated AKT signaling in mutation-positive cells, is responsible for the mosaic overgrowth condition, Proteus syndrome."</div>
@@ -4508,6 +4584,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-elevated-pi3k-akt-signaling-in-akt1-mutant-cells" data-dismech-node="Elevated PI3K/AKT signaling in AKT1-mutant cells" data-dismech-type="pathophysiology">
                 <div class="item-name">Elevated PI3K/AKT signaling in AKT1-mutant cells</div>
+
 
                 <div class="item-desc">AKT1 p.E17K drives increased PI3K/AKT pathway activity in mutation-positive cells, promoting downstream overgrowth signals.
 </div>
@@ -4706,6 +4783,7 @@ This pathophysiological event involves increased phosphatidylinositol 3-kinase/p
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"A somatic activating mutation in AKT1, c.49G&gt;A, pGlu17Lys, that results in elevated AKT signaling in mutation-positive cells, is responsible for the mosaic overgrowth condition, Proteus syndrome."</div>
@@ -4726,6 +4804,7 @@ This pathophysiological event involves increased phosphatidylinositol 3-kinase/p
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-pakt-signaling-in-akt1-mutant-lesion-cells" data-dismech-node="Increased pAKT signaling in AKT1-mutant lesion cells" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased pAKT signaling in AKT1-mutant lesion cells</div>
+
 
                 <div class="item-desc">Lesion cells harboring AKT1 p.E17K show increased pAKT signaling within hyperplastic regions.
 </div>
@@ -4803,6 +4882,7 @@ This pathophysiological event involves increased protein phosphorylation (GO:000
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4825,6 +4905,7 @@ This pathophysiological event involves increased protein phosphorylation (GO:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-non-cell-autonomous-pakt-activation-in-adjacent-cells" data-dismech-node="Non-cell-autonomous pAKT activation in adjacent cells" data-dismech-type="pathophysiology">
                 <div class="item-name">Non-cell-autonomous pAKT activation in adjacent cells</div>
+
 
                 <div class="item-desc">AKT1-mutant clones can induce increased pAKT signaling in nearby mutation-negative cells, consistent with non-cell-autonomous lesion propagation. This branch rests chiefly on mouse-chimera model evidence and remains a mechanistic hypothesis whose fidelity to human disease is not yet established (see discussions).
 </div>
@@ -4902,6 +4983,7 @@ This pathophysiological event involves increased cell-cell signaling (GO:0007267
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4924,6 +5006,7 @@ This pathophysiological event involves increased cell-cell signaling (GO:0007267
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-akt-overactivation-induces-excessive-vasculogenesis" data-dismech-node="AKT overactivation induces excessive vasculogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">AKT overactivation induces excessive vasculogenesis</div>
+
 
                 <div class="item-desc">AKT1 activation increases vascular connectivity and promotes vasculogenesis with enhanced vascular sprouting. Support comes from an iPSC-derived vascular-organoid preprint, so this branch should be read as emerging/model-based rather than established in human tissue (see discussions).
 </div>
@@ -5102,6 +5185,7 @@ This pathophysiological event involves increased angiogenesis (GO:0001525). GO:0
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5128,6 +5212,7 @@ This pathophysiological event involves increased angiogenesis (GO:0001525). GO:0
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5150,6 +5235,7 @@ This pathophysiological event involves increased angiogenesis (GO:0001525). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mural-cell-dysfunction-destabilizes-vascular-connections" data-dismech-node="Mural cell dysfunction destabilizes vascular connections" data-dismech-type="pathophysiology">
                 <div class="item-name">Mural cell dysfunction destabilizes vascular connections</div>
+
 
                 <div class="item-desc">AKT-driven vascular malformations include dysfunctional PDGFRβ+ mural cells with impaired matrix secretion, contributing to unstable vessel connections. This is emerging/model-based support from an iPSC vascular-organoid preprint and is not yet confirmed in human tissue (see discussions).
 </div>
@@ -5282,6 +5368,7 @@ This pathophysiological event involves decreased extracellular matrix organizati
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5305,6 +5392,7 @@ This pathophysiological event involves decreased extracellular matrix organizati
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5374,7 +5462,7 @@ This pathophysiological event involves decreased extracellular matrix organizati
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(5)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Eye<span class="pill-count">(7)</span></button>
 
@@ -5389,8 +5477,6 @@ This pathophysiological event involves decreased extracellular matrix organizati
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Growth<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Neoplasm<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Other<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5435,6 +5521,9 @@ This clinical feature is Deep venous thrombosis (HP:0002625). HP:0002625 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5449,6 +5538,7 @@ This clinical feature is Deep venous thrombosis (HP:0002625). HP:0002625 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5471,6 +5561,7 @@ This clinical feature is Deep venous thrombosis (HP:0002625). HP:0002625 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5501,7 +5592,7 @@ This clinical feature is Deep venous thrombosis (HP:0002625). HP:0002625 is a ph
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">5</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-venous-malformation" data-dismech-node="Venous malformation" data-dismech-type="phenotype">
@@ -5534,6 +5625,9 @@ This clinical feature is Venous malformation (HP:0012721). HP:0012721 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5548,6 +5642,7 @@ This clinical feature is Venous malformation (HP:0012721). HP:0012721 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5570,6 +5665,7 @@ This clinical feature is Venous malformation (HP:0012721). HP:0012721 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5624,6 +5720,9 @@ This clinical feature is Varicose veins (HP:0002619). HP:0002619 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5641,12 +5740,165 @@ This clinical feature is Varicose veins (HP:0002619). HP:0002619 is a phenotype 
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Many individuals develop cutaneous capillary malformation and prominent varicosities (large and complex vascular malformations)."</div>
 
 
                 <div class="evidence-explanation">Prominent varicosities are reported as part of Proteus syndrome vascular disease.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pulmonary-venous-dilation" data-dismech-node="Pulmonary venous dilation" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Pulmonary venous dilation
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal pulmonary vein morphology</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030968" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0030968</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pulmonary venous dilation, annotated with Abnormal pulmonary vein morphology (HP:0030968). HP:0030968 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1038/s41598-021-86029-0" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1038/s41598-021-86029-0" target="_blank">DOI:10.1038/s41598-021-86029-0</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The cardiothoracic findings of Proteus syndrome were diverse, but several were much more common and included: scoliosis from bony overgrowth (94%), pulmonary venous dilation (62%), band-like areas of lung scarring (56%), and hyperlucent lung parenchyma (50%)."</div>
+
+
+                <div class="evidence-explanation">The imaging cohort reports pulmonary venous dilation in 62% of individuals.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-intramyocardial-fat" data-dismech-node="Intramyocardial fat" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Intramyocardial fat
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal myocardium morphology</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001637" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001637</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Intramyocardial fat, annotated with Abnormal myocardium morphology (HP:0001637). HP:0001637 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1038/s41598-021-86029-0" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1038/s41598-021-86029-0" target="_blank">DOI:10.1038/s41598-021-86029-0</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"of 20 individuals who underwent cardiac MRI, 9/20 (45%) had intramyocardial fat, mostly involving the endocardial surface of the left ventricular septal wall"</div>
+
+
+                <div class="evidence-explanation">Cardiac MRI identified intramyocardial fat in 45% of imaged individuals.</div>
 
 
 
@@ -5678,15 +5930,18 @@ This clinical feature is Varicose veins (HP:0002619). HP:0002619 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002204" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0002204</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002204" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002204</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pulmonary embolism (HP:0002204). HP:0002204 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5709,6 +5964,7 @@ This clinical feature is Pulmonary embolism (HP:0002204). HP:0002204 is a phenot
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"It is associated with a range of tumors, pulmonary complications, and a striking predisposition to deep vein thrombosis and pulmonary embolism."</div>
@@ -5728,6 +5984,7 @@ This clinical feature is Pulmonary embolism (HP:0002204). HP:0002204 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5777,15 +6034,18 @@ This clinical feature is Pulmonary embolism (HP:0002204). HP:0002204 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001140" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001140</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001140" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001140</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Limbal dermoid (HP:0001140). HP:0001140 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5805,6 +6065,7 @@ This clinical feature is Limbal dermoid (HP:0001140). HP:0001140 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5845,15 +6106,18 @@ This clinical feature is Limbal dermoid (HP:0001140). HP:0001140 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000518</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000518</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5873,6 +6137,7 @@ This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5913,15 +6178,18 @@ This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000639</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000639</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5941,6 +6209,7 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5981,15 +6250,18 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000545" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000545</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000545" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000545</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Myopia (HP:0000545). HP:0000545 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6009,6 +6281,7 @@ This clinical feature is Myopia (HP:0000545). HP:0000545 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6049,15 +6322,18 @@ This clinical feature is Myopia (HP:0000545). HP:0000545 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012426" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0012426</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012426" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0012426</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Optic disc drusen (HP:0012426). HP:0012426 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6077,6 +6353,7 @@ This clinical feature is Optic disc drusen (HP:0012426). HP:0012426 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6117,15 +6394,18 @@ This clinical feature is Optic disc drusen (HP:0012426). HP:0012426 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000520" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000520</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000520" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000520</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Proptosis (HP:0000520). HP:0000520 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6145,6 +6425,7 @@ This clinical feature is Proptosis (HP:0000520). HP:0000520 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6185,15 +6466,18 @@ This clinical feature is Proptosis (HP:0000520). HP:0000520 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000505</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000505</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6213,6 +6497,7 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6262,15 +6547,18 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010816" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0010816</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010816" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0010816</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Epidermal nevus (HP:0010816). HP:0010816 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6290,6 +6578,7 @@ This clinical feature is Epidermal nevus (HP:0010816). HP:0010816 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6330,15 +6619,18 @@ This clinical feature is Epidermal nevus (HP:0010816). HP:0010816 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025104" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0025104</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0025104" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0025104</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Capillary malformation (HP:0025104). HP:0025104 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6358,6 +6650,7 @@ This clinical feature is Capillary malformation (HP:0025104). HP:0025104 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6407,15 +6700,18 @@ This clinical feature is Capillary malformation (HP:0025104). HP:0025104 is a ph
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_6000009" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:6000009</a>
+    <a href="http://purl.obolibrary.org/obo/HP_6000009" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:6000009</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cerebriform connective tissue nevus (HP:6000009). HP:6000009 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6438,6 +6734,7 @@ This clinical feature is Cerebriform connective tissue nevus (HP:6000009). HP:60
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"The patient has experienced sustained improvement of pain and slowed growth of bilateral plantar cerebriform connective tissue nevi."</div>
@@ -6457,6 +6754,7 @@ This clinical feature is Cerebriform connective tissue nevus (HP:6000009). HP:60
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6497,15 +6795,18 @@ This clinical feature is Cerebriform connective tissue nevus (HP:6000009). HP:60
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002650</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002650</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6525,6 +6826,7 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6565,15 +6867,18 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012032" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0012032</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012032" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0012032</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Lipoma (HP:0012032). HP:0012032 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6593,6 +6898,7 @@ This clinical feature is Lipoma (HP:0012032). HP:0012032 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6642,15 +6948,18 @@ This clinical feature is Lipoma (HP:0012032). HP:0012032 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002097" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002097</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002097" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0002097</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Emphysema (HP:0002097). HP:0002097 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6670,6 +6979,7 @@ This clinical feature is Emphysema (HP:0002097). HP:0002097 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6710,15 +7020,18 @@ This clinical feature is Emphysema (HP:0002097). HP:0002097 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005948" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0005948</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005948" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0005948</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Multiple pulmonary cysts (HP:0005948). HP:0005948 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6738,6 +7051,7 @@ This clinical feature is Multiple pulmonary cysts (HP:0005948). HP:0005948 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6780,15 +7094,18 @@ This clinical feature is Multiple pulmonary cysts (HP:0005948). HP:0005948 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002206" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0002206</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002206" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0002206</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Band-like lung scarring, annotated with Pulmonary fibrosis (HP:0002206). HP:0002206 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6808,6 +7125,7 @@ This clinical feature is Band-like lung scarring, annotated with Pulmonary fibro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6859,15 +7177,18 @@ This clinical feature is Band-like lung scarring, annotated with Pulmonary fibro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012531" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0012531</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012531" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0012531</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pain (HP:0012531). HP:0012531 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6887,6 +7208,7 @@ This clinical feature is Pain (HP:0012531). HP:0012531 is a phenotype from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6936,15 +7258,18 @@ This clinical feature is Pain (HP:0012531). HP:0012531 is a phenotype from the H
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001548" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001548</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001548" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001548</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Overgrowth (HP:0001548). HP:0001548 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6964,6 +7289,7 @@ This clinical feature is Overgrowth (HP:0001548). HP:0001548 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6989,6 +7315,7 @@ This clinical feature is Overgrowth (HP:0001548). HP:0001548 is a phenotype from
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"It is characterized by a disproportionate, asymmetric overgrowth of all types of tissues, provoked by a somatic activating mutation in serine/threonine protein kinase 1."</div>
@@ -7008,6 +7335,7 @@ This clinical feature is Overgrowth (HP:0001548). HP:0001548 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7050,15 +7378,18 @@ This clinical feature is Overgrowth (HP:0001548). HP:0001548 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100555" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0100555</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100555" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0100555</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Asymmetric growth (HP:0100555). HP:0100555 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7081,6 +7412,7 @@ This clinical feature is Asymmetric growth (HP:0100555). HP:0100555 is a phenoty
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"It is characterized by a disproportionate, asymmetric overgrowth of all types of tissues, provoked by a somatic activating mutation in serine/threonine protein kinase 1."</div>
@@ -7100,6 +7432,7 @@ This clinical feature is Asymmetric growth (HP:0100555). HP:0100555 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7149,15 +7482,18 @@ This clinical feature is Asymmetric growth (HP:0100555). HP:0100555 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002664" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002664</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002664" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0002664</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Neoplasm (HP:0002664). HP:0002664 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7177,6 +7513,7 @@ This clinical feature is Neoplasm (HP:0002664). HP:0002664 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7202,6 +7539,7 @@ This clinical feature is Neoplasm (HP:0002664). HP:0002664 is a phenotype from t
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"It is associated with a range of tumors, pulmonary complications, and a striking predisposition to deep vein thrombosis and pulmonary embolism."</div>
@@ -7224,165 +7562,13 @@ This clinical feature is Neoplasm (HP:0002664). HP:0002664 is a phenotype from t
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"We report a 35-year-old patient with PS, who underwent successful surgical removal of a well-differentiated SNEC obstructing his nasal cavity"</div>
 
 
                 <div class="evidence-explanation">This case report documents sinonasal neuroendocrine carcinoma in Proteus syndrome.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-10">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-pulmonary-venous-dilation" data-dismech-node="Pulmonary venous dilation" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Pulmonary venous dilation
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Abnormal pulmonary vein morphology</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030968" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0030968</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Pulmonary venous dilation, annotated with Abnormal pulmonary vein morphology (HP:0030968). HP:0030968 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="DOI:10.1038/s41598-021-86029-0" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/DOI:10.1038/s41598-021-86029-0" target="_blank">DOI:10.1038/s41598-021-86029-0</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The cardiothoracic findings of Proteus syndrome were diverse, but several were much more common and included: scoliosis from bony overgrowth (94%), pulmonary venous dilation (62%), band-like areas of lung scarring (56%), and hyperlucent lung parenchyma (50%)."</div>
-
-
-                <div class="evidence-explanation">The imaging cohort reports pulmonary venous dilation in 62% of individuals.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-intramyocardial-fat" data-dismech-node="Intramyocardial fat" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Intramyocardial fat
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Abnormal myocardium morphology</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001637" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001637</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Intramyocardial fat, annotated with Abnormal myocardium morphology (HP:0001637). HP:0001637 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="DOI:10.1038/s41598-021-86029-0" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/DOI:10.1038/s41598-021-86029-0" target="_blank">DOI:10.1038/s41598-021-86029-0</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"of 20 individuals who underwent cardiac MRI, 9/20 (45%) had intramyocardial fat, mostly involving the endocardial surface of the left ventricular septal wall"</div>
-
-
-                <div class="evidence-explanation">Cardiac MRI identified intramyocardial fat in 45% of imaged individuals.</div>
 
 
 
@@ -7470,6 +7656,9 @@ This disease-associated gene is AKT1 (hgnc:391). hgnc:391 is a gene from the HUG
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7484,6 +7673,7 @@ This disease-associated gene is AKT1 (hgnc:391). hgnc:391 is a gene from the HUG
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7506,6 +7696,7 @@ This disease-associated gene is AKT1 (hgnc:391). hgnc:391 is a gene from the HUG
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7587,6 +7778,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Standard of care. Because no disease-modifying therapy is established, management is phenotype-directed and multidisciplinary: orthopedic procedures to delay or halt linear bone growth and correct skeletal deformities such as scoliosis, rehabilitation medicine with physical and occupational therapy, dermatologic management of skin lesions (including the cerebriform connective tissue nevi), and pulmonary care for bullous lung disease.</div>
 
 
@@ -7608,6 +7813,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7672,6 +7878,31 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Standard phenotype-directed care. Surgical debulking or corrective procedures are used to manage focal overgrowth and deformity.</div>
 
 
@@ -7693,6 +7924,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7757,6 +7989,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Standard of care and a key surveillance priority. Deep vein thrombosis and pulmonary embolism are leading causes of morbidity and mortality in Proteus syndrome, so evaluation and treatment of thromboembolism (including perioperative prophylaxis) is essential, and procoagulant medications should be avoided.</div>
 
 
@@ -7778,6 +8024,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7863,6 +8110,31 @@ This treatment uses miransertib (NCIT:C99172). NCIT:C99172 is a therapeutic agen
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Investigational, pathway-directed therapy — not an established disease-modifying standard of care. The allosteric pan-AKT inhibitor miransertib suppresses AKT signaling and has target-engagement, single-case, and organoid support, and is under evaluation in clinical trials, but its disease-modifying benefit in Proteus syndrome is not yet established.</div>
 
 
@@ -7887,6 +8159,7 @@ This treatment uses miransertib (NCIT:C99172). NCIT:C99172 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7908,6 +8181,7 @@ This treatment uses miransertib (NCIT:C99172). NCIT:C99172 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8018,6 +8292,7 @@ This treatment uses miransertib (NCIT:C99172). NCIT:C99172 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8107,6 +8382,7 @@ This treatment uses miransertib (NCIT:C99172). NCIT:C99172 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8193,6 +8469,7 @@ This treatment uses miransertib (NCIT:C99172). NCIT:C99172 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8327,6 +8604,7 @@ This treatment uses miransertib (NCIT:C99172). NCIT:C99172 is a therapeutic agen
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Proteus syndrome is an ultra-rare mosaic overgrowth disorder."</div>
@@ -8346,6 +8624,7 @@ This treatment uses miransertib (NCIT:C99172). NCIT:C99172 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8402,6 +8681,7 @@ This treatment uses miransertib (NCIT:C99172). NCIT:C99172 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8466,6 +8746,7 @@ This treatment uses miransertib (NCIT:C99172). NCIT:C99172 is a therapeutic agen
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Of 53 individuals with a confirmed diagnosis of Proteus syndrome at our institution from 10/2001 to 10/2019, 38 individuals (men, n = 23; average age = 24 years) underwent cardiothoracic imaging"</div>
@@ -8512,6 +8793,7 @@ This treatment uses miransertib (NCIT:C99172). NCIT:C99172 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8564,6 +8846,7 @@ This treatment uses miransertib (NCIT:C99172). NCIT:C99172 is a therapeutic agen
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Of 53 individuals with a confirmed diagnosis of Proteus syndrome at our institution from 10/2001 to 10/2019, 38 individuals (men, n = 23; average age = 24 years) underwent cardiothoracic imaging"</div>
@@ -8613,6 +8896,7 @@ This treatment uses miransertib (NCIT:C99172). NCIT:C99172 is a therapeutic agen
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"The median age of diagnosis was 19 months."</div>
@@ -8659,6 +8943,7 @@ This treatment uses miransertib (NCIT:C99172). NCIT:C99172 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8755,6 +9040,7 @@ This treatment uses miransertib (NCIT:C99172). NCIT:C99172 is a therapeutic agen
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"In the current review, four overgrowth syndromes were characterized (Proteus syndrome, Klippel-Trenaunay-Weber syndrome, Madelung&#39;s disease, and neurofibromatosis type I) and illustrated using cases from our institution."</div>
@@ -8826,6 +9112,7 @@ This treatment uses miransertib (NCIT:C99172). NCIT:C99172 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8902,6 +9189,7 @@ This treatment uses miransertib (NCIT:C99172). NCIT:C99172 is a therapeutic agen
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"In the current review, four overgrowth syndromes were characterized (Proteus syndrome, Klippel-Trenaunay-Weber syndrome, Madelung&#39;s disease, and neurofibromatosis type I) and illustrated using cases from our institution."</div>
@@ -8972,6 +9260,7 @@ This treatment uses miransertib (NCIT:C99172). NCIT:C99172 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9048,6 +9337,7 @@ This treatment uses miransertib (NCIT:C99172). NCIT:C99172 is a therapeutic agen
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Discussion: CLOVES syndrome, neurofibromatosis 1 or PTEN hamartoma tumor syndrome are partially superimposable entities to Proteus syndrome and may generate diagnostic doubt."</div>
@@ -9070,6 +9360,7 @@ This treatment uses miransertib (NCIT:C99172). NCIT:C99172 is a therapeutic agen
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"The PTEN hamartoma tumor syndrome (PHTS) includes Cowden syndrome (CS), Bannayan-Riley-Ruvalcaba syndrome (BRRS), PTEN-related Proteus syndrome (PS), and PTEN-related Proteus-like syndrome."</div>
@@ -9089,6 +9380,7 @@ This treatment uses miransertib (NCIT:C99172). NCIT:C99172 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9165,6 +9457,7 @@ This treatment uses miransertib (NCIT:C99172). NCIT:C99172 is a therapeutic agen
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"The PTEN hamartoma tumor syndrome (PHTS) includes Cowden syndrome (CS), Bannayan-Riley-Ruvalcaba syndrome (BRRS), PTEN-related Proteus syndrome (PS), and PTEN-related Proteus-like syndrome."</div>
@@ -9231,6 +9524,7 @@ This treatment uses miransertib (NCIT:C99172). NCIT:C99172 is a therapeutic agen
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"To learn if miransertib is a safe and effective treatment for Proteus syndrome."</div>
@@ -9279,6 +9573,7 @@ This treatment uses miransertib (NCIT:C99172). NCIT:C99172 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9333,6 +9628,7 @@ This treatment uses miransertib (NCIT:C99172). NCIT:C99172 is a therapeutic agen
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"This is an open label, Phase 1/2 study of oral miransertib (MK-7075) administered to participants at least 2 years of age with phosphatidylinositol-4,5-bisphosphate 3-kinase, catalytic subunit alpha (PIK3CA)-related Overgrowth Spectrum (PROS) and Proteus Syndrome (PS) (MOSAIC)."</div>
@@ -9381,6 +9677,7 @@ This treatment uses miransertib (NCIT:C99172). NCIT:C99172 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9435,6 +9732,7 @@ This treatment uses miransertib (NCIT:C99172). NCIT:C99172 is a therapeutic agen
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"ARQ 092 is being investigated for patients with overgrowth diseases and/or vascular anomalies with genetic alterations of the PI3K/AKT pathway and may be available for patients who are ineligible for an ongoing ARQ 092 clinical trial or have other considerations that prevent access to ARQ 092..."</div>
@@ -9483,6 +9781,7 @@ This treatment uses miransertib (NCIT:C99172). NCIT:C99172 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10796,6 +11095,67 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Review: Proteus syndrome (Changes required)</strong> · 2026-05-31T03:02:06Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Proteus_syndrome/2026-05-31T030206Z-github-review-3592.yaml">View source</a></p>
+                        <p class="research-review-text">GitHub review issue: https://github.com/monarch-initiative/dismech/issues/3592
+Issue state: OPEN
+Issue created: 2026-05-31T03:02:06Z
+Issue updated: 2026-05-31T03:02:06Z
+Issue closed: not closed
+Review decision: Changes required
+Labels: review
+
+## Completed curation review
+
+- Disease: **Proteus syndrome**
+- Entry: `kb/disorders/Proteus_syndrome.yaml`
+- Selection basis: #124 of the least-recently edited Mendelian entries
+- Review decision: **Changes required**
+- Validation stance: assumes schema, ontology-term, and reference validation pass; this is a biological/clinical/content review.
+
+## Findings
+
+1. Blocking: the entry has no `diagnosis` section. Add disease-specific diagnostic criteria, recommended tests/imaging/biochemical markers, and molecular confirmation strategy for Proteus syndrome; this is necessary for curators to evaluate whether the modeled mechanism and phenotype scope match the intended disease.
+2. Research-artifact consumption: matching deep-research artifact(s) exist and should be treated as first-class review inputs. Compare the YAML against the artifact(s), especially for central mechanisms, subtype-specific features, treatments/trials, and diagnostic/surveillance details rather than only schema-valid content.
+3. Disease-boundary check: no subtypes are modeled. Confirm this is intentionally a single pathomechanism entry and not a spectrum that should expose subtypes, genotype classes, or clinically distinct forms.
+4. Pathophysiology review: the main modeled mechanisms include Somatic AKT1 p.E17K activation in mosaic cell clones, Elevated PI3K/AKT signaling in AKT1-mutant cells, Increased pAKT signaling in AKT1-mutant lesion cells, Non-cell-autonomous pAKT activation in adjacent cells. Check that each is an atomic event with direct evidence and that downstream edges do not encode multi-step chains or unsupported causal leaps from gene/product defect to organ-level phenotype.
+5. Treatment/trial alignment: both `treatments` and `clinical_trials` are present. Verify that trial interventions, phases/statuses, target phenotypes, and treatment entries agree, and distinguish approved/standard care from investigational or case-report therapy.
+6. Evidence/reference check: top references include DOI:10.1186/s13023-023-03013-9, DOI:10.1055/a-2300-7002, PMID:33987133, DOI:10.1038/s41598-021-86029-0. Spot-check that snippets directly support the specific claim, frequency, and evidence_source classification, especially where the same PMID is reused across phenotype, mechanism, and treatment assertions.
+
+## Content-Completeness Checklist
+
+- Phenotype coverage: review major phenotypes such as Overgrowth, Asymmetric growth, Venous malformation, Cerebriform connective tissue nevus, Epidermal nevus.
+- Subtype completeness: N/A or not modeled; confirm no required subtype split.
+- Pathophysiology depth: mechanisms present but require atomicity/evidence review.
+- Treatments and trials: present; verify standard-vs-investigational scope.
+- Genetics: genetic section present; verify inheritance, variant classes, and genotype-phenotype claims.
+- Biomarkers/diagnostics: gap noted; diagnosis absent.
+- References/research consumption: compare the YAML against listed sources and local research artifacts; do not treat retrieval-heavy papers as issues unless they are disease-specific and directly modelable.
+
+## Suggested Remediation
+
+Resolve the blocking diagnostic/baseline gaps first, then tighten subtype-specific claims, pathophysiology atomicity, treatment/trial scope, and evidence-to-claim alignment. Keep deterministic schema/term/reference validation separate from this biological review.
+
+## Sources Used
+
+- Local research artifact: `research/Proteus_syndrome-deep-research-falcon.md`
+- Local research artifact: `research/Proteus_syndrome-deep-research-cyberian-codex.md`
+- DOI:10.1186/s13023-023-03013-9: https://doi.org/10.1186/s13023-023-03013-9
+- DOI:10.1055/a-2300-7002: https://doi.org/10.1055/a-2300-7002
+- PMID:33987133: https://pubmed.ncbi.nlm.nih.gov/33987133/
+- DOI:10.1038/s41598-021-86029-0: https://doi.org/10.1038/s41598-021-86029-0
+
+No YAML files or `references_cache/*.md` files were edited for this review.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

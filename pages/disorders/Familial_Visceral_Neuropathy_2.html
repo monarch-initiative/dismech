@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4118,6 +4190,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4140,6 +4213,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4167,6 +4241,7 @@ healthy parents are heterozygous for the ERBB2 variant"</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4374,6 +4449,7 @@ healthy parents are heterozygous for the ERBB2 variant"</div>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-erbb2-kinase-domain-variant" data-dismech-node="Biallelic ERBB2 Kinase-Domain Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic ERBB2 Kinase-Domain Variant</div>
 
+
                 <div class="item-desc">Homozygous ERBB2 c.2129C&gt;T, p.(Ala710Val), a kinase-domain missense change, in both affected siblings of the single reported family. Immunoblot analysis of Neuro-2a cells overexpressing wild-type or mutant protein showed that this variant drastically decreases phosphorylation of both ERBB2 itself and its partner ERBB3 — that is, the lesion is a kinase defect that propagates across the heterodimer rather than a defect in receptor abundance.
 </div>
 
@@ -4438,6 +4514,8 @@ This pathophysiological event involves ERBB2 (hgnc:3430), qualified as loss of f
 
 
 
+
+
         <span class="tag tag-classification">allele_type: SNV</span>
 
 
@@ -4453,6 +4531,9 @@ This pathophysiological event involves ERBB2 (hgnc:3430), qualified as loss of f
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Germline homozygous ERBB2 kinase-domain missense allele p.(Ala710Val). Loss of function is established functionally by the loss of receptor phosphorylation rather than inferred from the variant class.</div>
 
@@ -4502,6 +4583,7 @@ This pathophysiological event involves ERBB2 (hgnc:3430), qualified as loss of f
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4524,6 +4606,7 @@ This pathophysiological event involves ERBB2 (hgnc:3430), qualified as loss of f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4550,6 +4633,7 @@ This pathophysiological event involves ERBB2 (hgnc:3430), qualified as loss of f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-nrg1-erbb-signaling-in-enteric-progenitors" data-dismech-node="Disrupted NRG1-ERBB Signaling in Enteric Progenitors" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted NRG1-ERBB Signaling in Enteric Progenitors</div>
+
 
                 <div class="item-desc">ERBB3 and ERBB2 are the receptors for neuregulin-1 and signal as a heterodimer — ERBB3 has minimal intrinsic kinase activity and ERBB2 has no ligand of its own, so neither works without the other. That obligate pairing is why variants in either gene converge on one phenotype, and why an ERBB2 kinase defect removes NRG1 signalling as effectively as losing the ligand-binding receptor would. Cell-type-specific analysis in mouse single-cell RNA sequencing data together with a conditional ErbB3-deficient mouse localized the requirement to enteric progenitor cells. That localization is what makes this a developmental disorder of gut colonization rather than a defect in mature enteric neurons.
 </div>
@@ -4704,6 +4788,7 @@ This pathophysiological event involves decreased ERBB2-ERBB3 heterodimer signali
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4726,6 +4811,7 @@ This pathophysiological event involves decreased ERBB2-ERBB3 heterodimer signali
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4752,6 +4838,7 @@ This pathophysiological event involves decreased ERBB2-ERBB3 heterodimer signali
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-incomplete-enteric-nervous-system-colonization" data-dismech-node="Incomplete Enteric Nervous System Colonization" data-dismech-type="pathophysiology">
                 <div class="item-name">Incomplete Enteric Nervous System Colonization</div>
+
 
                 <div class="item-desc">The histological lesion. In the ERBB2 sibling who came to resection (F5:II-2), colon histology showed absent ganglion cells with hyperplasia of nerve fibres. Table 1 additionally scores him positive for hypoganglionosis.
 Intestinal smooth muscle abnormality is **not** an established ERBB2 finding and this entry does not claim it: Table 1 scores that row `NA` for both ERBB2 patients, and its single positive is F1:II-3, an ERBB3 patient. The abstract sentence naming all three findings together spans both genes and does not license a gene-scoped claim. The smooth muscle thread is kept below as an open question about the pathway rather than as a feature of this disease.
@@ -4883,6 +4970,7 @@ This pathophysiological event involves decreased enteric nervous system developm
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4905,6 +4993,7 @@ This pathophysiological event involves decreased enteric nervous system developm
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4931,6 +5020,7 @@ This pathophysiological event involves decreased enteric nervous system developm
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-congenital-gastrointestinal-dysmotility" data-dismech-node="Congenital Gastrointestinal Dysmotility" data-dismech-type="pathophysiology">
                 <div class="item-name">Congenital Gastrointestinal Dysmotility</div>
+
 
                 <div class="item-desc">The clinical output. In the two reported ERBB2 patients this took the form of severe constipation and, in the brother, short-segment Hirschsprung disease with hypoganglionosis; both were scored negative for chronic intestinal pseudo-obstruction. Across the wider NRG1/ERBB series the same lesion produces Hirschsprung disease in some patients and CIPO in others, which is informative in itself — the two clinical labels describe where along the gut the colonization deficit falls rather than two different diseases — but CIPO is not a feature of this concept as reported.
 </div>
@@ -4993,6 +5083,7 @@ This pathophysiological event involves decreased enteric nervous system developm
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5016,6 +5107,7 @@ This pathophysiological event involves decreased enteric nervous system developm
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-extra-intestinal-neural-crest-and-peripheral-nerve-involvement" data-dismech-node="Extra-Intestinal Neural Crest and Peripheral Nerve Involvement" data-dismech-type="pathophysiology">
                 <div class="item-name">Extra-Intestinal Neural Crest and Peripheral Nerve Involvement</div>
+
 
                 <div class="item-desc">The affected siblings had axonal peripheral neuropathy, ptosis, sensorineural (&#34;perceptive&#34;) hearing loss and clubfeet alongside the gastrointestinal disease. These are what mark the disorder as a broader neurocristopathy rather than an isolated gut disease, and they are the features that should prompt ERBB2 sequencing in a patient who would otherwise be worked up as isolated Hirschsprung disease.
 </div>
@@ -5102,6 +5194,7 @@ This pathophysiological event involves decreased enteric nervous system developm
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5124,6 +5217,7 @@ This pathophysiological event involves decreased enteric nervous system developm
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5192,7 +5286,7 @@ This pathophysiological event involves decreased enteric nervous system developm
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Ear<span class="pill-count">(1)</span></button>
 
@@ -5200,7 +5294,9 @@ This pathophysiological event involves decreased enteric nervous system developm
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Limbs<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Nervous System<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5210,7 +5306,7 @@ This pathophysiological event involves decreased enteric nervous system developm
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Digestive
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-severe-constipation" data-dismech-node="Severe Constipation" data-dismech-type="phenotype">
@@ -5259,6 +5355,9 @@ This clinical feature is Constipation (HP:0002019), qualified as temporality chr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5276,6 +5375,7 @@ This clinical feature is Constipation (HP:0002019), qualified as temporality chr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5284,6 +5384,81 @@ This clinical feature is Constipation (HP:0002019), qualified as temporality chr
 
 
                 <div class="evidence-explanation">Documents the presenting gastrointestinal feature and its course in the proband of the single ERBB2 family.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-short-segment-hirschsprung-disease" data-dismech-node="Short-Segment Hirschsprung Disease" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Short-Segment Hirschsprung Disease
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Aganglionic megacolon</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0002251</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Aganglionic megacolon (HP:0002251). HP:0002251 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33497358" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33497358" target="_blank">PMID:33497358</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In patient F5:II-2, histology revealed a lack of ganglion cells and a hyperplasia of nerve fibers in the colon resection specimen"</div>
+
+
+                <div class="evidence-explanation">Colon resection histology in the affected brother, naming him explicitly and establishing absent ganglion cells.
 </div>
 
 
@@ -5325,15 +5500,18 @@ This clinical feature is Constipation (HP:0002019), qualified as temporality chr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0000407</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0000407</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5353,6 +5531,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5403,15 +5582,18 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0000508</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0000508</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5431,6 +5613,7 @@ This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5483,15 +5666,18 @@ This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001762" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0001762</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001762" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0001762</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Talipes equinovarus (HP:0001762). HP:0001762 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5511,6 +5697,7 @@ This clinical feature is Talipes equinovarus (HP:0001762). HP:0001762 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5543,149 +5730,9 @@ This clinical feature is Talipes equinovarus (HP:0001762). HP:0001762 is a pheno
             <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">3</span>
+                    Musculoskeletal
+                    <span class="cat-count">1</span>
                 </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-short-segment-hirschsprung-disease" data-dismech-node="Short-Segment Hirschsprung Disease" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Short-Segment Hirschsprung Disease
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Aganglionic megacolon</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0002251</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Aganglionic megacolon (HP:0002251). HP:0002251 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33497358" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33497358" target="_blank">PMID:33497358</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"In patient F5:II-2, histology revealed a lack of ganglion cells and a hyperplasia of nerve fibers in the colon resection specimen"</div>
-
-
-                <div class="evidence-explanation">Colon resection histology in the affected brother, naming him explicitly and establishing absent ganglion cells.
-</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-peripheral-axonal-neuropathy" data-dismech-node="Peripheral Axonal Neuropathy" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Peripheral Axonal Neuropathy
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003477" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0003477</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Peripheral axonal neuropathy (HP:0003477). HP:0003477 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33497358" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33497358" target="_blank">PMID:33497358</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"axonal peripheral neuropathy, ptosis, perceptive hearing loss, and clubfeet"</div>
-
-
-                <div class="evidence-explanation">Names axonal peripheral neuropathy among the proband&#39;s features.
-</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-arthrogryposis-multiplex-congenita" data-dismech-node="Arthrogryposis Multiplex Congenita" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -5701,15 +5748,18 @@ This clinical feature is Peripheral axonal neuropathy (HP:0003477). HP:0003477 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002804" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0002804</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002804" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0002804</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Arthrogryposis multiplex congenita (HP:0002804). HP:0002804 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5729,6 +5779,7 @@ This clinical feature is Arthrogryposis multiplex congenita (HP:0002804). HP:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5757,6 +5808,7 @@ This clinical feature is Arthrogryposis multiplex congenita (HP:0002804). HP:000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5767,6 +5819,88 @@ with arthrogryposis multiplex congenita"</div>
 
 
                 <div class="evidence-explanation">Cuts against arthrogryposis in the ERBB2 siblings. The paper&#39;s cohort description splits its subjects into five patients with neurocristopathies and three fetuses with arthrogryposis multiplex congenita — and both ERBB2 siblings are among the five, not the three. Graded REFUTE because it contradicts the Table 1 scoring for these patients specifically.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-6">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Nervous System
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-peripheral-axonal-neuropathy" data-dismech-node="Peripheral Axonal Neuropathy" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Peripheral Axonal Neuropathy
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003477" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0003477</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Peripheral axonal neuropathy (HP:0003477). HP:0003477 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33497358" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33497358" target="_blank">PMID:33497358</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"axonal peripheral neuropathy, ptosis, perceptive hearing loss, and clubfeet"</div>
+
+
+                <div class="evidence-explanation">Names axonal peripheral neuropathy among the proband&#39;s features.
 </div>
 
 
@@ -5855,6 +5989,9 @@ This disease-associated gene is ERBB2 (hgnc:3430). hgnc:3430 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5869,6 +6006,7 @@ This disease-associated gene is ERBB2 (hgnc:3430). hgnc:3430 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5894,6 +6032,7 @@ This disease-associated gene is ERBB2 (hgnc:3430). hgnc:3430 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5977,6 +6116,31 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Resection of the aganglionic bowel, the standard management of Hirschsprung disease and the one intervention documented in a reported ERBB2 patient — the histology that establishes the diagnosis in F5:II-2 came from a colon resection specimen. It removes the non-functioning segment; it does not restore enteric innervation to the remaining gut, which is why dysmotility can persist after surgery.
 </div>
 
@@ -6017,6 +6181,7 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6081,6 +6246,31 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Counselling for an autosomal recessive disorder in a consanguineous family, with a 1-in-4 recurrence risk per pregnancy once the biallelic genotype is known. Both parents in the reported family are heterozygous carriers and healthy.
 </div>
 
@@ -6103,6 +6293,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6180,6 +6371,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6233,6 +6425,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6311,6 +6504,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6366,6 +6560,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6506,6 +6701,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7463,6 +7659,34 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Ultra-rare, and the cohort is a single family. The disease-defining report is Le et al. (J Clin Invest 2021), which identified biallelic ERBB3 and ERBB2 variants in eight individuals across five families by trio-exome sequencing. Only family F5 — two siblings born to consanguineous parents, homozygous for ERBB2 p.(Ala710Val) — carries the ERBB2 genotype, and it is that family alone that defines this concept. The ERBB3 families in the same paper define familial visceral neuropathy 1 (VSCN1, OMIM:243180), a separate MONDO concept, and are out of scope here.
+**Do not read the paper&#39;s eight-patient phenotype list as this disease&#39;s phenotype list.** That list spans both genes, and the two do not carry the same features. Per Table 1 of the source, the ERBB2 siblings are positive for arthrogryposis, peripheral neuropathy, hearing loss and ptosis, and are explicitly **negative** for chronic intestinal pseudo-obstruction, external auditory canal agenesis, dysautonomia, pigmentation defect and cardiac defect — several of which are positive in the ERBB3 families. The intrauterine growth retardation and multiple pterygiums described for the ERBB3 fetuses of families F3 and F4 are likewise not attributed to the ERBB2 siblings. Only what Table 1 and the case description record for family F5 is curated here.
+The CIPO point deserves emphasis because it is counterintuitive: this concept sits in the differential for chronic intestinal pseudo-obstruction, and yet neither reported ERBB2 patient had CIPO. Their gastrointestinal disease was severe constipation and, in the brother, short-segment Hirschsprung disease with hypoganglionosis. An entry that listed CIPO as a feature here would be contradicted by the source&#39;s own table.
+Three things this entry is careful about:
+First, **the relationship to Hirschsprung disease is overlap, not identity.** `kb/disorders/Hirschsprung_Disease.yaml` covers the common, oligogenic, RET-driven disease. The eight reported ERBB3/ERBB2 patients &#34;variably associat[ed]&#34; Hirschsprung disease, chronic intestinal pseudo-obstruction, peripheral neuropathy and arthrogryposis — meaning some presented as Hirschsprung disease and some did not. The entry records the shared enteric-neural-crest mechanism and keeps the entities separate, because a Mendelian recessive gene with extra-intestinal features is not the same disease as oligogenic RET-associated Hirschsprung disease even where the gut histology converges.
+Second, **the relationship to chronic intestinal pseudo-obstruction is the same shape.** `kb/disorders/Chronic_Intestinal_Pseudoobstruction.yaml` carries a &#34;Neuropathic&#34; subtype as a physiological category, not as a genetic entity, and lists no ERBB2. This entry is the Mendelian entity that can present as neuropathic dysmotility; it is not a duplicate of that clinical syndrome entry.
+Third, **the gene assignment was checked, not assumed.** The two familial visceral neuropathy concepts are easy to transpose: VSCN1 (OMIM:243180) is the ERBB3 disease and VSCN2 (OMIM:619465, this entry) is the ERBB2 disease, which is the opposite of what the gene numbering suggests. The assignment here follows the MedGen gene-disease link for the OMIM concept that MONDO:0030399 cross-references.
+No `conforms_to` was declared: `kb/modules/` has no enteric or neural-crest developmental module. That gap is recorded in `discussions` below rather than left silent.
+**Deep-research provenance.** An OpenScientist run (`research/Familial_Visceral_Neuropathy_2-deep-research-openscientist.md`, 5/5 references resolved and on topic) is committed alongside this entry. Its substantive contribution was catching a gene error: the first draft of this entry attributed MONDO:0030399 to ERBB3, and the report identified ERBB2. The correction was then verified independently against the MedGen gene-disease links rather than accepted from the report.
+Two of that report&#39;s suggested NCIT bindings are badly wrong and must not be reused — `NCIT:C157763` is offered as &#34;surgical procedure&#34; but is *Metastatic Bladder Small Cell Neuroendocrine Carcinoma*, and `NCIT:C1516` is offered as &#34;supportive care&#34; but is *Lisofylline*. The report&#39;s own term validation flags both, which is the check working. The two NCIT terms this entry does bind (`NCIT:C15329` Surgical Procedure and `NCIT:C15240` Genetic Counseling) were selected independently of the report.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Familial Visceral Neuropathy 2 (ERBB2)</strong> · 2026-08-31T21:51:49Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Familial_Visceral_Neuropathy_2/2026-08-31T215149Z-claude-code-44fb78.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo curation of familial visceral neuropathy 2 (MONDO:0030399) resolving curation claim #10294. The first draft attributed this concept to ERBB3; it is ERBB2. The two familial visceral neuropathy concepts run opposite to the gene numbering - VSCN1/OMIM:243180 is ERBB3 and VSCN2/OMIM:619465 is ERBB2 - and the stub carried no genes block to contradict the assumption. The OpenScientist deep-research run flagged it and the correction was then verified independently against MedGen gene-disease links (VSCN2 -&gt; Gene 2064 ERBB2; VSCN1 -&gt; Gene 2065 ERBB3) rather than accepted from the report. A correction comment was posted on the claim issue. Second precision point: the defining paper (PMID:33497358) reports eight individuals across both genes, so its phenotype list must not be copied wholesale - arthrogryposis with multiple pterygiums and intrauterine growth retardation belong to the ERBB3 fetuses of families F3 and F4. Only what family F5 was reported to have is curated: severe constipation easing after age five, short-segment Hirschsprung disease in the brother, axonal peripheral neuropathy, ptosis, sensorineural hearing loss and clubfeet. The mechanism is a kinase defect - ERBB3 binds NRG1 but is catalytically weak, ERBB2 has no ligand but supplies the kinase - and the homozygous p.Ala710Val kinase-domain variant drastically reduces phosphorylation of both receptors. The conditional ErbB3 mouse is linked as PARTIALLY_RECAPITULATES rather than RECAPITULATES because it targets the partner receptor, not the disease gene. Deep research: one OpenScientist run, committed, 5/5 references resolved and on topic; note two of its suggested NCIT bindings are badly wrong (NCIT:C157763 offered as surgical procedure is a bladder carcinoma term; NCIT:C1516 offered as supportive care is Lisofylline), which its own term validation flags - this entry binds no NCIT terms. Validated with just validate (22/22 snippets verified), just validate-terms, check-entity-refs and the snippet/folded-hyphen gates.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

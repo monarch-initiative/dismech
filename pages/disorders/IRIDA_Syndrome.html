@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4303,6 +4375,7 @@ Two preconditions are part of the rule, not caveats attached to it. It applies o
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4324,6 +4397,7 @@ Two preconditions are part of the rule, not caveats attached to it. It applies o
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4414,6 +4488,7 @@ A later registry series takes this further and reports monoallelic patients as a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4438,6 +4513,7 @@ A later registry series takes this further and reports monoallelic patients as a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4459,6 +4535,7 @@ A later registry series takes this further and reports monoallelic patients as a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4749,6 +4826,7 @@ The reason this is not academic, and it has sharpened. Every functional assay us
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4773,6 +4851,7 @@ The reason this is not academic, and it has sharpened. Every functional assay us
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4794,6 +4873,7 @@ The reason this is not academic, and it has sharpened. Every functional assay us
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5110,6 +5190,7 @@ Note the mismatch here is model-to-model, mouse liver against human cell line, w
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5131,6 +5212,7 @@ Note the mismatch here is model-to-model, mouse liver against human cell line, w
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5168,6 +5250,13 @@ Note the mismatch here is model-to-model, mouse liver against human cell line, w
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-tmprss6-loss-of-function" data-dismech-node="Biallelic TMPRSS6 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic TMPRSS6 Loss of Function</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Germline TMPRSS6 variants - frameshift, splice-junction, nonsense and missense - on both alleles. In the defining cohort every variant lay distal to exon 8, in the region encoding the conserved ectodomain modules and especially the trypsin-like serine protease domain, and homozygous frameshifts predicted to disrupt only the catalytic domain were sufficient to cause disease.
 The reported allelic spectrum has since broadened across the whole large ectodomain rather than concentrating in the catalytic domain, which is why a novel missense variant outside the protease domain cannot be dismissed on position alone.</div>
@@ -5362,6 +5451,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5383,6 +5473,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5410,6 +5501,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5432,6 +5524,13 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-matriptase-2-cleavage-of-membrane-hemojuvelin" data-dismech-node="Loss of Matriptase-2 Cleavage of Membrane Hemojuvelin" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Matriptase-2 Cleavage of Membrane Hemojuvelin</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Matriptase-2 cleaves haemojuvelin at the plasma membrane. Haemojuvelin is a BMP co-receptor that drives HAMP transcription, so removing it from the hepatocyte surface lowers hepcidin; failing to remove it keeps hepcidin up.
 Graded PROVISIONAL, and the reason is specific rather than generic caution. The supporting evidence is strong for the reaction and weak for the location. Eight IRIDA missense alleles were assayed and seven of them impair matriptase-2 autoactivation, reduce membrane haemojuvelin cleavage, and fail to inhibit haemojuvelin-dependent hepcidin activation - a genotype-activity correspondence across human disease alleles, not a single anecdote. But every one of those measurements is in transfected cells, none is in a patient hepatocyte, and in vivo mouse work finds the liver behaving differently from hepatoma cells for an adjacent substrate.
@@ -5574,6 +5673,7 @@ This pathophysiological event involves increased BMP signaling through membrane 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5595,6 +5695,7 @@ This pathophysiological event involves increased BMP signaling through membrane 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5622,6 +5723,7 @@ This pathophysiological event involves increased BMP signaling through membrane 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5645,6 +5747,13 @@ The quoted sentence contains the source&#39;s own spelling, &#34;autoproteotylic
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-to-suppress-hepcidin-transcription-in-iron-deficiency" data-dismech-node="Failure to Suppress Hepcidin Transcription in Iron Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure to Suppress Hepcidin Transcription in Iron Deficiency</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The functional lesion stated at the level the disease is actually defined by: TMPRSS6 is the component that lets the liver register iron deficiency and shut off HAMP transcription. The mask mouse maps this directly - a splicing defect in Tmprss6 produces microcytic anaemia through reduced dietary iron absorption caused by high hepcidin.
 Note that the mouse work locates the Hamp-suppressing activity in the TMPRSS6 cytoplasmic domain acting on proximal promoter elements. That is a different molecular route from ectodomain cleavage of haemojuvelin, and the two are curated as parallel arms rather than as one chain.</div>
@@ -5789,6 +5898,7 @@ This pathophysiological event involves decreased transcriptional repression of t
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5810,6 +5920,7 @@ This pathophysiological event involves decreased transcriptional repression of t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5835,6 +5946,13 @@ This pathophysiological event involves decreased transcriptional repression of t
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-inappropriately-elevated-circulating-hepcidin" data-dismech-node="Inappropriately Elevated Circulating Hepcidin" data-dismech-type="pathophysiology">
                 <div class="item-name">Inappropriately Elevated Circulating Hepcidin</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The pivotal node, and the one that makes the disease diagnosable. Hepcidin is normally undetectable in iron deficiency. In IRIDA it is within or above the normal range in a patient who is iron deficient - not high in absolute terms so much as high for the iron status, which is why a hepcidin value read without the transferrin saturation beside it is uninformative.</div>
 
@@ -5926,6 +6044,7 @@ This pathophysiological event involves systemic iron homeostasis, annotated with
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5947,6 +6066,7 @@ This pathophysiological event involves systemic iron homeostasis, annotated with
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5974,6 +6094,7 @@ This pathophysiological event involves systemic iron homeostasis, annotated with
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5998,6 +6119,13 @@ This pathophysiological event involves systemic iron homeostasis, annotated with
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-duodenal-iron-absorption" data-dismech-node="Impaired Duodenal Iron Absorption" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Duodenal Iron Absorption</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Hepcidin restricts iron entry into plasma at the basolateral surface of the duodenal enterocyte. With hepcidin high, dietary iron - whether from food or from an oral supplement - is not delivered to the circulation, which is the direct explanation for refractoriness to oral iron.</div>
 
@@ -6176,6 +6304,7 @@ This pathophysiological event occurs in duodenum (UBERON:0002114). UBERON:000211
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6197,6 +6326,7 @@ This pathophysiological event occurs in duodenum (UBERON:0002114). UBERON:000211
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6224,6 +6354,7 @@ This pathophysiological event occurs in duodenum (UBERON:0002114). UBERON:000211
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6248,6 +6379,13 @@ This pathophysiological event occurs in duodenum (UBERON:0002114). UBERON:000211
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-macrophage-iron-sequestration" data-dismech-node="Macrophage Iron Sequestration" data-dismech-type="pathophysiology">
                 <div class="item-name">Macrophage Iron Sequestration</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The second, less obvious limb, and the one that explains why parenteral iron is not a clean rescue. Hepcidin also blocks iron release from macrophages. Parenteral iron formulations are taken up by the reticuloendothelial system and must be re-exported before erythroid precursors can use them, so a hepcidin block downstream of the injection limits the response even when the gut has been bypassed entirely.</div>
 
@@ -6371,6 +6509,7 @@ This pathophysiological event involves decreased macrophage iron release into pl
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6392,6 +6531,7 @@ This pathophysiological event involves decreased macrophage iron release into pl
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6419,6 +6559,7 @@ This pathophysiological event involves decreased macrophage iron release into pl
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6443,6 +6584,13 @@ This pathophysiological event involves decreased macrophage iron release into pl
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-systemic-iron-restriction" data-dismech-node="Systemic Iron Restriction" data-dismech-type="pathophysiology">
                 <div class="item-name">Systemic Iron Restriction</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Both limbs converge on a reduced supply of transferrin-bound iron to the marrow. The biochemical shadow of this node is the low transferrin saturation that, together with a non-suppressed hepcidin, defines the diagnostic pattern.</div>
 
@@ -6532,6 +6680,7 @@ This pathophysiological event involves decreased systemic iron homeostasis, anno
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6554,6 +6703,13 @@ This pathophysiological event involves decreased systemic iron homeostasis, anno
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-iron-restricted-erythropoiesis" data-dismech-node="Iron-Restricted Erythropoiesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Iron-Restricted Erythropoiesis</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Erythroid precursors deprived of iron undergo extra divisions and produce small, poorly haemoglobinised red cells. The marrow itself is not the diseased compartment - it is a normal marrow starved of substrate - which is why the anaemia is typically moderate and non-progressive rather than transfusion-dependent.</div>
 
@@ -6647,6 +6803,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6668,6 +6825,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6716,7 +6874,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Biallelic TMPRSS6 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Germline TMPRSS6 variants - frameshift, splice-junction, nonsense and missense - on both alleles. In the defining cohort every variant lay distal to exon 8, in the region encoding the conserved ectodomain modules and especially the trypsin-like serine protease domain, and homozygous frameshifts predicted to disrupt only the catalytic domain were sufficient to cause disease.\\nThe reported allelic spectrum has since broadened across the whole large ectodomain rather than concentrating in the catalytic domain, which is why a novel missense variant outside the protease domain cannot be dismissed on position alone.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"hepatocyte\"], \"molecular_functions\": [\"matriptase-2 serine protease activity\"], \"genes\": [\"TMPRSS6\"], \"gene_terms\": [{\"label\": \"TMPRSS6\", \"id\": \"hgnc:16517\"}], \"role\": \"trigger\", \"locations\": [\"liver\"]}}, {\"id\": \"Failure to Suppress Hepcidin Transcription in Iron Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The functional lesion stated at the level the disease is actually defined by: TMPRSS6 is the component that lets the liver register iron deficiency and shut off HAMP transcription. The mask mouse maps this directly - a splicing defect in Tmprss6 produces microcytic anaemia through reduced dietary iron absorption caused by high hepcidin.\\nNote that the mouse work locates the Hamp-suppressing activity in the TMPRSS6 cytoplasmic domain acting on proximal promoter elements. That is a different molecular route from ectodomain cleavage of haemojuvelin, and the two are curated as parallel arms rather than as one chain.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"transcriptional repression of the hepcidin gene HAMP\"], \"role\": \"effector\", \"animal_models\": [{\"name\": \"mask mouse (Tmprss6 splice-site mutant)\", \"species\": \"Mouse\", \"genotype\": \"Tmprss6 mask, homozygous ENU-induced splicing defect\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"The mouse reproduces the core lesion - Tmprss6 loss, high hepcidin, reduced dietary iron absorption, microcytic anaemia - and is the system in which the Hamp-promoter mechanism was demonstrated.\"}]}}, {\"id\": \"Impaired Duodenal Iron Absorption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hepcidin restricts iron entry into plasma at the basolateral surface of the duodenal enterocyte. With hepcidin high, dietary iron - whether from food or from an oral supplement - is not delivered to the circulation, which is the direct explanation for refractoriness to oral iron.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"duodenal enterocyte\"], \"biological_processes\": [\"intestinal iron absorption\", \"iron export across the basolateral enterocyte membrane\"], \"role\": \"effector\", \"locations\": [\"duodenum\"]}}, {\"id\": \"Inappropriately Elevated Circulating Hepcidin\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The pivotal node, and the one that makes the disease diagnosable. Hepcidin is normally undetectable in iron deficiency. In IRIDA it is within or above the normal range in a patient who is iron deficient - not high in absolute terms so much as high for the iron status, which is why a hepcidin value read without the transferrin saturation beside it is uninformative.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"systemic iron homeostasis\"], \"role\": \"effector\"}}, {\"id\": \"Iron-Restricted Erythropoiesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Erythroid precursors deprived of iron undergo extra divisions and produce small, poorly haemoglobinised red cells. The marrow itself is not the diseased compartment - it is a normal marrow starved of substrate - which is why the anaemia is typically moderate and non-progressive rather than transfusion-dependent.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"erythroid progenitor cell\"], \"role\": \"consequence\", \"locations\": [\"bone marrow\"]}}, {\"id\": \"Loss of Matriptase-2 Cleavage of Membrane Hemojuvelin\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Matriptase-2 cleaves haemojuvelin at the plasma membrane. Haemojuvelin is a BMP co-receptor that drives HAMP transcription, so removing it from the hepatocyte surface lowers hepcidin; failing to remove it keeps hepcidin up.\\nGraded PROVISIONAL, and the reason is specific rather than generic caution. The supporting evidence is strong for the reaction and weak for the location. Eight IRIDA missense alleles were assayed and seven of them impair matriptase-2 autoactivation, reduce membrane haemojuvelin cleavage, and fail to inhibit haemojuvelin-dependent hepcidin activation - a genotype-activity correspondence across human disease alleles, not a single anecdote. But every one of those measurements is in transfected cells, none is in a patient hepatocyte, and in vivo mouse work finds the liver behaving differently from hepatoma cells for an adjacent substrate.\\nThe sharper problem is that in vivo dissection has since shown the catalytic domain to be required for hepcidin suppression while its proteolytic activity is not. The cleavage reaction is real and human disease alleles impair it; what is in doubt is whether the suppression runs through it. This node is retained rather than deleted for that reason, and the discussions carry the argument.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"BMP signaling through membrane hemojuvelin\"], \"role\": \"effector\", \"experimental_models\": [{\"name\": \"Matriptase-2 hemojuvelin cleavage assay in transfected cells\", \"model_type\": \"CELL_LINE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Demonstrates the proposed enzymatic step and shows it is graded by genotype: absent for the mouse truncation, partial for the human missense allele.\"}]}}, {\"id\": \"Macrophage Iron Sequestration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The second, less obvious limb, and the one that explains why parenteral iron is not a clean rescue. Hepcidin also blocks iron release from macrophages. Parenteral iron formulations are taken up by the reticuloendothelial system and must be re-exported before erythroid precursors can use them, so a hepcidin block downstream of the injection limits the response even when the gut has been bypassed entirely.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"macrophage\"], \"biological_processes\": [\"macrophage iron release into plasma\"], \"role\": \"effector\"}}, {\"id\": \"Matriptase-2 hemojuvelin cleavage assay in transfected cells\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Co-expression of matriptase-2 - wild type, the mask truncation, or the human disease allele R774C - with haemojuvelin in cultured cells, read out by hepcidin promoter activity and by cleavage of membrane haemojuvelin.\", \"meta\": {\"model_type\": \"CELL_LINE\"}}, {\"id\": \"Parenteral Iron\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The mainstay of treatment. It bypasses the blocked duodenal step but not the macrophage one, so the response is slow and the correction partial rather than complete.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"iron\"]}}, {\"id\": \"Systemic Iron Restriction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Both limbs converge on a reduced supply of transferrin-bound iron to the marrow. The biochemical shadow of this node is the low transferrin saturation that, together with a non-suppressed hepcidin, defines the diagnostic pattern.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"systemic iron homeostasis\"], \"role\": \"effector\"}}, {\"id\": \"TMPRSS6\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"genes\": [\"TMPRSS6\"], \"gene_terms\": [{\"label\": \"TMPRSS6\", \"id\": \"hgnc:16517\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"mask mouse (Tmprss6 splice-site mutant)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A chemically induced recessive mouse mutant recovered on phenotype - hair loss and microcytic anaemia - and mapped to a Tmprss6 splicing defect. It is the model that established what the human gene does, and it was published within weeks of the human gene discovery.\"}], \"edges\": [{\"source\": \"Biallelic TMPRSS6 Loss of Function\", \"target\": \"Loss of Matriptase-2 Cleavage of Membrane Hemojuvelin\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biallelic TMPRSS6 Loss of Function\", \"target\": \"Failure to Suppress Hepcidin Transcription in Iron Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Matriptase-2 Cleavage of Membrane Hemojuvelin\", \"target\": \"Inappropriately Elevated Circulating Hepcidin\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure to Suppress Hepcidin Transcription in Iron Deficiency\", \"target\": \"Inappropriately Elevated Circulating Hepcidin\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Inappropriately Elevated Circulating Hepcidin\", \"target\": \"Impaired Duodenal Iron Absorption\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Inappropriately Elevated Circulating Hepcidin\", \"target\": \"Macrophage Iron Sequestration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Duodenal Iron Absorption\", \"target\": \"Systemic Iron Restriction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Macrophage Iron Sequestration\", \"target\": \"Systemic Iron Restriction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Iron Restriction\", \"target\": \"Iron-Restricted Erythropoiesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Parenteral Iron\", \"target\": \"Impaired Duodenal Iron Absorption\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Matriptase-2 hemojuvelin cleavage assay in transfected cells\", \"target\": \"Loss of Matriptase-2 Cleavage of Membrane Hemojuvelin\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Demonstrates the proposed enzymatic step and shows it is graded by genotype: absent for the mouse truncation, partial for the human missense allele.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Overexpression in a heterologous cell line rather than a hepatocyte carrying the variant at its endogenous locus, so the assay establishes that the reaction can occur and is genotype-sensitive, not that it is the rate-limiting step in a patient\u0027s liver. Fidelity is graded MODERATE on that basis.\"}, {\"source\": \"mask mouse (Tmprss6 splice-site mutant)\", \"target\": \"Failure to Suppress Hepcidin Transcription in Iron Deficiency\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The mouse reproduces the core lesion - Tmprss6 loss, high hepcidin, reduced dietary iron absorption, microcytic anaemia - and is the system in which the Hamp-promoter mechanism was demonstrated.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"One phenotypic divergence is worth stating rather than glossing. The mouse is named for progressive loss of body but not facial hair, and alopecia of this kind is not a feature of human IRIDA. Whatever produces the mask coat phenotype is therefore either mouse-specific or an aspect of matriptase-2 biology that human patients do not show, and it should not be used to predict a human phenotype.\"}, {\"source\": \"TMPRSS6\", \"target\": \"Biallelic TMPRSS6 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Biallelic TMPRSS6 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Germline TMPRSS6 variants - frameshift, splice-junction, nonsense and missense - on both alleles. In the defining cohort every variant lay distal to exon 8, in the region encoding the conserved ectodomain modules and especially the trypsin-like serine protease domain, and homozygous frameshifts predicted to disrupt only the catalytic domain were sufficient to cause disease.\\nThe reported allelic spectrum has since broadened across the whole large ectodomain rather than concentrating in the catalytic domain, which is why a novel missense variant outside the protease domain cannot be dismissed on position alone.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"hepatocyte\"], \"molecular_functions\": [\"matriptase-2 serine protease activity\"], \"genes\": [\"TMPRSS6\"], \"gene_terms\": [{\"label\": \"TMPRSS6\", \"id\": \"hgnc:16517\"}], \"role\": \"trigger\", \"locations\": [\"liver\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Failure to Suppress Hepcidin Transcription in Iron Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The functional lesion stated at the level the disease is actually defined by: TMPRSS6 is the component that lets the liver register iron deficiency and shut off HAMP transcription. The mask mouse maps this directly - a splicing defect in Tmprss6 produces microcytic anaemia through reduced dietary iron absorption caused by high hepcidin.\\nNote that the mouse work locates the Hamp-suppressing activity in the TMPRSS6 cytoplasmic domain acting on proximal promoter elements. That is a different molecular route from ectodomain cleavage of haemojuvelin, and the two are curated as parallel arms rather than as one chain.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"transcriptional repression of the hepcidin gene HAMP\"], \"role\": \"effector\", \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"mask mouse (Tmprss6 splice-site mutant)\", \"species\": \"Mouse\", \"genotype\": \"Tmprss6 mask, homozygous ENU-induced splicing defect\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"The mouse reproduces the core lesion - Tmprss6 loss, high hepcidin, reduced dietary iron absorption, microcytic anaemia - and is the system in which the Hamp-promoter mechanism was demonstrated.\"}]}}, {\"id\": \"Impaired Duodenal Iron Absorption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hepcidin restricts iron entry into plasma at the basolateral surface of the duodenal enterocyte. With hepcidin high, dietary iron - whether from food or from an oral supplement - is not delivered to the circulation, which is the direct explanation for refractoriness to oral iron.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"duodenal enterocyte\"], \"biological_processes\": [\"intestinal iron absorption\", \"iron export across the basolateral enterocyte membrane\"], \"role\": \"effector\", \"locations\": [\"duodenum\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Inappropriately Elevated Circulating Hepcidin\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The pivotal node, and the one that makes the disease diagnosable. Hepcidin is normally undetectable in iron deficiency. In IRIDA it is within or above the normal range in a patient who is iron deficient - not high in absolute terms so much as high for the iron status, which is why a hepcidin value read without the transferrin saturation beside it is uninformative.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"systemic iron homeostasis\"], \"role\": \"effector\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Iron-Restricted Erythropoiesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Erythroid precursors deprived of iron undergo extra divisions and produce small, poorly haemoglobinised red cells. The marrow itself is not the diseased compartment - it is a normal marrow starved of substrate - which is why the anaemia is typically moderate and non-progressive rather than transfusion-dependent.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"erythroid progenitor cell\"], \"role\": \"consequence\", \"locations\": [\"bone marrow\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Loss of Matriptase-2 Cleavage of Membrane Hemojuvelin\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Matriptase-2 cleaves haemojuvelin at the plasma membrane. Haemojuvelin is a BMP co-receptor that drives HAMP transcription, so removing it from the hepatocyte surface lowers hepcidin; failing to remove it keeps hepcidin up.\\nGraded PROVISIONAL, and the reason is specific rather than generic caution. The supporting evidence is strong for the reaction and weak for the location. Eight IRIDA missense alleles were assayed and seven of them impair matriptase-2 autoactivation, reduce membrane haemojuvelin cleavage, and fail to inhibit haemojuvelin-dependent hepcidin activation - a genotype-activity correspondence across human disease alleles, not a single anecdote. But every one of those measurements is in transfected cells, none is in a patient hepatocyte, and in vivo mouse work finds the liver behaving differently from hepatoma cells for an adjacent substrate.\\nThe sharper problem is that in vivo dissection has since shown the catalytic domain to be required for hepcidin suppression while its proteolytic activity is not. The cleavage reaction is real and human disease alleles impair it; what is in doubt is whether the suppression runs through it. This node is retained rather than deleted for that reason, and the discussions carry the argument.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"BMP signaling through membrane hemojuvelin\"], \"role\": \"effector\", \"mechanism_confidence\": \"PROVISIONAL\", \"experimental_models\": [{\"name\": \"Matriptase-2 hemojuvelin cleavage assay in transfected cells\", \"model_type\": \"CELL_LINE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Demonstrates the proposed enzymatic step and shows it is graded by genotype: absent for the mouse truncation, partial for the human missense allele.\"}]}}, {\"id\": \"Macrophage Iron Sequestration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The second, less obvious limb, and the one that explains why parenteral iron is not a clean rescue. Hepcidin also blocks iron release from macrophages. Parenteral iron formulations are taken up by the reticuloendothelial system and must be re-exported before erythroid precursors can use them, so a hepcidin block downstream of the injection limits the response even when the gut has been bypassed entirely.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"macrophage\"], \"biological_processes\": [\"macrophage iron release into plasma\"], \"role\": \"effector\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Matriptase-2 hemojuvelin cleavage assay in transfected cells\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Co-expression of matriptase-2 - wild type, the mask truncation, or the human disease allele R774C - with haemojuvelin in cultured cells, read out by hepcidin promoter activity and by cleavage of membrane haemojuvelin.\", \"meta\": {\"model_type\": \"CELL_LINE\"}}, {\"id\": \"Parenteral Iron\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The mainstay of treatment. It bypasses the blocked duodenal step but not the macrophage one, so the response is slow and the correction partial rather than complete.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"iron\"]}}, {\"id\": \"Systemic Iron Restriction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Both limbs converge on a reduced supply of transferrin-bound iron to the marrow. The biochemical shadow of this node is the low transferrin saturation that, together with a non-suppressed hepcidin, defines the diagnostic pattern.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"systemic iron homeostasis\"], \"role\": \"effector\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"TMPRSS6\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"genes\": [\"TMPRSS6\"], \"gene_terms\": [{\"label\": \"TMPRSS6\", \"id\": \"hgnc:16517\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"mask mouse (Tmprss6 splice-site mutant)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A chemically induced recessive mouse mutant recovered on phenotype - hair loss and microcytic anaemia - and mapped to a Tmprss6 splicing defect. It is the model that established what the human gene does, and it was published within weeks of the human gene discovery.\"}], \"edges\": [{\"source\": \"Biallelic TMPRSS6 Loss of Function\", \"target\": \"Loss of Matriptase-2 Cleavage of Membrane Hemojuvelin\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biallelic TMPRSS6 Loss of Function\", \"target\": \"Failure to Suppress Hepcidin Transcription in Iron Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Matriptase-2 Cleavage of Membrane Hemojuvelin\", \"target\": \"Inappropriately Elevated Circulating Hepcidin\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure to Suppress Hepcidin Transcription in Iron Deficiency\", \"target\": \"Inappropriately Elevated Circulating Hepcidin\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Inappropriately Elevated Circulating Hepcidin\", \"target\": \"Impaired Duodenal Iron Absorption\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Inappropriately Elevated Circulating Hepcidin\", \"target\": \"Macrophage Iron Sequestration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Duodenal Iron Absorption\", \"target\": \"Systemic Iron Restriction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Macrophage Iron Sequestration\", \"target\": \"Systemic Iron Restriction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Iron Restriction\", \"target\": \"Iron-Restricted Erythropoiesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Parenteral Iron\", \"target\": \"Impaired Duodenal Iron Absorption\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Matriptase-2 hemojuvelin cleavage assay in transfected cells\", \"target\": \"Loss of Matriptase-2 Cleavage of Membrane Hemojuvelin\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Demonstrates the proposed enzymatic step and shows it is graded by genotype: absent for the mouse truncation, partial for the human missense allele.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Overexpression in a heterologous cell line rather than a hepatocyte carrying the variant at its endogenous locus, so the assay establishes that the reaction can occur and is genotype-sensitive, not that it is the rate-limiting step in a patient\u0027s liver. Fidelity is graded MODERATE on that basis.\"}, {\"source\": \"mask mouse (Tmprss6 splice-site mutant)\", \"target\": \"Failure to Suppress Hepcidin Transcription in Iron Deficiency\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The mouse reproduces the core lesion - Tmprss6 loss, high hepcidin, reduced dietary iron absorption, microcytic anaemia - and is the system in which the Hamp-promoter mechanism was demonstrated.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"One phenotypic divergence is worth stating rather than glossing. The mouse is named for progressive loss of body but not facial hair, and alopecia of this kind is not a feature of human IRIDA. Whatever produces the mask coat phenotype is therefore either mouse-specific or an aspect of matriptase-2 biology that human patients do not show, and it should not be used to predict a human phenotype.\"}, {\"source\": \"TMPRSS6\", \"target\": \"Biallelic TMPRSS6 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6737,9 +6895,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(4)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Metabolism<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Metabolism<span class="pill-count">(4)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6779,6 +6935,9 @@ This clinical feature is Hypochromic microcytic anemia (HP:0004840). HP:0004840 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Kept at OBLIGATE for the anaemia, which no report contradicts, but the *microcytosis* is not universal: a proband in one of six Saudi IRIDA families presented with normocytic anaemia and a normal MCV. That is curated on the separate MCV phenotype below, which is banded VERY_FREQUENT rather than OBLIGATE for exactly this reason. Splitting the anaemia from its red-cell indices is what lets the entry hold both facts.</div>
 
 
@@ -6798,6 +6957,7 @@ This clinical feature is Hypochromic microcytic anemia (HP:0004840). HP:0004840 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6822,6 +6982,7 @@ This clinical feature is Hypochromic microcytic anemia (HP:0004840). HP:0004840 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6880,6 +7041,9 @@ This clinical feature is Decreased mean corpuscular volume (HP:0025066). HP:0025
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6894,6 +7058,7 @@ This clinical feature is Decreased mean corpuscular volume (HP:0025066). HP:0025
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6918,6 +7083,7 @@ This clinical feature is Decreased mean corpuscular volume (HP:0025066). HP:0025
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -6973,6 +7139,9 @@ This clinical feature is Iron deficiency anemia unresponsive to oral iron, annot
                     </div>
 
 
+
+
+
                     <div class="item-desc">The HP binding is deliberately the general term HP:0001891 &#34;Iron deficiency anemia&#34;. HPO has no term for refractoriness to a specific therapy, so the treatment-response part of this phenotype lives in preferred_term and the description rather than in the ontology binding. Do not substitute a narrower-sounding term that does not mean this.
 Note the tension this phenotype now carries and should keep carrying: the disease is *named* for oral-iron refractoriness, and a genotype-confirmed kindred responds to oral iron. Both are true. Resolving it by dropping either the name or the exception would lose information.</div>
 
@@ -6993,6 +7162,7 @@ Note the tension this phenotype now carries and should keep carrying: the diseas
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7020,6 +7190,7 @@ Note the tension this phenotype now carries and should keep carrying: the diseas
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7041,6 +7212,7 @@ Note the tension this phenotype now carries and should keep carrying: the diseas
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -7099,6 +7271,9 @@ This clinical feature is Iron deficiency anemia only partially corrected by pare
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7113,6 +7288,7 @@ This clinical feature is Iron deficiency anemia only partially corrected by pare
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7137,6 +7313,7 @@ This clinical feature is Iron deficiency anemia only partially corrected by pare
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7169,112 +7346,7 @@ This clinical feature is Iron deficiency anemia only partially corrected by pare
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hyperferritinemia-at-presentation" data-dismech-node="Hyperferritinemia at Presentation" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hyperferritinemia at Presentation
-
-                        <span class="phenotype-freq">VERY_RARE</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Increased circulating ferritin concentration</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003281" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0003281</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Increased circulating ferritin concentration (HP:0003281). HP:0003281 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:23319530" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23319530" target="_blank">PMID:23319530</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"We report a French-Canadian kindred in which 2 siblings presented in early childhood with severe microcytic anemia, hypoferremia, and hyperferritinemia. Both children have been successfully treated solely with low-dose oral iron since diagnosis."</div>
-
-
-                <div class="evidence-explanation">The presentation and, in the same sentence, the treatment response that makes this kindred doubly exceptional.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:23319530" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23319530" target="_blank">PMID:23319530</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Whole exome sequencing identified in both patients compound heterozygous mutations of TMPRSS6 leading to p.G442R and p.E522K, 2 mutations previously reported to cause classic IRIDA"</div>
-
-
-                <div class="evidence-explanation">Establishes that the atypical presentation is not explained by atypical alleles - both variants had already been reported in classic IRIDA.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">4</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-low-transferrin-saturation" data-dismech-node="Low Transferrin Saturation" data-dismech-type="phenotype">
@@ -7295,15 +7367,18 @@ This clinical feature is Increased circulating ferritin concentration (HP:000328
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012464" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0012464</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012464" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0012464</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Decreased transferrin saturation (HP:0012464). HP:0012464 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7323,6 +7398,7 @@ This clinical feature is Decreased transferrin saturation (HP:0012464). HP:00124
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7347,6 +7423,7 @@ This clinical feature is Decreased transferrin saturation (HP:0012464). HP:00124
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7391,15 +7468,18 @@ This clinical feature is Decreased transferrin saturation (HP:0012464). HP:00124
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031877" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0031877</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031877" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0031877</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Elevated circulating hepcidin concentration (HP:0031877). HP:0031877 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7419,6 +7499,7 @@ This clinical feature is Elevated circulating hepcidin concentration (HP:0031877
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7443,6 +7524,7 @@ This clinical feature is Elevated circulating hepcidin concentration (HP:0031877
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7487,15 +7569,18 @@ This clinical feature is Elevated circulating hepcidin concentration (HP:0031877
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0040133" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0040133</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0040133" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0040133</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Serum ferritin inappropriately preserved for the degree of iron deficiency, annotated with Abnormal circulating ferritin concentration (HP:0040133). HP:0040133 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Bound to the general term HP:0040133 &#34;Abnormal circulating ferritin concentration&#34; rather than to the increased or decreased child terms, and the choice is deliberate. The finding is neither: it is a value that would be unremarkable in isolation and is abnormal only relative to the iron status. This is the same ontology gap as the hepcidin binding in this entry - HPO represents direction of change but not inappropriateness for a physiological context - and both are recorded in `notes` rather than papered over with a child term that asserts a direction the patients do not reliably show.</div>
@@ -7517,6 +7602,7 @@ This clinical feature is Serum ferritin inappropriately preserved for the degree
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7544,6 +7630,7 @@ This clinical feature is Serum ferritin inappropriately preserved for the degree
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7552,6 +7639,107 @@ This clinical feature is Serum ferritin inappropriately preserved for the degree
 
 
                 <div class="evidence-explanation">States the expected ferritin range in IRIDA alongside the other two elements of the laboratory signature.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hyperferritinemia-at-presentation" data-dismech-node="Hyperferritinemia at Presentation" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hyperferritinemia at Presentation
+
+                        <span class="phenotype-freq">VERY_RARE</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Increased circulating ferritin concentration</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003281" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0003281</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Increased circulating ferritin concentration (HP:0003281). HP:0003281 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23319530" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23319530" target="_blank">PMID:23319530</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We report a French-Canadian kindred in which 2 siblings presented in early childhood with severe microcytic anemia, hypoferremia, and hyperferritinemia. Both children have been successfully treated solely with low-dose oral iron since diagnosis."</div>
+
+
+                <div class="evidence-explanation">The presentation and, in the same sentence, the treatment response that makes this kindred doubly exceptional.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23319530" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23319530" target="_blank">PMID:23319530</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Whole exome sequencing identified in both patients compound heterozygous mutations of TMPRSS6 leading to p.G442R and p.E522K, 2 mutations previously reported to cause classic IRIDA"</div>
+
+
+                <div class="evidence-explanation">Establishes that the atypical presentation is not explained by atypical alleles - both variants had already been reported in classic IRIDA.</div>
 
 
 
@@ -7641,6 +7829,9 @@ This disease-associated gene is TMPRSS6 (hgnc:16517). hgnc:16517 is a gene from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (5 references)
@@ -7655,6 +7846,7 @@ This disease-associated gene is TMPRSS6 (hgnc:16517). hgnc:16517 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7682,6 +7874,7 @@ This disease-associated gene is TMPRSS6 (hgnc:16517). hgnc:16517 is a gene from 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7703,6 +7896,7 @@ This disease-associated gene is TMPRSS6 (hgnc:16517). hgnc:16517 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7880,6 +8074,31 @@ This treatment uses iron, annotated with iron(2+) (CHEBI:29033). CHEBI:29033 is 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">The mainstay of treatment. It bypasses the blocked duodenal step but not the macrophage one, so the response is slow and the correction partial rather than complete.</div>
 
 
@@ -7910,6 +8129,7 @@ This treatment uses iron, annotated with iron(2+) (CHEBI:29033). CHEBI:29033 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7953,6 +8173,7 @@ This treatment uses iron, annotated with iron(2+) (CHEBI:29033). CHEBI:29033 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8038,6 +8259,31 @@ This treatment uses iron, annotated with iron(2+) (CHEBI:29033). CHEBI:29033 is 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Curated because it is what patients are given for years before the diagnosis is made, not because it works. It does not.</div>
 
 
@@ -8062,6 +8308,7 @@ This treatment uses iron, annotated with iron(2+) (CHEBI:29033). CHEBI:29033 is 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8083,6 +8330,7 @@ This treatment uses iron, annotated with iron(2+) (CHEBI:29033). CHEBI:29033 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8146,6 +8394,31 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Not an available treatment. Curated as a stated therapeutic direction because the mechanism identifies the target unusually cleanly - the disease is caused by hepcidin that is too high, so an agent that lowers it would address the lesion rather than its consequence.</div>
 
 
@@ -8167,6 +8440,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8234,6 +8508,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8280,6 +8555,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8358,6 +8634,7 @@ rate_per_100000 is deliberately left empty. Deriving a rate from an allele count
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8459,6 +8736,7 @@ The separating test is hepcidin, read against the transferrin saturation: suppre
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8527,6 +8805,7 @@ The separating test is hepcidin, read against the transferrin saturation: suppre
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8548,6 +8827,7 @@ The separating test is hepcidin, read against the transferrin saturation: suppre
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8666,6 +8946,7 @@ The separating test is hepcidin, read against the transferrin saturation: suppre
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8705,6 +8986,7 @@ The separating test is hepcidin, read against the transferrin saturation: suppre
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8858,6 +9140,7 @@ The separating test is hepcidin, read against the transferrin saturation: suppre
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8897,6 +9180,7 @@ The separating test is hepcidin, read against the transferrin saturation: suppre
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11065,6 +11349,28 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Scope. This entry covers the Mendelian disease caused by biallelic TMPRSS6 loss of function. Common TMPRSS6 polymorphisms are robustly associated with haemoglobin and iron indices in the general population, but that is a quantitative-trait association rather than this disease, and asserting it here would blur a monogenic entity into a susceptibility claim.
+On the two hepcidin-related HP bindings. Both the phenotype &#34;Hepcidin Not Suppressed Despite Iron Deficiency&#34; and the biochemical marker use HP:0031877 &#34;Elevated circulating hepcidin concentration&#34;. HPO has no term for hepcidin that is inappropriately high for iron status, which is what the disease actually shows, and HP:0031877 is the nearest true statement rather than an exact one. The distinction is carried in preferred_term, the descriptions, and the assay discussion. A future curator should not &#34;improve&#34; this by binding to a term implying an absolute elevation that patients frequently do not have.
+On GeneReviews. There is no GeneReviews chapter for IRIDA or for TMPRSS6 - a PubMed search of `GeneReviews[Book] OR GeneReviews[Title]` against both terms returns nothing. PMID:25064705 is a Hematol Oncol Clin North Am review and should not be mistaken for one.
+Not curated for want of quotable evidence in the sources fetched here: numeric haematological values from the defining cohort&#39;s Table 1 (a table this cache renders as prose, so quoting a cell would be unsafe), the natural history into adulthood, and pregnancy management.
+Provenance. The entry was built from primary literature; an OpenScientist deep research report was run alongside it and is committed as `research/IRIDA_Syndrome-deep-research-openscientist.md`. Four of the six references added in the second pass - the TSAT/hepcidin ratio study, the TMPRSS6 variant functional series, the oral-iron-plus-ascorbate cohort, and the anti-TMPRSS6 antibody trial - were leads the report surfaced and this curator did not have. Each was verified against PubMed and fetched through `just fetch-reference` before use; none was taken from the report&#39;s own quotation of it. Two of the report&#39;s leads changed a conclusion rather than adding detail: the ratio study contradicted a draft claim that no validated decision rule existed, and the antibody trial supplied human causal evidence the entry previously lacked.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: IRIDA Syndrome, MONDO:0008788</strong> · 2026-08-29T11:59:48Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/IRIDA_Syndrome/2026-08-29T115948Z-claude-code-e0c5a7.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of IRIDA (biallelic TMPRSS6 loss of function) from primary literature, with an OpenScientist deep-research report run alongside and committed under research/. Eight-node pathograph: TMPRSS6 loss of function branching into two parallel published mechanisms - ectodomain cleavage of membrane hemojuvelin, and a cytoplasmic-domain effect on the Hamp proximal promoter - converging on inappropriately elevated hepcidin, which blocks ferroportin-mediated export at the duodenal enterocyte and the macrophage, giving systemic iron restriction and iron-restricted erythropoiesis. Eleven references, all fetched via &#39;just fetch-reference&#39;; 62/62 snippets verified. Four references were leads the deep-research report surfaced and were independently verified on PubMed before use; two of them changed conclusions rather than adding detail. The TSAT/hepcidin ratio study contradicted a draft claim that no validated decision rule existed, and the anti-TMPRSS6 antibody Phase 1 trial supplied human causal evidence for the hepcidin node. Curated a definitions PHENOTYPE_ALGORITHM for the TSAT/hepcidin ratio with its method-bound threshold recorded as inclusion criteria rather than prose caveats, plus two discussions: the unresolved ectodomain-versus-cytoplasmic-domain mechanism question, and a HUMAN_MODEL_MISMATCH on matriptase-2 stabilising neogenin in mouse liver while cleaving it in hepatoma cells. Validated with validate, validate-terms, count-verified-snippets, check-entity-refs, check-duplicate-keys and validate-disorders.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

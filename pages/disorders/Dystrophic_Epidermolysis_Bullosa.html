@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4336,6 +4408,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4385,6 +4458,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4462,6 +4536,25 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                COL7A1
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:2214" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:2214</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in COL7A1 (hgnc:2214). hgnc:2214 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">Mild, localized blistering caused by dominant-negative COL7A1 mutations. Nails are most commonly affected, and blistering is often limited to hands, feet, knees, and elbows. Heals with scarring but without the severe complications seen in recessive forms.
@@ -4488,6 +4581,25 @@
 
                     </div>
                     <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                COL7A1
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:2214" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:2214</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in COL7A1 (hgnc:2214). hgnc:2214 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
 
 
 
@@ -4524,6 +4636,25 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                COL7A1
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:2214" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:2214</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in COL7A1 (hgnc:2214). hgnc:2214 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">Formerly known as non-Hallopeau-Siemens RDEB. Moderate scarring with blistering that may be localized to hands, feet, knees, elbows, and flexural areas. Less severe than RDEB-sev gen, with lower SCC risk, but still carries significant morbidity from scarring and extracutaneous involvement.
@@ -4550,6 +4681,25 @@
 
                     </div>
                     <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                COL7A1
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:2214" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:2214</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in COL7A1 (hgnc:2214). hgnc:2214 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
 
 
 
@@ -4592,6 +4742,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-heterozygous-col7a1-pathogenic-variant-ddeb" data-dismech-node="Heterozygous COL7A1 Pathogenic Variant (DDEB)" data-dismech-type="pathophysiology">
                 <div class="item-name">Heterozygous COL7A1 Pathogenic Variant (DDEB)</div>
 
+
                 <div class="item-desc">A heterozygous pathogenic variant in COL7A1 is the molecular lesion in dominant dystrophic epidermolysis bullosa. The resulting type VII collagen dysfunction produces a usually milder, localized blistering phenotype that often affects hands, feet, knees, elbows, and nails.
 </div>
 
@@ -4615,11 +4766,11 @@
         COL7A1
 
 
-    <a href="https://bioregistry.io/hgnc:2214" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:2214</a>
+    <a href="https://bioregistry.io/hgnc:2214" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:2214</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves COL7A1 (hgnc:2214). hgnc:2214 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -4689,6 +4840,7 @@ This pathophysiological event involves COL7A1 (hgnc:2214). hgnc:2214 is a gene f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4711,6 +4863,7 @@ This pathophysiological event involves COL7A1 (hgnc:2214). hgnc:2214 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-col7a1-pathogenic-variants-rdeb" data-dismech-node="Biallelic COL7A1 Pathogenic Variants (RDEB)" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic COL7A1 Pathogenic Variants (RDEB)</div>
+
 
                 <div class="item-desc">Biallelic pathogenic variants in COL7A1 are the molecular lesion in recessive dystrophic epidermolysis bullosa. Severe generalized RDEB reflects marked type VII collagen deficiency, producing generalized neonatal blistering, progressive scarring, pseudosyndactyly, esophageal strictures, growth failure, and very high lifetime squamous cell carcinoma risk.
 </div>
@@ -4735,11 +4888,11 @@ This pathophysiological event involves COL7A1 (hgnc:2214). hgnc:2214 is a gene f
         COL7A1
 
 
-    <a href="https://bioregistry.io/hgnc:2214" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:2214</a>
+    <a href="https://bioregistry.io/hgnc:2214" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:2214</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves COL7A1 (hgnc:2214). hgnc:2214 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -4809,6 +4962,7 @@ This pathophysiological event involves COL7A1 (hgnc:2214). hgnc:2214 is a gene f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4832,6 +4986,7 @@ This pathophysiological event involves COL7A1 (hgnc:2214). hgnc:2214 is a gene f
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-col7a1-mutations-and-loss-of-type-vii-collagen" data-dismech-node="COL7A1 Mutations and Loss of Type VII Collagen" data-dismech-type="pathophysiology">
                 <div class="item-name">COL7A1 Mutations and Loss of Type VII Collagen</div>
 
+
                 <div class="item-desc">Mutations in the COL7A1 gene encoding type VII collagen result in absent, reduced, or dysfunctional protein. In RDEB, biallelic loss-of-function mutations typically cause complete absence of type VII collagen, while in DDEB, dominant-negative mutations produce structurally abnormal collagen that disrupts anchoring fibril formation. Type VII collagen is the major structural component of anchoring fibrils at the dermal-epidermal junction.
 </div>
 
@@ -4847,11 +5002,11 @@ This pathophysiological event involves COL7A1 (hgnc:2214). hgnc:2214 is a gene f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000312</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4877,11 +5032,11 @@ This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000057</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4919,11 +5074,11 @@ This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a 
         COL7A1
 
 
-    <a href="https://bioregistry.io/hgnc:2214" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:2214</a>
+    <a href="https://bioregistry.io/hgnc:2214" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:2214</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves COL7A1 (hgnc:2214). hgnc:2214 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -4961,11 +5116,11 @@ This pathophysiological event involves COL7A1 (hgnc:2214). hgnc:2214 is a gene f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030199" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0030199</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030199" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0030199</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal collagen fibril organization (GO:0030199). GO:0030199 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4995,11 +5150,11 @@ This pathophysiological event involves abnormal collagen fibril organization (GO
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0030198</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5065,6 +5220,7 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5086,6 +5242,7 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5113,6 +5270,7 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5136,6 +5294,7 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-anchoring-fibrils-and-loss-of-dermal-epidermal-adhesion" data-dismech-node="Defective Anchoring Fibrils and Loss of Dermal-Epidermal Adhesion" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective Anchoring Fibrils and Loss of Dermal-Epidermal Adhesion</div>
 
+
                 <div class="item-desc">Type VII collagen forms the anchoring fibrils that connect the lamina densa of the basement membrane zone to the papillary dermis. In DEB, defective or absent anchoring fibrils cause tissue separation at the sub-lamina densa level, resulting in blistering and erosions with minimal mechanical trauma.
 </div>
 
@@ -5151,11 +5310,11 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000312</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5192,11 +5351,11 @@ This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007160" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0007160</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007160" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0007160</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased cell-matrix adhesion (GO:0007160). GO:0007160 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5316,6 +5475,7 @@ This pathophysiological event involves decreased cell-matrix adhesion (GO:000716
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5337,6 +5497,7 @@ This pathophysiological event involves decreased cell-matrix adhesion (GO:000716
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5363,6 +5524,7 @@ This pathophysiological event involves decreased cell-matrix adhesion (GO:000716
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-wound-inflammation-fibrosis-cycle" data-dismech-node="Chronic Wound-Inflammation-Fibrosis Cycle" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic Wound-Inflammation-Fibrosis Cycle</div>
 
+
                 <div class="item-desc">Repeated blistering and impaired wound healing in DEB create chronic wounds that drive persistent inflammation and progressive fibrosis. TGF-β signaling is upregulated in RDEB fibroblasts, promoting excessive collagen deposition, tissue contraction, and extracellular matrix remodeling. This cycle underlies the progressive scarring, pseudosyndactyly, and tissue contractures characteristic of severe RDEB.
 </div>
 
@@ -5378,11 +5540,11 @@ This pathophysiological event involves decreased cell-matrix adhesion (GO:000716
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000057</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5419,11 +5581,11 @@ This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042060" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0042060</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042060" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0042060</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal wound healing (GO:0042060). GO:0042060 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5453,11 +5615,11 @@ This pathophysiological event involves abnormal wound healing (GO:0042060). GO:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0006954</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5487,11 +5649,11 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0071559" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0071559</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0071559" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0071559</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased response to transforming growth factor beta (GO:0071559). GO:0071559 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5584,6 +5746,7 @@ This pathophysiological event involves increased response to transforming growth
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5605,6 +5768,7 @@ This pathophysiological event involves increased response to transforming growth
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5631,6 +5795,7 @@ This pathophysiological event involves increased response to transforming growth
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-scarring-and-pseudosyndactyly" data-dismech-node="Progressive Scarring and Pseudosyndactyly" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Scarring and Pseudosyndactyly</div>
 
+
                 <div class="item-desc">Chronic fibrosis from repeated wound-healing cycles leads to progressive scarring, joint contractures, and fusion of digits (pseudosyndactyly or mitten deformities). In severe RDEB, the hands and feet become encased in a cocoon of scar tissue, causing severe functional impairment.
 </div>
 
@@ -5653,11 +5818,11 @@ This pathophysiological event involves increased response to transforming growth
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0030198</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5723,6 +5888,7 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5746,6 +5912,7 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-esophageal-and-mucosal-blistering" data-dismech-node="Esophageal and Mucosal Blistering" data-dismech-type="pathophysiology">
                 <div class="item-name">Esophageal and Mucosal Blistering</div>
 
+
                 <div class="item-desc">Blistering and erosions of the esophageal and oral mucosa lead to progressive stricture formation, microstomia, and fusion of the tongue to the floor of the mouth. Esophageal strictures cause severe dysphagia, contributing to malnutrition and growth failure.
 </div>
 
@@ -5768,11 +5935,11 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007160" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0007160</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007160" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0007160</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased cell-matrix adhesion (GO:0007160). GO:0007160 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5883,6 +6050,7 @@ This pathophysiological event involves decreased cell-matrix adhesion (GO:000716
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5906,7 +6074,8 @@ This pathophysiological event involves decreased cell-matrix adhesion (GO:000716
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-malnutrition-and-growth-failure" data-dismech-node="Malnutrition and Growth Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Malnutrition and Growth Failure</div>
 
-                <div class="item-desc">Chronic dysphagia from esophageal strictures, increased metabolic demands from chronic wound healing, and malabsorption lead to protein- calorie malnutrition, iron deficiency anemia, and growth retardation in children with severe RDEB. Vitamin and mineral deficiencies are common.
+
+                <div class="item-desc">Chronic dysphagia from esophageal strictures, increased metabolic demands from chronic wound healing, and malabsorption lead to protein-calorie malnutrition, iron deficiency anemia, and growth retardation in children with severe RDEB. Vitamin and mineral deficiencies are common.
 </div>
 
 
@@ -5978,6 +6147,7 @@ This pathophysiological event involves decreased cell-matrix adhesion (GO:000716
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6001,6 +6171,7 @@ This pathophysiological event involves decreased cell-matrix adhesion (GO:000716
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-wounds-and-aggressive-squamous-cell-carcinoma" data-dismech-node="Chronic Wounds and Aggressive Squamous Cell Carcinoma" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic Wounds and Aggressive Squamous Cell Carcinoma</div>
 
+
                 <div class="item-desc">Chronic non-healing wounds in RDEB create an immunosuppressive and pro-tumorigenic microenvironment that promotes development of aggressive cutaneous squamous cell carcinoma. SCC is the leading cause of death in RDEB, with cumulative risk in severe generalized RDEB rising from 7.5% by age 20 to over 90% by age 55. These SCCs are unusually aggressive, with high rates of metastasis and mortality.
 </div>
 
@@ -6016,11 +6187,11 @@ This pathophysiological event involves decreased cell-matrix adhesion (GO:000716
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-20">CL:0000312</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -6058,11 +6229,11 @@ This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is 
         COL7A1
 
 
-    <a href="https://bioregistry.io/hgnc:2214" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-17">hgnc:2214</a>
+    <a href="https://bioregistry.io/hgnc:2214" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-21">hgnc:2214</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-17">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-21">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves COL7A1 (hgnc:2214). hgnc:2214 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -6100,11 +6271,11 @@ This pathophysiological event involves COL7A1 (hgnc:2214). hgnc:2214 is a gene f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042060" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0042060</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042060" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-22">GO:0042060</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal wound healing (GO:0042060). GO:0042060 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -6134,11 +6305,11 @@ This pathophysiological event involves abnormal wound healing (GO:0042060). GO:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006955" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0006955</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006955" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-23">GO:0006955</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased immune response (GO:0006955). GO:0006955 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -6204,6 +6375,7 @@ This pathophysiological event involves decreased immune response (GO:0006955). G
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6228,6 +6400,7 @@ This pathophysiological event involves decreased immune response (GO:0006955). G
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6249,6 +6422,7 @@ This pathophysiological event involves decreased immune response (GO:0006955). G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6299,7 +6473,7 @@ This pathophysiological event involves decreased immune response (GO:0006955). G
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Allogeneic Bone Marrow Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Investigational treatment for severe RDEB. Allogeneic bone marrow transplantation has shown increased type VII collagen deposition and improved wound healing, but carries significant morbidity and mortality from the conditioning regimen.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic anemia from a combination of iron deficiency (malnutrition, chronic blood loss from wounds) and anemia of chronic disease. May require iron supplementation and transfusions.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001903\"}}, {\"id\": \"Atrophic Scarring\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Blisters heal with atrophic scarring, a characteristic feature of dystrophic EB that distinguishes it from other EB types. Scarring is progressive and can lead to significant disfigurement.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001075\"}}, {\"id\": \"Beremagene Geperpavec (Vyjuvek)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Topical HSV-1-based gene therapy that delivers functional COL7A1 to restore type VII collagen protein expression in wound beds. FDA approved in 2023 for dystrophic epidermolysis bullosa. Phase III trial demonstrated complete wound healing in 67% of B-VEC-treated wounds vs 22% placebo at 6 months.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Biallelic COL7A1 Pathogenic Variants (RDEB)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in COL7A1 are the molecular lesion in recessive dystrophic epidermolysis bullosa. Severe generalized RDEB reflects marked type VII collagen deficiency, producing generalized neonatal blistering, progressive scarring, pseudosyndactyly, esophageal strictures, growth failure, and very high lifetime squamous cell carcinoma risk.\\n\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"COL7A1\"], \"gene_terms\": [{\"label\": \"COL7A1\", \"id\": \"hgnc:2214\"}], \"subtypes\": [\"RDEB-sev gen\", \"RDEB-intermediate\", \"RDEB-Inversa\"]}}, {\"id\": \"COL7A1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"COL7A1\"], \"gene_terms\": [{\"label\": \"COL7A1\", \"id\": \"hgnc:2214\"}], \"association\": \"Causative\"}}, {\"id\": \"COL7A1 Mutations and Loss of Type VII Collagen\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in the COL7A1 gene encoding type VII collagen result in absent, reduced, or dysfunctional protein. In RDEB, biallelic loss-of-function mutations typically cause complete absence of type VII collagen, while in DDEB, dominant-negative mutations produce structurally abnormal collagen that disrupts anchoring fibril formation. Type VII collagen is the major structural component of anchoring fibrils at the dermal-epidermal junction.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"keratinocyte\", \"fibroblast\"], \"biological_processes\": [\"collagen fibril organization\", \"extracellular matrix organization\"], \"genes\": [\"COL7A1\"], \"gene_terms\": [{\"label\": \"COL7A1\", \"id\": \"hgnc:2214\"}]}}, {\"id\": \"Chronic Wound-Inflammation-Fibrosis Cycle\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Repeated blistering and impaired wound healing in DEB create chronic wounds that drive persistent inflammation and progressive fibrosis. TGF-\\u03b2 signaling is upregulated in RDEB fibroblasts, promoting excessive collagen deposition, tissue contraction, and extracellular matrix remodeling. This cycle underlies the progressive scarring, pseudosyndactyly, and tissue contractures characteristic of severe RDEB.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"wound healing\", \"inflammatory response\", \"response to transforming growth factor beta\"]}}, {\"id\": \"Chronic Wounds and Aggressive Squamous Cell Carcinoma\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic non-healing wounds in RDEB create an immunosuppressive and pro-tumorigenic microenvironment that promotes development of aggressive cutaneous squamous cell carcinoma. SCC is the leading cause of death in RDEB, with cumulative risk in severe generalized RDEB rising from 7.5% by age 20 to over 90% by age 55. These SCCs are unusually aggressive, with high rates of metastasis and mortality.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"wound healing\", \"immune response\"], \"genes\": [\"COL7A1\"], \"gene_terms\": [{\"label\": \"COL7A1\", \"id\": \"hgnc:2214\"}]}}, {\"id\": \"Constipation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic constipation from anal and perianal blistering and stenosis. May require active management to prevent complications.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002019\"}}, {\"id\": \"Corneal Erosions\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent corneal erosions from epithelial fragility, which can lead to scarring and loss of vision.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0200020\"}}, {\"id\": \"Cutaneous Squamous Cell Carcinoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Aggressive squamous cell carcinomas arising in areas of chronic wounding and scarring. The leading cause of death in RDEB, with cumulative risk exceeding 90% by age 55 in severe generalized RDEB. These tumors are unusually aggressive with high metastatic potential.\\n\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"RDEB-sev gen\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0006739\"}}, {\"id\": \"Defective Anchoring Fibrils and Loss of Dermal-Epidermal Adhesion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Type VII collagen forms the anchoring fibrils that connect the lamina densa of the basement membrane zone to the papillary dermis. In DEB, defective or absent anchoring fibrils cause tissue separation at the sub-lamina densa level, resulting in blistering and erosions with minimal mechanical trauma.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"cell-matrix adhesion\"]}}, {\"id\": \"Dental Caries\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased susceptibility to dental caries from enamel hypoplasia, difficulty with oral hygiene due to microstomia and oral mucosal fragility, and nutritional deficiencies.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000670\"}}, {\"id\": \"Dysphagia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Difficulty swallowing resulting from esophageal strictures and oral mucosal involvement. Can be severe enough to require feeding gastrostomy.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002015\"}}, {\"id\": \"Esophageal Dilation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Balloon dilation of esophageal strictures and webs to improve swallowing and nutritional intake. May need to be repeated as strictures recur.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Esophageal Stricture\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Blistering and scarring of the esophageal mucosa leads to progressive stricture and web formation, causing severe dysphagia. A major contributor to malnutrition in RDEB.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002043\"}}, {\"id\": \"Esophageal and Mucosal Blistering\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Blistering and erosions of the esophageal and oral mucosa lead to progressive stricture formation, microstomia, and fusion of the tongue to the floor of the mouth. Esophageal strictures cause severe dysphagia, contributing to malnutrition and growth failure.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell-matrix adhesion\"]}}, {\"id\": \"Filsuvez (Birch Triterpenes) Topical Gel\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Oleogel-S10 (Filsuvez), a topical gel containing birch triterpenes, is used for partial-thickness wounds associated with dystrophic and junctional EB in patients aged 6 months and older. In the phase III EASE trial, Oleogel-S10 accelerated target wound closure compared with control gel.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"birch triterpenes\"]}}, {\"id\": \"Gentamicin Readthrough Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Intravenous gentamicin induces translational readthrough of nonsense mutations in COL7A1, restoring functional type VII collagen at the dermal-epidermal junction. Applicable to approximately 30% of RDEB patients who carry nonsense mutations. An open-label pilot trial treated 3 RDEB patients with IV gentamicin for 14 days; all showed increased C7 at the DEJ persisting for at least 6 months, and monitored wounds exhibited greater than 85% closure.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"gentamicin\"]}}, {\"id\": \"Growth Retardation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Failure to thrive and growth retardation resulting from chronic malnutrition due to esophageal strictures, increased metabolic demands from chronic wound healing, and malabsorption.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"RDEB-sev gen\"], \"term_id\": \"HP:0001510\"}}, {\"id\": \"Heterozygous COL7A1 Pathogenic Variant (DDEB)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A heterozygous pathogenic variant in COL7A1 is the molecular lesion in dominant dystrophic epidermolysis bullosa. The resulting type VII collagen dysfunction produces a usually milder, localized blistering phenotype that often affects hands, feet, knees, elbows, and nails.\\n\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"COL7A1\"], \"gene_terms\": [{\"label\": \"COL7A1\", \"id\": \"hgnc:2214\"}], \"subtypes\": [\"DDEB\"]}}, {\"id\": \"Losartan\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anti-fibrotic angiotensin II type 1 receptor antagonist that reduces TGF-\\u03b2 signaling. The REFLECT Phase 1/2 trial enrolled 29 children with RDEB and demonstrated that losartan was well tolerated with improvements in EBDASI damage scores and BEBS scores. Losartan may reduce disease burden by mitigating progressive fibrosis.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"losartan\"]}}, {\"id\": \"Malnutrition and Growth Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic dysphagia from esophageal strictures, increased metabolic demands from chronic wound healing, and malabsorption lead to protein- calorie malnutrition, iron deficiency anemia, and growth retardation in children with severe RDEB. Vitamin and mineral deficiencies are common.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Microstomia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive diminution of the oral cavity and mouth opening due to perioral scarring and mucosal blistering. Impairs feeding and dental care.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"RDEB-sev gen\"], \"term_id\": \"HP:0000160\"}}, {\"id\": \"Milia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Small white cysts (milia) form at sites of healed blisters, a characteristic feature that helps distinguish DEB from other EB types.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001056\"}}, {\"id\": \"Nail Dystrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dystrophic or absent nails are common in all forms of DEB. In DDEB, nail dystrophy may be the only clinical manifestation. Toenails are particularly affected.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008404\"}}, {\"id\": \"Nutritional Support\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"High-calorie nutritional supplementation with iron, vitamin A, zinc, selenium, carnitine, calcium, and vitamin D. Feeding gastrostomy tube placement may be necessary for patients with severe dysphagia.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Osteoporosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced bone mineral density from chronic malnutrition, vitamin D deficiency, limited mobility, and chronic inflammation.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000939\"}}, {\"id\": \"Physical and Occupational Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Physical and occupational therapy to preserve hand function, maintain ambulation, and prevent joint contractures. Surgical release of fused digits may need to be repeated.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Prademagene Zamikeracel (Zevaskyn)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Ex vivo autologous gene therapy for RDEB. Patient keratinocytes are transduced with a retroviral vector encoding COL7A1, expanded into epidermal sheets, and surgically grafted onto chronic wounds. FDA approved April 2025 as the first cell-based gene therapy for RDEB. Phase III VIITAL trial demonstrated that 81% of treated wounds achieved at least 50% healing at 6 months versus 16% of control wounds.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Progressive Scarring and Pseudosyndactyly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic fibrosis from repeated wound-healing cycles leads to progressive scarring, joint contractures, and fusion of digits (pseudosyndactyly or mitten deformities). In severe RDEB, the hands and feet become encased in a cocoon of scar tissue, causing severe functional impairment.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"extracellular matrix organization\"]}}, {\"id\": \"Pseudosyndactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive fusion of digits (mitten deformities) caused by repeated blistering and scarring of the hands and feet. Characteristic of severe RDEB, leading to significant loss of hand function.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"RDEB-sev gen\"], \"term_id\": \"HP:0010554\"}}, {\"id\": \"Recombinant Type VII Collagen (PTR-01)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Investigational intravenous protein replacement therapy using recombinant type VII collagen (rC7) for systemic treatment of RDEB. Preclinical studies in RDEB mice and dogs demonstrated that IV rC7 accumulates at the basement membrane zone, reduces fibrosis via decreased TGF-\\u03b2 signaling, and promotes wound healing. Phase 2 clinical trial results have been reported but not yet published in peer-reviewed literature.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Rigosertib\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Polo-like kinase-1 (PLK1) inhibitor investigated for RDEB-associated squamous cell carcinoma, the leading cause of death in RDEB. Phase II trials in Europe and the USA enrolled five patients with locally advanced or metastatic RDEB-SCC. Antitumour efficacy was observed with acceptable toxicity, and two patients had a complete response within 6 months.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Skin Blistering\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mechanically induced blistering and erosions of the skin, the hallmark feature of DEB. Blisters form at the sub-lamina densa level due to defective anchoring fibrils. Severity ranges from localized (DDEB) to generalized (severe RDEB).\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0008066\"}}, {\"id\": \"Surgical Excision of SCC\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Aggressive surgical excision of confirmed squamous cell carcinomas, although outcomes remain poor due to high metastatic potential.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Wound Care and Specialized Dressings\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Meticulous wound care is the cornerstone of DEB management. New blisters should be lanced and drained, then dressed with nonadherent dressings and protective padding. Prevention of new blisters through education, padding of extremities, and soft clothing is essential.\\n\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Heterozygous COL7A1 Pathogenic Variant (DDEB)\", \"target\": \"COL7A1 Mutations and Loss of Type VII Collagen\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Heterozygous COL7A1 pathogenic variants produce dysfunctional type VII collagen and thereby converge on the collagen VII/anchoring fibril defect.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biallelic COL7A1 Pathogenic Variants (RDEB)\", \"target\": \"COL7A1 Mutations and Loss of Type VII Collagen\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Biallelic COL7A1 pathogenic variants reduce or abolish type VII collagen function and thereby converge on the collagen VII/anchoring fibril defect.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"COL7A1 Mutations and Loss of Type VII Collagen\", \"target\": \"Defective Anchoring Fibrils and Loss of Dermal-Epidermal Adhesion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Absent or dysfunctional type VII collagen leads to defective anchoring fibrils that fail to secure the epidermis to the dermis.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Defective Anchoring Fibrils and Loss of Dermal-Epidermal Adhesion\", \"target\": \"Skin Blistering\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dermal-epidermal separation after minimal trauma produces the defining blistering and erosions of DEB.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Defective Anchoring Fibrils and Loss of Dermal-Epidermal Adhesion\", \"target\": \"Atrophic Scarring\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recurrent sub-lamina-densa blistering heals with dermal remodeling and atrophic scarring.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"blister healing with dermal matrix remodeling\"]}, {\"source\": \"Defective Anchoring Fibrils and Loss of Dermal-Epidermal Adhesion\", \"target\": \"Milia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Milia form at sites of healed blistering and erosions.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"healing of recurrent blisters\"]}, {\"source\": \"Defective Anchoring Fibrils and Loss of Dermal-Epidermal Adhesion\", \"target\": \"Nail Dystrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fragility of nail-unit adhesion causes dystrophic or absent nails, especially in DDEB.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Defective Anchoring Fibrils and Loss of Dermal-Epidermal Adhesion\", \"target\": \"Chronic Wound-Inflammation-Fibrosis Cycle\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Repeated blistering and impaired wound healing create chronic wounds that drive a self-perpetuating cycle of inflammation and fibrosis.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"repeated blistering and erosions\"]}, {\"source\": \"Defective Anchoring Fibrils and Loss of Dermal-Epidermal Adhesion\", \"target\": \"Esophageal and Mucosal Blistering\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of adhesion in mucosal epithelia causes blistering and erosions in the esophagus, oral cavity, and other mucosal surfaces.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Defective Anchoring Fibrils and Loss of Dermal-Epidermal Adhesion\", \"target\": \"Corneal Erosions\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Epithelial fragility at ocular surfaces causes recurrent corneal erosions.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic Wound-Inflammation-Fibrosis Cycle\", \"target\": \"Atrophic Scarring\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic abnormal wound repair leaves progressive atrophic scars.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic Wound-Inflammation-Fibrosis Cycle\", \"target\": \"Anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic wounds and inflammation contribute to iron deficiency and anemia of chronic disease.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"chronic wound blood loss\", \"anemia of chronic inflammation\"]}, {\"source\": \"Chronic Wound-Inflammation-Fibrosis Cycle\", \"target\": \"Progressive Scarring and Pseudosyndactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic fibrosis leads to progressive scarring, tissue fusion, and mitten deformities of the hands and feet.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic Wound-Inflammation-Fibrosis Cycle\", \"target\": \"Chronic Wounds and Aggressive Squamous Cell Carcinoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic wounds with an immunosuppressive fibrotic microenvironment promote development of aggressive squamous cell carcinoma.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"chronic non-healing wounds\", \"fibrotic inflammatory microenvironment\"]}, {\"source\": \"Progressive Scarring and Pseudosyndactyly\", \"target\": \"Pseudosyndactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fibrotic fusion and contracture of digits manifests clinically as pseudosyndactyly.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Esophageal and Mucosal Blistering\", \"target\": \"Esophageal Stricture\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Esophageal erosions heal with webs and strictures.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Esophageal and Mucosal Blistering\", \"target\": \"Dysphagia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Esophageal strictures impair swallowing and produce dysphagia.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"esophageal webs and strictures\"]}, {\"source\": \"Esophageal and Mucosal Blistering\", \"target\": \"Microstomia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oral mucosal blistering and perioral scarring progressively reduce mouth opening.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Esophageal and Mucosal Blistering\", \"target\": \"Dental Caries\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oral blistering, scarring, and restricted mouth opening impair dental hygiene and contribute to dental caries risk.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"oral mucosal blistering and scarring\", \"microstomia limiting dental hygiene\"]}, {\"source\": \"Esophageal and Mucosal Blistering\", \"target\": \"Constipation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gastrointestinal mucosal fragility and perianal scarring contribute to chronic constipation.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"anal and perianal blistering and stenosis\"]}, {\"source\": \"Esophageal and Mucosal Blistering\", \"target\": \"Malnutrition and Growth Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Esophageal strictures and oral involvement severely impair nutritional intake, leading to growth retardation and nutritional deficiencies.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"severe dysphagia\", \"impaired oral intake\"]}, {\"source\": \"Malnutrition and Growth Failure\", \"target\": \"Growth Retardation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Protein-calorie malnutrition and micronutrient deficiency impair childhood growth.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Malnutrition and Growth Failure\", \"target\": \"Anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Nutritional deficiency contributes to chronic anemia in severe RDEB.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"iron deficiency\", \"micronutrient deficiency\"]}, {\"source\": \"Malnutrition and Growth Failure\", \"target\": \"Osteoporosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Malnutrition and limited mobility contribute to low bone mineral density and osteoporosis.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"vitamin D deficiency\", \"calcium deficiency\", \"reduced mobility\"]}, {\"source\": \"Chronic Wounds and Aggressive Squamous Cell Carcinoma\", \"target\": \"Cutaneous Squamous Cell Carcinoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Aggressive cutaneous squamous cell carcinomas arise in chronically wounded and scarred RDEB skin.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Beremagene Geperpavec (Vyjuvek)\", \"target\": \"COL7A1 Mutations and Loss of Type VII Collagen\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Beremagene Geperpavec (Vyjuvek)\", \"target\": \"Defective Anchoring Fibrils and Loss of Dermal-Epidermal Adhesion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Prademagene Zamikeracel (Zevaskyn)\", \"target\": \"COL7A1 Mutations and Loss of Type VII Collagen\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Prademagene Zamikeracel (Zevaskyn)\", \"target\": \"Defective Anchoring Fibrils and Loss of Dermal-Epidermal Adhesion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Recombinant Type VII Collagen (PTR-01)\", \"target\": \"Defective Anchoring Fibrils and Loss of Dermal-Epidermal Adhesion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Recombinant Type VII Collagen (PTR-01)\", \"target\": \"Chronic Wound-Inflammation-Fibrosis Cycle\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Losartan\", \"target\": \"Chronic Wound-Inflammation-Fibrosis Cycle\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Rigosertib\", \"target\": \"Chronic Wounds and Aggressive Squamous Cell Carcinoma\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Gentamicin Readthrough Therapy\", \"target\": \"COL7A1 Mutations and Loss of Type VII Collagen\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Filsuvez (Birch Triterpenes) Topical Gel\", \"target\": \"Chronic Wound-Inflammation-Fibrosis Cycle\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Wound Care and Specialized Dressings\", \"target\": \"Chronic Wound-Inflammation-Fibrosis Cycle\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Esophageal Dilation\", \"target\": \"Esophageal and Mucosal Blistering\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Nutritional Support\", \"target\": \"Malnutrition and Growth Failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Surgical Excision of SCC\", \"target\": \"Chronic Wounds and Aggressive Squamous Cell Carcinoma\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Physical and Occupational Therapy\", \"target\": \"Progressive Scarring and Pseudosyndactyly\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Allogeneic Bone Marrow Transplantation\", \"target\": \"Defective Anchoring Fibrils and Loss of Dermal-Epidermal Adhesion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"COL7A1\", \"target\": \"Biallelic COL7A1 Pathogenic Variants (RDEB)\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"COL7A1\", \"target\": \"COL7A1 Mutations and Loss of Type VII Collagen\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"COL7A1\", \"target\": \"Chronic Wounds and Aggressive Squamous Cell Carcinoma\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"COL7A1\", \"target\": \"Heterozygous COL7A1 Pathogenic Variant (DDEB)\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Allogeneic Bone Marrow Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Investigational treatment for severe RDEB. Allogeneic bone marrow transplantation has shown increased type VII collagen deposition and improved wound healing, but carries significant morbidity and mortality from the conditioning regimen.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic anemia from a combination of iron deficiency (malnutrition, chronic blood loss from wounds) and anemia of chronic disease. May require iron supplementation and transfusions.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001903\"}}, {\"id\": \"Atrophic Scarring\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Blisters heal with atrophic scarring, a characteristic feature of dystrophic EB that distinguishes it from other EB types. Scarring is progressive and can lead to significant disfigurement.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001075\"}}, {\"id\": \"Beremagene Geperpavec (Vyjuvek)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Topical HSV-1-based gene therapy that delivers functional COL7A1 to restore type VII collagen protein expression in wound beds. FDA approved in 2023 for dystrophic epidermolysis bullosa. Phase III trial demonstrated complete wound healing in 67% of B-VEC-treated wounds vs 22% placebo at 6 months.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Biallelic COL7A1 Pathogenic Variants (RDEB)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in COL7A1 are the molecular lesion in recessive dystrophic epidermolysis bullosa. Severe generalized RDEB reflects marked type VII collagen deficiency, producing generalized neonatal blistering, progressive scarring, pseudosyndactyly, esophageal strictures, growth failure, and very high lifetime squamous cell carcinoma risk.\\n\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"COL7A1\"], \"gene_terms\": [{\"label\": \"COL7A1\", \"id\": \"hgnc:2214\"}], \"subtypes\": [\"RDEB-sev gen\", \"RDEB-intermediate\", \"RDEB-Inversa\"]}}, {\"id\": \"COL7A1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"COL7A1\"], \"gene_terms\": [{\"label\": \"COL7A1\", \"id\": \"hgnc:2214\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"COL7A1 Mutations and Loss of Type VII Collagen\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in the COL7A1 gene encoding type VII collagen result in absent, reduced, or dysfunctional protein. In RDEB, biallelic loss-of-function mutations typically cause complete absence of type VII collagen, while in DDEB, dominant-negative mutations produce structurally abnormal collagen that disrupts anchoring fibril formation. Type VII collagen is the major structural component of anchoring fibrils at the dermal-epidermal junction.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"keratinocyte\", \"fibroblast\"], \"biological_processes\": [\"collagen fibril organization\", \"extracellular matrix organization\"], \"genes\": [\"COL7A1\"], \"gene_terms\": [{\"label\": \"COL7A1\", \"id\": \"hgnc:2214\"}]}}, {\"id\": \"Chronic Wound-Inflammation-Fibrosis Cycle\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Repeated blistering and impaired wound healing in DEB create chronic wounds that drive persistent inflammation and progressive fibrosis. TGF-\\u03b2 signaling is upregulated in RDEB fibroblasts, promoting excessive collagen deposition, tissue contraction, and extracellular matrix remodeling. This cycle underlies the progressive scarring, pseudosyndactyly, and tissue contractures characteristic of severe RDEB.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"wound healing\", \"inflammatory response\", \"response to transforming growth factor beta\"]}}, {\"id\": \"Chronic Wounds and Aggressive Squamous Cell Carcinoma\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic non-healing wounds in RDEB create an immunosuppressive and pro-tumorigenic microenvironment that promotes development of aggressive cutaneous squamous cell carcinoma. SCC is the leading cause of death in RDEB, with cumulative risk in severe generalized RDEB rising from 7.5% by age 20 to over 90% by age 55. These SCCs are unusually aggressive, with high rates of metastasis and mortality.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"wound healing\", \"immune response\"], \"genes\": [\"COL7A1\"], \"gene_terms\": [{\"label\": \"COL7A1\", \"id\": \"hgnc:2214\"}]}}, {\"id\": \"Constipation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic constipation from anal and perianal blistering and stenosis. May require active management to prevent complications.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002019\"}}, {\"id\": \"Corneal Erosions\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent corneal erosions from epithelial fragility, which can lead to scarring and loss of vision.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0200020\"}}, {\"id\": \"Cutaneous Squamous Cell Carcinoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Aggressive squamous cell carcinomas arising in areas of chronic wounding and scarring. The leading cause of death in RDEB, with cumulative risk exceeding 90% by age 55 in severe generalized RDEB. These tumors are unusually aggressive with high metastatic potential.\\n\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"RDEB-sev gen\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0006739\"}}, {\"id\": \"Defective Anchoring Fibrils and Loss of Dermal-Epidermal Adhesion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Type VII collagen forms the anchoring fibrils that connect the lamina densa of the basement membrane zone to the papillary dermis. In DEB, defective or absent anchoring fibrils cause tissue separation at the sub-lamina densa level, resulting in blistering and erosions with minimal mechanical trauma.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"cell-matrix adhesion\"]}}, {\"id\": \"Dental Caries\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased susceptibility to dental caries from enamel hypoplasia, difficulty with oral hygiene due to microstomia and oral mucosal fragility, and nutritional deficiencies.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000670\"}}, {\"id\": \"Dysphagia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Difficulty swallowing resulting from esophageal strictures and oral mucosal involvement. Can be severe enough to require feeding gastrostomy.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002015\"}}, {\"id\": \"Esophageal Dilation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Balloon dilation of esophageal strictures and webs to improve swallowing and nutritional intake. May need to be repeated as strictures recur.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Esophageal Stricture\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Blistering and scarring of the esophageal mucosa leads to progressive stricture and web formation, causing severe dysphagia. A major contributor to malnutrition in RDEB.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002043\"}}, {\"id\": \"Esophageal and Mucosal Blistering\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Blistering and erosions of the esophageal and oral mucosa lead to progressive stricture formation, microstomia, and fusion of the tongue to the floor of the mouth. Esophageal strictures cause severe dysphagia, contributing to malnutrition and growth failure.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell-matrix adhesion\"]}}, {\"id\": \"Filsuvez (Birch Triterpenes) Topical Gel\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Oleogel-S10 (Filsuvez), a topical gel containing birch triterpenes, is used for partial-thickness wounds associated with dystrophic and junctional EB in patients aged 6 months and older. In the phase III EASE trial, Oleogel-S10 accelerated target wound closure compared with control gel.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"birch triterpenes\"]}}, {\"id\": \"Gentamicin Readthrough Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Intravenous gentamicin induces translational readthrough of nonsense mutations in COL7A1, restoring functional type VII collagen at the dermal-epidermal junction. Applicable to approximately 30% of RDEB patients who carry nonsense mutations. An open-label pilot trial treated 3 RDEB patients with IV gentamicin for 14 days; all showed increased C7 at the DEJ persisting for at least 6 months, and monitored wounds exhibited greater than 85% closure.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"gentamicin\"]}}, {\"id\": \"Growth Retardation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Failure to thrive and growth retardation resulting from chronic malnutrition due to esophageal strictures, increased metabolic demands from chronic wound healing, and malabsorption.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"RDEB-sev gen\"], \"term_id\": \"HP:0001510\"}}, {\"id\": \"Heterozygous COL7A1 Pathogenic Variant (DDEB)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A heterozygous pathogenic variant in COL7A1 is the molecular lesion in dominant dystrophic epidermolysis bullosa. The resulting type VII collagen dysfunction produces a usually milder, localized blistering phenotype that often affects hands, feet, knees, elbows, and nails.\\n\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"COL7A1\"], \"gene_terms\": [{\"label\": \"COL7A1\", \"id\": \"hgnc:2214\"}], \"subtypes\": [\"DDEB\"]}}, {\"id\": \"Losartan\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anti-fibrotic angiotensin II type 1 receptor antagonist that reduces TGF-\\u03b2 signaling. The REFLECT Phase 1/2 trial enrolled 29 children with RDEB and demonstrated that losartan was well tolerated with improvements in EBDASI damage scores and BEBS scores. Losartan may reduce disease burden by mitigating progressive fibrosis.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"losartan\"]}}, {\"id\": \"Malnutrition and Growth Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic dysphagia from esophageal strictures, increased metabolic demands from chronic wound healing, and malabsorption lead to protein-calorie malnutrition, iron deficiency anemia, and growth retardation in children with severe RDEB. Vitamin and mineral deficiencies are common.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Microstomia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive diminution of the oral cavity and mouth opening due to perioral scarring and mucosal blistering. Impairs feeding and dental care.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"RDEB-sev gen\"], \"term_id\": \"HP:0000160\"}}, {\"id\": \"Milia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Small white cysts (milia) form at sites of healed blisters, a characteristic feature that helps distinguish DEB from other EB types.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001056\"}}, {\"id\": \"Nail Dystrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dystrophic or absent nails are common in all forms of DEB. In DDEB, nail dystrophy may be the only clinical manifestation. Toenails are particularly affected.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008404\"}}, {\"id\": \"Nutritional Support\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"High-calorie nutritional supplementation with iron, vitamin A, zinc, selenium, carnitine, calcium, and vitamin D. Feeding gastrostomy tube placement may be necessary for patients with severe dysphagia.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Osteoporosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced bone mineral density from chronic malnutrition, vitamin D deficiency, limited mobility, and chronic inflammation.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000939\"}}, {\"id\": \"Physical and Occupational Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Physical and occupational therapy to preserve hand function, maintain ambulation, and prevent joint contractures. Surgical release of fused digits may need to be repeated.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Prademagene Zamikeracel (Zevaskyn)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Ex vivo autologous gene therapy for RDEB. Patient keratinocytes are transduced with a retroviral vector encoding COL7A1, expanded into epidermal sheets, and surgically grafted onto chronic wounds. FDA approved April 2025 as the first cell-based gene therapy for RDEB. Phase III VIITAL trial demonstrated that 81% of treated wounds achieved at least 50% healing at 6 months versus 16% of control wounds.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Progressive Scarring and Pseudosyndactyly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic fibrosis from repeated wound-healing cycles leads to progressive scarring, joint contractures, and fusion of digits (pseudosyndactyly or mitten deformities). In severe RDEB, the hands and feet become encased in a cocoon of scar tissue, causing severe functional impairment.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"extracellular matrix organization\"]}}, {\"id\": \"Pseudosyndactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive fusion of digits (mitten deformities) caused by repeated blistering and scarring of the hands and feet. Characteristic of severe RDEB, leading to significant loss of hand function.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"RDEB-sev gen\"], \"term_id\": \"HP:0010554\"}}, {\"id\": \"Recombinant Type VII Collagen (PTR-01)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Investigational intravenous protein replacement therapy using recombinant type VII collagen (rC7) for systemic treatment of RDEB. Preclinical studies in RDEB mice and dogs demonstrated that IV rC7 accumulates at the basement membrane zone, reduces fibrosis via decreased TGF-\\u03b2 signaling, and promotes wound healing. Phase 2 clinical trial results have been reported but not yet published in peer-reviewed literature.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Rigosertib\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Polo-like kinase-1 (PLK1) inhibitor investigated for RDEB-associated squamous cell carcinoma, the leading cause of death in RDEB. Phase II trials in Europe and the USA enrolled five patients with locally advanced or metastatic RDEB-SCC. Antitumour efficacy was observed with acceptable toxicity, and two patients had a complete response within 6 months.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Skin Blistering\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mechanically induced blistering and erosions of the skin, the hallmark feature of DEB. Blisters form at the sub-lamina densa level due to defective anchoring fibrils. Severity ranges from localized (DDEB) to generalized (severe RDEB).\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0008066\"}}, {\"id\": \"Surgical Excision of SCC\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Aggressive surgical excision of confirmed squamous cell carcinomas, although outcomes remain poor due to high metastatic potential.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Wound Care and Specialized Dressings\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Meticulous wound care is the cornerstone of DEB management. New blisters should be lanced and drained, then dressed with nonadherent dressings and protective padding. Prevention of new blisters through education, padding of extremities, and soft clothing is essential.\\n\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Heterozygous COL7A1 Pathogenic Variant (DDEB)\", \"target\": \"COL7A1 Mutations and Loss of Type VII Collagen\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Heterozygous COL7A1 pathogenic variants produce dysfunctional type VII collagen and thereby converge on the collagen VII/anchoring fibril defect.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biallelic COL7A1 Pathogenic Variants (RDEB)\", \"target\": \"COL7A1 Mutations and Loss of Type VII Collagen\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Biallelic COL7A1 pathogenic variants reduce or abolish type VII collagen function and thereby converge on the collagen VII/anchoring fibril defect.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"COL7A1 Mutations and Loss of Type VII Collagen\", \"target\": \"Defective Anchoring Fibrils and Loss of Dermal-Epidermal Adhesion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Absent or dysfunctional type VII collagen leads to defective anchoring fibrils that fail to secure the epidermis to the dermis.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Defective Anchoring Fibrils and Loss of Dermal-Epidermal Adhesion\", \"target\": \"Skin Blistering\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dermal-epidermal separation after minimal trauma produces the defining blistering and erosions of DEB.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Defective Anchoring Fibrils and Loss of Dermal-Epidermal Adhesion\", \"target\": \"Atrophic Scarring\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recurrent sub-lamina-densa blistering heals with dermal remodeling and atrophic scarring.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"blister healing with dermal matrix remodeling\"]}, {\"source\": \"Defective Anchoring Fibrils and Loss of Dermal-Epidermal Adhesion\", \"target\": \"Milia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Milia form at sites of healed blistering and erosions.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"healing of recurrent blisters\"]}, {\"source\": \"Defective Anchoring Fibrils and Loss of Dermal-Epidermal Adhesion\", \"target\": \"Nail Dystrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fragility of nail-unit adhesion causes dystrophic or absent nails, especially in DDEB.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Defective Anchoring Fibrils and Loss of Dermal-Epidermal Adhesion\", \"target\": \"Chronic Wound-Inflammation-Fibrosis Cycle\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Repeated blistering and impaired wound healing create chronic wounds that drive a self-perpetuating cycle of inflammation and fibrosis.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"repeated blistering and erosions\"]}, {\"source\": \"Defective Anchoring Fibrils and Loss of Dermal-Epidermal Adhesion\", \"target\": \"Esophageal and Mucosal Blistering\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of adhesion in mucosal epithelia causes blistering and erosions in the esophagus, oral cavity, and other mucosal surfaces.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Defective Anchoring Fibrils and Loss of Dermal-Epidermal Adhesion\", \"target\": \"Corneal Erosions\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Epithelial fragility at ocular surfaces causes recurrent corneal erosions.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic Wound-Inflammation-Fibrosis Cycle\", \"target\": \"Atrophic Scarring\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic abnormal wound repair leaves progressive atrophic scars.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic Wound-Inflammation-Fibrosis Cycle\", \"target\": \"Anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic wounds and inflammation contribute to iron deficiency and anemia of chronic disease.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"chronic wound blood loss\", \"anemia of chronic inflammation\"]}, {\"source\": \"Chronic Wound-Inflammation-Fibrosis Cycle\", \"target\": \"Progressive Scarring and Pseudosyndactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic fibrosis leads to progressive scarring, tissue fusion, and mitten deformities of the hands and feet.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic Wound-Inflammation-Fibrosis Cycle\", \"target\": \"Chronic Wounds and Aggressive Squamous Cell Carcinoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic wounds with an immunosuppressive fibrotic microenvironment promote development of aggressive squamous cell carcinoma.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"chronic non-healing wounds\", \"fibrotic inflammatory microenvironment\"]}, {\"source\": \"Progressive Scarring and Pseudosyndactyly\", \"target\": \"Pseudosyndactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fibrotic fusion and contracture of digits manifests clinically as pseudosyndactyly.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Esophageal and Mucosal Blistering\", \"target\": \"Esophageal Stricture\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Esophageal erosions heal with webs and strictures.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Esophageal and Mucosal Blistering\", \"target\": \"Dysphagia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Esophageal strictures impair swallowing and produce dysphagia.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"esophageal webs and strictures\"]}, {\"source\": \"Esophageal and Mucosal Blistering\", \"target\": \"Microstomia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oral mucosal blistering and perioral scarring progressively reduce mouth opening.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Esophageal and Mucosal Blistering\", \"target\": \"Dental Caries\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oral blistering, scarring, and restricted mouth opening impair dental hygiene and contribute to dental caries risk.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"oral mucosal blistering and scarring\", \"microstomia limiting dental hygiene\"]}, {\"source\": \"Esophageal and Mucosal Blistering\", \"target\": \"Constipation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gastrointestinal mucosal fragility and perianal scarring contribute to chronic constipation.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"anal and perianal blistering and stenosis\"]}, {\"source\": \"Esophageal and Mucosal Blistering\", \"target\": \"Malnutrition and Growth Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Esophageal strictures and oral involvement severely impair nutritional intake, leading to growth retardation and nutritional deficiencies.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"severe dysphagia\", \"impaired oral intake\"]}, {\"source\": \"Malnutrition and Growth Failure\", \"target\": \"Growth Retardation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Protein-calorie malnutrition and micronutrient deficiency impair childhood growth.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Malnutrition and Growth Failure\", \"target\": \"Anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Nutritional deficiency contributes to chronic anemia in severe RDEB.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"iron deficiency\", \"micronutrient deficiency\"]}, {\"source\": \"Malnutrition and Growth Failure\", \"target\": \"Osteoporosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Malnutrition and limited mobility contribute to low bone mineral density and osteoporosis.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"vitamin D deficiency\", \"calcium deficiency\", \"reduced mobility\"]}, {\"source\": \"Chronic Wounds and Aggressive Squamous Cell Carcinoma\", \"target\": \"Cutaneous Squamous Cell Carcinoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Aggressive cutaneous squamous cell carcinomas arise in chronically wounded and scarred RDEB skin.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Beremagene Geperpavec (Vyjuvek)\", \"target\": \"COL7A1 Mutations and Loss of Type VII Collagen\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Beremagene Geperpavec (Vyjuvek)\", \"target\": \"Defective Anchoring Fibrils and Loss of Dermal-Epidermal Adhesion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Prademagene Zamikeracel (Zevaskyn)\", \"target\": \"COL7A1 Mutations and Loss of Type VII Collagen\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Prademagene Zamikeracel (Zevaskyn)\", \"target\": \"Defective Anchoring Fibrils and Loss of Dermal-Epidermal Adhesion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Recombinant Type VII Collagen (PTR-01)\", \"target\": \"Defective Anchoring Fibrils and Loss of Dermal-Epidermal Adhesion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Recombinant Type VII Collagen (PTR-01)\", \"target\": \"Chronic Wound-Inflammation-Fibrosis Cycle\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Losartan\", \"target\": \"Chronic Wound-Inflammation-Fibrosis Cycle\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Rigosertib\", \"target\": \"Chronic Wounds and Aggressive Squamous Cell Carcinoma\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Gentamicin Readthrough Therapy\", \"target\": \"COL7A1 Mutations and Loss of Type VII Collagen\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Filsuvez (Birch Triterpenes) Topical Gel\", \"target\": \"Chronic Wound-Inflammation-Fibrosis Cycle\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Wound Care and Specialized Dressings\", \"target\": \"Chronic Wound-Inflammation-Fibrosis Cycle\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Esophageal Dilation\", \"target\": \"Esophageal and Mucosal Blistering\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Nutritional Support\", \"target\": \"Malnutrition and Growth Failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Surgical Excision of SCC\", \"target\": \"Chronic Wounds and Aggressive Squamous Cell Carcinoma\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Physical and Occupational Therapy\", \"target\": \"Progressive Scarring and Pseudosyndactyly\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Allogeneic Bone Marrow Transplantation\", \"target\": \"Defective Anchoring Fibrils and Loss of Dermal-Epidermal Adhesion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"COL7A1\", \"target\": \"Biallelic COL7A1 Pathogenic Variants (RDEB)\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"COL7A1\", \"target\": \"COL7A1 Mutations and Loss of Type VII Collagen\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"COL7A1\", \"target\": \"Chronic Wounds and Aggressive Squamous Cell Carcinoma\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"COL7A1\", \"target\": \"Heterozygous COL7A1 Pathogenic Variant (DDEB)\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6359,15 +6533,18 @@ This pathophysiological event involves decreased immune response (GO:0006955). G
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001903" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001903</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001903" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001903</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is anemia (HP:0001903). HP:0001903 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Multifactorial; iron deficiency and chronic disease. Frequency band omitted: the only available source is a GeneReviews management sentence, which establishes that anemia is a recognized and treated complication but states no occurrence rate. Anemia is characteristic of severe generalized RDEB rather than DEB as a whole.</div>
@@ -6389,6 +6566,7 @@ This clinical feature is anemia (HP:0001903). HP:0001903 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6438,15 +6616,18 @@ This clinical feature is anemia (HP:0001903). HP:0001903 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002043" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002043</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002043" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002043</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is esophageal stricture (HP:0002043). HP:0002043 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Primarily in RDEB. Left unscoped by the `subtype:` foreign key because &#34;RDEB&#34; spans three of the four defined subtypes and `subtype:` is single-valued. Frequency band omitted: the cited GeneReviews sentence states no occurrence rate, so the previously asserted VERY_FREQUENT band was an unsourced claim over all of DEB including DDEB.</div>
@@ -6468,6 +6649,7 @@ This clinical feature is esophageal stricture (HP:0002043). HP:0002043 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6508,15 +6690,18 @@ This clinical feature is esophageal stricture (HP:0002043). HP:0002043 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002015</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002015</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is dysphagia (HP:0002015). HP:0002015 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Secondary to esophageal strictures in RDEB. Left unscoped by the `subtype:` foreign key for the same reason as Esophageal Stricture. Frequency band omitted: the cited GeneReviews sentence states no occurrence rate, so the previously asserted VERY_FREQUENT band was an unsourced claim over all of DEB.</div>
@@ -6538,6 +6723,7 @@ This clinical feature is dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6578,15 +6764,18 @@ This clinical feature is dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002019" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002019</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002019" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0002019</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is constipation (HP:0002019). HP:0002019 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency band omitted: the only available source is a two-word GeneReviews management fragment, which establishes constipation as a managed complication but states no occurrence rate.</div>
@@ -6608,6 +6797,7 @@ This clinical feature is constipation (HP:0002019). HP:0002019 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6659,15 +6849,18 @@ This clinical feature is constipation (HP:0002019). HP:0002019 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0200020" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0200020</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0200020" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0200020</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is corneal erosion (HP:0200020). HP:0200020 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6687,6 +6880,7 @@ This clinical feature is corneal erosion (HP:0200020). HP:0200020 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6738,15 +6932,18 @@ This clinical feature is corneal erosion (HP:0200020). HP:0200020 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000160" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000160</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000160" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000160</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is microstomia, annotated with Narrow mouth (HP:0000160). HP:0000160 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Primarily in severe RDEB; scoped to RDEB-sev gen so the restriction is machine-readable, though milder oral involvement also occurs in other RDEB subtypes. Frequency band omitted: the cited GeneReviews sentence describes the process (&#34;may lead to&#34;) without an occurrence rate, so the previously asserted FREQUENT band had no source.</div>
@@ -6768,6 +6965,7 @@ This clinical feature is microstomia, annotated with Narrow mouth (HP:0000160). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6812,15 +7010,18 @@ This clinical feature is microstomia, annotated with Narrow mouth (HP:0000160). 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000670" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000670</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000670" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000670</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is dental caries, annotated with Carious teeth (HP:0000670). HP:0000670 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6840,6 +7041,7 @@ This clinical feature is dental caries, annotated with Carious teeth (HP:0000670
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6864,6 +7066,7 @@ This clinical feature is dental caries, annotated with Carious teeth (HP:0000670
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6917,15 +7120,18 @@ This clinical feature is dental caries, annotated with Carious teeth (HP:0000670
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008066" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0008066</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008066" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0008066</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is skin blistering with mechanical trauma, annotated with Abnormal blistering of the skin (HP:0008066). HP:0008066 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6945,6 +7151,7 @@ This clinical feature is skin blistering with mechanical trauma, annotated with 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6969,6 +7176,7 @@ This clinical feature is skin blistering with mechanical trauma, annotated with 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7013,15 +7221,18 @@ This clinical feature is skin blistering with mechanical trauma, annotated with 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001075" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001075</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001075" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001075</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is atrophic scarring, annotated with Atrophic scars (HP:0001075). HP:0001075 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7041,6 +7252,7 @@ This clinical feature is atrophic scarring, annotated with Atrophic scars (HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7083,15 +7295,18 @@ This clinical feature is atrophic scarring, annotated with Atrophic scars (HP:00
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001056" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001056</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001056" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001056</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is milia (HP:0001056). HP:0001056 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7111,6 +7326,7 @@ This clinical feature is milia (HP:0001056). HP:0001056 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7151,15 +7367,18 @@ This clinical feature is milia (HP:0001056). HP:0001056 is a phenotype from the 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008404" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0008404</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008404" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0008404</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is nail dystrophy (HP:0008404). HP:0008404 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency band omitted. The cited sentence establishes that dystrophic nails are common and may be the sole manifestation of DDEB specifically; it does not support a disease-wide VERY_FREQUENT band across DDEB and the RDEB subtypes. Re-source per subtype before reinstating.</div>
@@ -7181,6 +7400,7 @@ This clinical feature is nail dystrophy (HP:0008404). HP:0008404 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7225,15 +7445,18 @@ This clinical feature is nail dystrophy (HP:0008404). HP:0008404 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006739" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0006739</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006739" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0006739</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is cutaneous squamous cell carcinoma, annotated with Squamous cell carcinoma of the skin (HP:0006739). HP:0006739 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Leading cause of death in severe RDEB; begins in adolescence. Scoped to RDEB-sev gen because the VERY_FREQUENT band derives from National EB Registry cumulative risk in RDEB-HS (severe generalized RDEB) specifically - 90.1% by age 55. DDEB does not carry a comparable risk, so an unscoped disease-level band would misrepresent dominant DEB.</div>
@@ -7258,6 +7481,7 @@ This clinical feature is cutaneous squamous cell carcinoma, annotated with Squam
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7279,6 +7503,7 @@ This clinical feature is cutaneous squamous cell carcinoma, annotated with Squam
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7330,15 +7555,18 @@ This clinical feature is cutaneous squamous cell carcinoma, annotated with Squam
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010554" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0010554</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010554" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0010554</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is pseudosyndactyly, annotated with Cutaneous finger syndactyly (HP:0010554). HP:0010554 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Characteristic of severe RDEB; scoped to RDEB-sev gen rather than restricted in prose alone. Frequency band omitted: the cited GeneReviews sentence establishes the mechanism but states no occurrence rate, and the previously asserted VERY_FREQUENT band was a disease-level claim over all of DEB including DDEB, where pseudosyndactyly is not a typical feature.</div>
@@ -7360,6 +7588,7 @@ This clinical feature is pseudosyndactyly, annotated with Cutaneous finger synda
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7409,15 +7638,18 @@ This clinical feature is pseudosyndactyly, annotated with Cutaneous finger synda
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000939" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000939</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000939" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0000939</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is osteoporosis (HP:0000939). HP:0000939 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Primarily in severe RDEB. Frequency band omitted: the only available source is a GeneReviews management sentence, which establishes osteoporosis as a recognized and treated complication but states no occurrence rate.</div>
@@ -7439,6 +7671,7 @@ This clinical feature is osteoporosis (HP:0000939). HP:0000939 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7490,15 +7723,18 @@ This clinical feature is osteoporosis (HP:0000939). HP:0000939 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001510</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0001510</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is growth retardation, annotated with Growth delay (HP:0001510). HP:0001510 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Primarily in severe RDEB; scoped to RDEB-sev gen so the restriction is machine-readable, though lesser growth impairment also occurs in other RDEB subtypes. Frequency band omitted: the cited GeneReviews sentence describes the causal route (&#34;may lead to&#34;) without an occurrence rate, so the previously asserted VERY_FREQUENT band had no source.</div>
@@ -7520,6 +7756,7 @@ This clinical feature is growth retardation, annotated with Growth delay (HP:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7603,17 +7840,24 @@ This clinical feature is growth retardation, annotated with Growth delay (HP:000
                         Gene: COL7A1
 
 
-    <a href="https://bioregistry.io/hgnc:2214" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-35">hgnc:2214</a>
+    <a href="https://bioregistry.io/hgnc:2214" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-39">hgnc:2214</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is COL7A1 (hgnc:2214). hgnc:2214 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
+
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -7643,6 +7887,7 @@ This disease-associated gene is COL7A1 (hgnc:2214). hgnc:2214 is a gene from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7667,6 +7912,7 @@ This disease-associated gene is COL7A1 (hgnc:2214). hgnc:2214 is a gene from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7688,6 +7934,7 @@ This disease-associated gene is COL7A1 (hgnc:2214). hgnc:2214 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7738,7 +7985,7 @@ This disease-associated gene is COL7A1 (hgnc:2214). hgnc:2214 is a gene from the
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">gene therapy<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">gene therapy<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7766,6 +8013,31 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Gene therapy</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -7829,6 +8101,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7850,6 +8123,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7881,7 +8155,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">gene therapy<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">gene therapy<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7909,6 +8183,31 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Gene therapy</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -7972,6 +8271,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7993,6 +8293,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8024,7 +8325,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">intravenous protein replacement therapy<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-42">intravenous protein replacement therapy<span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is intravenous protein replacement therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8052,6 +8353,20 @@ This treatment is intravenous protein replacement therapy, annotated with Pharma
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -8115,6 +8430,7 @@ This treatment is intravenous protein replacement therapy, annotated with Pharma
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8136,6 +8452,7 @@ This treatment is intravenous protein replacement therapy, annotated with Pharma
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8167,7 +8484,7 @@ This treatment is intravenous protein replacement therapy, annotated with Pharma
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">losartan anti-fibrotic therapy<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-43">losartan anti-fibrotic therapy<span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is losartan anti-fibrotic therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8209,16 +8526,30 @@ This treatment is losartan anti-fibrotic therapy, annotated with Pharmacotherapy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_6541" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-40">CHEBI:6541</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_6541" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-44">CHEBI:6541</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses losartan (CHEBI:6541). CHEBI:6541 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -8266,6 +8597,7 @@ This treatment uses losartan (CHEBI:6541). CHEBI:6541 is a therapeutic agent fro
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8287,6 +8619,7 @@ This treatment uses losartan (CHEBI:6541). CHEBI:6541 is a therapeutic agent fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8318,7 +8651,7 @@ This treatment uses losartan (CHEBI:6541). CHEBI:6541 is a therapeutic agent fro
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">rigosertib PLK1 inhibitor therapy<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-45">rigosertib PLK1 inhibitor therapy<span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is rigosertib PLK1 inhibitor therapy, annotated with Chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8346,6 +8679,20 @@ This treatment is rigosertib PLK1 inhibitor therapy, annotated with Chemotherapy
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -8395,6 +8742,7 @@ This treatment is rigosertib PLK1 inhibitor therapy, annotated with Chemotherapy
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8416,6 +8764,7 @@ This treatment is rigosertib PLK1 inhibitor therapy, annotated with Chemotherapy
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8447,7 +8796,7 @@ This treatment is rigosertib PLK1 inhibitor therapy, annotated with Chemotherapy
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-42">gentamicin readthrough therapy<span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-46">gentamicin readthrough therapy<span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is gentamicin readthrough therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8489,16 +8838,30 @@ This treatment is gentamicin readthrough therapy, annotated with Pharmacotherapy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C519" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-43">NCIT:C519</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C519" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-47">NCIT:C519</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses gentamicin (NCIT:C519). NCIT:C519 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -8546,6 +8909,7 @@ This treatment uses gentamicin (NCIT:C519). NCIT:C519 is a therapeutic agent fro
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8567,6 +8931,7 @@ This treatment uses gentamicin (NCIT:C519). NCIT:C519 is a therapeutic agent fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8598,7 +8963,7 @@ This treatment uses gentamicin (NCIT:C519). NCIT:C519 is a therapeutic agent fro
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-44">birch triterpenes topical gel<span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-48">birch triterpenes topical gel<span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is birch triterpenes topical gel, annotated with Pharmacotherapy (NCIT:C15986), qualified as route of administration topical route of administration. NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8640,16 +9005,30 @@ This treatment is birch triterpenes topical gel, annotated with Pharmacotherapy 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C177079" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-45">NCIT:C177079</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C177079" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-49">NCIT:C177079</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses birch triterpenes (NCIT:C177079). NCIT:C177079 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -8697,6 +9076,7 @@ This treatment uses birch triterpenes (NCIT:C177079). NCIT:C177079 is a therapeu
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8718,6 +9098,7 @@ This treatment uses birch triterpenes (NCIT:C177079). NCIT:C177079 is a therapeu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8749,7 +9130,7 @@ This treatment uses birch triterpenes (NCIT:C177079). NCIT:C177079 is a therapeu
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-46">wound care management<span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-50">wound care management<span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is wound care management, annotated with Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8777,6 +9158,20 @@ This treatment is wound care management, annotated with Supportive Care (NCIT:C1
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -8826,6 +9221,7 @@ This treatment is wound care management, annotated with Supportive Care (NCIT:C1
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8854,7 +9250,7 @@ This treatment is wound care management, annotated with Supportive Care (NCIT:C1
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-47">esophageal dilation<span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-51">esophageal dilation<span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is esophageal dilation (NCIT:C70908). NCIT:C70908 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8882,6 +9278,20 @@ This treatment is esophageal dilation (NCIT:C70908). NCIT:C70908 is a clinical i
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -8931,6 +9341,7 @@ This treatment is esophageal dilation (NCIT:C70908). NCIT:C70908 is a clinical i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8959,7 +9370,7 @@ This treatment is esophageal dilation (NCIT:C70908). NCIT:C70908 is a clinical i
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-48">nutritional support<span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-52">nutritional support<span class="pill-tip" role="tooltip" id="pill-tip-52">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is nutritional support (NCIT:C15433). NCIT:C15433 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8987,6 +9398,20 @@ This treatment is nutritional support (NCIT:C15433). NCIT:C15433 is a clinical i
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -9036,6 +9461,7 @@ This treatment is nutritional support (NCIT:C15433). NCIT:C15433 is a clinical i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9064,7 +9490,7 @@ This treatment is nutritional support (NCIT:C15433). NCIT:C15433 is a clinical i
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-49">cancer screening<span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-53">cancer screening<span class="pill-tip" role="tooltip" id="pill-tip-53">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is cancer screening (NCIT:C15406). NCIT:C15406 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -9097,6 +9523,20 @@ This treatment is cancer screening (NCIT:C15406). NCIT:C15406 is a clinical inte
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Regular skin examination with biopsy of suspicious lesions beginning at age 10 years. Annual screening for crusted, non-healing, and painful lesions as well as those with exuberant scar tissue.
 </div>
 
@@ -9119,6 +9559,7 @@ This treatment is cancer screening (NCIT:C15406). NCIT:C15406 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9150,7 +9591,7 @@ This treatment is cancer screening (NCIT:C15406). NCIT:C15406 is a clinical inte
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-50">surgical excision<span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-54">surgical excision<span class="pill-tip" role="tooltip" id="pill-tip-54">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is surgical excision, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -9178,6 +9619,31 @@ This treatment is surgical excision, annotated with Surgical Procedure (NCIT:C15
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -9227,6 +9693,7 @@ This treatment is surgical excision, annotated with Surgical Procedure (NCIT:C15
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9255,7 +9722,7 @@ This treatment is surgical excision, annotated with Surgical Procedure (NCIT:C15
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-51">pain management<span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-55">pain management<span class="pill-tip" role="tooltip" id="pill-tip-55">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is pain management, annotated with Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -9288,6 +9755,20 @@ This treatment is pain management, annotated with Supportive Care (NCIT:C15747).
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Multimodal pain management including topical, oral, and psychological therapies for chronic pain and itch associated with wounds and dressing changes.
 </div>
 
@@ -9310,6 +9791,7 @@ This treatment is pain management, annotated with Supportive Care (NCIT:C15747).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9341,7 +9823,7 @@ This treatment is pain management, annotated with Supportive Care (NCIT:C15747).
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-52">physical therapy<span class="pill-tip" role="tooltip" id="pill-tip-52">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-56">physical therapy<span class="pill-tip" role="tooltip" id="pill-tip-56">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -9369,6 +9851,31 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -9418,6 +9925,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9446,7 +9954,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-53">hematopoietic stem cell transplantation<span class="pill-tip" role="tooltip" id="pill-tip-53">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-57">hematopoietic stem cell transplantation<span class="pill-tip" role="tooltip" id="pill-tip-57">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is hematopoietic stem cell transplantation, annotated with Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -9474,6 +9982,31 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Cell therapy</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -9523,6 +10056,7 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9544,6 +10078,7 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9575,7 +10110,7 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-54">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-54">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-58">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-58">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -9607,6 +10142,20 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Genetic counseling for families affected by DEB, including carrier testing, prenatal diagnosis, and preimplantation genetic testing. Mode of inheritance determination requires molecular characterization of COL7A1 variants.
 </div>
 
@@ -9629,6 +10178,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9713,6 +10263,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9737,6 +10288,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9758,6 +10310,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9868,6 +10421,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -9925,11 +10479,11 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001058" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0001058</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001058" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-59">HP:0001058</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Wound healing impairment, annotated with Poor wound healing (HP:0001058). HP:0001058 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9952,6 +10506,7 @@ This clinical trial targets Wound healing impairment, annotated with Poor wound 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10000,11 +10555,11 @@ This clinical trial targets Wound healing impairment, annotated with Poor wound 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001058" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-56">HP:0001058</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001058" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-60">HP:0001058</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Wound healing impairment, annotated with Poor wound healing (HP:0001058). HP:0001058 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -10027,6 +10582,7 @@ This clinical trial targets Wound healing impairment, annotated with Poor wound 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10138,6 +10694,11 @@ has_subtypes:
     Nails are most commonly affected, and blistering is often limited to
     hands, feet, knees, and elbows. Heals with scarring but without the
     severe complications seen in recessive forms.
+  genes:
+  - preferred_term: COL7A1
+    term:
+      id: hgnc:2214
+      label: COL7A1
 - name: RDEB-sev gen
   display_name: Recessive Dystrophic Epidermolysis Bullosa, Severe Generalized (RDEB-sev gen)
   subtype_term:
@@ -10152,6 +10713,11 @@ has_subtypes:
     blistering from birth, progressive scarring, mitten deformities
     (pseudosyndactyly), esophageal strictures, and a lifetime squamous
     cell carcinoma risk exceeding 90%.
+  genes:
+  - preferred_term: COL7A1
+    term:
+      id: hgnc:2214
+      label: COL7A1
 - name: RDEB-intermediate
   display_name: Recessive Dystrophic Epidermolysis Bullosa, Intermediate (RDEB-intermediate)
   subtype_term:
@@ -10165,6 +10731,11 @@ has_subtypes:
     flexural areas. Less severe than RDEB-sev gen, with lower SCC risk,
     but still carries significant morbidity from scarring and extracutaneous
     involvement.
+  genes:
+  - preferred_term: COL7A1
+    term:
+      id: hgnc:2214
+      label: COL7A1
 - name: RDEB-Inversa
   display_name: Recessive Dystrophic Epidermolysis Bullosa Inversa
   subtype_term:
@@ -10177,6 +10748,11 @@ has_subtypes:
     including axillae, groin, and neck. May also involve the esophagus
     and other mucosal surfaces. Caused by specific COL7A1 mutations
     that produce some residual type VII collagen function.
+  genes:
+  - preferred_term: COL7A1
+    term:
+      id: hgnc:2214
+      label: COL7A1
 prevalence:
 - population: Global
   notes: &gt;-
@@ -10568,8 +11144,8 @@ pathophysiology:
 - name: Malnutrition and Growth Failure
   description: &gt;
     Chronic dysphagia from esophageal strictures, increased metabolic
-    demands from chronic wound healing, and malabsorption lead to protein-
-    calorie malnutrition, iron deficiency anemia, and growth retardation
+    demands from chronic wound healing, and malabsorption lead to protein-calorie
+    malnutrition, iron deficiency anemia, and growth retardation
     in children with severe RDEB. Vitamin and mineral deficiencies are
     common.
   notes: &gt;
@@ -11532,6 +12108,8 @@ genetic:
       id: hgnc:2214
       label: COL7A1
   association: Causative
+  relationship_type: CAUSATIVE
+  variant_origin: GERMLINE
   inheritance:
   - name: Autosomal dominant
     evidence:
@@ -11867,6 +12445,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11935,6 +12514,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12009,6 +12589,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12077,6 +12658,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12151,6 +12733,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12219,6 +12802,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12293,6 +12877,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12361,6 +12946,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12435,6 +13021,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12503,6 +13090,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12577,6 +13165,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12645,6 +13234,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12719,6 +13309,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -12753,6 +13344,8 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -14116,7 +14709,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Dystrophic Epidermolysis Bullosa", "mondoId": "MONDO:0006543", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Dystrophic_Epidermolysis_Bullosa", "yamlRevision": "8ab0f053a380"};
+        const OS_CONFIG = {"diseaseName": "Dystrophic Epidermolysis Bullosa", "mondoId": "MONDO:0006543", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Dystrophic_Epidermolysis_Bullosa", "yamlRevision": "f095056c7f3f"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4133,6 +4205,23 @@
 
             </div>
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">IUIS Category</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="IUIS 2022 phenotypic classification (Tangye et al., PMID:35748970), Table 7 &#34;Autoinflammatory disorders&#34;, section 3 &#34;Non-Inflammasome Related Conditions&#34;, the SLC29A3 row. IUIS lists the entry under the gene rather than under any of its clinical names, and its associated-features cell gives the hyperpigmentation and hypertrichosis of H syndrome together with histiocytosis-lymphadenopathy plus syndrome, the allelic phenotype at the other end of the SLC29A3 spectrum.">autoinflammatory syndrome</span>
+
+                </div>
+
+            </div>
+
         </div>
 
 
@@ -4197,6 +4286,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4313,6 +4403,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4477,6 +4568,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4511,6 +4603,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hent3-slc29a3-nucleoside-transporter-deficiency" data-dismech-node="hENT3 (SLC29A3) Nucleoside Transporter Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">hENT3 (SLC29A3) Nucleoside Transporter Deficiency</div>
+
 
                 <div class="item-desc">Biallelic loss-of-function mutations in SLC29A3 abolish or impair the human equilibrative nucleoside transporter 3 (hENT3), a pH-dependent intracellular nucleoside/nucleobase transporter localized to lysosomal and mitochondrial membranes with affinity for adenosine. hENT3 normally moves nucleosides derived from lysosomal degradation of nucleic acids across the lysosomal membrane for salvage. Disease-associated mutations cause severe reductions or loss of nucleoside transport, compounded by mistrafficking and reduced stability of the mutant protein, most consequentially in the highly phagocytic, lysosome-rich monocyte-macrophage lineage where hENT3 is most abundantly expressed.</div>
 
@@ -4646,6 +4739,7 @@ This pathophysiological event involves decreased lysosomal transport (GO:0007041
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4667,6 +4761,7 @@ This pathophysiological event involves decreased lysosomal transport (GO:0007041
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4694,6 +4789,7 @@ This pathophysiological event involves decreased lysosomal transport (GO:0007041
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4718,6 +4814,7 @@ This pathophysiological event involves decreased lysosomal transport (GO:0007041
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-histiocyte-activation-and-tissue-infiltration" data-dismech-node="Histiocyte Activation and Tissue Infiltration" data-dismech-type="pathophysiology">
                 <div class="item-name">Histiocyte Activation and Tissue Infiltration</div>
+
 
                 <div class="item-desc">hENT3 deficiency drives abnormal function, proliferation, and survival of monocyte-derived macrophages/histiocytes. Affected tissues are infiltrated by CD68-positive, CD163-positive, S100-variable, CD1a-negative (non-Langerhans) histiocytes admixed with lymphocytes and plasma cells. This mononuclear infiltrate, together with systemic autoinflammation and elevated inflammatory cytokines, underlies the systemic (hepatosplenomegaly, lymphadenopathy, fever) and local (cutaneous, endocrine) manifestations and places H syndrome in the R group of histiocytoses.</div>
 
@@ -4909,6 +5006,7 @@ This pathophysiological event involves decreased apoptotic cell clearance (GO:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4930,6 +5028,7 @@ This pathophysiological event involves decreased apoptotic cell clearance (GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4957,6 +5056,7 @@ This pathophysiological event involves decreased apoptotic cell clearance (GO:00
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4979,6 +5079,7 @@ This pathophysiological event involves decreased apoptotic cell clearance (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cutaneous-fibrosis-and-multiorgan-involvement" data-dismech-node="Cutaneous Fibrosis and Multiorgan Involvement" data-dismech-type="pathophysiology">
                 <div class="item-name">Cutaneous Fibrosis and Multiorgan Involvement</div>
+
 
                 <div class="item-desc">Chronic histiocytic-lymphocytic infiltration of the dermis drives dermal fibrosis, producing the hallmark indurated, hyperpigmented, hypertrichotic sclerodermatous plaques over the inner thighs and lower legs. Analogous infiltration and inflammatory injury of endocrine tissues (pancreatic islets, gonads, pituitary), the inner ear, heart, and reticuloendothelial organs produces the multisystem H-syndrome phenotype, including insulin-dependent diabetes, hypogonadism, hearing loss, and organomegaly.</div>
 
@@ -5089,6 +5190,7 @@ This pathophysiological event involves increased dermal extracellular matrix dep
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5111,6 +5213,7 @@ This pathophysiological event involves increased dermal extracellular matrix dep
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nucleoside-sensing-tlr-activation-and-mapk-interferon-signaling" data-dismech-node="Nucleoside-Sensing TLR Activation and MAPK/Interferon Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Nucleoside-Sensing TLR Activation and MAPK/Interferon Signaling</div>
+
 
                 <div class="item-desc">Loss of hENT3 function activates nucleoside-sensing Toll-like receptors and downstream MAPK signaling, inducing cytokine secretion and inflammation; within the lysosome, TLR7 activation additionally drives type I interferon production. Affected patients show a high peripheral-blood interferon score. This positions H syndrome among the type I interferonopathies and links the otherwise germline (non-somatic) disorder to pathological MAPK-cascade activation, providing the rationale for MEK-inhibitor, JAK-inhibitor (baricitinib), and TLR7-directed (hydroxychloroquine) therapies aimed at the autoinflammatory component.</div>
 
@@ -5268,6 +5371,7 @@ This pathophysiological event involves increased type I interferon production (G
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5289,6 +5393,7 @@ This pathophysiological event involves increased type I interferon production (G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5316,6 +5421,7 @@ This pathophysiological event involves increased type I interferon production (G
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5338,6 +5444,7 @@ This pathophysiological event involves increased type I interferon production (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-autophagy-and-adult-stem-cell-deficits" data-dismech-node="Impaired Autophagy and Adult Stem Cell Deficits" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Autophagy and Adult Stem Cell Deficits</div>
+
 
                 <div class="item-desc">In Slc29a3-null mice, loss of lysosomal adenosine transport impedes autophagy-regulated stem-cell differentiation through misregulation of the AMPK-mTOR-ULK axis, altering hematopoietic and mesenchymal stem-cell fates (hematopoietic stem-cell exhaustion and breaches of mesodermal tissue integrity). This adult stem-cell deficit is proposed as a unifying primary driver of the ENT3 spectrum disorders beyond macrophage dysfunction, and genetic, pharmacologic, and stem-cell interventions ameliorate disease in the mouse model. Human translational validity remains to be established.</div>
 
@@ -5525,6 +5632,7 @@ This pathophysiological event involves decreased stem cell differentiation (GO:0
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5546,6 +5654,7 @@ This pathophysiological event involves decreased stem cell differentiation (GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5605,6 +5714,7 @@ This pathophysiological event involves decreased stem cell differentiation (GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5669,29 +5779,112 @@ This pathophysiological event involves decreased stem cell differentiation (GO:0
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Ear<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(4)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Endocrine<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Ear<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Eye<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Endocrine<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Genitourinary<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Eye<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Integument<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Genitourinary<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Musculoskeletal<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Integument<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Limbs<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Other<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Musculoskeletal<span class="pill-count">(2)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Growth<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
 
 
             <details class="phenotype-category-group" id="pheno-cat-1">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Blood
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-histiocytosis" data-dismech-node="Histiocytosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Histiocytosis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100727" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0100727</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Histiocytosis (HP:0100727). HP:0100727 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35495792" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35495792" target="_blank">PMID:35495792</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"autosomal recessive histiocytosis, with characteristic cutaneous findings"</div>
+
+
+                <div class="evidence-explanation">H syndrome is defined as an inherited autosomal recessive histiocytosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
@@ -5712,15 +5905,18 @@ This pathophysiological event involves decreased stem cell differentiation (GO:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001433" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001433</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001433" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001433</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hepatosplenomegaly (HP:0001433). HP:0001433 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5740,6 +5936,7 @@ This clinical feature is Hepatosplenomegaly (HP:0001433). HP:0001433 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5782,15 +5979,18 @@ This clinical feature is Hepatosplenomegaly (HP:0001433). HP:0001433 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001627</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001627</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Heart anomaly, annotated with Abnormal heart morphology (HP:0001627). HP:0001627 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5810,6 +6010,7 @@ This clinical feature is Heart anomaly, annotated with Abnormal heart morphology
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5850,15 +6051,18 @@ This clinical feature is Heart anomaly, annotated with Abnormal heart morphology
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002716</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002716</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5878,6 +6082,7 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5918,15 +6123,18 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025289" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0025289</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0025289" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0025289</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cervical lymphadenopathy (HP:0025289). HP:0025289 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5946,6 +6154,7 @@ This clinical feature is Cervical lymphadenopathy (HP:0025289). HP:0025289 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5974,7 +6183,7 @@ This clinical feature is Cervical lymphadenopathy (HP:0025289). HP:0025289 is a 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-2">
+            <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Ear
@@ -5997,15 +6206,18 @@ This clinical feature is Cervical lymphadenopathy (HP:0025289). HP:0025289 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000407</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000407</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Sensorineural hearing loss, annotated with Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6025,6 +6237,7 @@ This clinical feature is Sensorineural hearing loss, annotated with Sensorineura
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6053,7 +6266,7 @@ This clinical feature is Sensorineural hearing loss, annotated with Sensorineura
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-3">
+            <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Endocrine
@@ -6074,15 +6287,18 @@ This clinical feature is Sensorineural hearing loss, annotated with Sensorineura
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000815" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000815</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000815" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000815</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypergonadotropic hypogonadism (HP:0000815). HP:0000815 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6102,6 +6318,7 @@ This clinical feature is Hypergonadotropic hypogonadism (HP:0000815). HP:0000815
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6142,15 +6359,18 @@ This clinical feature is Hypergonadotropic hypogonadism (HP:0000815). HP:0000815
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000819" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000819</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000819" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000819</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Insulin-dependent diabetes mellitus, annotated with Diabetes mellitus (HP:0000819). HP:0000819 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6170,6 +6390,7 @@ This clinical feature is Insulin-dependent diabetes mellitus, annotated with Dia
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6194,6 +6415,7 @@ This clinical feature is Insulin-dependent diabetes mellitus, annotated with Dia
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6222,7 +6444,7 @@ This clinical feature is Insulin-dependent diabetes mellitus, annotated with Dia
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
@@ -6245,15 +6467,18 @@ This clinical feature is Insulin-dependent diabetes mellitus, annotated with Dia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000520" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000520</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000520" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000520</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Exophthalmos, annotated with Proptosis (HP:0000520). HP:0000520 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6273,6 +6498,7 @@ This clinical feature is Exophthalmos, annotated with Proptosis (HP:0000520). HP
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6301,7 +6527,7 @@ This clinical feature is Exophthalmos, annotated with Proptosis (HP:0000520). HP
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-5">
+            <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Genitourinary
@@ -6322,15 +6548,18 @@ This clinical feature is Exophthalmos, annotated with Proptosis (HP:0000520). HP
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000027</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000027</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Azoospermia (HP:0000027). HP:0000027 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6350,6 +6579,7 @@ This clinical feature is Azoospermia (HP:0000027). HP:0000027 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6390,15 +6620,18 @@ This clinical feature is Azoospermia (HP:0000027). HP:0000027 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000054" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000054</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000054" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000054</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Micropenis (HP:0000054). HP:0000054 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6418,6 +6651,7 @@ This clinical feature is Micropenis (HP:0000054). HP:0000054 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6446,12 +6680,86 @@ This clinical feature is Micropenis (HP:0000054). HP:0000054 is a phenotype from
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-6">
+            <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Integument
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypertrichotic-hyperpigmented-indurated-patch" data-dismech-node="Hypertrichotic hyperpigmented indurated patch" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hypertrichotic hyperpigmented indurated patch
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Hypertrichotic hyperpigmented patch</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033190" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0033190</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypertrichotic hyperpigmented patch (HP:0033190). HP:0033190 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18410979" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18410979" target="_blank">PMID:18410979</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We describe 10 patients from 6 Arab consanguineous families with hyperpigmented, hypertrichotic, and indurated cutaneous patches involving the middle and lower parts of their bodies."</div>
+
+
+                <div class="evidence-explanation">The founding clinical series defines the indurated, hyperpigmented, hypertrichotic cutaneous patch as the pathognomonic lesion of H syndrome.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-cutaneous-hyperpigmentation" data-dismech-node="Cutaneous hyperpigmentation" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6469,15 +6777,18 @@ This clinical feature is Micropenis (HP:0000054). HP:0000054 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000953" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000953</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000953" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000953</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cutaneous hyperpigmentation, annotated with Hyperpigmentation of the skin (HP:0000953). HP:0000953 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6497,6 +6808,7 @@ This clinical feature is Cutaneous hyperpigmentation, annotated with Hyperpigmen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6537,15 +6849,18 @@ This clinical feature is Cutaneous hyperpigmentation, annotated with Hyperpigmen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000998" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000998</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000998" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000998</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypertrichosis (HP:0000998). HP:0000998 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6565,6 +6880,7 @@ This clinical feature is Hypertrichosis (HP:0000998). HP:0000998 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6593,7 +6909,162 @@ This clinical feature is Hypertrichosis (HP:0000998). HP:0000998 is a phenotype 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-7">
+            <details class="phenotype-category-group" id="pheno-cat-8">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Limbs
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hallux-valgus" data-dismech-node="Hallux valgus" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hallux valgus
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001822" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001822</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hallux valgus (HP:0001822). HP:0001822 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18940313" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18940313" target="_blank">PMID:18940313</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"short stature, hallux valgus, and fixed flexion contractures of the toe joints"</div>
+
+
+                <div class="evidence-explanation">Hallux valgus is part of the characteristic musculoskeletal phenotype of H syndrome.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-camptodactyly" data-dismech-node="Camptodactyly" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Camptodactyly
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Camptodactyly of finger</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100490" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0100490</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Camptodactyly of finger (HP:0100490). HP:0100490 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34657628" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34657628" target="_blank">PMID:34657628</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Multidigit camptodactyly of the hands"</div>
+
+
+                <div class="evidence-explanation">Multidigit camptodactyly (fixed finger flexion) is part of the H-syndrome musculoskeletal phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-9">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
@@ -6614,15 +7085,18 @@ This clinical feature is Hypertrichosis (HP:0000998). HP:0000998 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001371" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001371</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001371" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001371</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Flexion contractures, annotated with Flexion contracture (HP:0001371). HP:0001371 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6642,6 +7116,7 @@ This clinical feature is Flexion contractures, annotated with Flexion contractur
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6682,15 +7157,18 @@ This clinical feature is Flexion contractures, annotated with Flexion contractur
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001369" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001369</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001369" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001369</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Arthritis (HP:0001369). HP:0001369 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6710,6 +7188,7 @@ This clinical feature is Arthritis (HP:0001369). HP:0001369 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6738,7 +7217,7 @@ This clinical feature is Arthritis (HP:0001369). HP:0001369 is a phenotype from 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-8">
+            <details class="phenotype-category-group" id="pheno-cat-10">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Growth
@@ -6759,15 +7238,18 @@ This clinical feature is Arthritis (HP:0001369). HP:0001369 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0004322</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0004322</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6787,6 +7269,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6798,291 +7281,6 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                 <div class="evidence-explanation">Short stature (low &#34;height&#34;) is a cardinal feature of H syndrome.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-9">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">4</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hypertrichotic-hyperpigmented-indurated-patch" data-dismech-node="Hypertrichotic hyperpigmented indurated patch" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hypertrichotic hyperpigmented indurated patch
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Hypertrichotic hyperpigmented patch</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0033190" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0033190</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hypertrichotic hyperpigmented patch (HP:0033190). HP:0033190 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:18410979" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18410979" target="_blank">PMID:18410979</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"We describe 10 patients from 6 Arab consanguineous families with hyperpigmented, hypertrichotic, and indurated cutaneous patches involving the middle and lower parts of their bodies."</div>
-
-
-                <div class="evidence-explanation">The founding clinical series defines the indurated, hyperpigmented, hypertrichotic cutaneous patch as the pathognomonic lesion of H syndrome.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hallux-valgus" data-dismech-node="Hallux valgus" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hallux valgus
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001822" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001822</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hallux valgus (HP:0001822). HP:0001822 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:18940313" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18940313" target="_blank">PMID:18940313</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"short stature, hallux valgus, and fixed flexion contractures of the toe joints"</div>
-
-
-                <div class="evidence-explanation">Hallux valgus is part of the characteristic musculoskeletal phenotype of H syndrome.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-histiocytosis" data-dismech-node="Histiocytosis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Histiocytosis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100727" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0100727</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Histiocytosis (HP:0100727). HP:0100727 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:35495792" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35495792" target="_blank">PMID:35495792</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"autosomal recessive histiocytosis, with characteristic cutaneous findings"</div>
-
-
-                <div class="evidence-explanation">H syndrome is defined as an inherited autosomal recessive histiocytosis.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-camptodactyly" data-dismech-node="Camptodactyly" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Camptodactyly
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Camptodactyly of finger</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100490" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0100490</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Camptodactyly of finger (HP:0100490). HP:0100490 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:34657628" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34657628" target="_blank">PMID:34657628</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Multidigit camptodactyly of the hands"</div>
-
-
-                <div class="evidence-explanation">Multidigit camptodactyly (fixed finger flexion) is part of the H-syndrome musculoskeletal phenotype.</div>
 
 
 
@@ -7172,6 +7370,9 @@ This disease-associated gene is SLC29A3 (hgnc:23096). hgnc:23096 is a gene from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7186,6 +7387,7 @@ This disease-associated gene is SLC29A3 (hgnc:23096). hgnc:23096 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7213,6 +7415,7 @@ This disease-associated gene is SLC29A3 (hgnc:23096). hgnc:23096 is a gene from 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7234,6 +7437,7 @@ This disease-associated gene is SLC29A3 (hgnc:23096). hgnc:23096 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7338,6 +7542,31 @@ This treatment uses prednisone (CHEBI:8382). CHEBI:8382 is a therapeutic agent f
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Systemic corticosteroids (e.g., prednisone) reduce the histiocytic-inflammatory activity, though disease often flares when corticosteroids are tapered, prompting the use of steroid-sparing agents.</div>
 
 
@@ -7359,6 +7588,7 @@ This treatment uses prednisone (CHEBI:8382). CHEBI:8382 is a therapeutic agent f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7444,6 +7674,31 @@ This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Monoclonal antibody</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Anti-IL-6-receptor therapy (tocilizumab) has produced marked improvement in systemic inflammation, growth, and lymphoproliferative and cutaneous manifestations in H syndrome, and IL-6 blockade has emerged as a promising targeted approach to the autoinflammatory component.</div>
 
 
@@ -7486,6 +7741,7 @@ This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7507,6 +7763,7 @@ This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7592,6 +7849,31 @@ This treatment uses baricitinib (NCIT:C127012). NCIT:C127012 is a therapeutic ag
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Baricitinib is an oral JAK1/2 inhibitor used to target the type I interferon-driven autoinflammatory component of H syndrome. It was administered to an H-syndrome patient with a high interferon score, on the rationale that SLC29A3 deficiency drives lysosomal TLR7 activation and interferon production.</div>
 
 
@@ -7631,6 +7913,7 @@ This treatment uses baricitinib (NCIT:C127012). NCIT:C127012 is a therapeutic ag
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7716,6 +7999,31 @@ This treatment uses mycophenolate mofetil (NCIT:C1468). NCIT:C1468 is a therapeu
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Mycophenolate mofetil, an immunosuppressant, produced resolution of hyperpigmentation with no new lesions over 18 months in a genetically confirmed H-syndrome patient after corticosteroid and cyclosporine intolerance, and is considered a safe, partially effective option.</div>
 
 
@@ -7737,6 +8045,7 @@ This treatment uses mycophenolate mofetil (NCIT:C1468). NCIT:C1468 is a therapeu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7822,6 +8131,31 @@ This treatment uses methotrexate (NCIT:C642). NCIT:C642 is a therapeutic agent f
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Methotrexate is used as a steroid-sparing immunosuppressant, alone or in combination with a biologic; reported responses are partial, often augmented by the addition of tocilizumab. Azathioprine and TNF inhibition have also been used with partial response.</div>
 
 
@@ -7846,6 +8180,7 @@ This treatment uses methotrexate (NCIT:C642). NCIT:C642 is a therapeutic agent f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7867,6 +8202,7 @@ This treatment uses methotrexate (NCIT:C642). NCIT:C642 is a therapeutic agent f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7930,6 +8266,31 @@ This treatment is Targeted Therapy (NCIT:C93352). NCIT:C93352 is a clinical inte
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">MEK (MAP2K) inhibition targets the pathologically activated MAPK cascade downstream of nucleoside-sensing TLR signaling. MEK inhibitor therapy led to resolution of histiocytosis and inflammation in a patient with H syndrome.</div>
 
 
@@ -7969,6 +8330,7 @@ This treatment is Targeted Therapy (NCIT:C93352). NCIT:C93352 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8054,6 +8416,31 @@ This treatment uses hydroxychloroquine (NCIT:C557). NCIT:C557 is a therapeutic a
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Hydroxychloroquine inhibits endosomal/lysosomal TLR7 signaling and was added to baricitinib on the rationale that SLC29A3 deficiency drives interferon production via lysosomal TLR7 activation, contributing to a rapid and persistent response.</div>
 
 
@@ -8093,6 +8480,7 @@ This treatment uses hydroxychloroquine (NCIT:C557). NCIT:C557 is a therapeutic a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8158,6 +8546,7 @@ This treatment uses hydroxychloroquine (NCIT:C557). NCIT:C557 is a therapeutic a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8202,6 +8591,7 @@ This treatment uses hydroxychloroquine (NCIT:C557). NCIT:C557 is a therapeutic a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8304,6 +8694,7 @@ This treatment uses hydroxychloroquine (NCIT:C557). NCIT:C557 is a therapeutic a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8375,6 +8766,7 @@ This treatment uses hydroxychloroquine (NCIT:C557). NCIT:C557 is a therapeutic a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8510,7 +8902,27 @@ classifications:
         The defining and most consistent manifestations are cutaneous
         (hyperpigmentation, hypertrichosis, induration), supporting a
         dermatology classification.
-
+  iuis_category:
+    classification_value: autoinflammatory syndrome
+    notes: &gt;-
+      IUIS 2022 phenotypic classification (Tangye et al., PMID:35748970), Table 7
+      &#34;Autoinflammatory disorders&#34;, section 3 &#34;Non-Inflammasome Related
+      Conditions&#34;, the SLC29A3 row. IUIS lists the entry under the gene rather
+      than under any of its clinical names, and its associated-features cell
+      gives the hyperpigmentation and hypertrichosis of H syndrome together with
+      histiocytosis-lymphadenopathy plus syndrome, the allelic phenotype at the
+      other end of the SLC29A3 spectrum.
+    evidence:
+    - reference: PMID:35748970
+      reference_title: &#34;Human Inborn Errors of Immunity: 2022 Update on the Classification from the International Union of Immunological Societies Expert Committee.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;SLC29A3 mutation SLC29A3 AR 602782 Leukocytes, bone cells Hyperpigmentation hypertrichosis, histiocytosis-lymphadenopathy plus syndrome&#34;
+      explanation: &gt;-
+        The IUIS Table 7 non-inflammasome-section row for SLC29A3 gives autosomal
+        recessive inheritance, OMIM 602782 and the hyperpigmentation and
+        hypertrichosis phenotype that defines H syndrome, placing this disease
+        among the autoinflammatory disorders.
 pathophysiology:
 - name: hENT3 (SLC29A3) Nucleoside Transporter Deficiency
   description: &gt;-
@@ -9720,6 +10132,19 @@ datasets: []
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create H Syndrome</strong> · 2026-07-31T00:19:54Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/H_Syndrome/2026-07-31T001954Z-claude-code-3f5038.yaml">View source</a></p>
+                        <p class="research-review-text">New de-novo entry for H syndrome MONDO:0011273, SLC29A3-hENT3 autosomal recessive histiocytosis, prototype of the SLC29A3 spectrum disorder. Curated research-first from primary PubMed literature with all 45 evidence snippets verified as exact substrings of cached abstracts. Key PMIDs 18940313 founding-genetic, 18410979 founding-clinical/pathognomonic patch, 20140240 SLC29A3 spectrum, 19336477 PHID insulin, 20595384 functional hENT3, 29041934 US series tocilizumab, 37638031 tocilizumab, 38263041 TLR7-interferon/baricitinib/hydroxychloroquine, 31270333 autophagy AMPK-mTOR-ULK stem-cell mouse mechanism, 33029882 mycophenolate mofetil, 37738562 TLR-MAPK/MEK-inhibitor, 22174130 ENT3-null mouse efferocytosis/lysosomal-pH histiocytosis. Deep research: two providers run this session and consumed - claude_code (research/H_Syndrome-deep-research-claude_code.md, 29 citations) and OpenScientist (research/H_Syndrome-deep-research-openscientist.md, 27 citations); Falcon fallback unavailable due to Edison API credit exhaustion 402. All DR-surfaced PMIDs/snippets independently verified before use. No GeneReviews chapter exists for SLC29A3 H syndrome per PubMed. Content is a 5-node pathophysiology chain (hENT3 deficiency, histiocyte activation with defective efferocytosis, cutaneous fibrosis/multiorgan, nucleoside-sensing TLR/MAPK/interferon, impaired autophagy/adult stem-cell deficits), 14 phenotypes, SLC29A3 genetics, AR inheritance, prevalence, six treatments (corticosteroid, tocilizumab, baricitinib, mycophenolate mofetil, MEK inhibitor, hydroxychloroquine) with target_mechanisms links, Harrison classification, and a KNOWLEDGE_GAP on the transporter-to-phenotype link. A pre-PR red-team review (dismech-pr-review) was run and its blocking items addressed; OpenScientist findings integrated afterward. Validated with just validate PASS and weighted compliance 97 percent.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -10795,7 +11220,7 @@ Type I interferon signature; NLRP3/IL-1β    ↑ M-CSF / receptor signaling
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "H Syndrome", "mondoId": "MONDO:0011273", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "H_Syndrome", "yamlRevision": "e7750d15ae92"};
+        const OS_CONFIG = {"diseaseName": "H Syndrome", "mondoId": "MONDO:0011273", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "H_Syndrome", "yamlRevision": "ff3da90736bd"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4199,6 +4271,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4338,6 +4411,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-col2a1-p-arg704cys-substitution-in-the-triple-helical-domain" data-dismech-node="COL2A1 p.Arg704Cys Substitution in the Triple-Helical Domain" data-dismech-type="pathophysiology">
                 <div class="item-name">COL2A1 p.Arg704Cys Substitution in the Triple-Helical Domain</div>
 
+
                 <div class="item-desc">A heterozygous C-to-T change in exon 39 of COL2A1 replaces an arginine with a cysteine at position 704 of the triple-helical domain of the pro-alpha-1(II) chain. The substituted arginine sits at an X or Y position of a Gly-X-Y repeat rather than at the obligate glycine, which is the position mutated in the severe, often perinatally lethal type II collagenopathies.</div>
 
 
@@ -4432,6 +4506,8 @@ This genetic context concerns COL2A1 (hgnc:2200). hgnc:2200 is a gene from the H
 
 
 
+
+
         <span class="tag tag-classification">allele_type: MISSENSE</span>
 
 
@@ -4447,6 +4523,9 @@ This genetic context concerns COL2A1 (hgnc:2200). hgnc:2200 is a gene from the H
         <span class="tag tag-classification">functional_impact_category: DOMINANT_NEGATIVE</span>
 
     </div>
+
+
+
 
     <div class="context-detail">A heterozygous germline missense allele in a structural collagen chain. Curated as dominant-negative rather than loss-of-function because the mutant chain is secreted and incorporated into the trimer rather than being degraded, so the proposed mechanism is interference by the mutant chain with the network the wild-type chains build.</div>
 
@@ -4544,6 +4623,7 @@ This pathophysiological event involves abnormal extracellular matrix structural 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4570,6 +4650,7 @@ This pathophysiological event involves abnormal extracellular matrix structural 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4592,6 +4673,7 @@ This pathophysiological event involves abnormal extracellular matrix structural 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-secreted-correctly-folded-mutant-type-ii-collagen-heterotrimer" data-dismech-node="Secreted, Correctly Folded Mutant Type II Collagen Heterotrimer" data-dismech-type="pathophysiology">
                 <div class="item-name">Secreted, Correctly Folded Mutant Type II Collagen Heterotrimer</div>
+
 
                 <div class="item-desc">Type II collagen is a homotrimer of three alpha-1(II) chains, so in a heterozygote roughly seven of every eight molecules incorporate at least one mutant chain. Recombinant R704C collagen II is trypsin-resistant, gives a normal collagen circular-dichroism spectrum, and is recovered mainly from the culture supernatant, so the mutant chain reaches the extracellular space carrying an unpaired cysteine that the wild-type sequence does not have.</div>
 
@@ -4702,6 +4784,7 @@ This pathophysiological event involves abnormal collagen trimer (GO:0005581). GO
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4724,6 +4807,7 @@ This pathophysiological event involves abnormal collagen trimer (GO:0005581). GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-preserved-chondrocyte-proteostasis" data-dismech-node="Preserved Chondrocyte Proteostasis" data-dismech-type="pathophysiology">
                 <div class="item-name">Preserved Chondrocyte Proteostasis</div>
+
 
                 <div class="item-desc">Cells expressing R704C collagen II show no splicing of XBP-1 and no activated caspase-3, meaning neither the unfolded protein response nor apoptosis is engaged. This is the mechanistic point on which the disorder separates from both the C-terminal COL2A1 dysplasias and the COMP- and MATN3-related forms of multiple epiphyseal dysplasia, in all of which mutant cartilage protein is retained in the endoplasmic reticulum and the resulting stress response is the proximate cause of chondrocyte dysfunction.</div>
 
@@ -4832,6 +4916,7 @@ This pathophysiological event involves response to unfolded protein (GO:0006986)
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4858,6 +4943,7 @@ This pathophysiological event involves response to unfolded protein (GO:0006986)
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4880,6 +4966,13 @@ This pathophysiological event involves response to unfolded protein (GO:0006986)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-extracellular-interference-with-the-type-ii-collagen-network" data-dismech-node="Extracellular Interference with the Type II Collagen Network" data-dismech-type="pathophysiology">
                 <div class="item-name">Extracellular Interference with the Type II Collagen Network</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">The proposed proximate lesion of this disorder: a mutant alpha-1(II) chain incorporated into the secreted fibrillar network degrades the mechanical and optical properties of the matrices that network builds. The tissue distribution of the clinical syndrome follows the tissues in which type II collagen is the principal fibrillar constituent — epiphyseal and growth-plate hyaline cartilage, the vitreous body, and the cartilaginous structures of the ear.</div>
 
@@ -5023,6 +5116,7 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5045,6 +5139,7 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-abnormal-epiphyseal-cartilage-and-endochondral-ossification" data-dismech-node="Abnormal Epiphyseal Cartilage and Endochondral Ossification" data-dismech-type="pathophysiology">
                 <div class="item-name">Abnormal Epiphyseal Cartilage and Endochondral Ossification</div>
+
 
                 <div class="item-desc">Disordered epiphyseal cartilage gives the radiographic picture of a mild multiple epiphyseal dysplasia, with additional changes in the phalanges, femoral heads and spine, and mildly reduced stature.</div>
 
@@ -5262,6 +5357,7 @@ This pathophysiological event involves abnormal skeletal system development (GO:
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5284,6 +5380,7 @@ This pathophysiological event involves abnormal skeletal system development (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-abnormal-vitreous-and-retinal-collagen-matrix" data-dismech-node="Abnormal Vitreous and Retinal Collagen Matrix" data-dismech-type="pathophysiology">
                 <div class="item-name">Abnormal Vitreous and Retinal Collagen Matrix</div>
+
 
                 <div class="item-desc">A progressive ocular disorder combining myopia, retinal thinning and characteristically crenated cataracts, with asteroid hyalosis observed in the kindred but of uncertain syndromic significance.</div>
 
@@ -5439,6 +5536,7 @@ This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5484,7 +5582,7 @@ This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Epiphyseal Cartilage and Endochondral Ossification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disordered epiphyseal cartilage gives the radiographic picture of a mild multiple epiphyseal dysplasia, with additional changes in the phalanges, femoral heads and spine, and mildly reduced stature.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"chondrocyte\"], \"biological_processes\": [\"endochondral ossification\", \"skeletal system development\"]}}, {\"id\": \"Abnormal Vitreous and Retinal Collagen Matrix\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A progressive ocular disorder combining myopia, retinal thinning and characteristically crenated cataracts, with asteroid hyalosis observed in the kindred but of uncertain syndromic significance.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"extracellular matrix organization\"], \"locations\": [\"vitreous body\", \"retina\"]}}, {\"id\": \"Abnormal finger phalanx morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Minor radiographic abnormalities of the phalanges.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005918\"}}, {\"id\": \"Abnormal vertebral morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Minor radiographic abnormalities of the spine.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003468\"}}, {\"id\": \"Abnormality of the epiphysis of the femoral head\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Minor radiographic abnormalities of the femoral heads.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0010574\"}}, {\"id\": \"Asteroid hyalosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Calcium-soap opacities suspended in the vitreous, observed in the kindred. The original report explicitly leaves its syndromic significance open.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0030672\"}}, {\"id\": \"Brachydactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Short, stubby digits \\u2014 the feature explicitly used to distinguish this disorder from classical Stickler syndrome, and independently described as brachydactyly in R704C carriers ascertained elsewhere.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001156\"}}, {\"id\": \"COL2A1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"COL2A1\"], \"gene_terms\": [{\"label\": \"COL2A1\", \"id\": \"hgnc:2200\"}], \"association\": \"Heterozygous p.Arg704Cys substitution in the triple-helical domain\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"COL2A1 p.Arg704Cys Substitution in the Triple-Helical Domain\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A heterozygous C-to-T change in exon 39 of COL2A1 replaces an arginine with a cysteine at position 704 of the triple-helical domain of the pro-alpha-1(II) chain. The substituted arginine sits at an X or Y position of a Gly-X-Y repeat rather than at the obligate glycine, which is the position mutated in the severe, often perinatally lethal type II collagenopathies.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"extracellular matrix structural constituent\"], \"genes\": [\"COL2A1\"], \"gene_terms\": [{\"label\": \"COL2A1\", \"id\": \"hgnc:2200\"}], \"genetic_context\": {\"allele_type\": \"MISSENSE\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"DOMINANT_NEGATIVE\", \"description\": \"A heterozygous germline missense allele in a structural collagen chain. Curated as dominant-negative rather than loss-of-function because the mutant chain is secreted and incorporated into the trimer rather than being degraded, so the proposed mechanism is interference by the mutant chain with the network the wild-type chains build.\", \"gene_terms\": [{\"label\": \"COL2A1\", \"id\": \"hgnc:2200\"}]}}}, {\"id\": \"Cataract\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Crenated cataracts, the third ocular component and part of what makes the ocular phenotype distinctive within the type II collagenopathies.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000518\"}}, {\"id\": \"Conductive hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Conductive deafness, the third component of the defining triad and, with the ocular disease, the predominant clinical problem in the genotyped family.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000405\"}}, {\"id\": \"Epiphyseal dysplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Irregular and delayed development of multiple epiphyses, radiographically resembling a mild form of multiple epiphyseal dysplasia.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002656\"}}, {\"id\": \"Extracellular Interference with the Type II Collagen Network\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The proposed proximate lesion of this disorder: a mutant alpha-1(II) chain incorporated into the secreted fibrillar network degrades the mechanical and optical properties of the matrices that network builds. The tissue distribution of the clinical syndrome follows the tissues in which type II collagen is the principal fibrillar constituent \\u2014 epiphyseal and growth-plate hyaline cartilage, the vitreous body, and the cartilaginous structures of the ear.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"collagen fibril organization\", \"extracellular matrix organization\"]}}, {\"id\": \"Flat face\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A flattened facial profile reported in affected members of the kindred.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012368\"}}, {\"id\": \"Myopia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive myopia, the earliest component of the ocular triad and a cause of visual disturbance.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000545\"}}, {\"id\": \"Preserved Chondrocyte Proteostasis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cells expressing R704C collagen II show no splicing of XBP-1 and no activated caspase-3, meaning neither the unfolded protein response nor apoptosis is engaged. This is the mechanistic point on which the disorder separates from both the C-terminal COL2A1 dysplasias and the COMP- and MATN3-related forms of multiple epiphyseal dysplasia, in all of which mutant cartilage protein is retained in the endoplasmic reticulum and the resulting stress response is the proximate cause of chondrocyte dysfunction.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"chondrocyte\"], \"biological_processes\": [\"response to unfolded protein\"]}}, {\"id\": \"Retinal thinning\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Thinning of the retina accompanying the myopia. Curated against the general HPO retinal-morphology term rather than the OCT-specific term, because the finding was described clinically and no cited source reports an optical-coherence-tomography measurement.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000479\"}}, {\"id\": \"Round face\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A round facial contour reported in affected members of the kindred.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000311\"}}, {\"id\": \"Secreted, Correctly Folded Mutant Type II Collagen Heterotrimer\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Type II collagen is a homotrimer of three alpha-1(II) chains, so in a heterozygote roughly seven of every eight molecules incorporate at least one mutant chain. Recombinant R704C collagen II is trypsin-resistant, gives a normal collagen circular-dichroism spectrum, and is recovered mainly from the culture supernatant, so the mutant chain reaches the extracellular space carrying an unpaired cysteine that the wild-type sequence does not have.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"chondrocyte\"]}}, {\"id\": \"Short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mildly reduced stature in affected members of the kindred.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004322\"}}], \"edges\": [{\"source\": \"COL2A1 p.Arg704Cys Substitution in the Triple-Helical Domain\", \"target\": \"Secreted, Correctly Folded Mutant Type II Collagen Heterotrimer\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The substituted chain is not degraded or retained: it assembles into a thermally stable, protease-resistant triple helix and leaves the cell, which is what makes an extracellular rather than an intracellular disease mechanism the plausible one for this allele.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"COL2A1 p.Arg704Cys Substitution in the Triple-Helical Domain\", \"target\": \"Preserved Chondrocyte Proteostasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Because the mutant chain folds and is exported normally, the misfolded protein burden that drives the endoplasmic-reticulum stress mechanism of the other epiphyseal dysplasias never accumulates.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Secreted, Correctly Folded Mutant Type II Collagen Heterotrimer\", \"target\": \"Extracellular Interference with the Type II Collagen Network\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A structurally competent but chemically altered alpha-1(II) chain, carrying an extra cysteine thiol in the helix, is built into the fibrillar network of every tissue in which type II collagen is load-bearing.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Extracellular Interference with the Type II Collagen Network\", \"target\": \"Abnormal Epiphyseal Cartilage and Endochondral Ossification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Type II collagen is the load-bearing fibrillar protein of the epiphyseal and growth-plate hyaline cartilage in which endochondral ossification takes place.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Extracellular Interference with the Type II Collagen Network\", \"target\": \"Abnormal Vitreous and Retinal Collagen Matrix\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Type II collagen is the principal fibrillar collagen of the vitreous body, and vitreoretinal disease is the shared ocular signature of the milder COL2A1 disorders.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Extracellular Interference with the Type II Collagen Network\", \"target\": \"Conductive hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Conductive deafness is one of the three defining components of the syndrome, and is curated as an outcome of the same collagen-network lesion. The middle-ear substrate is not established by any cited source, so the edge is typed as having unknown intermediates.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Abnormal Epiphyseal Cartilage and Endochondral Ossification\", \"target\": \"Epiphyseal dysplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Irregular, delayed epiphyseal development is the defining skeletal finding.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abnormal Epiphyseal Cartilage and Endochondral Ossification\", \"target\": \"Short stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced stature follows from disturbed endochondral growth.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abnormal Epiphyseal Cartilage and Endochondral Ossification\", \"target\": \"Brachydactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Short, stubby digits, the feature that separated the kindred from classical Stickler syndrome.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abnormal Epiphyseal Cartilage and Endochondral Ossification\", \"target\": \"Abnormal finger phalanx morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Additional radiographic changes reported in the phalanges.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abnormal Epiphyseal Cartilage and Endochondral Ossification\", \"target\": \"Abnormality of the epiphysis of the femoral head\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Additional radiographic changes reported in the femoral heads.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abnormal Epiphyseal Cartilage and Endochondral Ossification\", \"target\": \"Abnormal vertebral morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Additional radiographic changes reported in the spine.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abnormal Epiphyseal Cartilage and Endochondral Ossification\", \"target\": \"Round face\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Craniofacial contour reported in affected members of the kindred, curated as an outcome of the same chondro-osseous process.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Abnormal Epiphyseal Cartilage and Endochondral Ossification\", \"target\": \"Flat face\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Midface flattening reported in affected members of the kindred, curated as an outcome of the same chondro-osseous process.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Abnormal Vitreous and Retinal Collagen Matrix\", \"target\": \"Myopia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive myopia is the earliest and most constant ocular finding.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abnormal Vitreous and Retinal Collagen Matrix\", \"target\": \"Retinal thinning\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Retinal thinning accompanies the myopia in affected individuals.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abnormal Vitreous and Retinal Collagen Matrix\", \"target\": \"Cataract\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Crenated cataracts are the third reported ocular component.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abnormal Vitreous and Retinal Collagen Matrix\", \"target\": \"Asteroid hyalosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Asteroid hyalosis was observed in the kindred; the original report states its syndromic significance is uncertain, so the edge is curated as hypothesized rather than established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"COL2A1\", \"target\": \"COL2A1 p.Arg704Cys Substitution in the Triple-Helical Domain\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Epiphyseal Cartilage and Endochondral Ossification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disordered epiphyseal cartilage gives the radiographic picture of a mild multiple epiphyseal dysplasia, with additional changes in the phalanges, femoral heads and spine, and mildly reduced stature.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"chondrocyte\"], \"biological_processes\": [\"endochondral ossification\", \"skeletal system development\"]}}, {\"id\": \"Abnormal Vitreous and Retinal Collagen Matrix\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A progressive ocular disorder combining myopia, retinal thinning and characteristically crenated cataracts, with asteroid hyalosis observed in the kindred but of uncertain syndromic significance.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"extracellular matrix organization\"], \"locations\": [\"vitreous body\", \"retina\"]}}, {\"id\": \"Abnormal finger phalanx morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Minor radiographic abnormalities of the phalanges.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005918\"}}, {\"id\": \"Abnormal vertebral morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Minor radiographic abnormalities of the spine.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003468\"}}, {\"id\": \"Abnormality of the epiphysis of the femoral head\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Minor radiographic abnormalities of the femoral heads.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0010574\"}}, {\"id\": \"Asteroid hyalosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Calcium-soap opacities suspended in the vitreous, observed in the kindred. The original report explicitly leaves its syndromic significance open.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0030672\"}}, {\"id\": \"Brachydactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Short, stubby digits \\u2014 the feature explicitly used to distinguish this disorder from classical Stickler syndrome, and independently described as brachydactyly in R704C carriers ascertained elsewhere.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001156\"}}, {\"id\": \"COL2A1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"COL2A1\"], \"gene_terms\": [{\"label\": \"COL2A1\", \"id\": \"hgnc:2200\"}], \"association\": \"Heterozygous p.Arg704Cys substitution in the triple-helical domain\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"COL2A1 p.Arg704Cys Substitution in the Triple-Helical Domain\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A heterozygous C-to-T change in exon 39 of COL2A1 replaces an arginine with a cysteine at position 704 of the triple-helical domain of the pro-alpha-1(II) chain. The substituted arginine sits at an X or Y position of a Gly-X-Y repeat rather than at the obligate glycine, which is the position mutated in the severe, often perinatally lethal type II collagenopathies.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"extracellular matrix structural constituent\"], \"genes\": [\"COL2A1\"], \"gene_terms\": [{\"label\": \"COL2A1\", \"id\": \"hgnc:2200\"}], \"genetic_context\": {\"allele_type\": \"MISSENSE\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"DOMINANT_NEGATIVE\", \"description\": \"A heterozygous germline missense allele in a structural collagen chain. Curated as dominant-negative rather than loss-of-function because the mutant chain is secreted and incorporated into the trimer rather than being degraded, so the proposed mechanism is interference by the mutant chain with the network the wild-type chains build.\", \"gene_terms\": [{\"label\": \"COL2A1\", \"id\": \"hgnc:2200\"}]}}}, {\"id\": \"Cataract\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Crenated cataracts, the third ocular component and part of what makes the ocular phenotype distinctive within the type II collagenopathies.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000518\"}}, {\"id\": \"Conductive hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Conductive deafness, the third component of the defining triad and, with the ocular disease, the predominant clinical problem in the genotyped family.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000405\"}}, {\"id\": \"Epiphyseal dysplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Irregular and delayed development of multiple epiphyses, radiographically resembling a mild form of multiple epiphyseal dysplasia.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002656\"}}, {\"id\": \"Extracellular Interference with the Type II Collagen Network\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The proposed proximate lesion of this disorder: a mutant alpha-1(II) chain incorporated into the secreted fibrillar network degrades the mechanical and optical properties of the matrices that network builds. The tissue distribution of the clinical syndrome follows the tissues in which type II collagen is the principal fibrillar constituent \\u2014 epiphyseal and growth-plate hyaline cartilage, the vitreous body, and the cartilaginous structures of the ear.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"collagen fibril organization\", \"extracellular matrix organization\"], \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Flat face\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A flattened facial profile reported in affected members of the kindred.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012368\"}}, {\"id\": \"Myopia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive myopia, the earliest component of the ocular triad and a cause of visual disturbance.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000545\"}}, {\"id\": \"Preserved Chondrocyte Proteostasis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cells expressing R704C collagen II show no splicing of XBP-1 and no activated caspase-3, meaning neither the unfolded protein response nor apoptosis is engaged. This is the mechanistic point on which the disorder separates from both the C-terminal COL2A1 dysplasias and the COMP- and MATN3-related forms of multiple epiphyseal dysplasia, in all of which mutant cartilage protein is retained in the endoplasmic reticulum and the resulting stress response is the proximate cause of chondrocyte dysfunction.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"chondrocyte\"], \"biological_processes\": [\"response to unfolded protein\"]}}, {\"id\": \"Retinal thinning\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Thinning of the retina accompanying the myopia. Curated against the general HPO retinal-morphology term rather than the OCT-specific term, because the finding was described clinically and no cited source reports an optical-coherence-tomography measurement.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000479\"}}, {\"id\": \"Round face\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A round facial contour reported in affected members of the kindred.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000311\"}}, {\"id\": \"Secreted, Correctly Folded Mutant Type II Collagen Heterotrimer\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Type II collagen is a homotrimer of three alpha-1(II) chains, so in a heterozygote roughly seven of every eight molecules incorporate at least one mutant chain. Recombinant R704C collagen II is trypsin-resistant, gives a normal collagen circular-dichroism spectrum, and is recovered mainly from the culture supernatant, so the mutant chain reaches the extracellular space carrying an unpaired cysteine that the wild-type sequence does not have.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"chondrocyte\"]}}, {\"id\": \"Short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mildly reduced stature in affected members of the kindred.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004322\"}}], \"edges\": [{\"source\": \"COL2A1 p.Arg704Cys Substitution in the Triple-Helical Domain\", \"target\": \"Secreted, Correctly Folded Mutant Type II Collagen Heterotrimer\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The substituted chain is not degraded or retained: it assembles into a thermally stable, protease-resistant triple helix and leaves the cell, which is what makes an extracellular rather than an intracellular disease mechanism the plausible one for this allele.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"COL2A1 p.Arg704Cys Substitution in the Triple-Helical Domain\", \"target\": \"Preserved Chondrocyte Proteostasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Because the mutant chain folds and is exported normally, the misfolded protein burden that drives the endoplasmic-reticulum stress mechanism of the other epiphyseal dysplasias never accumulates.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Secreted, Correctly Folded Mutant Type II Collagen Heterotrimer\", \"target\": \"Extracellular Interference with the Type II Collagen Network\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A structurally competent but chemically altered alpha-1(II) chain, carrying an extra cysteine thiol in the helix, is built into the fibrillar network of every tissue in which type II collagen is load-bearing.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Extracellular Interference with the Type II Collagen Network\", \"target\": \"Abnormal Epiphyseal Cartilage and Endochondral Ossification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Type II collagen is the load-bearing fibrillar protein of the epiphyseal and growth-plate hyaline cartilage in which endochondral ossification takes place.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Extracellular Interference with the Type II Collagen Network\", \"target\": \"Abnormal Vitreous and Retinal Collagen Matrix\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Type II collagen is the principal fibrillar collagen of the vitreous body, and vitreoretinal disease is the shared ocular signature of the milder COL2A1 disorders.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Extracellular Interference with the Type II Collagen Network\", \"target\": \"Conductive hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Conductive deafness is one of the three defining components of the syndrome, and is curated as an outcome of the same collagen-network lesion. The middle-ear substrate is not established by any cited source, so the edge is typed as having unknown intermediates.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Abnormal Epiphyseal Cartilage and Endochondral Ossification\", \"target\": \"Epiphyseal dysplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Irregular, delayed epiphyseal development is the defining skeletal finding.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abnormal Epiphyseal Cartilage and Endochondral Ossification\", \"target\": \"Short stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced stature follows from disturbed endochondral growth.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abnormal Epiphyseal Cartilage and Endochondral Ossification\", \"target\": \"Brachydactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Short, stubby digits, the feature that separated the kindred from classical Stickler syndrome.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abnormal Epiphyseal Cartilage and Endochondral Ossification\", \"target\": \"Abnormal finger phalanx morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Additional radiographic changes reported in the phalanges.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abnormal Epiphyseal Cartilage and Endochondral Ossification\", \"target\": \"Abnormality of the epiphysis of the femoral head\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Additional radiographic changes reported in the femoral heads.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abnormal Epiphyseal Cartilage and Endochondral Ossification\", \"target\": \"Abnormal vertebral morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Additional radiographic changes reported in the spine.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abnormal Epiphyseal Cartilage and Endochondral Ossification\", \"target\": \"Round face\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Craniofacial contour reported in affected members of the kindred, curated as an outcome of the same chondro-osseous process.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Abnormal Epiphyseal Cartilage and Endochondral Ossification\", \"target\": \"Flat face\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Midface flattening reported in affected members of the kindred, curated as an outcome of the same chondro-osseous process.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Abnormal Vitreous and Retinal Collagen Matrix\", \"target\": \"Myopia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive myopia is the earliest and most constant ocular finding.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abnormal Vitreous and Retinal Collagen Matrix\", \"target\": \"Retinal thinning\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Retinal thinning accompanies the myopia in affected individuals.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abnormal Vitreous and Retinal Collagen Matrix\", \"target\": \"Cataract\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Crenated cataracts are the third reported ocular component.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abnormal Vitreous and Retinal Collagen Matrix\", \"target\": \"Asteroid hyalosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Asteroid hyalosis was observed in the kindred; the original report states its syndromic significance is uncertain, so the edge is curated as hypothesized rather than established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"COL2A1\", \"target\": \"COL2A1 p.Arg704Cys Substitution in the Triple-Helical Domain\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5505,17 +5603,15 @@ This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Ear<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(4)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Limbs<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Limbs<span class="pill-count">(3)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Growth<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Other<span class="pill-count">(5)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5556,6 +5652,9 @@ This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5570,6 +5669,7 @@ This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5594,6 +5694,7 @@ This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5626,7 +5727,7 @@ This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">4</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-myopia" data-dismech-node="Myopia" data-dismech-type="phenotype">
@@ -5675,6 +5776,9 @@ This clinical feature is Myopia (HP:0000545), qualified as course progressive. H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5692,6 +5796,7 @@ This clinical feature is Myopia (HP:0000545), qualified as course progressive. H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5700,6 +5805,80 @@ This clinical feature is Myopia (HP:0000545), qualified as course progressive. H
 
 
                 <div class="evidence-explanation">Reports myopia and states that it is progressive.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-retinal-thinning" data-dismech-node="Retinal thinning" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Retinal thinning
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal retinal morphology</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000479" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000479</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Retinal thinning, annotated with Abnormal retinal morphology (HP:0000479). HP:0000479 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:699354" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/699354" target="_blank">PMID:699354</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Progressive myopia, retinal thinning and crenated cataracts led to visual disturbance, while conductive deafness represented the third component of the triad."</div>
+
+
+                <div class="evidence-explanation">Reports retinal thinning as a component of the ocular phenotype.</div>
 
 
 
@@ -5729,15 +5908,18 @@ This clinical feature is Myopia (HP:0000545), qualified as course progressive. H
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000518</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000518</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Crenated cataract, annotated with Cataract (HP:0000518). HP:0000518 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5757,6 +5939,7 @@ This clinical feature is Crenated cataract, annotated with Cataract (HP:0000518)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5783,18 +5966,9 @@ This clinical feature is Crenated cataract, annotated with Cataract (HP:0000518)
 
                 </div>
 
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Head and Neck
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-flat-face" data-dismech-node="Flat face" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-asteroid-hyalosis" data-dismech-node="Asteroid hyalosis" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Flat face
+                        Asteroid hyalosis
 
 
 
@@ -5806,15 +5980,18 @@ This clinical feature is Crenated cataract, annotated with Cataract (HP:0000518)
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012368" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0012368</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030672" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0030672</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Flat face (HP:0012368). HP:0012368 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Asteroid hyalosis (HP:0030672). HP:0030672 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5834,6 +6011,160 @@ This clinical feature is Flat face (HP:0012368). HP:0012368 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The syndromic significance of associated asteroid hyalosis is uncertain."</div>
+
+
+                <div class="evidence-explanation">Records the association while stating the authors&#39; own uncertainty about whether it belongs to the syndrome.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Head and Neck
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-round-face" data-dismech-node="Round face" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Round face
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000311" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000311</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Round face (HP:0000311). HP:0000311 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:699354" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/699354" target="_blank">PMID:699354</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The affected individuals had reduced stature and a round, flattened facies."</div>
+
+
+                <div class="evidence-explanation">Reports the round facial contour.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-flat-face" data-dismech-node="Flat face" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Flat face
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012368" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0012368</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Flat face (HP:0012368). HP:0012368 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:699354" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/699354" target="_blank">PMID:699354</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5866,7 +6197,7 @@ This clinical feature is Flat face (HP:0012368). HP:0012368 is a phenotype from 
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Limbs
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-brachydactyly" data-dismech-node="Brachydactyly" data-dismech-type="phenotype">
@@ -5883,15 +6214,18 @@ This clinical feature is Flat face (HP:0012368). HP:0012368 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001156" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001156</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001156" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001156</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5911,6 +6245,7 @@ This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5938,6 +6273,7 @@ This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5960,239 +6296,6 @@ This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype f
 
 
                 </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Musculoskeletal
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-epiphyseal-dysplasia" data-dismech-node="Epiphyseal dysplasia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Epiphyseal dysplasia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002656" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002656</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Epiphyseal dysplasia (HP:0002656). HP:0002656 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">No `frequency` band: the available denominator is the four affected members of the index kindred reported in PMID:9800905, not a disease series.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:9800905" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9800905" target="_blank">PMID:9800905</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Ocular problems and conductive deafness predominate, while skeletal changes resemble those of a mild form of multiple epiphyseal dysplasia (MED)."</div>
-
-
-                <div class="evidence-explanation">States the epiphyseal character and the mild severity of the skeletal phenotype in the genotyped family.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-vertebral-morphology" data-dismech-node="Abnormal vertebral morphology" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Abnormal vertebral morphology
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003468" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0003468</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal vertebral morphology (HP:0003468). HP:0003468 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:699354" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/699354" target="_blank">PMID:699354</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The bone changes resembled multiple epiphyseal dysplasia with additional minor abnormalities in the phalanges, femoral heads and spine."</div>
-
-
-                <div class="evidence-explanation">Names the spine as an additional site of radiographic change.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Growth
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-short-stature" data-dismech-node="Short stature" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Short stature
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0004322</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:699354" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/699354" target="_blank">PMID:699354</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The affected individuals had reduced stature and a round, flattened facies."</div>
-
-
-                <div class="evidence-explanation">Reports reduced stature in the affected members of the kindred.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-7">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">5</span>
-                </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-finger-phalanx-morphology" data-dismech-node="Abnormal finger phalanx morphology" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6222,6 +6325,9 @@ This clinical feature is Abnormal finger phalanx morphology (HP:0005918). HP:000
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6236,6 +6342,7 @@ This clinical feature is Abnormal finger phalanx morphology (HP:0005918). HP:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6290,6 +6397,9 @@ This clinical feature is Abnormality of the epiphysis of the femoral head (HP:00
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6304,6 +6414,7 @@ This clinical feature is Abnormality of the epiphysis of the femoral head (HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6330,9 +6441,18 @@ This clinical feature is Abnormality of the epiphysis of the femoral head (HP:00
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-round-face" data-dismech-node="Round face" data-dismech-type="phenotype">
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Musculoskeletal
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-epiphyseal-dysplasia" data-dismech-node="Epiphyseal dysplasia" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Round face
+                        Epiphyseal dysplasia
 
 
 
@@ -6344,15 +6464,92 @@ This clinical feature is Abnormality of the epiphysis of the femoral head (HP:00
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000311" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000311</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002656" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002656</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Round face (HP:0000311). HP:0000311 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Epiphyseal dysplasia (HP:0002656). HP:0002656 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
+
+
+                    <div class="item-desc">No `frequency` band: the available denominator is the four affected members of the index kindred reported in PMID:9800905, not a disease series.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:9800905" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9800905" target="_blank">PMID:9800905</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Ocular problems and conductive deafness predominate, while skeletal changes resemble those of a mild form of multiple epiphyseal dysplasia (MED)."</div>
+
+
+                <div class="evidence-explanation">States the epiphyseal character and the mild severity of the skeletal phenotype in the genotyped family.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-vertebral-morphology" data-dismech-node="Abnormal vertebral morphology" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Abnormal vertebral morphology
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003468" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0003468</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal vertebral morphology (HP:0003468). HP:0003468 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
 
 
 
@@ -6372,6 +6569,88 @@ This clinical feature is Round face (HP:0000311). HP:0000311 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The bone changes resembled multiple epiphyseal dysplasia with additional minor abnormalities in the phalanges, femoral heads and spine."</div>
+
+
+                <div class="evidence-explanation">Names the spine as an additional site of radiographic change.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-6">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Growth
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-short-stature" data-dismech-node="Short stature" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Short stature
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0004322</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:699354" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/699354" target="_blank">PMID:699354</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6382,145 +6661,7 @@ This clinical feature is Round face (HP:0000311). HP:0000311 is a phenotype from
                 <div class="evidence-snippet">"The affected individuals had reduced stature and a round, flattened facies."</div>
 
 
-                <div class="evidence-explanation">Reports the round facial contour.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-retinal-thinning" data-dismech-node="Retinal thinning" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Retinal thinning
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Abnormal retinal morphology</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000479" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000479</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Retinal thinning, annotated with Abnormal retinal morphology (HP:0000479). HP:0000479 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:699354" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/699354" target="_blank">PMID:699354</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Progressive myopia, retinal thinning and crenated cataracts led to visual disturbance, while conductive deafness represented the third component of the triad."</div>
-
-
-                <div class="evidence-explanation">Reports retinal thinning as a component of the ocular phenotype.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-asteroid-hyalosis" data-dismech-node="Asteroid hyalosis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Asteroid hyalosis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030672" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0030672</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Asteroid hyalosis (HP:0030672). HP:0030672 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:699354" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/699354" target="_blank">PMID:699354</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The syndromic significance of associated asteroid hyalosis is uncertain."</div>
-
-
-                <div class="evidence-explanation">Records the association while stating the authors&#39; own uncertainty about whether it belongs to the syndrome.</div>
+                <div class="evidence-explanation">Reports reduced stature in the affected members of the kindred.</div>
 
 
 
@@ -6612,6 +6753,9 @@ This disease-associated gene is COL2A1 (hgnc:2200). hgnc:2200 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6626,6 +6770,7 @@ This disease-associated gene is COL2A1 (hgnc:2200). hgnc:2200 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6653,6 +6798,7 @@ This disease-associated gene is COL2A1 (hgnc:2200). hgnc:2200 is a gene from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6674,6 +6820,7 @@ This disease-associated gene is COL2A1 (hgnc:2200). hgnc:2200 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6828,6 +6975,20 @@ This treatment is routine ophthalmological monitoring, annotated with Eye Examin
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Scheduled review by an ophthalmologist, which the type II collagen disorder best-practice guidelines recommend for the disorder class this entity belongs to. The rationale that applies here is that the guideline panel records retinal detachment as common across type II collagen disorders, and this disorder&#39;s ocular component is progressive myopia with retinal thinning and cataract.</div>
 
 
@@ -6854,6 +7015,7 @@ This treatment is routine ophthalmological monitoring, annotated with Eye Examin
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6878,6 +7040,7 @@ This treatment is routine ophthalmological monitoring, annotated with Eye Examin
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6941,6 +7104,20 @@ This treatment is routine audiological monitoring, annotated with Audiometric Te
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Scheduled hearing assessment, recommended by the same guidelines for type II collagen disorders. Conductive deafness is one of the three defining components of this disorder, so the class-level recommendation is directly applicable in practice even though it was not written for this entity.</div>
 
 
@@ -6965,6 +7142,7 @@ This treatment is routine audiological monitoring, annotated with Audiometric Te
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7072,6 +7250,7 @@ This treatment is routine audiological monitoring, annotated with Audiometric Te
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7159,6 +7338,7 @@ This treatment is routine audiological monitoring, annotated with Audiometric Te
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7180,6 +7360,7 @@ This treatment is routine audiological monitoring, annotated with Audiometric Te
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7254,6 +7435,7 @@ This treatment is routine audiological monitoring, annotated with Audiometric Te
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8756,6 +8938,38 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Eight things about this entry are deliberate.
+First, **the allele numbering.** Every study that reports this substitution writes it R704C, and the same laboratory series that reports it numbers the Czech dysplasia allele R75C — that is, mature triple-helical-domain numbering, not the precursor numbering under which the Czech allele is written R275C. The entry therefore keeps the published form, `p.Arg704Cys`, and does not assert a precursor-numbering equivalent, which none of the cached sources states.
+Second, **the evidence base is one kindred plus one replication series, and the entry does not disguise that.** PMID:699354 describes the Afrikaner kindred clinically; PMID:9800905 reports the COL2A1 genotype in four affected members of that same family; PMID:16155195 independently found R704C in a separate laboratory&#39;s arginine-to-cysteine cohort and describes those carriers as having &#34;Stickler dysplasia with brachydactyly&#34;, which is the same combination. Phenotype records therefore carry no `frequency` band: the denominator available is a handful of individuals in one family, not a series from which a population frequency could be read.
+Third, **the negative in-vitro results are curated as content, not omitted.** PMID:29439465 tested R704C alongside R740C and R789C and found that only the latter two are retained in the ER, splice XBP-1, and kill the expressing cell. That is what separates this disorder mechanistically both from the C-terminal COL2A1 dysplasias and from the COMP/MATN3 forms of multiple epiphyseal dysplasia, whose shared mechanism is precisely mutant-protein retention and ER stress. The `Preserved Chondrocyte Proteostasis` node exists to carry that finding and deliberately has no `downstream` edge, because a preserved process does not cause anything.
+Fourth, **&#34;Beighton type&#34; is an ambiguous eponym and is a live confusion hazard.** It also names *spondyloepimetaphyseal dysplasia with joint laxity type 1* (SEMD-JL1, OMIM 271640, biallelic B3GALT6) — a severe, unrelated recessive linkeropathy — and, separately, the Beighton *score* for joint hypermobility, which is what makes `Familial_Vesicoureteral_Reflux` and `Spondylodysplastic_Ehlers-Danlos_Syndrome` match a text search for this disease. A Falcon/Edison deep-research run against the entry name alone returned a full report on SEMD-JL1 and never mentioned COL2A1; `just preflight-dr` caught it (`B3GALT6=28, COL2A1=0`) and the report was discarded rather than mined. Anything sourced by disease name for this entry needs the OMIM number or the gene attached — and doing that fixes it. The committed report, `research/Multiple_Epiphyseal_Dysplasia_Beighton_Type-deep-research-falcon.md`, is a re-run whose `disease_name` variable was replaced with &#34;Epiphyseal dysplasia multiple with myopia and conductive deafness, EDMMD, OMIM 132450, also called Stickler dysplasia with brachydactyly, caused by the heterozygous COL2A1 arginine-to-cysteine substitution p.Arg704Cys in exon 39&#34;. That run `PASS`es `preflight-dr` (`COL2A1=40`, report OMIM 132450 matching MONDO&#39;s 132450, `B3GALT6=0`), so the confusion is a query problem rather than a gap in the provider&#39;s index. Two cautions for anyone mining it. Its reference validation leaves one identifier unresolved, `DOI:10.1002/(sici)1096-8628(19981102)80:1`, which is a truncation of the 1998 Ballo paper already cited here as PMID:9800905 rather than a fabrication; and its term validation flags `GO:0062023` as obsolete, replaced by `GO:0031012`, so that CURIE must not be bound. The `MONDO:0007562` label mismatch it reports is an artifact of the template&#39;s literal &#34;(if available)&#34; text, not a report error. Most of the report&#39;s disease-specific content is drawn from full-text pages of PMID:9800905 and PMID:16155195, which are cached here as abstracts only, so it could not be quoted; what it did contribute is the type II collagen disorder management guideline behind this entry&#39;s `treatments` section, and confirmation that no R704C-specific treatment or trial evidence exists.
+Fifth, **the entry is separate from `Multiple_Epiphyseal_Dysplasia`, not a subtype of it.** That entry curates the COMP / MATN3 / COL9A1-3 / SLC26A2 / CANT1 forms and its two mechanism nodes are mutant-cartilage-protein misfolding with ER retention and SLC26A2 sulfate-transport failure; COL2A1 is not among its genes and neither mechanism applies here. The disorder belongs to the type II collagenopathy allelic series instead, alongside the entries collected by the `Type_2_Collagenopathies` grouping. Adding it as a member of that grouping is a natural follow-up and is deliberately left out of this entry&#39;s pull request so the grouping change can be reviewed on its own.
+Sixth, **the GeneReviews chapter is tagged but not mined.** `PMID:31021589`, *Type II Collagen Disorders Overview* (Gregersen &amp; Savarirayan, 2019, updated 2024), is the applicable GeneReviews chapter for a COL2A1 type II collagenopathy and is listed in `references` with a `GeneReviews` tag. It carries no evidence item: the cached record is the chapter&#39;s five-line scope statement — &#34;The purpose of this GeneReview is to...&#34; — with no clinical characteristics, management or genetic counselling text, so there is nothing in it that substantively supports a claim, and inventing a snippet from a scope statement would be worse than citing nothing. `PMID:20301479` *Stickler Syndrome* is a chapter for a different disorder and is not cited, even though PMID:16155195 describes R704C carriers as having &#34;Stickler dysplasia with brachydactyly&#34;.
+Seventh, **the `treatments` section is entirely group-level and is graded that way.** No management study exists for this disorder or for `p.Arg704Cys`. None of the five originally cited sources discusses management at all — the only occurrences of the word &#34;treatment&#34; in any of them are laboratory protease treatments in the recombinant study — and the GeneReviews chapter&#39;s cached record stops at its scope statement. What is available is the Skeletal Dysplasia Management Consortium&#39;s best-practice guideline for type II collagen disorders as a class (PMID:30696995), whose ophthalmic and audiological surveillance recommendations apply to this entity by virtue of its COL2A1 allele rather than by naming it. Both treatment records therefore carry `directness: INDIRECT` and `evidence_source: OTHER` — the guideline is expert consensus, not a study — and say so in their own `notes`. Nothing about prophylactic retinopexy is curated: the retinal-detachment prophylaxis literature is Stickler-syndrome-specific, no cited source reports retinal detachment in this kindred, and importing it would assert a risk this entry cannot evidence. The `diagnosis` section, by contrast, is disease-specific: the index kindred was resolved by sequencing the COL2A1 exons, and the arginine-to-cysteine series is separated by genotype rather than by clinical picture.
+Eighth, **`classifications` carries only the Harrison&#39;s part, and the OMIM and Orphanet identifiers are `external_assertions` rather than `mappings`.** No `isds_skeletal_category` is asserted: the sibling COL2A1 entries cite the ISDS nosology&#39;s own group listing for their assignment, and neither cached nosology paper (`PMID:31633310`, `PMID:36779427`) names this entity, so which group it falls in could not be verified. `DiseaseMappings` has slots only for ICD-10-CM, ICD-11, MONDO and NCIT, so there is no `mappings` slot that could hold OMIM 132450 or ORPHA 166011; both are recorded as `external_assertions` instead, taken from the cross-references on MONDO:0007562.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Review response: disambiguated deep-research re-run, GeneReviews, diagnosis and treatments</strong> · 2026-09-04T20:17:19Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Multiple_Epiphyseal_Dysplasia_Beighton_Type/2026-09-04T201719Z-claude-code-ed2ee6.yaml">View source</a></p>
+                        <p class="research-review-text">Addressed the CHANGES_REQUESTED review on PR #10987. The headline item was that the deep-research remedy had been diagnosed but not attempted. Re-ran the Falcon recipe with the disease_name template variable replaced by a disambiguated string naming EDMMD, OMIM 132450, the Stickler-dysplasia-with-brachydactyly synonym and the COL2A1 p.Arg704Cys allele; that run PASSES preflight-dr with COL2A1=40 and report OMIM 132450 matching MONDO&#39;s 132450, against B3GALT6=0, where the earlier name-only run had returned SEMD-JL1 with B3GALT6=28 and COL2A1=0. The report, its citations sidecar and its artifact are committed. Its reference validation leaves one truncated DOI unresolved (a truncation of PMID:9800905, not a fabrication) and its term validation flags GO:0062023 as obsolete; neither is bound anywhere in the entry. Most of the report&#39;s disease-specific content comes from full-text pages of papers cached here as abstracts only, so it could not be quoted. What it did contribute is PMID:30696995, the Skeletal Dysplasia Management Consortium best-practice guideline for type II collagen disorders, which is now cached and backs a new treatments section (routine ophthalmological surveillance, routine audiological surveillance), both graded directness INDIRECT and evidence_source OTHER because the guideline is class-level expert consensus rather than a study of this entity. Also added: a diagnosis section with COL2A1 sequencing and genotype-directed placement within the arginine-to-cysteine series; PMID:31021589 added to references with the GeneReviews tag, with a notes point recording that its cached record is only the chapter scope statement and so carries no quotable evidence; a classifications block with harrisons_chapter GENETICS_ENVIRONMENT_DISEASE, with isds_skeletal_category deliberately omitted because neither cached ISDS nosology paper names this entity; external_assertions carrying OMIM:132450 and ORPHA:166011 taken from the MONDO cross-references, since DiseaseMappings has no OMIM or Orphanet slot; GO:0001958 endochondral ossification added alongside GO:0001501 on the epiphyseal cartilage node; UBERON:0000966 retina added to the ocular node locations; evidence added to the twelve previously bare downstream edges, taking pathophysiology edge evidence from 6/18 to 18/18; and the notes header corrected from four to eight points. Validation: just validate passed with 52/52 snippets verified, validate-terms passed, validate-disorders passed, check-entity-refs, check-duplicate-keys, check-causal-targets, check-enum-values, check-qualifier-terms clean, whole-KB check-title-snippets, check-snippet-length, check-snippet-grading and check-folded-hyphens all clean, and check-source-defect-claims reports nothing against this entry. All 13 phenotypes wired; no orphan pathograph targets.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Multiple Epiphyseal Dysplasia, Beighton Type (EDMMD, COL2A1 p.Arg704Cys)</strong> · 2026-09-04T17:50:15Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Multiple_Epiphyseal_Dysplasia_Beighton_Type/2026-09-04T175015Z-claude-code-82231d.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo curation of MONDO:0007562 (OMIM 132450, ORPHA 166011) as a standalone Disease entry. Entry type decided DISEASE, not SUBTYPE: the existing Multiple_Epiphyseal_Dysplasia entry curates the COMP/MATN3/COL9A1-3/SLC26A2/CANT1 forms whose mechanism nodes are mutant-protein ER retention and SLC26A2 sulfate-transport failure, and COL2A1 is not among its genes; this disorder belongs to the type II collagenopathy allelic series instead. Sources: PMID:699354 (index Afrikaner kindred), PMID:9800905 (COL2A1 exon 39 Arg704Cys in four affected members of that kindred), PMID:16155195 (independent R704C probands, &#39;Stickler dysplasia with brachydactyly&#39;), PMID:29439465 (recombinant R704C: normal folding, trypsin resistance, ER-to-Golgi trafficking, no XBP-1 splicing, no caspase-3 - the negative results that motivate the extracellular-interference mechanism), PMID:26443184 (COL2A1 mutation update). Thirteen phenotypes, all wired into the pathograph; no frequency bands because the denominator is one small kindred. Validated: just validate (34/34 snippets verified, all PMID references, no DOI citations), validate-terms, check-entity-refs, check-duplicate-keys, check-causal-targets, check-enum-values, check-qualifier-terms, validate-disorders, plus whole-KB check-title-snippets, check-snippet-length and check-snippet-grading. A Falcon (Edison Scientific Literature) deep-research run was attempted and discarded: given only the entry name it produced a full report on spondyloepimetaphyseal dysplasia with joint laxity type 1 (B3GALT6, OMIM 271640), a different disorder that shares the &#39;Beighton type&#39; eponym. `just preflight-dr &lt;report&gt; MONDO:0007562` failed it (B3GALT6 mentioned 28 times, COL2A1 zero times, report OMIM ids 271640/615291/615349 against MONDO&#39;s 132450), so no research artifact is committed and none of its content was used. The name collision is recorded in the entry&#39;s notes.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

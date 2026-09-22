@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4091,6 +4163,7 @@ Clinically the core is intellectual disability with disproportionate expressive 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4115,6 +4188,7 @@ Clinically the core is intellectual disability with disproportionate expressive 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4136,6 +4210,7 @@ Clinically the core is intellectual disability with disproportionate expressive 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4371,6 +4446,7 @@ Clinically the core is intellectual disability with disproportionate expressive 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-zmynd11-h3-3k36me3-reader-function" data-dismech-node="Loss of ZMYND11 H3.3K36me3 reader function" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of ZMYND11 H3.3K36me3 reader function</div>
 
+
                 <div class="item-desc">ZMYND11 binds H3.3K36me3 over the bodies of actively transcribed genes and acts as an unconventional co-repressor, damping the elongation phase of RNA polymerase II. A heterozygous loss-of-function allele halves that reader dosage. The proposed normal role is suppression of cryptic transcription initiating from within gene bodies of highly expressed genes, so this is loss of a brake on transcriptional noise rather than loss of a dedicated activator or repressor of specific target genes.</div>
 
 
@@ -4550,6 +4626,7 @@ This pathophysiological event involves decreased chromatin binding (GO:0003682).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4571,6 +4648,7 @@ This pathophysiological event involves decreased chromatin binding (GO:0003682).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4598,6 +4676,7 @@ This pathophysiological event involves decreased chromatin binding (GO:0003682).
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4622,6 +4701,7 @@ This pathophysiological event involves decreased chromatin binding (GO:0003682).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-de-repression-of-latent-developmental-transcriptional-programmes" data-dismech-node="De-repression of latent developmental transcriptional programmes" data-dismech-type="pathophysiology">
                 <div class="item-name">De-repression of latent developmental transcriptional programmes</div>
+
 
                 <div class="item-desc">Cortical neural stem cells lacking ZMYND11 upregulate latent developmental pathways. The same pattern appears when other chromatin-related autism risk factors are perturbed, which positions this as a shared convergent consequence of chromatin-regulator loss rather than a ZMYND11-private effect.</div>
 
@@ -4747,6 +4827,7 @@ This pathophysiological event involves dysregulated regulation of transcription 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4769,6 +4850,7 @@ This pathophysiological event involves dysregulated regulation of transcription 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-brain-specific-rbfox2-dependent-splicing" data-dismech-node="Loss of brain-specific RBFOX2-dependent splicing" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of brain-specific RBFOX2-dependent splicing</div>
+
 
                 <div class="item-desc">Two literatures meet at this node and they do not say the same thing, so the entry states both rather than picking the tidier one.
 In non-neural cells, ZMYND11 couples the chromatin mark it reads directly to pre-mRNA processing: it associates with U5 snRNP spliceosome components and promotes intron retention by physically antagonising EFTUD2, and that regulation depends on its binding to H3K36me3-decorated chromatin. That is a direct, chromatin-dependent splicing role.
@@ -4863,6 +4945,7 @@ This pathophysiological event involves dysregulated RNA splicing (GO:0008380). G
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4884,6 +4967,7 @@ This pathophysiological event involves dysregulated RNA splicing (GO:0008380). G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4911,6 +4995,7 @@ This pathophysiological event involves dysregulated RNA splicing (GO:0008380). G
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4933,6 +5018,7 @@ This pathophysiological event involves dysregulated RNA splicing (GO:0008380). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-cortical-progenitor-and-neuron-production" data-dismech-node="Impaired cortical progenitor and neuron production" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired cortical progenitor and neuron production</div>
+
 
                 <div class="item-desc">Reduced production of cortical progenitors and neurons is the cellular endpoint linking ZMYND11 loss to the neurodevelopmental phenotype. This node rests on a human stem cell model, not on patient brain tissue.</div>
 
@@ -5096,6 +5182,7 @@ This pathophysiological event involves decreased cerebral cortex development (GO
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5219,6 +5306,9 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5233,6 +5323,7 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5298,6 +5389,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5312,6 +5406,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5377,6 +5472,9 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5391,6 +5489,7 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5456,6 +5555,9 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5470,6 +5572,7 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5535,6 +5638,9 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5549,6 +5655,7 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5605,6 +5712,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5619,6 +5729,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5684,6 +5795,9 @@ This clinical feature is Recurrent infections (HP:0002719). HP:0002719 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5698,6 +5812,7 @@ This clinical feature is Recurrent infections (HP:0002719). HP:0002719 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5763,6 +5878,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5777,6 +5895,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5842,6 +5961,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5856,6 +5978,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5880,6 +6003,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5936,6 +6060,9 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5950,6 +6077,7 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6006,6 +6134,9 @@ This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6020,6 +6151,7 @@ This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6076,6 +6208,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6090,6 +6225,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6114,6 +6250,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6170,6 +6307,9 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6184,6 +6324,7 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6240,6 +6381,9 @@ This clinical feature is Aggressive behavior (HP:0000718). HP:0000718 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6254,6 +6398,7 @@ This clinical feature is Aggressive behavior (HP:0000718). HP:0000718 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6319,6 +6464,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6333,6 +6481,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6357,6 +6506,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6457,6 +6607,9 @@ This disease-associated gene is ZMYND11 (hgnc:16966). hgnc:16966 is a gene from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6471,6 +6624,7 @@ This disease-associated gene is ZMYND11 (hgnc:16966). hgnc:16966 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6498,6 +6652,7 @@ This disease-associated gene is ZMYND11 (hgnc:16966). hgnc:16966 is a gene from 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6519,6 +6674,7 @@ This disease-associated gene is ZMYND11 (hgnc:16966). hgnc:16966 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6601,6 +6757,31 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Seizure management follows the epilepsy syndrome rather than the genotype. Response is genuinely bimodal: some individuals remit spontaneously, others are drug resistant despite multiple agents, ketogenic diet and vagal nerve stimulation. No ZMYND11-directed or mechanism-targeted therapy exists.</div>
 
 
@@ -6644,6 +6825,7 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6702,6 +6884,31 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -6770,6 +6977,7 @@ This treatment targets Autistic behavior (HP:0000729). HP:0000729 is a phenotype
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6830,6 +7038,31 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Most cases are de novo, so recurrence risk for parents is usually low - but not merely through gonadal mosaicism. A 10p15.3 deletion has been reported inherited from a father with mild language impairment, so parental testing is warranted rather than assumed negative, and a mildly affected parent may be identified by it. An affected individual&#39;s own transmission risk is 50%.</div>
 
 
@@ -6854,6 +7087,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6875,6 +7109,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6950,6 +7185,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6971,6 +7207,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7039,6 +7276,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7104,6 +7342,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8307,6 +8546,25 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Review round 1: swap preprint for published paper, correct splicing causality</strong> · 2026-08-28T13:31:37Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Intellectual_Disability_Autosomal_Dominant_30/2026-08-28T133137Z-claude-code-4f18eb.yaml">View source</a></p>
+                        <p class="research-review-text">Worked the ai4c-reviewer changes-requested review on PR 9842. The substantive finding: the entry cited PMID:39464123, the bioRxiv preprint, where the peer-reviewed Nature Communications version PMID:41068108 exists - and the two differ where the entry leaned hardest. All eight evidence items were moved to the published paper and every snippet re-verified against the published text. Three preprint-only wordings were replaced, including &#39;in addition to its role on histones&#39; which the published paper states as &#39;in addition to its role on chromatin&#39;. More importantly the published Discussion says ZMYND11 did not largely regulate splicing, as few differentially spliced events overlapped chromatin binding, and attributes the splicing phenotype to increased RBFOX2 expression - so the edge from reader loss to the splicing node was regraded from DIRECT to INDIRECT_KNOWN_INTERMEDIATES and now carries that negative result as its own evidence item. The splicing node description previously contradicted the edge above it; it now states both literatures explicitly - direct chromatin-dependent intron retention via EFTUD2 antagonism in non-neural cells, indirect RBFOX2-mediated dysregulation in cortical cells - and says which one the causal grading follows and why. The deep-research report had cited the published version; the preprint came from my own PubMed search, so this was a regression against my own input. Other changes: the pathograph now reaches the clinic with two edges from the impaired-progenitor node to the intellectual disability and seizure phenotypes, both typed INDIRECT_UNKNOWN_INTERMEDIATES and graded PARTIAL because nothing connects the dish measurement to the clinical one in the same individuals. Added diagnosis, prevalence at CASES_IN_LITERATURE and ULTRA_RARE, and progression sections. variant_origin DE_NOVO was removed and the counselling text corrected after PMID:39696561 documented a 10p15.3 deletion inherited from a mildly affected father, which is a materially larger recurrence risk than the gonadal mosaicism the entry had claimed. Added motor delay. Recurrent infections now carries an explicit attribution caveat since its only source is a deletion cohort and no immunological mechanism is known for ZMYND11; short stature was dual-cited to a missense carrier so it does not rest on the deletion paper alone. Two GO modifiers changed to DYSREGULATED, and the &#39;rather than initiation&#39; claim was softened. The reviewer suggested adding OMIM and ORPHA mappings; DiseaseMappings has no omim or orpha slot, so that is recorded in notes as a schema gap rather than forced. Validated with just validate at 48/48 snippets verified plus all six offline gates clean.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Intellectual Disability, Autosomal Dominant 30 / ZMYND11</strong> · 2026-08-28T12:49:22Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Intellectual_Disability_Autosomal_Dominant_30/2026-08-28T124922Z-claude-code-bba2e7.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of MRD30 / ZMYND11-related neurodevelopmental disorder, MONDO:0014486. ZMYND11 appeared in the KB only incidentally before this - as a binding partner named in the Bryant-Li-Bhoj H3.3 mechanism text and inside an evidence snippet in MED13L_Syndrome - and MONDO:0014486 appeared in no entry. Deep research: one openscientist report, research/Intellectual_Disability_Autosomal_Dominant_30-deep-research-openscientist.md, 18 citations, reference_validation 18/18 verified, confabulation_rate 0.0, 13/18 on topic and 0 off topic, so 5 were undecided rather than cleared. just preflight-dr against MONDO:0014486 returned PASS with ZMYND11 mentioned 79 times and no rival gene. One error was found in that report and not carried into the entry: it gives HGNC:29316 as the ZMYND11 identifier, which is actually ZSWIM6; the correct identifier hgnc:16966 was confirmed with runoak and used. Reference validation reported 0.0 confabulation for the same report, because it checks cited identifiers rather than identifiers asserted in prose. The report did contribute two substantive leads that improved the entry: PMID:25263594, the founding paper identifying ZMYND11 as an H3.3K36me3-specific reader that regulates intron retention by antagonising EFTUD2, and PMID:34818214, an intragenic deletion of the 5&#39;UTR and first two exons that is the cleanest dosage argument for haploinsufficiency. Two discussions are recorded: a KNOWLEDGE_GAP on whether missense variants act by haploinsufficiency at all, and a HUMAN_MODEL_MISMATCH on the fact that the entire cellular arm of the pathograph rests on one human pluripotent stem cell model with no corresponding patient measurement. Validated with just validate at 38/38 snippets verified.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4117,6 +4189,7 @@ Clinically this produces reduced but not absent visual acuity (roughly 20/60 to 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4264,6 +4337,7 @@ Clinically this produces reduced but not absent visual acuity (roughly 20/60 to 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4288,6 +4362,7 @@ Clinically this produces reduced but not absent visual acuity (roughly 20/60 to 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4309,6 +4384,7 @@ Clinically this produces reduced but not absent visual acuity (roughly 20/60 to 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4384,6 +4460,7 @@ Clinically this produces reduced but not absent visual acuity (roughly 20/60 to 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4408,6 +4485,7 @@ Clinically this produces reduced but not absent visual acuity (roughly 20/60 to 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4429,6 +4507,7 @@ Clinically this produces reduced but not absent visual acuity (roughly 20/60 to 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4466,6 +4545,7 @@ Clinically this produces reduced but not absent visual acuity (roughly 20/60 to 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-function-of-the-opn1lw-opn1mw-opsin-gene-array" data-dismech-node="Loss of Function of the OPN1LW/OPN1MW Opsin Gene Array" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Function of the OPN1LW/OPN1MW Opsin Gene Array</div>
+
 
                 <div class="item-desc">The initiating lesion. Both the L and M opsin genes on Xq28 must lose function; loss of only one produces ordinary red-green colour blindness, not this disorder. Two mutational routes dominate. The first is deletion of the locus control region 3.1-3.7 kb upstream of the array, which silences every gene downstream of it. The second is unequal homologous recombination that collapses the array to a single gene or a 5&#39;L-M-3&#39; hybrid, which then carries an inactivating point substitution — most often Cys203Arg, and less often Arg247Ter or Pro307Leu. High-resolution X-chromosome microarray has since resolved more complex rearrangements, including a founder allele combining a 3-kb LCR deletion with insertion of an aberrant OPN1MW gene.</div>
 
@@ -4571,9 +4651,14 @@ This pathophysiological event involves OPN1MW (hgnc:4206). hgnc:4206 is a gene f
 
 
 
+
+
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4629,6 +4714,7 @@ This pathophysiological event involves OPN1MW (hgnc:4206). hgnc:4206 is a gene f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4650,6 +4736,7 @@ This pathophysiological event involves OPN1MW (hgnc:4206). hgnc:4206 is a gene f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4677,6 +4764,7 @@ This pathophysiological event involves OPN1MW (hgnc:4206). hgnc:4206 is a gene f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4701,6 +4789,7 @@ This pathophysiological event involves OPN1MW (hgnc:4206). hgnc:4206 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-locus-control-region-driven-opsin-expression" data-dismech-node="Failure of Locus Control Region-Driven Opsin Expression" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Locus Control Region-Driven Opsin Expression</div>
+
 
                 <div class="item-desc">The regulatory arm, and the reason a single deletion suffices. A locus control region between 3.1 and 3.7 kb upstream of the L opsin transcription start site is essential for expression of the adjacent visual pigment genes, and the mutually exclusive choice of one opsin per cone is set by competition between the two pigment promoters for pairing with that single LCR. Deleting it therefore does not silence one gene, it silences the array — converting what would need to be two independent inactivating events into one.</div>
 
@@ -4869,6 +4958,7 @@ This pathophysiological event involves absent regulation of DNA-templated transc
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4890,6 +4980,7 @@ This pathophysiological event involves absent regulation of DNA-templated transc
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4917,6 +5008,7 @@ This pathophysiological event involves absent regulation of DNA-templated transc
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4941,6 +5033,7 @@ This pathophysiological event involves absent regulation of DNA-templated transc
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-absent-or-non-functional-l-and-m-cone-photopigment" data-dismech-node="Absent or Non-Functional L and M Cone Photopigment" data-dismech-type="pathophysiology">
                 <div class="item-name">Absent or Non-Functional L and M Cone Photopigment</div>
+
 
                 <div class="item-desc">The convergence point of both mutational routes. Cones that should express L or M opsin either make no opsin at all (deletion genotypes) or make an unstable, non-functional one (Cys203Arg disrupts a conserved disulfide bond required for correct folding of the seven-transmembrane opsin GPCR). Opsin is not only the light sensor but a structural requirement for building and maintaining the cone outer segment, so an opsin-null cone is compromised as a cell, not merely blind.</div>
 
@@ -5188,6 +5281,7 @@ This pathophysiological event involves absent G protein-coupled photoreceptor ac
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5209,6 +5303,7 @@ This pathophysiological event involves absent G protein-coupled photoreceptor ac
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5234,6 +5329,7 @@ This pathophysiological event involves absent G protein-coupled photoreceptor ac
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cone-outer-segment-disruption-and-progressive-foveal-cone-loss" data-dismech-node="Cone Outer Segment Disruption and Progressive Foveal Cone Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Cone Outer Segment Disruption and Progressive Foveal Cone Loss</div>
+
 
                 <div class="item-desc">Foveal cones are structurally abnormal from early in life and decline further with age. Adaptive-optics imaging shows reduced total cone density with the majority of the remaining population non-waveguiding — that is, present as cells but not functioning as light guides. This is why the &#34;stationary disorder&#34; framing is only partly right: outer retinal changes are detectable on OCT with an age-related effect on foveal disease stage, and psychophysical progression has been demonstrated in individual families. Progression is genotype-dependent, with large deletions advancing faster than the Cys203Arg substitution.</div>
 
@@ -5385,6 +5481,7 @@ This pathophysiological event occurs in fovea centralis (UBERON:0001786). UBERON
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5406,6 +5503,7 @@ This pathophysiological event occurs in fovea centralis (UBERON:0001786). UBERON
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5433,6 +5531,7 @@ This pathophysiological event occurs in fovea centralis (UBERON:0001786). UBERON
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5457,6 +5556,7 @@ This pathophysiological event occurs in fovea centralis (UBERON:0001786). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vision-mediated-by-preserved-s-cones-and-rods" data-dismech-node="Vision Mediated by Preserved S Cones and Rods" data-dismech-type="pathophysiology">
                 <div class="item-name">Vision Mediated by Preserved S Cones and Rods</div>
+
 
                 <div class="item-desc">What is left, and why the phenotype is what it is. S cones (OPN1SW, on chromosome 7) and rods are genetically untouched, so daylight vision is carried by the S-cone population — only a few percent of all cones, sparse in the fovea — together with rods operating partially desensitized in photopic conditions. That residual system explains the clinical picture directly: acuity is reduced but far from absent, colour discrimination survives on the tritan axis while failing on protan and deutan axes, and night vision is typically healthy. It is also the finding that separates this disorder from complete achromatopsia, where all cone signal is extinguished.</div>
 
@@ -5597,6 +5697,7 @@ This pathophysiological event involves abnormal visual perception (GO:0007601). 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5618,6 +5719,7 @@ This pathophysiological event involves abnormal visual perception (GO:0007601). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5645,6 +5747,7 @@ This pathophysiological event involves abnormal visual perception (GO:0007601). 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5669,6 +5772,7 @@ This pathophysiological event involves abnormal visual perception (GO:0007601). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-carrier-female-cone-mosaic-disruption" data-dismech-node="Carrier Female Cone Mosaic Disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">Carrier Female Cone Mosaic Disruption</div>
+
 
                 <div class="item-desc">Carrier females are described as unaffected, but they are not unaffected at the level of the retina. Random X-inactivation means roughly half of the cones fated to express L or M opsin instead express nothing, and imaging those retinas shows reduced cone density and disrupted mosaic organization relative to normal trichromats — evidence that opsin-null cones degenerate early rather than persisting silently. This is the cleanest natural experiment supporting the structural role of opsin asserted in the parent node, and it is the mechanism behind the rare manifesting female, in whom X-inactivation is completely skewed rather than random.</div>
 
@@ -5741,6 +5845,7 @@ This pathophysiological event involves retinal cone cell (CL:0000573). CL:000057
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5765,6 +5870,7 @@ This pathophysiological event involves retinal cone cell (CL:0000573). CL:000057
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5786,6 +5892,7 @@ This pathophysiological event involves retinal cone cell (CL:0000573). CL:000057
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5851,36 +5958,20 @@ This pathophysiological event involves retinal cone cell (CL:0000573). CL:000057
             </div>
 
 
-            <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Eye<span class="pill-count">(7)</span></button>
+            <div class="item-box phenotype-box anchor-target" id="phenotype-severe-color-vision-defect-with-preserved-tritan-discrimination" data-dismech-node="Severe Color Vision Defect with Preserved Tritan Discrimination" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Severe Color Vision Defect with Preserved Tritan Discrimination
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(1)</span></button>
-
-                <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
-            </div>
+                    <span class="phenotype-freq">OBLIGATE</span>
 
 
-            <details class="phenotype-category-group" id="pheno-cat-1">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Eye
-                    <span class="cat-count">7</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-severe-color-vision-defect-with-preserved-tritan-discrimination" data-dismech-node="Severe Color Vision Defect with Preserved Tritan Discrimination" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Severe Color Vision Defect with Preserved Tritan Discrimination
-
-                        <span class="phenotype-freq">OBLIGATE</span>
-
-
+                    <span class="phenotype-category">Ophthalmologic</span>
 
 
 
 
                     <span class="phenotype-id">
-
 
 
 
@@ -5892,7 +5983,10 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Color vision defect (HP:0000551). HP:0000551 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -5912,6 +6006,7 @@ This clinical feature is Color vision defect (HP:0000551). HP:0000551 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5939,6 +6034,7 @@ This clinical feature is Color vision defect (HP:0000551). HP:0000551 is a pheno
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5960,21 +6056,21 @@ This clinical feature is Color vision defect (HP:0000551). HP:0000551 is a pheno
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-reduced-visual-acuity" data-dismech-node="Reduced Visual Acuity" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Reduced Visual Acuity
+            <div class="item-box phenotype-box anchor-target" id="phenotype-reduced-visual-acuity" data-dismech-node="Reduced Visual Acuity" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Reduced Visual Acuity
 
-                        <span class="phenotype-freq">OBLIGATE</span>
+                    <span class="phenotype-freq">OBLIGATE</span>
 
 
+                    <span class="phenotype-category">Ophthalmologic</span>
 
 
 
 
                     <span class="phenotype-id">
-
 
 
 
@@ -5986,7 +6082,10 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Reduced visual acuity (HP:0007663). HP:0007663 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -6006,6 +6105,7 @@ This clinical feature is Reduced visual acuity (HP:0007663). HP:0007663 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6030,21 +6130,21 @@ This clinical feature is Reduced visual acuity (HP:0007663). HP:0007663 is a phe
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-nystagmus" data-dismech-node="Nystagmus" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Nystagmus
+            <div class="item-box phenotype-box anchor-target" id="phenotype-nystagmus" data-dismech-node="Nystagmus" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Nystagmus
 
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
+                    <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+                    <span class="phenotype-category">Ophthalmologic</span>
 
 
 
 
                     <span class="phenotype-id">
-
 
 
 
@@ -6056,9 +6156,9 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Nystagmus (HP:0000639), qualified as infantile onset. HP:0000639 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
 
-                    <div class="item-meta">
+                <div class="item-meta">
 
 
 
@@ -6085,7 +6185,10 @@ This clinical feature is Nystagmus (HP:0000639), qualified as infantile onset. H
 
 
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -6105,6 +6208,7 @@ This clinical feature is Nystagmus (HP:0000639), qualified as infantile onset. H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6129,21 +6233,21 @@ This clinical feature is Nystagmus (HP:0000639), qualified as infantile onset. H
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-photophobia" data-dismech-node="Photophobia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Photophobia
+            <div class="item-box phenotype-box anchor-target" id="phenotype-photophobia" data-dismech-node="Photophobia" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Photophobia
 
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
+                    <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+                    <span class="phenotype-category">Ophthalmologic</span>
 
 
 
 
                     <span class="phenotype-id">
-
 
 
 
@@ -6155,7 +6259,10 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Photophobia (HP:0000613). HP:0000613 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -6175,6 +6282,7 @@ This clinical feature is Photophobia (HP:0000613). HP:0000613 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6199,21 +6307,21 @@ This clinical feature is Photophobia (HP:0000613). HP:0000613 is a phenotype fro
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-myopia" data-dismech-node="Myopia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Myopia
+            <div class="item-box phenotype-box anchor-target" id="phenotype-myopia" data-dismech-node="Myopia" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Myopia
 
-                        <span class="phenotype-freq">FREQUENT</span>
+                    <span class="phenotype-freq">FREQUENT</span>
 
 
+                    <span class="phenotype-category">Ophthalmologic</span>
 
 
 
 
                     <span class="phenotype-id">
-
 
 
 
@@ -6225,7 +6333,10 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Myopia (HP:0000545). HP:0000545 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -6245,6 +6356,7 @@ This clinical feature is Myopia (HP:0000545). HP:0000545 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6269,23 +6381,21 @@ This clinical feature is Myopia (HP:0000545). HP:0000545 is a phenotype from the
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-severely-reduced-photopic-cone-electroretinogram" data-dismech-node="Severely Reduced Photopic Cone Electroretinogram" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Severely Reduced Photopic Cone Electroretinogram
+            <div class="item-box phenotype-box anchor-target" id="phenotype-severely-reduced-photopic-cone-electroretinogram" data-dismech-node="Severely Reduced Photopic Cone Electroretinogram" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Severely Reduced Photopic Cone Electroretinogram
 
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
+                    <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+                    <span class="phenotype-category">Electrophysiologic</span>
 
 
 
 
                     <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Abnormal electroretinogram</span>
-
 
 
 
@@ -6297,7 +6407,10 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal electroretinogram (HP:0000512). HP:0000512 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -6317,6 +6430,7 @@ This clinical feature is Abnormal electroretinogram (HP:0000512). HP:0000512 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6344,6 +6458,7 @@ This clinical feature is Abnormal electroretinogram (HP:0000512). HP:0000512 is 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6365,37 +6480,35 @@ This clinical feature is Abnormal electroretinogram (HP:0000512). HP:0000512 is 
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-progressive-loss-of-cone-function" data-dismech-node="Progressive Loss of Cone Function" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Progressive Loss of Cone Function
+            <div class="item-box phenotype-box anchor-target" id="phenotype-progressive-macular-atrophy" data-dismech-node="Progressive Macular Atrophy" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Progressive Macular Atrophy
 
-                        <span class="phenotype-freq">OCCASIONAL</span>
+                    <span class="phenotype-freq">OCCASIONAL</span>
 
 
+                    <span class="phenotype-category">Ophthalmologic</span>
 
 
 
 
                     <span class="phenotype-id">
 
-                        <span class="phenotype-term-label">Reduced visual acuity</span>
 
 
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007663" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0007663</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000608" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000608</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Reduced visual acuity (HP:0007663), qualified as course progressive. HP:0007663 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Macular degeneration (HP:0000608), qualified as course progressive. HP:0000608 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
 
-                    <div class="item-meta">
+                <div class="item-meta">
 
 
 
@@ -6411,7 +6524,102 @@ This clinical feature is Reduced visual acuity (HP:0007663), qualified as course
 
 
 
-                    </div>
+                </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10982039" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10982039" target="_blank">PMID:10982039</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Progressive macular atrophy was observed in affected members of two BCM families while the rest of the families presented with normal fundus."</div>
+
+
+                <div class="evidence-explanation">Gives both the finding and the denominator that justifies the OCCASIONAL band.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-progressive-loss-of-cone-function" data-dismech-node="Progressive Loss of Cone Function" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Progressive Loss of Cone Function
+
+                    <span class="phenotype-freq">OCCASIONAL</span>
+
+
+                    <span class="phenotype-category">Ophthalmologic</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007663" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0007663</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Reduced visual acuity (HP:0007663), qualified as course progressive. HP:0007663 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Course: PROGRESSIVE</span>
+
+
+
+
+
+                </div>
+
+
+
 
 
 
@@ -6431,6 +6639,7 @@ This clinical feature is Reduced visual acuity (HP:0007663), qualified as course
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6458,6 +6667,7 @@ This clinical feature is Reduced visual acuity (HP:0007663), qualified as course
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6479,133 +6689,8 @@ This clinical feature is Reduced visual acuity (HP:0007663), qualified as course
 
 
 
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-progressive-macular-atrophy" data-dismech-node="Progressive Macular Atrophy" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Progressive Macular Atrophy
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Macular degeneration</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000608" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000608</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Macular degeneration (HP:0000608), qualified as course progressive. HP:0000608 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Course: PROGRESSIVE</span>
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:10982039" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10982039" target="_blank">PMID:10982039</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Progressive macular atrophy was observed in affected members of two BCM families while the rest of the families presented with normal fundus."</div>
-
-
-                <div class="evidence-explanation">Gives both the finding and the denominator that justifies the OCCASIONAL band.</div>
-
-
-
             </div>
 
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <script>
-            (function() {
-                // TOC pill click: expand target group and scroll to it
-                document.querySelectorAll('.pheno-toc-pill').forEach(function(pill) {
-                    pill.addEventListener('click', function() {
-                        var target = document.getElementById(pill.dataset.target);
-                        if (target) {
-                            target.open = true;
-                            target.scrollIntoView({behavior: 'smooth', block: 'start'});
-                        }
-                    });
-                });
-                // Expand/collapse all toggle
-                var btn = document.getElementById('phenoToggleAll');
-                if (btn) {
-                    btn.addEventListener('click', function() {
-                        var groups = document.querySelectorAll('.phenotype-category-group');
-                        var anyOpen = Array.from(groups).some(function(g) { return g.open; });
-                        groups.forEach(function(g) { g.open = !anyOpen; });
-                        btn.textContent = anyOpen ? 'Expand all' : 'Collapse all';
-                    });
-                }
-            })();
-            </script>
 
         </div>
 
@@ -6652,6 +6737,9 @@ This disease-associated gene is OPN1LW (hgnc:9936). hgnc:9936 is a gene from the
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">X-linked recessive</span>
@@ -6677,6 +6765,7 @@ This disease-associated gene is OPN1LW (hgnc:9936). hgnc:9936 is a gene from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6698,6 +6787,7 @@ This disease-associated gene is OPN1LW (hgnc:9936). hgnc:9936 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6755,6 +6845,9 @@ This disease-associated gene is OPN1MW (hgnc:4206). hgnc:4206 is a gene from the
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">X-linked recessive</span>
@@ -6777,6 +6870,7 @@ This disease-associated gene is OPN1MW (hgnc:4206). hgnc:4206 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6834,6 +6928,9 @@ This disease-associated gene is OPN1LW (hgnc:9936). hgnc:9936 is a gene from the
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">X-linked recessive</span>
@@ -6856,6 +6953,7 @@ This disease-associated gene is OPN1LW (hgnc:9936). hgnc:9936 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6915,6 +7013,9 @@ This disease-associated gene is OPN1MW (hgnc:4206). hgnc:4206 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6929,6 +7030,7 @@ This disease-associated gene is OPN1MW (hgnc:4206). hgnc:4206 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6956,6 +7058,7 @@ This disease-associated gene is OPN1MW (hgnc:4206). hgnc:4206 is a gene from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6977,6 +7080,7 @@ This disease-associated gene is OPN1MW (hgnc:4206). hgnc:4206 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7036,6 +7140,9 @@ This disease-associated gene is GPR143 (hgnc:20145). hgnc:20145 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7050,6 +7157,7 @@ This disease-associated gene is GPR143 (hgnc:20145). hgnc:20145 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7109,6 +7217,9 @@ This disease-associated gene is OPN1LW (hgnc:9936). hgnc:9936 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7123,6 +7234,7 @@ This disease-associated gene is OPN1LW (hgnc:9936). hgnc:9936 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7205,6 +7317,20 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">The whole of current management. Tinted lenses reduce photophobia and improve contrast; low-vision aids address the acuity deficit. Nothing available today modifies the underlying disease.</div>
 
 
@@ -7248,6 +7374,7 @@ This treatment targets Photophobia (HP:0000613). HP:0000613 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7311,6 +7438,31 @@ This treatment is Gene Therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Gene therapy</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">The therapeutic strategy in development: deliver a functional L-opsin gene to residual L/M cones by adeno-associated virus. It is investigational, not approved, and is recorded here as a research programme rather than a treatment option. Its central design problem follows directly from the pathophysiology above — the residual cones are largely non-waveguiding and decline with age, so the therapeutic window is bounded and strongly age-dependent. Genotype governs the rate of progression rather than the width of the window: the two mouse models compared so far showed similar windows despite different genotypes. Much of the recent clinical literature is accordingly about building outcome measures sensitive enough to detect an L-cone-specific gain. Route of delivery is itself a design constraint here: subretinal injection risks the very foveal structure that is the therapeutic target, which is why an intravitreal vector was developed.</div>
 
 
@@ -7341,6 +7493,7 @@ This treatment is Gene Therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7387,6 +7540,7 @@ This treatment is Gene Therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7411,6 +7565,7 @@ This treatment is Gene Therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7432,6 +7587,7 @@ This treatment is Gene Therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7509,6 +7665,7 @@ This treatment is Gene Therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7530,6 +7687,7 @@ This treatment is Gene Therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7587,6 +7745,7 @@ This treatment is Gene Therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7611,6 +7770,7 @@ This treatment is Gene Therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7632,6 +7792,7 @@ This treatment is Gene Therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7724,6 +7885,7 @@ This treatment is Gene Therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7745,6 +7907,7 @@ This treatment is Gene Therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7824,6 +7987,7 @@ This treatment is Gene Therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7934,6 +8098,7 @@ This treatment is Gene Therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7955,6 +8120,7 @@ This treatment is Gene Therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8023,6 +8189,7 @@ This treatment is Gene Therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8150,6 +8317,7 @@ This treatment is Gene Therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8201,6 +8369,7 @@ This treatment is Gene Therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8318,6 +8487,7 @@ This treatment is Gene Therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8369,6 +8539,7 @@ This treatment is Gene Therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10325,6 +10496,41 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Relationship to Achromatopsia. This entry deliberately overlaps with, but is distinct from, the existing Achromatopsia entry. Achromatopsia is autosomal recessive and abolishes all three cone classes; this disorder is X-linked and spares S cones. The Achromatopsia entry already lists blue-cone monochromatism as a differential; this entry is the reciprocal, curated on its own genetics and mechanism rather than as a variant of achromatopsia. The MONDO definition describes it as an incomplete form of achromatopsia, which is a reasonable classification statement but should not be read as implying shared pathophysiology — the causal genes and the cone populations involved differ.
+Ontology limits worth recording. UBERON has no term for the S-cone-sparse central zone of the fovea, and CL distinguishes L, M and S cone cells but not the hybrid-opsin-expressing cones that many patients actually carry. Neither gap was worked around by picking a broader term and describing something narrower in prose.
+One reference could not be cited. `DOI:10.1186/s12881-018-0623-8` reports a 73,128 bp de novo deletion in sporadic disease and would have been the natural citation for de novo occurrence, but the cached record carries `content_type: unavailable` — metadata only, no abstract text — so there is no quotable snippet. The claim is therefore omitted rather than cited to a record that cannot support it, and the cache file has been dropped rather than left stranded in the commit.
+Two ontology suggestions in the deep-research report were wrong and were not used: UBERON:0001782 was suggested for fovea centralis but is the pigmented layer of the retina (the correct term is UBERON:0001786), and HP:0000640 was suggested for nystagmus (the correct term is HP:0000639). Both were caught by checking against the term caches, not by the report&#39;s own reference validation, which checks citations only.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Blue Cone Monochromacy (OPN1LW/OPN1MW, MONDO:0010563)</strong> · 2026-08-15T20:03:17Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Blue_Cone_Monochromacy/2026-08-15T200317Z-claude-code-76b6d0.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of blue cone monochromacy (BCM / blue cone monochromatism / S cone monochromacy).
+
+Deep research: claude_code provider via `just research-disorder claude_code Blue_Cone_Monochromacy`. The report shipped its own reference-validation frontmatter: 20/20 references resolved, 0 unresolved, confabulation_rate 0.0.
+
+NEC check: MONDO:0010563 has no single causal gene in the sense the automated preflight uses (the lesion is loss of function of a two-gene array plus its shared enhancer), so `just preflight-dr` would return SKIP. The manual identity check was done instead -- the report&#39;s genes (OPN1LW, OPN1MW, plus the locus control region) match the MONDO definition and OMIM #303700, and the disorder is X-linked in both. The nearest confusable entity is achromatopsia, which the report distinguishes correctly throughout and which this entry curates as its principal differential.
+
+GeneReviews baseline: PubMed has no dedicated GeneReviews chapter for this disorder (searched by preferred label, by &#34;blue cone monochromatism&#34;, and by &#34;cone monochromacy&#34;; all returned zero). Blue-cone monochromatism is covered inside the Achromatopsia chapter as a differential only. Recorded here as a genuine absence rather than an omission.
+
+Two wrong ontology suggestions in the report were caught against the term caches and not used: UBERON:0001782 was offered for fovea centralis but is the pigmented layer of the retina (correct term UBERON:0001786), and HP:0000640 was offered for nystagmus (correct term HP:0000639). Neither would have been caught by the report&#39;s reference validation, which checks citations only.
+
+One evidence snippet drawn from the report&#39;s framing did not match its cited source on checking (a paraphrase attributed to PMID:36932675) and was replaced with the paper&#39;s own result sentence about intravitreal ADVM-062 producing a de novo long-wavelength response in gerbils.
+
+Curated content: a six-node pathophysiology chain covering both mutational routes (locus control region deletion and array collapse with an inactivating substitution) converging on absent L/M photopigment, then cone outer segment disruption with progressive foveal cone loss, the preserved S-cone and rod system that explains the residual phenotype, and a carrier-female cone-mosaic node; 8 phenotypes with HPO bindings; three genetic entries including the Cys203Arg reservoir/recurrence mechanism; three diagnosis entries including the Xq28 short-read mapping problem; two differential diagnoses; two treatments (supportive care plus investigational AAV L-opsin augmentation with a RESTORES target_mechanisms link); and two discussions recording the stationary-versus-progressive controversy and the genotype-phenotype question.
+
+Validation: `just validate-disorders` passed (schema, terms, references). `just count-verified-snippets` reported 51/51 verified against cached references. check_snippet_length, check_title_snippets and check_folded_hyphens all clean against origin/main. Compliance 91.9% (weighted 92.6%). No datasets block: relevance triage was not performed, and absent beats unverified.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

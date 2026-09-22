@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4620,6 +4692,7 @@ This experiment uses unfolded protein response and oxidative stress marker profi
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4644,6 +4717,7 @@ This experiment uses unfolded protein response and oxidative stress marker profi
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4665,6 +4739,7 @@ This experiment uses unfolded protein response and oxidative stress marker profi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4704,6 +4779,7 @@ This experiment uses unfolded protein response and oxidative stress marker profi
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hla-b27-misfolding-and-er-stress" data-dismech-node="HLA-B27 Misfolding and ER Stress" data-dismech-type="pathophysiology">
                 <div class="item-name">HLA-B27 Misfolding and ER Stress</div>
+
 
                 <div class="item-desc">HLA-B27 has a tendency to misfold in the endoplasmic reticulum and form aberrant homodimers. Accumulation of misfolded protein triggers the unfolded protein response (UPR) and drives IL-23 production, linking the major genetic susceptibility allele to downstream cytokine activation.</div>
 
@@ -4876,6 +4952,7 @@ This pathophysiological event involves increased Interleukin-23 Production (GO:0
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"the unfolded protein response (UPR) theory postulates that unconventional HLA-B27 variants homodimerize instead of heterodimerize; the misfolded proteins accumulate in the intracellular compartment triggering endoplasmic reticulum stress and increasing IL-23 production (102)."</div>
@@ -4896,6 +4973,7 @@ This pathophysiological event involves increased Interleukin-23 Production (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aberrant-antigen-processing-and-presentation" data-dismech-node="Aberrant Antigen Processing and Presentation" data-dismech-type="pathophysiology">
                 <div class="item-name">Aberrant Antigen Processing and Presentation</div>
+
 
                 <div class="item-desc">Non-HLA susceptibility genes ERAP1 and ERAP2 shape the MHC class I peptide repertoire presented by HLA-B27, and ERAP1 variants show genetic interaction with HLA-B27. This supports an arthritogenic peptide model in which altered antigen processing contributes to autoreactive CD8 T-cell activation at axial sites.</div>
 
@@ -5090,6 +5168,7 @@ This pathophysiological event involves Antigen Processing and Presentation via M
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"findings emerged about the role of non-HLA genes (as ERAP1 and 2, whose inhibition could represent a new therapeutic approach) and of epigenetic mechanisms that regulate the expression of genes involved in SpA pathogenesis."</div>
@@ -5110,6 +5189,7 @@ This pathophysiological event involves Antigen Processing and Presentation via M
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gut-dysbiosis-and-gut-joint-axis" data-dismech-node="Gut Dysbiosis and Gut-Joint Axis" data-dismech-type="pathophysiology">
                 <div class="item-name">Gut Dysbiosis and Gut-Joint Axis</div>
+
 
                 <div class="item-desc">Intestinal dysbiosis and altered gut permeability are consistent features of AS. Gut-primed, IL-23-responsive immune cells (including alpha4-beta7+ ILC3s) are proposed to traffic from the mucosa to joints and entheses, where they produce IL-17 and IL-22, linking the gut to axial inflammation.</div>
 
@@ -5231,6 +5311,7 @@ This pathophysiological event involves Host-Microbe Interaction, annotated with 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5253,6 +5334,7 @@ This pathophysiological event involves Host-Microbe Interaction, annotated with 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mechanical-stress-at-entheses" data-dismech-node="Mechanical Stress at Entheses" data-dismech-type="pathophysiology">
                 <div class="item-name">Mechanical Stress at Entheses</div>
+
 
                 <div class="item-desc">Repetitive biomechanical stress at tendon and ligament insertion sites produces microtrauma with release of cartilage peptides and local vascularization. Entheses are proposed as the primary sites where mechanical strain converges with genetic and immune predisposition to seed inflammation.</div>
 
@@ -5348,6 +5430,7 @@ This pathophysiological event involves Response to Mechanical Stimulus (GO:00096
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5369,6 +5452,7 @@ This pathophysiological event involves Response to Mechanical Stimulus (GO:00096
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5394,6 +5478,7 @@ This pathophysiological event involves Response to Mechanical Stimulus (GO:00096
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-oxidative-stress" data-dismech-node="Oxidative Stress" data-dismech-type="pathophysiology">
                 <div class="item-name">Oxidative Stress</div>
+
 
                 <div class="item-desc">Environmental exposures such as smoking and heavy metals, combined with reduced antioxidant capacity, increase reactive oxygen species in AS patients. Oxidative injury potentiates NF-kB-driven cytokine production and is associated with more active and progressive disease.</div>
 
@@ -5485,6 +5570,7 @@ This pathophysiological event involves increased Response to Oxidative Stress (G
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5507,6 +5593,7 @@ This pathophysiological event involves increased Response to Oxidative Stress (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-il-23-il-17-axis-activation" data-dismech-node="IL-23/IL-17 Axis Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">IL-23/IL-17 Axis Activation</div>
+
 
                 <div class="item-desc">IL-23 produced by dendritic cells and macrophages drives differentiation and effector function of Th17 cells, IL-23R+ gamma-delta T cells, and innate lymphoid cells, which secrete IL-17A/F at entheses and axial joints. This axis is a dominant mechanistic node in AS and the target of IL-17 and IL-23 inhibitor therapies.</div>
 
@@ -5850,6 +5937,7 @@ This pathophysiological event involves increased Interleukin-17 Production (GO:0
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5874,6 +5962,7 @@ This pathophysiological event involves increased Interleukin-17 Production (GO:0
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"The fundamental role played by the IL-23/IL-17 axis comes from several lines of evidence depicting a clear increase in IL-23 and IL-17 levels in the sera of AS patients (113). This observation is coupled with the increased number of Th17 cells in peripheral blood from AS patients (114)."</div>
@@ -5894,6 +5983,7 @@ This pathophysiological event involves increased Interleukin-17 Production (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tnf-mediated-inflammation" data-dismech-node="TNF-Mediated Inflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">TNF-Mediated Inflammation</div>
+
 
                 <div class="item-desc">TNF-alpha is produced alongside IL-17 and is a pivotal cytokine recruiting and activating innate immune cells at axial and peripheral sites. TNF inhibitors were the first bDMARDs licensed for axSpA and established the pathogenic centrality of this cytokine.</div>
 
@@ -6067,6 +6157,7 @@ This pathophysiological event involves increased Tumor Necrosis Factor Productio
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6089,6 +6180,7 @@ This pathophysiological event involves increased Tumor Necrosis Factor Productio
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-enthesitis-and-sacroiliitis" data-dismech-node="Enthesitis and Sacroiliitis" data-dismech-type="pathophysiology">
                 <div class="item-name">Enthesitis and Sacroiliitis</div>
+
 
                 <div class="item-desc">Inflammation localizes to entheses (tendon and ligament insertions) and to the sacroiliac joints, producing bone marrow edema on MRI, pain, and structural injury. Enthesitis is the hallmark initiating lesion of AS and axial SpA.</div>
 
@@ -6266,6 +6358,7 @@ This pathophysiological event occurs in Enthesis (UBERON:0035845). UBERON:003584
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Axial spondyloarthritis (axSpA) is a chronic condition predominantly affecting the spine and sacroiliac joints."</div>
@@ -6285,6 +6378,7 @@ This pathophysiological event occurs in Enthesis (UBERON:0035845). UBERON:003584
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6308,6 +6402,7 @@ This pathophysiological event occurs in Enthesis (UBERON:0035845). UBERON:003584
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-osteitis-and-bone-erosion" data-dismech-node="Osteitis and Bone Erosion" data-dismech-type="pathophysiology">
                 <div class="item-name">Osteitis and Bone Erosion</div>
+
 
                 <div class="item-desc">Active inflammation at entheses and subchondral bone produces osteitis with increased bone turnover, focal erosions, and periarticular bone loss. This catabolic phase coexists with downstream aberrant bone formation.</div>
 
@@ -6433,6 +6528,7 @@ This pathophysiological event involves increased Bone Resorption (GO:0045453). G
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"It is now well known how bone metabolism leads to long-term structural damage via increased bone turnover, bone loss and osteoporosis, osteitis, erosions, osteosclerosis, and osteoproliferation."</div>
@@ -6453,6 +6549,7 @@ This pathophysiological event involves increased Bone Resorption (GO:0045453). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aberrant-new-bone-formation-and-ankylosis" data-dismech-node="Aberrant New Bone Formation and Ankylosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Aberrant New Bone Formation and Ankylosis</div>
+
 
                 <div class="item-desc">Chronic axial inflammation drives a dysregulated osteoblastic program with Wnt and BMP signaling, producing syndesmophytes that bridge vertebrae and ultimately cause bamboo-spine ankylosis and irreversible loss of spinal mobility.</div>
 
@@ -6593,6 +6690,7 @@ This pathophysiological event involves Wnt Signaling Pathway (GO:0016055). GO:00
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"New bone formation, determined by chronic inflammation involving the spine, leads to vertebral ankylosis, severe chronic pain and disability as major consequences of disease progression."</div>
@@ -6612,6 +6710,7 @@ This pathophysiological event involves Wnt Signaling Pathway (GO:0016055). GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6679,13 +6778,11 @@ This pathophysiological event involves Wnt Signaling Pathway (GO:0016055). GO:00
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(3)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(4)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Constitutional<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6726,6 +6823,9 @@ This clinical feature is Conjunctivitis (HP:0000509). HP:0000509 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6740,6 +6840,7 @@ This clinical feature is Conjunctivitis (HP:0000509). HP:0000509 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6794,6 +6895,9 @@ This clinical feature is Cardiac arrhythmia, annotated with Arrhythmia (HP:00116
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6808,6 +6912,7 @@ This clinical feature is Cardiac arrhythmia, annotated with Arrhythmia (HP:00116
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6840,7 +6945,7 @@ This clinical feature is Cardiac arrhythmia, annotated with Arrhythmia (HP:00116
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-uveitis" data-dismech-node="Uveitis" data-dismech-type="phenotype">
@@ -6870,6 +6975,9 @@ This clinical feature is Uveitis (HP:0000554). HP:0000554 is a phenotype from th
                     </div>
 
 
+
+
+
                     <div class="item-desc">Uveitis of any type; the ocular manifestation of ankylosing spondylitis is almost always acute anterior uveitis. Reported estimates vary widely with ascertainment, from a pooled meta-analytic prevalence of 25.8% up to around 50% in some series.</div>
 
 
@@ -6892,12 +7000,87 @@ This clinical feature is Uveitis (HP:0000554). HP:0000554 is a phenotype from th
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"The pooled prevalence of uveitis was 25.8%"</div>
 
 
                 <div class="evidence-explanation">Uveitis is the most common extra-articular manifestation of ankylosing spondylitis, affecting approximately a quarter of patients.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-anterior-uveitis" data-dismech-node="Anterior uveitis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Anterior uveitis
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012122" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0012122</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anterior uveitis (HP:0012122). HP:0012122 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34394873" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34394873" target="_blank">PMID:34394873</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Uveitis, typically unilateral non-granulomatous acute anterior uveitis, occurs in up to 50% of the patients with AS"</div>
+
+
+                <div class="evidence-explanation">This review states anterior uveitis occurs in up to 50% of AS patients.</div>
 
 
 
@@ -6927,15 +7110,18 @@ This clinical feature is Uveitis (HP:0000554). HP:0000554 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100532" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0100532</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100532" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0100532</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Scleritis (HP:0100532). HP:0100532 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6955,6 +7141,7 @@ This clinical feature is Scleritis (HP:0100532). HP:0100532 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7006,15 +7193,18 @@ This clinical feature is Scleritis (HP:0100532). HP:0100532 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001369" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0001369</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001369" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0001369</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Arthritis (HP:0001369). HP:0001369 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Sacroiliitis characteristic</div>
@@ -7036,6 +7226,7 @@ This clinical feature is Arthritis (HP:0001369). HP:0001369 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7078,15 +7269,18 @@ This clinical feature is Arthritis (HP:0001369). HP:0001369 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003306" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0003306</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003306" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0003306</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Limited Spinal Mobility, annotated with Spinal rigidity (HP:0003306). HP:0003306 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7106,6 +7300,7 @@ This clinical feature is Limited Spinal Mobility, annotated with Spinal rigidity
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7144,15 +7339,18 @@ This clinical feature is Limited Spinal Mobility, annotated with Spinal rigidity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100686" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0100686</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100686" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0100686</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Enthesitis (HP:0100686). HP:0100686 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7172,6 +7370,7 @@ This clinical feature is Enthesitis (HP:0100686). HP:0100686 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7212,15 +7411,18 @@ This clinical feature is Enthesitis (HP:0100686). HP:0100686 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033631" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0033631</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0033631" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0033631</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Spondylitis (HP:0033631). HP:0033631 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7240,6 +7442,7 @@ This clinical feature is Spondylitis (HP:0033631). HP:0033631 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7291,15 +7494,18 @@ This clinical feature is Spondylitis (HP:0033631). HP:0033631 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003418" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0003418</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003418" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0003418</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Back Pain (HP:0003418). HP:0003418 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Improves with exercise, worse with rest</div>
@@ -7324,91 +7530,13 @@ This clinical feature is Back Pain (HP:0003418). HP:0003418 is a phenotype from 
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"New bone formation, determined by chronic inflammation involving the spine, leads to vertebral ankylosis, severe chronic pain and disability as major consequences of disease progression."</div>
 
 
                 <div class="evidence-explanation">Evidence that chronic spinal inflammation causes pain as a major clinical manifestation of ankylosing spondylitis.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-anterior-uveitis" data-dismech-node="Anterior uveitis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Anterior uveitis
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012122" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0012122</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Anterior uveitis (HP:0012122). HP:0012122 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:34394873" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34394873" target="_blank">PMID:34394873</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Uveitis, typically unilateral non-granulomatous acute anterior uveitis, occurs in up to 50% of the patients with AS"</div>
-
-
-                <div class="evidence-explanation">This review states anterior uveitis occurs in up to 50% of AS patients.</div>
 
 
 
@@ -7482,6 +7610,9 @@ This clinical feature is Anterior uveitis (HP:0012122). HP:0012122 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7496,6 +7627,7 @@ This clinical feature is Anterior uveitis (HP:0012122). HP:0012122 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7551,6 +7683,9 @@ This disease-associated gene is ERAP1 (hgnc:18173). hgnc:18173 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7565,6 +7700,7 @@ This disease-associated gene is ERAP1 (hgnc:18173). hgnc:18173 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7620,6 +7756,9 @@ This disease-associated gene is IL23R (hgnc:19100). hgnc:19100 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7634,6 +7773,7 @@ This disease-associated gene is IL23R (hgnc:19100). hgnc:19100 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7691,6 +7831,9 @@ This disease-associated gene is BACH2 (hgnc:14078). hgnc:14078 is a gene from th
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-tnfaip3" data-dismech-node="TNFAIP3" data-dismech-type="genetic">
@@ -7722,6 +7865,9 @@ This disease-associated gene is TNFAIP3 (hgnc:11896). hgnc:11896 is a gene from 
 
 
                 </div>
+
+
+
 
 
 
@@ -7765,6 +7911,9 @@ This disease-associated gene is STAT3 (hgnc:11364). hgnc:11364 is a gene from th
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-il10" data-dismech-node="IL10" data-dismech-type="genetic">
@@ -7796,6 +7945,9 @@ This disease-associated gene is IL10 (hgnc:5962). hgnc:5962 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -7839,6 +7991,9 @@ This disease-associated gene is CD28 (hgnc:1653). hgnc:1653 is a gene from the H
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-egr2" data-dismech-node="EGR2" data-dismech-type="genetic">
@@ -7870,6 +8025,9 @@ This disease-associated gene is EGR2 (hgnc:3239). hgnc:3239 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -7913,6 +8071,9 @@ This disease-associated gene is ETS1 (hgnc:3488). hgnc:3488 is a gene from the H
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-irf8" data-dismech-node="IRF8" data-dismech-type="genetic">
@@ -7944,6 +8105,9 @@ This disease-associated gene is IRF8 (hgnc:5358). hgnc:5358 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -7987,6 +8151,9 @@ This disease-associated gene is SATB1 (hgnc:10541). hgnc:10541 is a gene from th
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-ikzf1" data-dismech-node="IKZF1" data-dismech-type="genetic">
@@ -8018,6 +8185,9 @@ This disease-associated gene is IKZF1 (hgnc:13176). hgnc:13176 is a gene from th
 
 
                 </div>
+
+
+
 
 
 
@@ -8061,6 +8231,9 @@ This disease-associated gene is SMAD3 (hgnc:6769). hgnc:6769 is a gene from the 
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-prdm1" data-dismech-node="PRDM1" data-dismech-type="genetic">
@@ -8098,6 +8271,9 @@ This disease-associated gene is PRDM1 (hgnc:9346). hgnc:9346 is a gene from the 
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-ptpn22" data-dismech-node="PTPN22" data-dismech-type="genetic">
@@ -8129,6 +8305,9 @@ This disease-associated gene is PTPN22 (hgnc:9652). hgnc:9652 is a gene from the
 
 
                 </div>
+
+
+
 
 
 
@@ -8217,6 +8396,20 @@ This treatment uses Nonsteroidal Antiinflammatory Drug (NCIT:C257). NCIT:C257 is
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">First-line therapy for symptom control.</div>
 
 
@@ -8286,6 +8479,20 @@ This treatment uses monoclonal antibody (NCIT:C20401). NCIT:C20401 is a therapeu
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -8361,6 +8568,20 @@ This treatment uses Secukinumab (NCIT:C152315). NCIT:C152315 is a therapeutic ag
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Secukinumab, ixekizumab for active disease.</div>
 
 
@@ -8382,6 +8603,7 @@ This treatment uses Secukinumab (NCIT:C152315). NCIT:C152315 is a therapeutic ag
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8465,6 +8687,20 @@ This treatment uses Upadacitinib (NCIT:C152802). NCIT:C152802 is a therapeutic a
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Upadacitinib and related JAK inhibitors for active ankylosing spondylitis, including biologic-refractory disease.</div>
 
 
@@ -8489,6 +8725,7 @@ This treatment uses Upadacitinib (NCIT:C152802). NCIT:C152802 is a therapeutic a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8510,6 +8747,7 @@ This treatment uses Upadacitinib (NCIT:C152802). NCIT:C152802 is a therapeutic a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8568,6 +8806,31 @@ This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -8715,6 +8978,7 @@ This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8794,6 +9058,7 @@ This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8849,6 +9114,7 @@ This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10550,6 +10816,8 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

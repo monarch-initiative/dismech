@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4102,6 +4174,7 @@ Most reported variants cluster on canonical splice sites rather than being distr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4123,6 +4196,7 @@ Most reported variants cluster on canonical splice sites rather than being distr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4213,6 +4287,7 @@ No mechanism explaining the separation has been demonstrated. Plausible accounts
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4237,6 +4312,7 @@ No mechanism explaining the separation has been demonstrated. Plausible accounts
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4258,6 +4334,7 @@ No mechanism explaining the separation has been demonstrated. Plausible accounts
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4300,6 +4377,7 @@ No mechanism explaining the separation has been demonstrated. Plausible accounts
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-col11a1-canonical-splice-site-disruption" data-dismech-node="COL11A1 Canonical Splice-Site Disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">COL11A1 Canonical Splice-Site Disruption</div>
+
 
                 <div class="item-desc">The reported DFNA37 variants sit on canonical splice sites of COL11A1 - c.652-2A&gt;C and c.652-1G&gt;C at the intron 4 acceptor, and c.4338+2T&gt;C at a donor site. They are not missense changes in the triple-helical domain but lesions in the splicing signal itself, and the effect on RNA splicing was confirmed in vitro rather than predicted. Notably, the two intron 4 variants strike the same canonical site yet elicit different splicing outcomes, so the transcript consequence is not fixed by the position alone. The splice-site route is not the only one reported: a heterozygous COL11A1 missense variant has also been described in DFNA37 hearing loss, and such an allele would not disrupt a splicing signal at all.</div>
 
@@ -4353,6 +4431,7 @@ No mechanism explaining the separation has been demonstrated. Plausible accounts
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4374,6 +4453,7 @@ No mechanism explaining the separation has been demonstrated. Plausible accounts
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4399,6 +4479,7 @@ No mechanism explaining the separation has been demonstrated. Plausible accounts
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aberrant-collagen-xi-alpha-1-transcript-processing" data-dismech-node="Aberrant Collagen XI Alpha-1 Transcript Processing" data-dismech-type="pathophysiology">
                 <div class="item-name">Aberrant Collagen XI Alpha-1 Transcript Processing</div>
+
 
                 <div class="item-desc">Mis-splicing of COL11A1 yields transcripts that cannot contribute a normal alpha-1 chain to the collagen XI heterotrimer. The outcome differs by variant - the two intron 4 acceptor-site lesions produce different splicing products despite hitting the same site - so the consequence is shared but reached by more than one transcript route, rather than a single defined aberrant species.</div>
 
@@ -4452,6 +4533,7 @@ No mechanism explaining the separation has been demonstrated. Plausible accounts
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4474,6 +4556,7 @@ No mechanism explaining the separation has been demonstrated. Plausible accounts
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-deficient-collagen-xi-in-the-cochlear-extracellular-matrix" data-dismech-node="Deficient Collagen XI in the Cochlear Extracellular Matrix" data-dismech-type="pathophysiology">
                 <div class="item-name">Deficient Collagen XI in the Cochlear Extracellular Matrix</div>
+
 
                 <div class="item-desc">Collagen XI is a structural constituent of the cochlear extracellular matrix, including the tectorial membrane whose mechanical properties set how hair-cell stereocilia are deflected. A shortfall of normal alpha-1 chains is the proposed route from the transcript defect to impaired mechanotransduction. This step is inferred from the established role of collagen XI in auditory function rather than demonstrated in DFNA37 cochlear tissue, which is not available.</div>
 
@@ -4624,6 +4707,7 @@ This pathophysiological event occurs in Tectorial membrane of cochlea (UBERON:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4715,6 +4799,9 @@ This clinical feature is Prelingual sensorineural hearing impairment (HP:0000399
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4729,6 +4816,7 @@ This clinical feature is Prelingual sensorineural hearing impairment (HP:0000399
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4783,6 +4871,9 @@ This clinical feature is Progressive sensorineural hearing impairment (HP:000040
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -4797,6 +4888,7 @@ This clinical feature is Progressive sensorineural hearing impairment (HP:000040
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4821,6 +4913,7 @@ This clinical feature is Progressive sensorineural hearing impairment (HP:000040
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4875,6 +4968,9 @@ This clinical feature is Bilateral sensorineural hearing impairment (HP:0008619)
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4889,6 +4985,7 @@ This clinical feature is Bilateral sensorineural hearing impairment (HP:0008619)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4961,6 +5058,9 @@ This disease-associated gene is COL11A1 (hgnc:2186). hgnc:2186 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -4975,6 +5075,7 @@ This disease-associated gene is COL11A1 (hgnc:2186). hgnc:2186 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4999,6 +5100,7 @@ This disease-associated gene is COL11A1 (hgnc:2186). hgnc:2186 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5082,6 +5184,31 @@ This treatment is hearing aid fitting, annotated with Rehabilitation (NCIT:C1531
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Device</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Conventional hearing aids are the first-line intervention for the mild to moderate loss reported in most DFNA37 families. Management follows general practice for autosomal dominant nonsyndromic sensorineural hearing loss; nothing about it is DFNA37-specific and no genotype-specific outcome data exist.</div>
 
 
@@ -5146,6 +5273,31 @@ This treatment is cochlear device implantation, annotated with Surgical Procedur
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Device</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -5219,6 +5371,31 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Counseling covers autosomal dominant inheritance with a 50% recurrence risk, the possibility of a de novo variant, and the variable severity seen across reported families. The relationship of the family&#39;s specific variant to the Marshall/Stickler spectrum should be addressed explicitly, since that is the question a COL11A1 result raises for most families.</div>
 
 
@@ -5240,6 +5417,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5348,6 +5526,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5432,6 +5611,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6075,6 +6255,59 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Address PR review on DFNA37 (#10842) - correct an unsupported splice-only claim</strong> · 2026-09-04T02:19:06Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Autosomal_Dominant_Nonsyndromic_Hearing_Loss_37/2026-09-04T021906Z-claude-code-ea9278.yaml">View source</a></p>
+                        <p class="research-review-text">Addressed both CRITICAL findings and three of four IMPORTANT findings from the ai4c-reviewer CHANGES_REQUESTED review on PR #10842.
+
+CRITICAL 1 - the headline claim was wrong, and this is a curation error on my part, not a framing quibble. The hypothesis asserted &#39;Every reported DFNA37 lesion to date is splice-altering&#39;. PMID:33605226, which this entry itself cites twice, reports a heterozygous COL11A1 missense variant attributed to DFNA37. The deep-research report had flagged it and I did not act on it. Corrected in all four places the premise appeared: the top-level description, pathophysiology[0].description, genetic[0].notes, and the hypothesis. The hypothesis_label was softened from an assertion to a possibility, and the missense case is now cited on the hypothesis as a supports: REFUTE evidence item with an explanation stating what follows if the attribution holds (the nonsyndromic restriction cannot be a property of splice-altering lesions as such) and the one reason it might not (the report does not characterise the variant functionally). The pathophysiology node now says explicitly that it describes the splice-site route and that the missense case does not pass through it. The earlier history record for this entry is append-only and was not rewritten; it records the claim as it stood, and this record supersedes it.
+
+CRITICAL 2 - just check-snippet-grading failed: the PMID:33169910 splicing-outcome sentence was graded IN_VITRO on the pathophysiology node and HUMAN_CLINICAL on the hypothesis. Unified to IN_VITRO in both places, since the quoted sentence reports a molecular characterisation result rather than a clinical observation. Root cause worth recording: check-snippet-grading is an ungated whole-KB CI step listed in CLAUDE.md and I did not run it before opening any of the five PRs in this run. It is now run for this file and is clean.
+
+IMPORTANT 3 - tagged PMID:20301607 &#39;Genetic Hearing Loss Overview&#39; in references: with tags: [GeneReviews]. The cache is a PubMed book stub with no quotable clinical text, so it is tagged rather than cited on any claim.
+
+IMPORTANT 4 - added a diagnosis: section and moved genetic testing into it from treatments:, where it did not belong. Two entries: COL11A1 on nonsyndromic deafness panels, and audiometric characterisation. Note a near-miss caught during this work: NCIT:C38048 looked like the audiometry term and is actually &#39;Vasovagal&#39;. The correct binding is NCIT:C38036 Audiometric Test, which sibling hearing-loss entries already use. This is exactly the Named Entity Confusion the term contract warns about, and it was caught by verifying the CURIE rather than trusting the name.
+
+IMPORTANT 6 - added Hearing Amplification and Cochlear Implantation treatments, both therapeutic_modality DEVICE, using the device-qualifier pattern CLAUDE.md documents (bind the clinical action, carry the device as an NCIT:C16830 predicate-value qualifier) and matching Autosomal_Recessive_Nonsyndromic_Hearing_Loss_104. Each carries an explicit caveat that no DFNA37-specific outcome data exist and a target_mechanisms link to the progressive hearing impairment phenotype. The blanket notes: line that previously justified omitting them was rewritten rather than deleted, so the reasoning is still visible.
+
+IMPORTANT 5 not addressed this round - model-organism evidence (Col11a2-KO tectorial membrane fibrils, cho/+ mice, PMID:15141750 cochlear expression). The reviewer correctly notes each PMID must be verified before citing and that the research itself flagged one as unresolved. That verification was not done in this round; adding the citations without it would repeat the mistake that caused CRITICAL 1. Left for a follow-up.
+
+Suggestions not taken this round: connecting the two remaining disconnected phenotypes, the leaky-splice-site genotype-severity model, the treatments[1] explanation over-read, and a mappings: block.
+
+Validation after changes: &#39;just validate&#39; passes with 22/22 snippets verified; &#39;just validate-terms&#39; passes; &#39;just validate-disorders&#39; passes; &#39;just check-snippet-grading&#39; reports no findings for this file; check-entity-refs, check-causal-targets, check-duplicate-keys, check-enum-values clean; check-qualifier-terms and check-qualifier-terms-online both confirm the four new device qualifier terms.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Autosomal Dominant Nonsyndromic Hearing Loss 37 (COL11A1, DFNA37)</strong> · 2026-09-04T01:57:24Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Autosomal_Dominant_Nonsyndromic_Hearing_Loss_37/2026-09-04T015724Z-claude-code-b9b046.yaml">View source</a></p>
+                        <p class="research-review-text">New Disease entry for MONDO:0032802 (hearing loss, autosomal dominant 37 / DFNA37).
+
+Naming: used the repository&#39;s established convention for this cluster, Autosomal_Dominant_Nonsyndromic_Hearing_Loss_37, matching the 14 existing Autosomal_(Dominant|Recessive)_Nonsyndromic_Hearing_Loss_N entries rather than the MONDO label form. The MONDO label and DFNA37 are kept as synonyms.
+
+Deep research: &#39;just research-disorder claude_code Autosomal_Dominant_Nonsyndromic_Hearing_Loss_37&#39; (report and citations sidecar committed). Validation was clean - 9/9 references resolved, 1/1 quoted claim verified, confabulation_rate 0.0, 23/24 terms resolved. The single flagged naming artifact (UBERON:0001846 given as &#39;confirm&#39;, which is a text-extraction artifact rather than a real mislabel) concerns a term not bound in this entry.
+
+GeneReviews baseline: no GeneReviews chapter exists for DFNA37. A Stickler Syndrome chapter does exist (PMID:20301479) and was fetched during the search, but it covers the syndromic COL11A1/COL2A1 disorders rather than this nonsyndromic entity, so it is not the phenotype baseline for DFNA37 and is not cited; it was removed from the diff rather than cited loosely.
+
+Mechanism is curated as a chain: COL11A1 Canonical Splice-Site Disruption -&gt; Aberrant Collagen XI Alpha-1 Transcript Processing -&gt; Deficient Collagen XI in the Cochlear Extracellular Matrix -&gt; Prelingual sensorineural hearing impairment. The final edge is typed INDIRECT_UNKNOWN_INTERMEDIATES, and the cochlear node&#39;s description says explicitly that the localisation is inferred from collagen XI&#39;s established auditory role rather than demonstrated in DFNA37 cochlear tissue, which is not obtainable.
+
+Central hypothesis (splice_specific_nonsyndromic_restriction, EMERGING): every reported DFNA37 lesion is splice-altering, and two independent families carry variants at the same intron 4 canonical acceptor as the index kindred while producing different splicing outcomes. This suggests the restriction to a nonsyndromic phenotype is tied to the splicing mechanism rather than to general COL11A1 loss of function - but no mechanism explaining the separation has been demonstrated, the candidate accounts (tissue-tolerated transcript consequence, tissue-specific isoform usage) are untested, and the alternative reading that mild syndromic features were missed in small families is not excluded. EMERGING rather than CANONICAL for those reasons, stated in the hypothesis description.
+
+PMID:30531810 (&#39;Lessons learned from the DFNA37 gene discovery odyssey&#39;) was fetched but its cache entry has no abstract text, so it is not cited and was removed from the diff rather than cited without a verifiable snippet.
+
+Severity is deliberately not asserted as uniform: the index family had mild progressive loss with flat/U-shaped audiograms, while an independent case report describes bilateral moderate-to-severe down-sloping loss. Both are cited on the progressive-hearing-impairment phenotype and the description says severity is not uniform across reported families.
+
+A top-level note records that audiological management (hearing aids, cochlear implantation) follows general ADNSHL practice and that no DFNA37-specific outcome data were found, so none is asserted.
+
+Validation: &#39;just validate&#39; passed with 20/20 snippets verified; &#39;just validate-terms&#39; passed; check-entity-refs, check-causal-targets, check-duplicate-keys, check-qualifier-terms and check-enum-values all clean. Three references fetched and committed (PMID:30245514, PMID:33169910, PMID:33605226). Incidental references fetched by the deep-research validator but not cited were removed from the diff.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

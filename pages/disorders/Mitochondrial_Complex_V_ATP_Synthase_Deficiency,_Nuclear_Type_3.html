@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4266,6 +4338,7 @@ Two entities are deliberately excluded. The maternally inherited MT-ATP6 disease
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4287,6 +4360,7 @@ Two entities are deliberately excluded. The maternally inherited MT-ATP6 disease
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4583,6 +4657,7 @@ Two entities are deliberately excluded. The maternally inherited MT-ATP6 disease
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4618,6 +4693,7 @@ Two entities are deliberately excluded. The maternally inherited MT-ATP6 disease
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-atp5f1e-p-tyr12cys-substitution" data-dismech-node="ATP5F1E p.Tyr12Cys Substitution" data-dismech-type="pathophysiology">
                 <div class="item-name">ATP5F1E p.Tyr12Cys Substitution</div>
 
+
                 <div class="item-desc">A single allele accounts for the whole disease: c.35A&gt;G, replacing the highly conserved tyrosine at position 12 of the epsilon subunit with cysteine, homozygous in all three reported patients and absent from controls. Epsilon is the smallest F1 subunit and the only one with no bacterial or chloroplast homologue, sitting in the central stalk with gamma and delta. The mutant protein is made and is incorporated into the enzyme — this is not a null allele — but its presence depresses the biosynthesis of the complex.</div>
 
 
@@ -4628,6 +4704,8 @@ Two entities are deliberately excluded. The maternally inherited MT-ATP6 disease
 
     <div class="item-meta">
         <span class="tag tag-classification">Genetic context</span>
+
+
 
 
 
@@ -4647,6 +4725,9 @@ Two entities are deliberately excluded. The maternally inherited MT-ATP6 disease
         <span class="tag tag-classification">functional_impact_category: PARTIAL_LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Homozygous germline missense allele. Classified as partial loss of function rather than loss of function because the assembled enzyme retains normal synthetic and hydrolytic activity per complex; what is lost is the amount of enzyme built, not the catalytic competence of what is built.</div>
 
@@ -4696,6 +4777,7 @@ Two entities are deliberately excluded. The maternally inherited MT-ATP6 disease
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4717,6 +4799,7 @@ Two entities are deliberately excluded. The maternally inherited MT-ATP6 disease
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4742,6 +4825,7 @@ Two entities are deliberately excluded. The maternally inherited MT-ATP6 disease
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-f1-assembly-and-reduced-complex-v-content" data-dismech-node="Impaired F1 Assembly and Reduced Complex V Content" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired F1 Assembly and Reduced Complex V Content</div>
+
 
                 <div class="item-desc">The primary biochemical lesion is a shortage of assembled enzyme, not a broken enzyme. Mitochondrial content of the ATP synthase complex falls by 60-70 percent in patient fibroblasts, matching the fall in activity; the complex that is present is of normal size and contains the mutant epsilon subunit, and it hydrolyses and synthesises normally. F1 and Fo subunits fall together, and the reduction of the assembled 600 kDa complex is not accompanied by F1 subcomplexes — the enzyme fails to be built rather than falling apart after assembly. Silencing ATP5F1E in HEK293 cells reproduces this without any patient allele, confirming that reduced epsilon dosage alone is sufficient.</div>
 
@@ -4923,6 +5007,7 @@ This pathophysiological event involves decreased mitochondrial ATP synthase comp
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4944,6 +5029,7 @@ This pathophysiological event involves decreased mitochondrial ATP synthase comp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4971,6 +5057,7 @@ This pathophysiological event involves decreased mitochondrial ATP synthase comp
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4995,6 +5082,7 @@ This pathophysiological event involves decreased mitochondrial ATP synthase comp
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-subunit-c-accumulation-in-insoluble-form" data-dismech-node="Subunit c Accumulation in Insoluble Form" data-dismech-type="pathophysiology">
                 <div class="item-name">Subunit c Accumulation in Insoluble Form</div>
+
 
                 <div class="item-desc">The one asymmetry in the biochemistry, and the reason this lesion says something about enzyme biogenesis. Every investigated F1 and Fo subunit falls in proportion to the assembled complex except subunit c, which instead accumulates in a detergent-insoluble form. The same accumulation appears in ATP5F1E-silenced HEK293 cells, where subunit c is found in 200-400 kDa subcomplexes containing neither F1 nor other Fo subunits. This implicates the epsilon subunit in loading the hydrophobic c-ring onto the rotor, a role distinct from stabilising F1.</div>
 
@@ -5088,6 +5176,7 @@ This pathophysiological event involves abnormal proton-transporting ATP synthase
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5109,6 +5198,7 @@ This pathophysiological event involves abnormal proton-transporting ATP synthase
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5136,6 +5226,7 @@ This pathophysiological event involves abnormal proton-transporting ATP synthase
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5160,6 +5251,7 @@ This pathophysiological event involves abnormal proton-transporting ATP synthase
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-mitochondrial-atp-synthesis" data-dismech-node="Reduced Mitochondrial ATP Synthesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Mitochondrial ATP Synthesis</div>
+
 
                 <div class="item-desc">Oligomycin-sensitive ATPase activity and mitochondrial ATP synthesis both fall by 60-70 percent in patient fibroblasts, in step with the loss of assembled enzyme. ADP-stimulated respiration is reduced and the mitochondrial membrane potential is raised under state-3 conditions, the pattern expected when the proton gradient is generated normally but cannot be discharged through a sufficient number of ATP synthases.</div>
 
@@ -5397,6 +5489,7 @@ This pathophysiological event involves decreased proton motive force-driven mito
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5418,6 +5511,7 @@ This pathophysiological event involves decreased proton motive force-driven mito
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5443,6 +5537,7 @@ This pathophysiological event involves decreased proton motive force-driven mito
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-isolated-complex-v-deficiency-with-preserved-respiratory-chain" data-dismech-node="Isolated Complex V Deficiency with Preserved Respiratory Chain" data-dismech-type="pathophysiology">
                 <div class="item-name">Isolated Complex V Deficiency with Preserved Respiratory Chain</div>
+
 
                 <div class="item-desc">This node exists to state the boundary of the entity. The ATP5F1E lesion is an ISOLATED complex V deficiency: the electron-transport complexes are not reduced, and in the index patient&#39;s fibroblasts they were increased, an apparently compensatory change that does not rescue the energetic defect. That is what separates MC5DN3 from the combined-OXPHOS presentations in which complex V deficiency is one component among several, and it is the biochemical signature that points a diagnostic workup at the nuclear ATP-synthase genes.
 Conformance note: the module node pairs decreased oxidative phosphorylation with increased reactive oxygen species. Only the first half is evidenced here. A ROS increase is a reasonable inference from the raised state-3 membrane potential, and the same review that reports that potential makes the electron-leak argument - but it demonstrates the ROS rise in TMEM70-lacking fibroblasts, not in ATP5F1E ones, so the ROS arm is not asserted. The module&#39;s upstream node, age-related mitochondrial damage and mtDNA mutation, does not apply to a primary nuclear-gene subunit defect, so conformance is declared at this node alone.</div>
@@ -5554,6 +5649,7 @@ This pathophysiological event involves decreased oxidative phosphorylation (GO:0
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5575,6 +5671,7 @@ This pathophysiological event involves decreased oxidative phosphorylation (GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5648,15 +5745,15 @@ This pathophysiological event involves decreased oxidative phosphorylation (GO:0
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Eye<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Metabolism<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Genitourinary<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Nervous System<span class="pill-count">(6)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Metabolism<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Respiratory<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Nervous System<span class="pill-count">(7)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Constitutional<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Respiratory<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Other<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Constitutional<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5697,6 +5794,9 @@ This clinical feature is Vomiting (HP:0002013). HP:0002013 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5711,6 +5811,7 @@ This clinical feature is Vomiting (HP:0002013). HP:0002013 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5774,6 +5875,9 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5788,6 +5892,7 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5851,6 +5956,9 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5865,6 +5973,7 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5896,6 +6005,87 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
             <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Genitourinary
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-3-methylglutaconic-aciduria" data-dismech-node="3-Methylglutaconic aciduria" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        3-Methylglutaconic aciduria
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003535" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0003535</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is 3-Methylglutaconic aciduria (HP:0003535). HP:0003535 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20566710" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20566710" target="_blank">PMID:20566710</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The 22-year-old woman presented with neonatal onset, lactic acidosis, 3-methylglutaconic aciduria, mild mental retardation and developed peripheral neuropathy."</div>
+
+
+                <div class="evidence-explanation">3-methylglutaconic aciduria in the index patient.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
                     <span class="cat-count">1</span>
                 </summary>
@@ -5914,10 +6104,10 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003128" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0003128</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003128" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0003128</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Lactic acidosis (HP:0003128), qualified as neonatal onset. HP:0003128 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5957,6 +6147,9 @@ This clinical feature is Lactic acidosis (HP:0003128), qualified as neonatal ons
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5971,6 +6164,7 @@ This clinical feature is Lactic acidosis (HP:0003128), qualified as neonatal ons
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5995,6 +6189,7 @@ This clinical feature is Lactic acidosis (HP:0003128), qualified as neonatal ons
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6023,11 +6218,11 @@ This clinical feature is Lactic acidosis (HP:0003128), qualified as neonatal ons
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-5">
+            <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">6</span>
+                    <span class="cat-count">7</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-global-developmental-delay" data-dismech-node="Global developmental delay" data-dismech-type="phenotype">
@@ -6044,15 +6239,18 @@ This clinical feature is Lactic acidosis (HP:0003128), qualified as neonatal ons
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6072,6 +6270,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6112,15 +6311,18 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001249</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6140,6 +6342,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6180,15 +6383,18 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0009830</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0009830</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6208,6 +6414,7 @@ This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6248,15 +6455,18 @@ This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001251</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001251</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6276,6 +6486,7 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6300,6 +6511,7 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6340,15 +6552,18 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001332</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001332</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">The 2022 paper reports dystonia in 7 of its 10 patients, but that denominator spans four different ATPase genes and includes an ascertainment bias the authors flag themselves. It is not an ATP5F1E frequency and is not used as one here.</div>
@@ -6373,6 +6588,7 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6394,6 +6610,7 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6434,15 +6651,18 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6462,6 +6682,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6488,9 +6709,81 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-reduced-consciousness" data-dismech-node="Reduced consciousness" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Reduced consciousness
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004372" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0004372</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Reduced consciousness (HP:0004372). HP:0004372 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34954817" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34954817" target="_blank">PMID:34954817</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Patient 2, a 16-month-old infant, presented after birth with vomiting, severe respiratory distress, seizures, and impaired consciousness associated with lactic acidosis."</div>
+
+
+                <div class="evidence-explanation">Impaired consciousness with the lactic acidosis in patient 2.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-6">
+            <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Respiratory
@@ -6511,10 +6804,10 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002098" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002098</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002098" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002098</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Respiratory distress (HP:0002098), qualified as neonatal onset. HP:0002098 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6554,6 +6847,9 @@ This clinical feature is Respiratory distress (HP:0002098), qualified as neonata
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6568,6 +6864,7 @@ This clinical feature is Respiratory distress (HP:0002098), qualified as neonata
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6596,7 +6893,7 @@ This clinical feature is Respiratory distress (HP:0002098), qualified as neonata
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-7">
+            <details class="phenotype-category-group" id="pheno-cat-8">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Constitutional
@@ -6617,15 +6914,18 @@ This clinical feature is Respiratory distress (HP:0002098), qualified as neonata
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0003546</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0003546</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Exercise intolerance (HP:0003546). HP:0003546 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6648,6 +6948,7 @@ This clinical feature is Exercise intolerance (HP:0003546). HP:0003546 is a phen
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6656,151 +6957,6 @@ This clinical feature is Exercise intolerance (HP:0003546). HP:0003546 is a phen
 
 
                 <div class="evidence-explanation">Lists exercise intolerance in the index patient&#39;s phenotype; graded OTHER as a review restatement.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-8">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-3-methylglutaconic-aciduria" data-dismech-node="3-Methylglutaconic aciduria" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        3-Methylglutaconic aciduria
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003535" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0003535</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is 3-Methylglutaconic aciduria (HP:0003535). HP:0003535 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20566710" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20566710" target="_blank">PMID:20566710</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The 22-year-old woman presented with neonatal onset, lactic acidosis, 3-methylglutaconic aciduria, mild mental retardation and developed peripheral neuropathy."</div>
-
-
-                <div class="evidence-explanation">3-methylglutaconic aciduria in the index patient.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-reduced-consciousness" data-dismech-node="Reduced consciousness" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Reduced consciousness
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004372" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0004372</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Reduced consciousness (HP:0004372). HP:0004372 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:34954817" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34954817" target="_blank">PMID:34954817</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Patient 2, a 16-month-old infant, presented after birth with vomiting, severe respiratory distress, seizures, and impaired consciousness associated with lactic acidosis."</div>
-
-
-                <div class="evidence-explanation">Impaired consciousness with the lactic acidosis in patient 2.</div>
 
 
 
@@ -6888,6 +7044,9 @@ This disease-associated gene is ATP5F1E (hgnc:838). hgnc:838 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6902,6 +7061,7 @@ This disease-associated gene is ATP5F1E (hgnc:838). hgnc:838 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6926,6 +7086,7 @@ This disease-associated gene is ATP5F1E (hgnc:838). hgnc:838 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6961,7 +7122,9 @@ This disease-associated gene is ATP5F1E (hgnc:838). hgnc:838 is a gene from the 
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
@@ -6969,6 +7132,11 @@ This disease-associated gene is ATP5F1E (hgnc:838). hgnc:838 is a gene from the 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The only reported disease-causing ATP5F1E allele, homozygous in all three patients from three unrelated families and unobserved in controls. Tyrosine 12 is highly conserved. The substituted protein is still made and still incorporated into the complex, but the amount of complex assembled falls by 60-70 percent.</div>
@@ -6998,6 +7166,7 @@ This disease-associated gene is ATP5F1E (hgnc:838). hgnc:838 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7019,6 +7188,7 @@ This disease-associated gene is ATP5F1E (hgnc:838). hgnc:838 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7107,6 +7277,31 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">No disease-modifying therapy exists. Management is the standard mitochondrial approach: treating acute lactic acidosis, avoiding and aggressively managing catabolic triggers such as intercurrent infection, and symptomatic care of the neurological features. It is worth recording that the metabolic instability in these patients improved with age in all three — spontaneously in patient 2 and with resolution of the infection-triggered episodes in the index patient — so the natural history of the metabolic component is towards stabilisation rather than progression.</div>
 
 
@@ -7128,6 +7323,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7191,6 +7387,31 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Dystonia is the feature most likely to need active treatment and the one that responded worst: in patient 2 the generalised dystonia responded poorly to the medications tried. No specific agent or class is recommended by the reports.</div>
 
 
@@ -7212,6 +7433,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7279,6 +7501,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7327,6 +7550,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7413,6 +7637,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7452,6 +7677,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7520,6 +7746,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7559,6 +7786,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7628,6 +7856,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7679,6 +7908,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7756,6 +7986,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7777,6 +8008,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8088,6 +8320,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8172,6 +8405,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8224,6 +8458,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8323,6 +8558,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8362,6 +8598,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8409,6 +8646,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9966,6 +10204,42 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Entity boundaries, which are the main curation decision in this entry.
+MT-ATP6 and MT-ATP8 disease supplied no evidence here. NARP and the MT-ATP6 Leigh phenotypes affect the same enzyme and have a much larger literature, and the deep-research report committed with this entry mentions MT-ATP6 eleven times — the Named Entity Confusion preflight flagged it as a rival gene at 28 percent of ATP5F1E&#39;s mention count. Every reference cited in this file was selected and read directly rather than taken from the report, and each is either specifically about ATP5F1E/ATP5E or a review section explicitly about the ATP5E patient. The two dismech entries for the mitochondrial-genome diseases, `NARP_syndrome` and `MT-ATP6_MT-ATP8-Related_Infantile_Hypertrophic_Cardiomyopathy`, are listed as differential diagnoses and nothing was imported from them.
+Combined-OXPHOS material is excluded the same way. Complex V deficiency is commonly reported as one arm of a combined defect, and a search on the enzyme returns those cohorts; none is cited here. The `Isolated Complex V Deficiency with Preserved Respiratory Chain` node exists to state the boundary explicitly, and the index patient&#39;s electron-transport complexes were increased rather than reduced, which is the opposite of a combined defect.
+No frequency bands are assigned to any phenotype. The entire disease is three patients described in two papers of unequal clinical detail, and a band computed from n=3 would assert a precision the literature does not have — 2 of 3 is not the same claim as &#34;30-79 percent of patients&#34;. The per-patient distribution is written into each phenotype description instead. The 2022 paper&#39;s figure of dystonia in 7 of 10 patients is explicitly NOT used, because that denominator spans four different ATPase genes and the authors flag its ascertainment bias.
+The absence of cardiomyopathy is the sharpest clinical discriminator from TMEM70-related complex V deficiency, but it is NOT curated as a phenotype record: the `Phenotype` class has no `presence` slot, so an entry bound to HP:0001638 would assert the cardiomyopathy rather than deny it. The negative is recorded in the TMEM70 differential diagnosis and in that entry&#39;s distinguishing features instead.
+`Screening for nuclear genetic defects in the ATP synthase-associated genes TMEM70, ATP12 and ATP5E in patients with 3-methylglutaconic aciduria` (PMID:21815885) is listed in `references` but carries no evidence item and no claim: its reference cache has `content_type: unavailable`, so nothing it reports can be quoted or verified. It is listed because it is the one published attempt to find more ATP5E patients and a reader should know it exists.
+Ontology granularity, since three bindings could look under-specific. `Ataxia` (HP:0001251) rather than `Gait ataxia`: the follow-up description of the index patient says &#34;ataxia&#34; and separately &#34;gait impairment&#34;, while patient 3&#39;s is specifically gait ataxia, so the parent is what is true of the disease. `Dystonia` (HP:0001332) rather than `Generalized dystonia`: it is limb dystonia in one patient and generalized in another. `Peripheral neuropathy` (HP:0009830) rather than an axonal or demyelinating child term: the one characterised neuropathy is described as axonal-demyelinating, which no single HPO child term states.
+There is no `omim_mappings` slot in this schema — `DiseaseMappings` covers ICD10CM, ICD11F, MONDO and NCIT only — so the OMIM identity (MIM 614053) is carried by the quoted evidence text and by this note rather than as a structured mapping.
+No GeneReviews chapter exists. Confirmed by `esearch` against PubMed rather than assumed: `ATP5F1E AND GeneReviews[Book]`, `ATP5E AND GeneReviews[Book]` and `&#34;ATP synthase deficiency&#34; AND GeneReviews[Book]` all return zero with no `phrasesnotfound` warning, so these are real negatives and not the field-name failure mode.
+Sibling coverage, for whoever picks up the next one. `kb/groupings/` has a `Mitochondrial_Complex_IV_Deficiency` grouping; a matching `Mitochondrial_Complex_V_Deficiency` grouping is the obvious sibling, but it would have one member today, so it is noted here rather than created. The larger gap is that TMEM70 (the single commonest nuclear cause of isolated ATP synthase deficiency) and ATPAF2 have neither an entry nor a stub, while ATP5MD and the mitochondrial type 1 concept do have stubs.
+Not curated: `clinical_trials` and `datasets`, because there are none for this entity; `animal_models`, because none exists — the yeast strain is filed under `experimental_models` since yeast is not an animal, and it is a negative model in any case; `progression`, because with three patients there is no staged natural history, though the direction of travel — early metabolic instability resolving into a static neurological deficit — is recorded in the description and in the treatments block.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Mitochondrial Complex V (ATP Synthase) Deficiency, Nuclear Type 3</strong> · 2026-09-02T17:55:02Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Mitochondrial_Complex_V_ATP_Synthase_Deficiency_Nuclear_Type_3/2026-09-02T175502Z-claude-code-10433d.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of MC5DN3 (MONDO:0013547, ATP5F1E). entry_type decided as DISEASE: MONDO places the term under mitochondrial respiratory chain complex deficiency and mitochondrial proton-transporting ATP synthase complex deficiency, not under Leigh syndrome or any curated dismech grouping, and the entity has one conserved pathograph (epsilon-subunit substitution -&gt; failed F1 assembly -&gt; reduced complex V content -&gt; reduced ATP synthesis) shared by all three reported patients. Follows the per-subunit convention of the Mitochondrial_Complex_I_Deficiency_Nuclear_Type_N entries.
+
+Two entity traps were handled explicitly. MT-ATP6/MT-ATP8 disease (NARP, maternally inherited Leigh) supplied no evidence: the falcon deep-research report mentions MT-ATP6 eleven times and just preflight-dr flagged it as a rival gene at 28 percent of ATP5F1E mentions, so every reference was selected and read directly from PubMed rather than taken from the report, and each cited paper is either specifically about ATP5F1E/ATP5E or a review section explicitly about the ATP5E patient. Combined-OXPHOS cohorts were likewise excluded, and an Isolated Complex V Deficiency with Preserved Respiratory Chain node states that boundary in the pathograph.
+
+No phenotype frequency bands are assigned: the disease is three patients in two papers, and a band computed from n=3 would overstate the literature. The 2022 cohort figure of dystonia in 7 of 10 was explicitly not used because that denominator spans four ATPase genes.
+
+Yeast Y11C model curated as experimental_models (yeast is not an animal) with FAILS_TO_RECAPITULATE against the assembly node, with limitations recording that the negative is about species divergence in ATP synthase biogenesis, not about pathogenicity. HEK293 ATP5F1E knockdown curated as a CELL_LINE model with two RECAPITULATES links.
+
+Validated: just validate (schema + terms + 45/45 snippets), check-duplicate-keys, check-entity-refs, check-causal-targets, plus the whole-KB ratchets.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

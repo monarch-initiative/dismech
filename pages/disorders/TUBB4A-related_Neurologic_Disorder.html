@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4109,6 +4181,7 @@ The molecular effects are allele specific. The studied H-ABC p.Arg2Trp and p.Asp
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4133,6 +4206,7 @@ The molecular effects are allele specific. The studied H-ABC p.Arg2Trp and p.Asp
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4154,6 +4228,7 @@ The molecular effects are allele specific. The studied H-ABC p.Arg2Trp and p.Asp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4269,6 +4344,7 @@ This subtype is caused by variation in TUBB4A (hgnc:20774). hgnc:20774 is a gene
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4290,6 +4366,7 @@ This subtype is caused by variation in TUBB4A (hgnc:20774). hgnc:20774 is a gene
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4374,6 +4451,7 @@ This subtype is caused by variation in TUBB4A (hgnc:20774). hgnc:20774 is a gene
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4395,6 +4473,7 @@ This subtype is caused by variation in TUBB4A (hgnc:20774). hgnc:20774 is a gene
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4505,6 +4584,7 @@ This subtype is caused by variation in TUBB4A (hgnc:20774). hgnc:20774 is a gene
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4529,6 +4609,7 @@ This subtype is caused by variation in TUBB4A (hgnc:20774). hgnc:20774 is a gene
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4550,6 +4631,7 @@ This subtype is caused by variation in TUBB4A (hgnc:20774). hgnc:20774 is a gene
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4627,6 +4709,7 @@ This subtype is caused by variation in TUBB4A (hgnc:20774). hgnc:20774 is a gene
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4648,6 +4731,7 @@ This subtype is caused by variation in TUBB4A (hgnc:20774). hgnc:20774 is a gene
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4685,6 +4769,7 @@ This subtype is caused by variation in TUBB4A (hgnc:20774). hgnc:20774 is a gene
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-beta-tubulin-4a-tubb4a-function" data-dismech-node="Altered Beta-Tubulin 4A (TUBB4A) Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered Beta-Tubulin 4A (TUBB4A) Function</div>
+
 
                 <div class="item-desc">Heterozygous missense variants alter the brain-enriched beta-tubulin 4A isotype, but this locus-level trigger does not imply one downstream mechanism. H-ABC and DYT-associated alleles have divergent cellular effects, so the graph immediately separates an H-ABC oligodendrocyte/grey-matter branch from a cautious DYT neuronal branch.</div>
 
@@ -4745,6 +4830,8 @@ This pathophysiological event involves TUBB4A (hgnc:20774). hgnc:20774 is a gene
 
 
 
+
+
         <span class="tag tag-classification">allele_type: missense</span>
 
 
@@ -4758,6 +4845,9 @@ This pathophysiological event involves TUBB4A (hgnc:20774). hgnc:20774 is a gene
         <span class="tag tag-classification">functional_impact_category: UNKNOWN</span>
 
     </div>
+
+
+
 
     <div class="context-detail">UNKNOWN is deliberate at the umbrella level. p.Arg2Trp and p.Asp249Asn were interpreted as antimorphic, p.Gln424His showed a gain-of-function growth pattern, and p.Arg2Gly showed no prominent dynamics change. p.Cys239Phe and p.Arg262His are established H-ABC alleles without equivalent functional testing in the cached evidence. Variant origin is omitted because H-ABC is usually de novo whereas DYT-TUBB4A is often inherited.</div>
 
@@ -4815,6 +4905,7 @@ This pathophysiological event involves TUBB4A (hgnc:20774). hgnc:20774 is a gene
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4836,6 +4927,7 @@ This pathophysiological event involves TUBB4A (hgnc:20774). hgnc:20774 is a gene
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4861,6 +4953,7 @@ This pathophysiological event involves TUBB4A (hgnc:20774). hgnc:20774 is a gene
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-h-abc-antimorphic-microtubule-dysfunction" data-dismech-node="H-ABC Antimorphic Microtubule Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">H-ABC Antimorphic Microtubule Dysfunction</div>
+
 
                 <div class="item-desc">In the studied H-ABC alleles p.Arg2Trp and p.Asp249Asn, mutant heterodimers incorporate less efficiently, grow more slowly, and can act as steric blocks during assembly. This antimorphic mechanism is limited to those tested alleles; it is not assigned to p.Cys239Phe or p.Arg262His merely because they also cause H-ABC.</div>
 
@@ -4921,6 +5014,8 @@ This pathophysiological event involves TUBB4A (hgnc:20774). hgnc:20774 is a gene
 
 
 
+
+
         <span class="tag tag-classification">allele_type: missense</span>
 
 
@@ -4934,6 +5029,9 @@ This pathophysiological event involves TUBB4A (hgnc:20774). hgnc:20774 is a gene
         <span class="tag tag-classification">functional_impact_category: DOMINANT_NEGATIVE</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Applies to the experimentally studied H-ABC p.Arg2Trp and p.Asp249Asn substitutions. The functional category records their reported antimorphic behavior and is not a spectrum-wide assertion.</div>
 
@@ -5011,6 +5109,7 @@ This pathophysiological event involves TUBB4A (hgnc:20774). hgnc:20774 is a gene
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5032,6 +5131,7 @@ This pathophysiological event involves TUBB4A (hgnc:20774). hgnc:20774 is a gene
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5057,6 +5157,7 @@ This pathophysiological event involves TUBB4A (hgnc:20774). hgnc:20774 is a gene
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dyt-tubb4a-associated-neuronal-dysfunction" data-dismech-node="DYT-TUBB4A-Associated Neuronal Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">DYT-TUBB4A-Associated Neuronal Dysfunction</div>
+
 
                 <div class="item-desc">The DYT-associated p.Arg2Gly allele altered neuronal morphology while leaving tubulin quantity, polymerization, oligodendrocyte morphology, and myelin-gene expression unchanged in the reported cellular study. p.Gln424His instead increased microtubule growth dynamics, consistent with gain of function. These allele-specific observations support a neuronal branch independent of H-ABC myelin failure, but do not yet establish a single intervening pathway.</div>
 
@@ -5160,6 +5261,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5181,6 +5283,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5206,6 +5309,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-oligodendrocyte-dysfunction-and-myelin-failure" data-dismech-node="Oligodendrocyte Dysfunction and Myelin Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Oligodendrocyte Dysfunction and Myelin Failure</div>
+
 
                 <div class="item-desc">In H-ABC, oligodendrocyte differentiation, process formation, and myelin production are impaired. The D249N allelic mouse series identifies Mbp mRNA transport from the oligodendrocyte soma to the sheath as one vulnerable microtubule-dependent function. The A302T taiep rat instead shows increased tubulin post-translational modifications associated with stability, warning that the direction of microtubule disturbance and the neuronal contribution are allele- and model-specific rather than universal.</div>
 
@@ -5414,6 +5518,7 @@ This pathophysiological event occurs in cerebral white matter, annotated with wh
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5435,6 +5540,7 @@ This pathophysiological event occurs in cerebral white matter, annotated with wh
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5460,6 +5566,7 @@ This pathophysiological event occurs in cerebral white matter, annotated with wh
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-basal-ganglia-and-cerebellar-neurodegeneration" data-dismech-node="Basal Ganglia and Cerebellar Neurodegeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Basal Ganglia and Cerebellar Neurodegeneration</div>
+
 
                 <div class="item-desc">H-ABC has a grey-matter arm parallel to hypomyelination. The common pattern includes progressive caudate, putaminal, and cerebellar atrophy, but it is not obligatory: a p.Arg262His patient retained stable caudate and putaminal size over seven years, and mild thalamic atrophy occurred in other followed patients. The D249N mouse shows striatal and cerebellar granule-neuron loss. This node is H-ABC-specific and is not used to explain DYT-TUBB4A, which can have normal neuroimaging.</div>
 
@@ -5637,6 +5744,7 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5658,6 +5766,7 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5685,6 +5794,7 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5707,6 +5817,7 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cns-hypomyelination" data-dismech-node="CNS Hypomyelination" data-dismech-type="pathophysiology">
                 <div class="item-name">CNS Hypomyelination</div>
+
 
                 <div class="item-desc">Deficient CNS myelin is characteristic of H-ABC and other pediatric TUBB4A presentations, but severity varies. In the three longitudinally imaged H-ABC patients in PMID:24706558 it was generalized in two and focal and milder in one. That three-patient observation is not converted into an obligatory frequency claim for H-ABC or the umbrella disorder.</div>
 
@@ -5781,6 +5892,7 @@ This pathophysiological event occurs in cerebral white matter, annotated with wh
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5802,6 +5914,7 @@ This pathophysiological event occurs in cerebral white matter, annotated with wh
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5827,6 +5940,7 @@ This pathophysiological event occurs in cerebral white matter, annotated with wh
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-motor-and-bulbar-decline" data-dismech-node="Progressive Motor and Bulbar Decline" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Motor and Bulbar Decline</div>
+
 
                 <div class="item-desc">The H-ABC clinical endpoint combines four systems: pyramidal tracts (spasticity, brisk reflexes, Babinski), extrapyramidal system (rigidity, dystonia, choreoathetosis, oculogyric crisis, perioral dyskinesia), cerebellum (ataxia, intention tremor, dysmetria) and bulbar function (dysarthria, dysphonia, swallowing). It intentionally does not conform to the white-matter module because the grey- and white-matter arms both contribute.</div>
 
@@ -5984,6 +6098,7 @@ This pathophysiological event occurs in cerebral white matter, annotated with wh
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6056,9 +6171,9 @@ This pathophysiological event occurs in cerebral white matter, annotated with wh
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Musculoskeletal<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Nervous System<span class="pill-count">(9)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Nervous System<span class="pill-count">(13)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Voice<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6099,6 +6214,9 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6113,6 +6231,7 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6176,6 +6295,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6190,6 +6312,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6241,6 +6364,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
             </div>
 
 
+
             <div class="context-notes">Exact reviewed H-ABC frequency, 14% of 30 published patients.</div>
 
 
@@ -6259,6 +6383,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6324,6 +6449,9 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6338,6 +6466,7 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6389,6 +6518,7 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
             </div>
 
 
+
             <div class="context-notes">Exact reviewed H-ABC frequency, 33% of 30 published patients.</div>
 
 
@@ -6407,6 +6537,7 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6472,6 +6603,9 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6486,6 +6620,7 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6537,6 +6672,7 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
             </div>
 
 
+
             <div class="context-notes">Exact reviewed H-ABC frequency, 100% of 30 published patients.</div>
 
 
@@ -6555,6 +6691,7 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6611,6 +6748,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6625,6 +6765,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6679,6 +6820,9 @@ This clinical feature is Rigidity (HP:0002063). HP:0002063 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6693,6 +6837,7 @@ This clinical feature is Rigidity (HP:0002063). HP:0002063 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6744,6 +6889,7 @@ This clinical feature is Rigidity (HP:0002063). HP:0002063 is a phenotype from t
             </div>
 
 
+
             <div class="context-notes">Exact reviewed H-ABC frequency, 69% of 30 published patients.</div>
 
 
@@ -6762,6 +6908,7 @@ This clinical feature is Rigidity (HP:0002063). HP:0002063 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6796,8 +6943,151 @@ This clinical feature is Rigidity (HP:0002063). HP:0002063 is a phenotype from t
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">9</span>
+                    <span class="cat-count">13</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cns-hypomyelination-phenotype" data-dismech-node="CNS Hypomyelination Phenotype" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        CNS Hypomyelination Phenotype
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003429" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0003429</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is CNS hypomyelination (HP:0003429). HP:0003429 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27809427" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27809427" target="_blank">PMID:27809427</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Brain imaging at the time of developmental loss typically identifies hypomyelination."</div>
+
+
+                <div class="evidence-explanation">Reports hypomyelination as the typical imaging finding.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+    <details class="phenotype-contexts">
+        <summary class="phenotype-contexts-toggle">
+            Context-specific annotations (1)
+        </summary>
+
+        <div class="context-card">
+            <div class="context-header">
+
+
+
+
+
+
+
+
+
+
+                <span class="context-label context-label-subtype">H-ABC</span>
+
+
+
+
+
+            </div>
+
+
+
+            <div class="context-notes">Hypomyelination occurred in all three longitudinal-study patients but ranged from generalized to focal and mild; this small selected series is not converted into a subtype-wide frequency.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24706558" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24706558" target="_blank">PMID:24706558</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Hypomyelination was found in all patients and was generalized in Patients 1 (Fig. 1B,D) and 2 (Fig. 1F,H), but focal and milder in Patient 3."</div>
+
+
+                <div class="evidence-explanation">Supports H-ABC-specific occurrence and variable extent without an obligatory population-frequency claim.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+        </div>
+
+    </details>
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-dystonia" data-dismech-node="Dystonia" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6813,10 +7103,10 @@ This clinical feature is Rigidity (HP:0002063). HP:0002063 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001332</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001332</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dystonia (HP:0001332), qualified as course progressive. HP:0001332 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6845,6 +7135,9 @@ This clinical feature is Dystonia (HP:0001332), qualified as course progressive.
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6859,6 +7152,7 @@ This clinical feature is Dystonia (HP:0001332), qualified as course progressive.
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6883,6 +7177,7 @@ This clinical feature is Dystonia (HP:0001332), qualified as course progressive.
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6934,6 +7229,7 @@ This clinical feature is Dystonia (HP:0001332), qualified as course progressive.
             </div>
 
 
+
             <div class="context-notes">Exact reviewed H-ABC frequency, 88% of 30 published patients.</div>
 
 
@@ -6952,6 +7248,7 @@ This clinical feature is Dystonia (HP:0001332), qualified as course progressive.
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6994,15 +7291,18 @@ This clinical feature is Dystonia (HP:0001332), qualified as course progressive.
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001272" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001272</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001272" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001272</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7022,6 +7322,7 @@ This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7046,6 +7347,7 @@ This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7086,15 +7388,18 @@ This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001251</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001251</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7114,6 +7419,7 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7165,6 +7471,7 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
             </div>
 
 
+
             <div class="context-notes">Exact reviewed H-ABC frequency, 87% of 30 published patients.</div>
 
 
@@ -7183,6 +7490,7 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7225,15 +7533,18 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001260</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001260</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7253,6 +7564,7 @@ This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7304,6 +7616,7 @@ This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from
             </div>
 
 
+
             <div class="context-notes">Exact reviewed H-ABC frequency, 93% of 30 published patients.</div>
 
 
@@ -7322,6 +7635,7 @@ This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7364,15 +7678,18 @@ This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002376" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002376</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002376" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002376</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7392,6 +7709,7 @@ This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7441,6 +7759,7 @@ This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a 
             </div>
 
 
+
             <div class="context-notes">H-ABC commonly follows an acquire-then-regress trajectory; no exact frequency is asserted from the available source.</div>
 
 
@@ -7459,6 +7778,7 @@ This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7487,6 +7807,78 @@ This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a 
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-loss-of-ambulation" data-dismech-node="Loss of Ambulation" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Loss of Ambulation
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002505" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002505</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Loss of ambulation (HP:0002505). HP:0002505 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41566774" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41566774" target="_blank">PMID:41566774</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"presents in infancy with dystonia, communication deficits, and loss of ambulation during the first decade of life"</div>
+
+
+                <div class="evidence-explanation">Reports loss of ambulation within the first decade for the recurrent allele.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
                 <div class="item-box phenotype-box anchor-target" id="phenotype-seizures" data-dismech-node="Seizures" data-dismech-type="phenotype">
                     <div class="item-name">
                         Seizures
@@ -7501,15 +7893,18 @@ This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7529,6 +7924,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7580,6 +7976,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
             </div>
 
 
+
             <div class="context-notes">Exact reviewed H-ABC frequency, 18% of 30 published patients.</div>
 
 
@@ -7598,6 +7995,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7640,15 +8038,18 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001266" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001266</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001266" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001266</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Choreoathetosis (HP:0001266). HP:0001266 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7668,6 +8069,7 @@ This clinical feature is Choreoathetosis (HP:0001266). HP:0001266 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7719,6 +8121,7 @@ This clinical feature is Choreoathetosis (HP:0001266). HP:0001266 is a phenotype
             </div>
 
 
+
             <div class="context-notes">Exact reviewed H-ABC frequency, 45% of 30 published patients.</div>
 
 
@@ -7737,6 +8140,7 @@ This clinical feature is Choreoathetosis (HP:0001266). HP:0001266 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7779,10 +8183,10 @@ This clinical feature is Choreoathetosis (HP:0001266). HP:0001266 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002134" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0002134</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002134" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0002134</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal basal ganglia morphology (HP:0002134), qualified as course progressive. HP:0002134 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7811,6 +8215,9 @@ This clinical feature is Abnormal basal ganglia morphology (HP:0002134), qualifi
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7825,6 +8232,7 @@ This clinical feature is Abnormal basal ganglia morphology (HP:0002134), qualifi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7852,6 +8260,7 @@ This clinical feature is Abnormal basal ganglia morphology (HP:0002134), qualifi
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7860,380 +8269,6 @@ This clinical feature is Abnormal basal ganglia morphology (HP:0002134), qualifi
 
 
                 <div class="evidence-explanation">Preserves the documented exception to progressive neostriatal atrophy.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-intention-tremor" data-dismech-node="Intention Tremor" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Intention Tremor
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002080" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0002080</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Intention tremor (HP:0002080). HP:0002080 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:27809427" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27809427" target="_blank">PMID:27809427</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"cerebellum (ataxia, intention tremor, dysmetria)"</div>
-
-
-                <div class="evidence-explanation">Names intention tremor among the cerebellar findings.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">5</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-cns-hypomyelination-phenotype" data-dismech-node="CNS Hypomyelination Phenotype" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        CNS Hypomyelination Phenotype
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003429" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0003429</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is CNS hypomyelination (HP:0003429). HP:0003429 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:27809427" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27809427" target="_blank">PMID:27809427</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Brain imaging at the time of developmental loss typically identifies hypomyelination."</div>
-
-
-                <div class="evidence-explanation">Reports hypomyelination as the typical imaging finding.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-    <details class="phenotype-contexts">
-        <summary class="phenotype-contexts-toggle">
-            Context-specific annotations (1)
-        </summary>
-
-        <div class="context-card">
-            <div class="context-header">
-
-
-
-
-
-
-
-
-
-
-                <span class="context-label context-label-subtype">H-ABC</span>
-
-
-
-
-
-            </div>
-
-
-            <div class="context-notes">Hypomyelination occurred in all three longitudinal-study patients but ranged from generalized to focal and mild; this small selected series is not converted into a subtype-wide frequency.</div>
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:24706558" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24706558" target="_blank">PMID:24706558</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Hypomyelination was found in all patients and was generalized in Patients 1 (Fig. 1B,D) and 2 (Fig. 1F,H), but focal and milder in Patient 3."</div>
-
-
-                <div class="evidence-explanation">Supports H-ABC-specific occurrence and variable extent without an obligatory population-frequency claim.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-        </div>
-
-    </details>
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-loss-of-ambulation" data-dismech-node="Loss of Ambulation" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Loss of Ambulation
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002505" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0002505</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Loss of ambulation (HP:0002505). HP:0002505 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:41566774" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41566774" target="_blank">PMID:41566774</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"presents in infancy with dystonia, communication deficits, and loss of ambulation during the first decade of life"</div>
-
-
-                <div class="evidence-explanation">Reports loss of ambulation within the first decade for the recurrent allele.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-dysphonia" data-dismech-node="Dysphonia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Dysphonia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001618" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001618</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Dysphonia (HP:0001618). HP:0001618 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:27809427" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27809427" target="_blank">PMID:27809427</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"bulbar function (dysarthria, dysphonia, and swallowing)"</div>
-
-
-                <div class="evidence-explanation">Names dysphonia among the bulbar findings.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:23595291" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23595291" target="_blank">PMID:23595291</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"A mutation in TUBB4 causes DYT4 dystonia in this Australian family with so-called whispering dysphonia, and other mutations in TUBB4 may contribute to spasmodic dysphonia."</div>
-
-
-                <div class="evidence-explanation">Establishes the DYT-specific voice phenotype.</div>
 
 
 
@@ -8263,15 +8298,18 @@ This clinical feature is Dysphonia (HP:0001618). HP:0001618 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012049" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0012049</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012049" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0012049</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Laryngeal dystonia (HP:0012049). HP:0012049 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8294,6 +8332,7 @@ This clinical feature is Laryngeal dystonia (HP:0012049). HP:0012049 is a phenot
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8302,6 +8341,78 @@ This clinical feature is Laryngeal dystonia (HP:0012049). HP:0012049 is a phenot
 
 
                 <div class="evidence-explanation">Directly establishes prominent laryngeal dystonia in DYT-TUBB4A.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-intention-tremor" data-dismech-node="Intention Tremor" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Intention Tremor
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002080" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002080</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Intention tremor (HP:0002080). HP:0002080 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27809427" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27809427" target="_blank">PMID:27809427</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"cerebellum (ataxia, intention tremor, dysmetria)"</div>
+
+
+                <div class="evidence-explanation">Names intention tremor among the cerebellar findings.</div>
 
 
 
@@ -8331,15 +8442,18 @@ This clinical feature is Laryngeal dystonia (HP:0012049). HP:0012049 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001310" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001310</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001310" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001310</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dysmetria (HP:0001310). HP:0001310 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8362,6 +8476,7 @@ This clinical feature is Dysmetria (HP:0001310). HP:0001310 is a phenotype from 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8370,6 +8485,112 @@ This clinical feature is Dysmetria (HP:0001310). HP:0001310 is a phenotype from 
 
 
                 <div class="evidence-explanation">Names dysmetria among the cerebellar findings.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-6">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Voice
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dysphonia" data-dismech-node="Dysphonia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Dysphonia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001618" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001618</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dysphonia (HP:0001618). HP:0001618 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27809427" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27809427" target="_blank">PMID:27809427</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"bulbar function (dysarthria, dysphonia, and swallowing)"</div>
+
+
+                <div class="evidence-explanation">Names dysphonia among the bulbar findings.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23595291" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23595291" target="_blank">PMID:23595291</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A mutation in TUBB4 causes DYT4 dystonia in this Australian family with so-called whispering dysphonia, and other mutations in TUBB4 may contribute to spasmodic dysphonia."</div>
+
+
+                <div class="evidence-explanation">Establishes the DYT-specific voice phenotype.</div>
 
 
 
@@ -8457,6 +8678,9 @@ This disease-associated gene is TUBB4A (beta-tubulin 4A), annotated with TUBB4A 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -8471,6 +8695,7 @@ This disease-associated gene is TUBB4A (beta-tubulin 4A), annotated with TUBB4A 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8498,6 +8723,7 @@ This disease-associated gene is TUBB4A (beta-tubulin 4A), annotated with TUBB4A 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8519,6 +8745,7 @@ This disease-associated gene is TUBB4A (beta-tubulin 4A), annotated with TUBB4A 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8601,6 +8828,31 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Individualized medical management for dystonia. GeneReviews does not name a specific agent, so none is inferred here. This symptomatic record is kept separate from deep brain stimulation.</div>
 
 
@@ -8644,6 +8896,7 @@ This treatment targets Dystonia (HP:0001332). HP:0001332 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8702,6 +8955,31 @@ This treatment is Deep Brain Stimulation (NCIT:C21024). NCIT:C21024 is a clinica
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Device</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -8770,11 +9048,12 @@ This treatment targets Laryngeal dystonia (HP:0012049). HP:0012049 is a phenotyp
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"Bipallidal deep brain stimulation (DBS) resulted in a 55% reduction of dystonia severity assessed by the Burke-Fahn-Marsden scale score 6 months after surgery."</div>
+                <div class="evidence-snippet">"We report the case of a 44-year-old patient with DYT-TUBB4A with a clinical presentation of disabling progressive dystonia, with a prominent laryngeal, cervical and facial involvement. RESULTS: Bipallidal deep brain stimulation (DBS) resulted in a 55% reduction of dystonia severity assessed by..."</div>
 
 
                 <div class="evidence-explanation">Reports the case-level outcome; the single-patient design is retained in the treatment description and context.</div>
@@ -8831,6 +9110,31 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Adaptive equipment such as wheelchairs and walkers plus physical therapy for functionally disabling spasticity, with prevention of secondary injury as the stated aim.</div>
 
 
@@ -8874,6 +9178,7 @@ This treatment targets Spasticity (HP:0001257). HP:0001257 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8933,6 +9238,31 @@ This treatment is speech and language therapy, annotated with Speech Language Th
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -9001,6 +9331,7 @@ This treatment targets Dysphonia (HP:0001618). HP:0001618 is a phenotype from th
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9062,6 +9393,31 @@ This treatment is gastrostomy (NCIT:C52006). NCIT:C52006 is a clinical intervent
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Gastrostomy tube placement may be required when progressive swallowing dysfunction prevents safe oral feeding.</div>
 
 
@@ -9105,6 +9461,7 @@ This treatment targets Dysphagia (HP:0002015). HP:0002015 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9168,6 +9525,31 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Routine swallowing and feeding evaluation, nutritional support, orthopaedic assessment, and annual neurologic and cardiac review address complications of pediatric TUBB4A disease without modifying the causal mechanism.</div>
 
 
@@ -9192,6 +9574,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9213,6 +9596,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9271,6 +9655,31 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -9339,6 +9748,7 @@ This treatment targets Rigidity (HP:0002063). HP:0002063 is a phenotype from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9399,6 +9809,81 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Antisense oligonucleotide</span>
+
+
+        <span class="tag" style="background: #f3e8ff; color: #6b21a8;">RNase H knockdown</span>
+
+
+
+
+    </div>
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">RNA target:</strong>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        TUBB4A
+
+
+    <a href="https://bioregistry.io/hgnc:20774" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-52">hgnc:20774</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-52">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this treatment base-pairs with the transcript of this gene
+This treatment base-pairs with the transcript of TUBB4A (hgnc:20774). hgnc:20774 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Tubb4a mRNA</span>
+
+
+    </div>
+
+
+
+
+
                 <div class="item-desc">An H-ABC-specific preclinical strategy. The rationale comes from an allelic mouse series showing that disease severity correlates with mutant Tubb4a expression and with relative preservation of wild-type tubulin - so lowering the mutant transcript should help even without repairing it. A single intracerebroventricular dose of a Tubb4a-targeted ASO in postnatal Tubb4a D249N/KO mice drastically extended lifespan, improved motor phenotypes, reduced seizures, prevented myelin and oligodendrocyte loss, and recovered visual evoked potential latencies. A stated limitation is that the ASO fails to reach cerebellar granule neurons by any tested route, so the cerebellar arm of the disease may be untreated by this approach. There is no human trial; this must not be curated as an available therapy or extrapolated to DYT-TUBB4A.</div>
 
 
@@ -9429,6 +9914,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9475,6 +9961,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9496,6 +9983,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9559,11 +10047,11 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
         magnetic resonance imaging
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C16809" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-52">NCIT:C16809</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C16809" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-53">NCIT:C16809</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-52">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-53">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -9604,6 +10092,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9625,6 +10114,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9670,11 +10160,11 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
         genetic testing
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-53">NCIT:C15709</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-54">NCIT:C15709</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-53">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-54">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -9712,6 +10202,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9782,6 +10273,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9831,6 +10323,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9906,6 +10399,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9927,6 +10421,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10078,6 +10573,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10117,6 +10613,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10183,11 +10680,11 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
         myelination
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042552" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-54">GO:0042552</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042552" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-55">GO:0042552</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-54">Gene Ontology (GO)
+        <span class="pill-tip" role="tooltip" id="pill-tip-55">Gene Ontology (GO)
 Relation: this readout reports on this biological process
 This readout reports on decreased myelination (GO:0042552). GO:0042552 is a biological process from the Gene Ontology.</span>
     </span>
@@ -10243,6 +10740,7 @@ This readout reports on decreased myelination (GO:0042552). GO:0042552 is a biol
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10282,6 +10780,7 @@ This readout reports on decreased myelination (GO:0042552). GO:0042552 is a biol
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10394,6 +10893,7 @@ This readout reports on decreased myelination (GO:0042552). GO:0042552 is a biol
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11868,9 +12368,11 @@ treatments:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
-      Bipallidal deep brain stimulation (DBS) resulted in a 55% reduction of
-      dystonia severity assessed by the Burke-Fahn-Marsden scale score 6 months
-      after surgery.
+      We report the case of a 44-year-old patient with DYT-TUBB4A with a clinical presentation
+      of disabling progressive dystonia, with a prominent laryngeal, cervical and facial
+      involvement. RESULTS: Bipallidal deep brain stimulation (DBS) resulted in a 55%
+      reduction of dystonia severity assessed by the Burke-Fahn-Marsden scale score 6 months
+      after surgery. The effect was obvious on the cervical and facial components of dystonia.
     explanation: &gt;-
       Reports the case-level outcome; the single-patient design is retained in
       the treatment description and context.
@@ -12035,8 +12537,8 @@ treatments:
     term:
       id: NCIT:C15986
       label: Pharmacotherapy
-  aso_details:
-    aso_mechanism: RNASE_H_KNOCKDOWN
+  oligonucleotide_details:
+    oligonucleotide_mechanism: RNASE_H_KNOCKDOWN
     target_gene:
       preferred_term: TUBB4A
       term:
@@ -12599,7 +13101,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "TUBB4A-related Neurologic Disorder", "mondoId": "MONDO:0800470", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "TUBB4A-related_Neurologic_Disorder", "yamlRevision": "770885d8918b"};
+        const OS_CONFIG = {"diseaseName": "TUBB4A-related Neurologic Disorder", "mondoId": "MONDO:0800470", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "TUBB4A-related_Neurologic_Disorder", "yamlRevision": "d8c288ace450"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

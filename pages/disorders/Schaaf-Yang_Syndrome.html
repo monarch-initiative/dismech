@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3761,6 +3826,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3962,7 +4034,7 @@
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
-                <div class="stat-value">25</div>
+                <div class="stat-value">28</div>
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
@@ -4104,6 +4176,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4125,6 +4198,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4308,6 +4382,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4395,6 +4470,7 @@
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4416,6 +4492,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4456,6 +4533,13 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-magel2-truncating-variant-on-the-expressed-paternal-allele" data-dismech-node="MAGEL2 Truncating Variant on the Expressed Paternal Allele" data-dismech-type="pathophysiology">
                 <div class="item-name">MAGEL2 Truncating Variant on the Expressed Paternal Allele</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The initiating lesion is a truncating (nonsense or frameshift) pathogenic variant in MAGEL2 on the paternally expressed allele. MAGEL2 is a single-exon gene within the maternally imprinted Prader-Willi region at 15q11-q13, so only the paternal allele is transcribed; a truncating variant on that allele removes the C-terminal MAGE homology domain from the expressed protein.</div>
 
@@ -4596,6 +4680,7 @@ This pathophysiological event involves MAGEL2 (hgnc:6814). hgnc:6814 is a gene f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4618,6 +4703,13 @@ This pathophysiological event involves MAGEL2 (hgnc:6814). hgnc:6814 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-functional-magel2-protein" data-dismech-node="Loss of Functional MAGEL2 Protein" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Functional MAGEL2 Protein</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">With no functional MAGEL2 expressed, the MAGE-L2-TRIM27 ubiquitin-ligase scaffold that normally supports endosomal protein recycling and hypothalamic neuroendocrine function is lost. This loss-of-function is proposed to underlie phenotypes shared with Prader-Willi syndrome.</div>
 
@@ -4862,6 +4954,7 @@ This pathophysiological event involves MAGEL2 (hgnc:6814). hgnc:6814 is a gene f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4884,6 +4977,13 @@ This pathophysiological event involves MAGEL2 (hgnc:6814). hgnc:6814 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-stable-nuclear-mislocalized-truncated-magel2" data-dismech-node="Stable Nuclear-Mislocalized Truncated MAGEL2" data-dismech-type="pathophysiology">
                 <div class="item-name">Stable Nuclear-Mislocalized Truncated MAGEL2</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Distinct from a simple null, the truncated MAGEL2 protein produced by SYS variants is stable and shifts to a predominantly nuclear distribution (versus the cytoplasmic wild-type). This supports a neomorphic/toxic gain-of-function contribution that may explain why truncating variants cause disease while whole-gene deletions largely do not, and is associated with altered fibroblast transcriptomic and metabolomic profiles.</div>
 
@@ -4922,6 +5022,7 @@ This pathophysiological event involves MAGEL2 (hgnc:6814). hgnc:6814 is a gene f
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4944,6 +5045,13 @@ This pathophysiological event involves MAGEL2 (hgnc:6814). hgnc:6814 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-mage-l2-trim27-endosomal-protein-recycling" data-dismech-node="Impaired MAGE-L2-TRIM27 Endosomal Protein Recycling" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired MAGE-L2-TRIM27 Endosomal Protein Recycling</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">MAGEL2 forms the substrate-recognition module of the MAGE-L2-TRIM27 RING ubiquitin ligase, which localizes to endosomes via the retromer and K63-ubiquitinates WASH to nucleate endosomal F-actin required for retromer-mediated cargo recycling. Loss of this activity impairs retrograde endosome-to-Golgi transport and recycling of surface receptors, disturbing neuronal and neuroendocrine cell function.</div>
 
@@ -5071,6 +5179,7 @@ This pathophysiological event involves retromer cargo-selective complex, annotat
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5092,6 +5201,7 @@ This pathophysiological event involves retromer cargo-selective complex, annotat
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5119,6 +5229,7 @@ This pathophysiological event involves retromer cargo-selective complex, annotat
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5141,6 +5252,13 @@ This pathophysiological event involves retromer cargo-selective complex, annotat
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypothalamic-oxytocin-deficiency" data-dismech-node="Hypothalamic Oxytocin Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypothalamic Oxytocin Deficiency</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">MAGEL2 is highly expressed in hypothalamic oxytocin-producing nuclei. Magel2-deficient neonatal mice have reduced hypothalamic oxytocin and a lethal suckling/feeding deficit that is recapitulated by an oxytocin-receptor antagonist and rescued by a single early postnatal oxytocin injection, implicating oxytocin deficiency in the neonatal feeding failure of SYS/PWS.</div>
 
@@ -5248,6 +5366,7 @@ This pathophysiological event involves oxytocin production (GO:0036162). GO:0036
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5269,6 +5388,7 @@ This pathophysiological event involves oxytocin production (GO:0036162). GO:0036
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5294,6 +5414,13 @@ This pathophysiological event involves oxytocin production (GO:0036162). GO:0036
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neonatal-suckling-and-feeding-failure" data-dismech-node="Neonatal Suckling and Feeding Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Neonatal Suckling and Feeding Failure</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Impaired suck and neonatal feeding difficulty is one of the earliest and most consistent manifestations, frequently requiring special feeding techniques or tube feeding, and contributing to failure to thrive in infancy.</div>
 
@@ -5379,6 +5506,7 @@ This pathophysiological event involves regulation of feeding behavior (GO:006025
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5401,6 +5529,13 @@ This pathophysiological event involves regulation of feeding behavior (GO:006025
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-hypothalamic-leptin-resistance" data-dismech-node="Progressive Hypothalamic Leptin Resistance" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Hypothalamic Leptin Resistance</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">In the Magel2-null mouse, arcuate POMC neurons progressively lose leptin responsiveness after the neonatal period, providing a mechanism by which early feeding difficulty can give way to later hyperphagia and excessive weight gain in the subset of individuals who develop obesity.</div>
 
@@ -5452,6 +5587,7 @@ This pathophysiological event involves regulation of feeding behavior (GO:006025
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5474,6 +5610,13 @@ This pathophysiological event involves regulation of feeding behavior (GO:006025
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-fetal-movement-and-distal-contracture-formation" data-dismech-node="Reduced Fetal Movement and Distal Contracture Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Fetal Movement and Distal Contracture Formation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">At the severe end of the spectrum, MAGEL2 truncation reduces fetal movement, producing multiple distal joint contractures; complete loss of fetal movement manifests as arthrogryposis multiplex congenita and fetal akinesia. Paternal-allele mutant MAGEL2 transcripts are detected only in affected individuals, confirming the imprinted disease mechanism in these cases.</div>
 
@@ -5531,6 +5674,7 @@ This pathophysiological event involves regulation of feeding behavior (GO:006025
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5552,6 +5696,7 @@ This pathophysiological event involves regulation of feeding behavior (GO:006025
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5600,7 +5745,7 @@ This pathophysiological event involves regulation of feeding behavior (GO:006025
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Assisted Ventilation and CPAP\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Assisted ventilation (noninvasive or invasive) is used for neonatal respiratory distress, and CPAP is used for sleep apnea.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Autism Spectrum Disorder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Autism spectrum disorder is characteristic of SYS and is relatively more common and severe than in Prader-Willi syndrome; all four individuals in the original report met ASD criteria.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000729\"}}, {\"id\": \"Constipation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Constipation requires standard therapy and is an explicit item on the GeneReviews surveillance schedule at each visit.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002019\"}}, {\"id\": \"Cryptorchidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Undescended testes are among the earliest recognizable physical features in affected males, presenting as part of the hypogonadism spectrum and requiring standard management.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000028\"}}, {\"id\": \"Decreased Bone Mineral Density\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Decreased bone mineral density is frequently observed, prompting DXA surveillance beginning in childhood.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004349\"}}, {\"id\": \"Developmental Delay and Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"All affected individuals show developmental delay resulting in intellectual disability of variable degree, from low-normal intelligence to severe intellectual disability.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Distal Joint Contractures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Distal joint contractures (including camptodactyly / contractures of the small finger joints) are present in a majority of affected individuals and are a distinguishing feature from Prader-Willi syndrome.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0005684\"}}, {\"id\": \"Excessive Weight Gain and Obesity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early feeding difficulties can transition to excessive weight gain and obesity later in childhood or adulthood; obesity and its complications are an important contributor to mortality and warrant strict weight monitoring. Note that frank PWS-like hyperphagia is uncommon in SYS - most individuals do not progress to the hyperphagic nutritional phase - so the frequency band below applies to the annotated excessive-weight-gain/obesity term rather than to hyperphagia.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001513\"}}, {\"id\": \"Eye Abnormalities\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ocular findings are common in SYS and take the form of strabismus, esotropia, or myopia.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000478\"}}, {\"id\": \"Facial Dysmorphism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A variable spectrum of facial dysmorphism is the single most prevalent physical finding in the molecularly confirmed cohort, involving the philtrum, ear position, nasal structure, frontal bossing and palpebral fissure length, with prognathia and a squared-off chin in the majority of older children.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001999\"}}, {\"id\": \"Feeding Difficulties in Infancy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gastrointestinal and feeding problems, including poor suck, are particularly pronounced in infancy and childhood and frequently require feeding therapy or supplemental tube feeding.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011968\"}}, {\"id\": \"Feeding Therapy and Supplemental Tube Feeding\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Feeding therapy or supplemental (naso-gastric or gastrostomy) tube feeding is used for persistent infantile feeding difficulties and failure to thrive.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Fetal Akinesia and Arthrogryposis Multiplex Congenita\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"At the severe end of the spectrum, truncating MAGEL2 variants cause arthrogryposis multiplex congenita and fetal akinesia, which can be lethal in the perinatal period.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001989\"}}, {\"id\": \"Gastroesophageal Reflux\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gastroesophageal reflux is frequently reported and is attributed in part to the muscular dysfunction associated with early hypotonia. It requires standard anti-reflux management.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002020\"}}, {\"id\": \"Growth Hormone Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Growth hormone therapy is used in individuals with short stature and/or linear-growth concerns; polysomnography is recommended for those on long-term GH therapy.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Habitual Skin Picking\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Habitual skin picking or automutilation of varying severity is reported by parents in a majority of molecularly diagnosed individuals, another feature shared with Prader-Willi syndrome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100716\"}}, {\"id\": \"Hypogonadism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypogonadism, including undescended testes in males, is part of the endocrine spectrum shared with Prader-Willi syndrome.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000135\"}}, {\"id\": \"Hypothalamic Oxytocin Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MAGEL2 is highly expressed in hypothalamic oxytocin-producing nuclei. Magel2-deficient neonatal mice have reduced hypothalamic oxytocin and a lethal suckling/feeding deficit that is recapitulated by an oxytocin-receptor antagonist and rescued by a single early postnatal oxytocin injection, implicating oxytocin deficiency in the neonatal feeding failure of SYS/PWS.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"oxytocin production\"]}}, {\"id\": \"Hypothyroidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypothyroidism is part of the endocrine spectrum of Schaaf-Yang syndrome and requires standard therapy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000821\"}}, {\"id\": \"Impaired MAGE-L2-TRIM27 Endosomal Protein Recycling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MAGEL2 forms the substrate-recognition module of the MAGE-L2-TRIM27 RING ubiquitin ligase, which localizes to endosomes via the retromer and K63-ubiquitinates WASH to nucleate endosomal F-actin required for retromer-mediated cargo recycling. Loss of this activity impairs retrograde endosome-to-Golgi transport and recycling of surface receptors, disturbing neuronal and neuroendocrine cell function.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"retrograde endosome-to-Golgi transport\", \"K63-linked ubiquitination of WASH by MAGE-L2-TRIM27\"]}}, {\"id\": \"Impulsive and Compulsive Behavioral Profile\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Affected individuals show a characteristic behavioral spectrum described as impulsive, compulsive, stubborn, and manipulative, overlapping the behavioral profile of Prader-Willi syndrome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000708\"}}, {\"id\": \"Loss of Functional MAGEL2 Protein\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"With no functional MAGEL2 expressed, the MAGE-L2-TRIM27 ubiquitin-ligase scaffold that normally supports endosomal protein recycling and hypothalamic neuroendocrine function is lost. This loss-of-function is proposed to underlie phenotypes shared with Prader-Willi syndrome.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"MAGEL2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MAGEL2\"], \"gene_terms\": [{\"label\": \"MAGEL2\", \"id\": \"hgnc:6814\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"MAGEL2 Truncating Variant on the Expressed Paternal Allele\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion is a truncating (nonsense or frameshift) pathogenic variant in MAGEL2 on the paternally expressed allele. MAGEL2 is a single-exon gene within the maternally imprinted Prader-Willi region at 15q11-q13, so only the paternal allele is transcribed; a truncating variant on that allele removes the C-terminal MAGE homology domain from the expressed protein.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"MAGEL2\"], \"gene_terms\": [{\"label\": \"MAGEL2\", \"id\": \"hgnc:6814\"}]}}, {\"id\": \"Neonatal Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Muscular hypotonia manifesting at birth is present in essentially all affected individuals and is typically the presenting feature.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0001319\"}}, {\"id\": \"Neonatal Respiratory Distress\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Respiratory distress is present in many individuals at birth, with approximately half requiring intubation and mechanical ventilation and about 20% requiring tracheostomy.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002643\"}}, {\"id\": \"Neonatal Suckling and Feeding Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired suck and neonatal feeding difficulty is one of the earliest and most consistent manifestations, frequently requiring special feeding techniques or tube feeding, and contributing to failure to thrive in infancy.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"regulation of feeding behavior\"]}}, {\"id\": \"Oxytocin (Experimental)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Early postnatal oxytocin administration is an experimental, preclinical strategy aimed at the hypothalamic oxytocin deficiency itself rather than at compensating for its consequences. In Magel2-deficient mice a single injection 3-5 hours after birth rescued the otherwise lethal suckling failure. This is NOT established human therapy for Schaaf-Yang syndrome: the supporting evidence is model-organism only, the authors\u0027 clinical proposal is framed for Prader-Willi neonates, and GeneReviews management does not include it.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"oxytocin\"]}}, {\"id\": \"Physical Therapy for Contractures\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Physical therapy and orthopedic management address joint contractures, progression of contractures, and scoliosis.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Progressive Hypothalamic Leptin Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the Magel2-null mouse, arcuate POMC neurons progressively lose leptin responsiveness after the neonatal period, providing a mechanism by which early feeding difficulty can give way to later hyperphagia and excessive weight gain in the subset of individuals who develop obesity.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Reduced Fetal Movement and Distal Contracture Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"At the severe end of the spectrum, MAGEL2 truncation reduces fetal movement, producing multiple distal joint contractures; complete loss of fetal movement manifests as arthrogryposis multiplex congenita and fetal akinesia. Paternal-allele mutant MAGEL2 transcripts are detected only in affected individuals, confirming the imprinted disease mechanism in these cases.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Scoliosis is a frequently observed skeletal manifestation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002650\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures occur in a proportion of affected individuals.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Short Stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Short stature occurs in a proportion of individuals, and growth hormone therapy is used in those with short stature or linear-growth concerns.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004322\"}}, {\"id\": \"Sleep Apnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sleep-disordered breathing / sleep apnea occurs and can require CPAP; together with hypotonia and obesity it contributes to respiratory morbidity and mortality.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0010535\"}}, {\"id\": \"Small Feet\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Small feet accompany the small hands as part of the acral skeletal phenotype.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001773\"}}, {\"id\": \"Small Hands\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Small hands are a recurrent acral skeletal feature, part of the Prader-Willi-like habitus shared with the 15q11.2 imprinted region.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0200055\"}}, {\"id\": \"Stable Nuclear-Mislocalized Truncated MAGEL2\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Distinct from a simple null, the truncated MAGEL2 protein produced by SYS variants is stable and shifts to a predominantly nuclear distribution (versus the cytoplasmic wild-type). This supports a neomorphic/toxic gain-of-function contribution that may explain why truncating variants cause disease while whole-gene deletions largely do not, and is associated with altered fibroblast transcriptomic and metabolomic profiles.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"MAGEL2 Truncating Variant on the Expressed Paternal Allele\", \"target\": \"Loss of Functional MAGEL2 Protein\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"magel2_loss_of_function\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"MAGEL2 Truncating Variant on the Expressed Paternal Allele\", \"target\": \"Stable Nuclear-Mislocalized Truncated MAGEL2\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"truncated_protein_neomorphic\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Functional MAGEL2 Protein\", \"target\": \"Impaired MAGE-L2-TRIM27 Endosomal Protein Recycling\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"magel2_loss_of_function\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Functional MAGEL2 Protein\", \"target\": \"Hypothalamic Oxytocin Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"magel2_loss_of_function\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Functional MAGEL2 Protein\", \"target\": \"Progressive Hypothalamic Leptin Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"magel2_loss_of_function\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Functional MAGEL2 Protein\", \"target\": \"Neonatal Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Functional MAGEL2 Protein\", \"target\": \"Developmental Delay and Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Functional MAGEL2 Protein\", \"target\": \"Autism Spectrum Disorder\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Functional MAGEL2 Protein\", \"target\": \"Neonatal Respiratory Distress\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Functional MAGEL2 Protein\", \"target\": \"Hypogonadism\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Functional MAGEL2 Protein\", \"target\": \"Short Stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Functional MAGEL2 Protein\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Functional MAGEL2 Protein\", \"target\": \"Scoliosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Functional MAGEL2 Protein\", \"target\": \"Decreased Bone Mineral Density\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Functional MAGEL2 Protein\", \"target\": \"Sleep Apnea\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Functional MAGEL2 Protein\", \"target\": \"Reduced Fetal Movement and Distal Contracture Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"magel2_loss_of_function\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Functional MAGEL2 Protein\", \"target\": \"Facial Dysmorphism\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Functional MAGEL2 Protein\", \"target\": \"Eye Abnormalities\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Functional MAGEL2 Protein\", \"target\": \"Cryptorchidism\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Functional MAGEL2 Protein\", \"target\": \"Hypothyroidism\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Functional MAGEL2 Protein\", \"target\": \"Gastroesophageal Reflux\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Functional MAGEL2 Protein\", \"target\": \"Constipation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Functional MAGEL2 Protein\", \"target\": \"Small Hands\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Functional MAGEL2 Protein\", \"target\": \"Small Feet\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Functional MAGEL2 Protein\", \"target\": \"Impulsive and Compulsive Behavioral Profile\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Functional MAGEL2 Protein\", \"target\": \"Habitual Skin Picking\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hypothalamic Oxytocin Deficiency\", \"target\": \"Neonatal Suckling and Feeding Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"magel2_loss_of_function\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neonatal Suckling and Feeding Failure\", \"target\": \"Feeding Difficulties in Infancy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Hypothalamic Leptin Resistance\", \"target\": \"Excessive Weight Gain and Obesity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Fetal Movement and Distal Contracture Formation\", \"target\": \"Distal Joint Contractures\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Fetal Movement and Distal Contracture Formation\", \"target\": \"Fetal Akinesia and Arthrogryposis Multiplex Congenita\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Feeding Therapy and Supplemental Tube Feeding\", \"target\": \"Neonatal Suckling and Feeding Failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Feeding Therapy and Supplemental Tube Feeding\", \"target\": \"Feeding Difficulties in Infancy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Oxytocin (Experimental)\", \"target\": \"Hypothalamic Oxytocin Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Oxytocin (Experimental)\", \"target\": \"Feeding Difficulties in Infancy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Assisted Ventilation and CPAP\", \"target\": \"Neonatal Respiratory Distress\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Assisted Ventilation and CPAP\", \"target\": \"Sleep Apnea\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Growth Hormone Therapy\", \"target\": \"Short Stature\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Physical Therapy for Contractures\", \"target\": \"Distal Joint Contractures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"MAGEL2\", \"target\": \"MAGEL2 Truncating Variant on the Expressed Paternal Allele\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Assisted Ventilation and CPAP\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Assisted ventilation (noninvasive or invasive) is used for neonatal respiratory distress, and CPAP is used for sleep apnea.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Autism Spectrum Disorder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Autism spectrum disorder is characteristic of SYS and is relatively more common and severe than in Prader-Willi syndrome; all four individuals in the original report met ASD criteria.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000729\"}}, {\"id\": \"Constipation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Constipation requires standard therapy and is an explicit item on the GeneReviews surveillance schedule at each visit.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002019\"}}, {\"id\": \"Cryptorchidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Undescended testes are among the earliest recognizable physical features in affected males, presenting as part of the hypogonadism spectrum and requiring standard management.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000028\"}}, {\"id\": \"Decreased Bone Mineral Density\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Decreased bone mineral density is frequently observed, prompting DXA surveillance beginning in childhood.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004349\"}}, {\"id\": \"Developmental Delay and Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"All affected individuals show developmental delay resulting in intellectual disability of variable degree, from low-normal intelligence to severe intellectual disability.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Distal Joint Contractures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Distal joint contractures (including camptodactyly / contractures of the small finger joints) are present in a majority of affected individuals and are a distinguishing feature from Prader-Willi syndrome.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0005684\"}}, {\"id\": \"Excessive Weight Gain and Obesity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early feeding difficulties can transition to excessive weight gain and obesity later in childhood or adulthood; obesity and its complications are an important contributor to mortality and warrant strict weight monitoring. Note that frank PWS-like hyperphagia is uncommon in SYS - most individuals do not progress to the hyperphagic nutritional phase - so the frequency band below applies to the annotated excessive-weight-gain/obesity term rather than to hyperphagia.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001513\"}}, {\"id\": \"Eye Abnormalities\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ocular findings are common in SYS and take the form of strabismus, esotropia, or myopia.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000478\"}}, {\"id\": \"Facial Dysmorphism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A variable spectrum of facial dysmorphism is the single most prevalent physical finding in the molecularly confirmed cohort, involving the philtrum, ear position, nasal structure, frontal bossing and palpebral fissure length, with prognathia and a squared-off chin in the majority of older children.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001999\"}}, {\"id\": \"Feeding Difficulties in Infancy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gastrointestinal and feeding problems, including poor suck, are particularly pronounced in infancy and childhood and frequently require feeding therapy or supplemental tube feeding.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011968\"}}, {\"id\": \"Feeding Therapy and Supplemental Tube Feeding\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Feeding therapy or supplemental (naso-gastric or gastrostomy) tube feeding is used for persistent infantile feeding difficulties and failure to thrive.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Fetal Akinesia and Arthrogryposis Multiplex Congenita\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"At the severe end of the spectrum, truncating MAGEL2 variants cause arthrogryposis multiplex congenita and fetal akinesia, which can be lethal in the perinatal period.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001989\"}}, {\"id\": \"Gastroesophageal Reflux\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gastroesophageal reflux is frequently reported and is attributed in part to the muscular dysfunction associated with early hypotonia. It requires standard anti-reflux management.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002020\"}}, {\"id\": \"Growth Hormone Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Growth hormone therapy is used in individuals with short stature and/or linear-growth concerns; polysomnography is recommended for those on long-term GH therapy.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Habitual Skin Picking\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Habitual skin picking or automutilation of varying severity is reported by parents in a majority of molecularly diagnosed individuals, another feature shared with Prader-Willi syndrome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100716\"}}, {\"id\": \"Hypogonadism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypogonadism, including undescended testes in males, is part of the endocrine spectrum shared with Prader-Willi syndrome.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000135\"}}, {\"id\": \"Hypothalamic Oxytocin Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MAGEL2 is highly expressed in hypothalamic oxytocin-producing nuclei. Magel2-deficient neonatal mice have reduced hypothalamic oxytocin and a lethal suckling/feeding deficit that is recapitulated by an oxytocin-receptor antagonist and rescued by a single early postnatal oxytocin injection, implicating oxytocin deficiency in the neonatal feeding failure of SYS/PWS.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"oxytocin production\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Hypothyroidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypothyroidism is part of the endocrine spectrum of Schaaf-Yang syndrome and requires standard therapy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000821\"}}, {\"id\": \"Impaired MAGE-L2-TRIM27 Endosomal Protein Recycling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MAGEL2 forms the substrate-recognition module of the MAGE-L2-TRIM27 RING ubiquitin ligase, which localizes to endosomes via the retromer and K63-ubiquitinates WASH to nucleate endosomal F-actin required for retromer-mediated cargo recycling. Loss of this activity impairs retrograde endosome-to-Golgi transport and recycling of surface receptors, disturbing neuronal and neuroendocrine cell function.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"retrograde endosome-to-Golgi transport\", \"K63-linked ubiquitination of WASH by MAGE-L2-TRIM27\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Impulsive and Compulsive Behavioral Profile\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Affected individuals show a characteristic behavioral spectrum described as impulsive, compulsive, stubborn, and manipulative, overlapping the behavioral profile of Prader-Willi syndrome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000708\"}}, {\"id\": \"Loss of Functional MAGEL2 Protein\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"With no functional MAGEL2 expressed, the MAGE-L2-TRIM27 ubiquitin-ligase scaffold that normally supports endosomal protein recycling and hypothalamic neuroendocrine function is lost. This loss-of-function is proposed to underlie phenotypes shared with Prader-Willi syndrome.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"MAGEL2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MAGEL2\"], \"gene_terms\": [{\"label\": \"MAGEL2\", \"id\": \"hgnc:6814\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"MAGEL2 Truncating Variant on the Expressed Paternal Allele\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion is a truncating (nonsense or frameshift) pathogenic variant in MAGEL2 on the paternally expressed allele. MAGEL2 is a single-exon gene within the maternally imprinted Prader-Willi region at 15q11-q13, so only the paternal allele is transcribed; a truncating variant on that allele removes the C-terminal MAGE homology domain from the expressed protein.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"MAGEL2\"], \"gene_terms\": [{\"label\": \"MAGEL2\", \"id\": \"hgnc:6814\"}], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Neonatal Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Muscular hypotonia manifesting at birth is present in essentially all affected individuals and is typically the presenting feature.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0001319\"}}, {\"id\": \"Neonatal Respiratory Distress\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Respiratory distress is present in many individuals at birth, with approximately half requiring intubation and mechanical ventilation and about 20% requiring tracheostomy.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002643\"}}, {\"id\": \"Neonatal Suckling and Feeding Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired suck and neonatal feeding difficulty is one of the earliest and most consistent manifestations, frequently requiring special feeding techniques or tube feeding, and contributing to failure to thrive in infancy.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"regulation of feeding behavior\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Oxytocin (Experimental)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Early postnatal oxytocin administration is an experimental, preclinical strategy aimed at the hypothalamic oxytocin deficiency itself rather than at compensating for its consequences. In Magel2-deficient mice a single injection 3-5 hours after birth rescued the otherwise lethal suckling failure. This is NOT established human therapy for Schaaf-Yang syndrome: the supporting evidence is model-organism only, the authors\u0027 clinical proposal is framed for Prader-Willi neonates, and GeneReviews management does not include it.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"oxytocin\"]}}, {\"id\": \"Physical Therapy for Contractures\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Physical therapy and orthopedic management address joint contractures, progression of contractures, and scoliosis.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Progressive Hypothalamic Leptin Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the Magel2-null mouse, arcuate POMC neurons progressively lose leptin responsiveness after the neonatal period, providing a mechanism by which early feeding difficulty can give way to later hyperphagia and excessive weight gain in the subset of individuals who develop obesity.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Reduced Fetal Movement and Distal Contracture Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"At the severe end of the spectrum, MAGEL2 truncation reduces fetal movement, producing multiple distal joint contractures; complete loss of fetal movement manifests as arthrogryposis multiplex congenita and fetal akinesia. Paternal-allele mutant MAGEL2 transcripts are detected only in affected individuals, confirming the imprinted disease mechanism in these cases.\", \"meta\": {\"evidence_count\": 2, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Scoliosis is a frequently observed skeletal manifestation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002650\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures occur in a proportion of affected individuals.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Short Stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Short stature occurs in a proportion of individuals, and growth hormone therapy is used in those with short stature or linear-growth concerns.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004322\"}}, {\"id\": \"Sleep Apnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sleep-disordered breathing / sleep apnea occurs and can require CPAP; together with hypotonia and obesity it contributes to respiratory morbidity and mortality.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0010535\"}}, {\"id\": \"Small Feet\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Small feet accompany the small hands as part of the acral skeletal phenotype.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001773\"}}, {\"id\": \"Small Hands\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Small hands are a recurrent acral skeletal feature, part of the Prader-Willi-like habitus shared with the 15q11.2 imprinted region.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0200055\"}}, {\"id\": \"Stable Nuclear-Mislocalized Truncated MAGEL2\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Distinct from a simple null, the truncated MAGEL2 protein produced by SYS variants is stable and shifts to a predominantly nuclear distribution (versus the cytoplasmic wild-type). This supports a neomorphic/toxic gain-of-function contribution that may explain why truncating variants cause disease while whole-gene deletions largely do not, and is associated with altered fibroblast transcriptomic and metabolomic profiles.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"PROVISIONAL\"}}], \"edges\": [{\"source\": \"MAGEL2 Truncating Variant on the Expressed Paternal Allele\", \"target\": \"Loss of Functional MAGEL2 Protein\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"magel2_loss_of_function\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"MAGEL2 Truncating Variant on the Expressed Paternal Allele\", \"target\": \"Stable Nuclear-Mislocalized Truncated MAGEL2\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"truncated_protein_neomorphic\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Functional MAGEL2 Protein\", \"target\": \"Impaired MAGE-L2-TRIM27 Endosomal Protein Recycling\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"magel2_loss_of_function\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Functional MAGEL2 Protein\", \"target\": \"Hypothalamic Oxytocin Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"magel2_loss_of_function\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Functional MAGEL2 Protein\", \"target\": \"Progressive Hypothalamic Leptin Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"magel2_loss_of_function\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Functional MAGEL2 Protein\", \"target\": \"Neonatal Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Functional MAGEL2 Protein\", \"target\": \"Developmental Delay and Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Functional MAGEL2 Protein\", \"target\": \"Autism Spectrum Disorder\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Functional MAGEL2 Protein\", \"target\": \"Neonatal Respiratory Distress\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Functional MAGEL2 Protein\", \"target\": \"Hypogonadism\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Functional MAGEL2 Protein\", \"target\": \"Short Stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Functional MAGEL2 Protein\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Functional MAGEL2 Protein\", \"target\": \"Scoliosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Functional MAGEL2 Protein\", \"target\": \"Decreased Bone Mineral Density\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Functional MAGEL2 Protein\", \"target\": \"Sleep Apnea\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Functional MAGEL2 Protein\", \"target\": \"Reduced Fetal Movement and Distal Contracture Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"magel2_loss_of_function\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Functional MAGEL2 Protein\", \"target\": \"Facial Dysmorphism\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Functional MAGEL2 Protein\", \"target\": \"Eye Abnormalities\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Functional MAGEL2 Protein\", \"target\": \"Cryptorchidism\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Functional MAGEL2 Protein\", \"target\": \"Hypothyroidism\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Functional MAGEL2 Protein\", \"target\": \"Gastroesophageal Reflux\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Functional MAGEL2 Protein\", \"target\": \"Constipation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Functional MAGEL2 Protein\", \"target\": \"Small Hands\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Functional MAGEL2 Protein\", \"target\": \"Small Feet\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Functional MAGEL2 Protein\", \"target\": \"Impulsive and Compulsive Behavioral Profile\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Functional MAGEL2 Protein\", \"target\": \"Habitual Skin Picking\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hypothalamic Oxytocin Deficiency\", \"target\": \"Neonatal Suckling and Feeding Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"magel2_loss_of_function\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neonatal Suckling and Feeding Failure\", \"target\": \"Feeding Difficulties in Infancy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Hypothalamic Leptin Resistance\", \"target\": \"Excessive Weight Gain and Obesity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Fetal Movement and Distal Contracture Formation\", \"target\": \"Distal Joint Contractures\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Fetal Movement and Distal Contracture Formation\", \"target\": \"Fetal Akinesia and Arthrogryposis Multiplex Congenita\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Feeding Therapy and Supplemental Tube Feeding\", \"target\": \"Neonatal Suckling and Feeding Failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Feeding Therapy and Supplemental Tube Feeding\", \"target\": \"Feeding Difficulties in Infancy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Oxytocin (Experimental)\", \"target\": \"Hypothalamic Oxytocin Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Oxytocin (Experimental)\", \"target\": \"Feeding Difficulties in Infancy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Assisted Ventilation and CPAP\", \"target\": \"Neonatal Respiratory Distress\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Assisted Ventilation and CPAP\", \"target\": \"Sleep Apnea\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Growth Hormone Therapy\", \"target\": \"Short Stature\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Physical Therapy for Contractures\", \"target\": \"Distal Joint Contractures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"MAGEL2\", \"target\": \"MAGEL2 Truncating Variant on the Expressed Paternal Allele\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5613,7 +5758,7 @@ This pathophysiological event involves regulation of feeding behavior (GO:006025
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
-                <span class="card-count">25</span>
+                <span class="card-count">28</span>
             </div>
 
 
@@ -5623,21 +5768,23 @@ This pathophysiological event involves regulation of feeding behavior (GO:006025
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Endocrine<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Genitourinary<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Eye<span class="pill-count">(4)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Head and Neck<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Genitourinary<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Limbs<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Head and Neck<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Musculoskeletal<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Limbs<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Nervous System<span class="pill-count">(6)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Musculoskeletal<span class="pill-count">(4)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Respiratory<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Nervous System<span class="pill-count">(6)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Growth<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Prenatal and Birth<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Other<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Respiratory<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-11">Growth<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5680,6 +5827,9 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5694,6 +5844,7 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5750,6 +5901,9 @@ This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5764,6 +5918,7 @@ This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5788,6 +5943,7 @@ This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5839,6 +5995,9 @@ This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype fr
                     </div>
 
 
+
+
+
                     <div class="item-desc">No frequency band asserted: the GeneReviews management and surveillance sentences establish that constipation occurs and is monitored, but neither reports a rate, and no count is available in the cited cohort.</div>
 
 
@@ -5858,6 +6017,7 @@ This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5882,6 +6042,7 @@ This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5945,6 +6106,9 @@ This clinical feature is Hypogonadotropic hypogonadism (HP:0000044). HP:0000044 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5959,6 +6123,7 @@ This clinical feature is Hypogonadotropic hypogonadism (HP:0000044). HP:0000044 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5983,6 +6148,7 @@ This clinical feature is Hypogonadotropic hypogonadism (HP:0000044). HP:0000044 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6039,6 +6205,9 @@ This clinical feature is Hypogonadism (HP:0000135). HP:0000135 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6053,6 +6222,7 @@ This clinical feature is Hypogonadism (HP:0000135). HP:0000135 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6077,6 +6247,7 @@ This clinical feature is Hypogonadism (HP:0000135). HP:0000135 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6128,6 +6299,9 @@ This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype 
                     </div>
 
 
+
+
+
                     <div class="item-desc">No frequency band asserted: GeneReviews names hypothyroidism as a managed manifestation but reports no rate, and the cited cohort provides no count. A systematic endocrinological assessment of SHFYNG has not been reported.</div>
 
 
@@ -6147,6 +6321,7 @@ This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6178,6 +6353,313 @@ This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype 
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Eye
+                    <span class="cat-count">4</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-eye-abnormalities" data-dismech-node="Eye Abnormalities" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Eye Abnormalities
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormality of the eye</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000478" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000478</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Eye abnormality, annotated with Abnormality of the eye (HP:0000478). HP:0000478 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+    <div class="item-meta">
+
+        <span class="tag tag-classification" title="Bound at organ-system level deliberately: involvement of this system is recurrent but its form varies between patients, with no characteristic finding to bind.">Coarse binding: variable spectrum</span>
+
+    </div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27195816" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27195816" target="_blank">PMID:27195816</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Eleven of 14 patients manifested eye abnormalities in the form of strabismus, esotropia, or myopia."</div>
+
+
+                <div class="evidence-explanation">Derived count: 11/14 patients (79%) had eye abnormalities in the largest phenotyping series, placing this in the HPO FREQUENT band (30-79%). The aggregate rate is what the source measures; which of the three forms an individual has varies, and each is curated as its own phenotype below without a frequency, since the source gives no per-finding counts.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-strabismus" data-dismech-node="Strabismus" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Strabismus
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000486</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is strabismus (HP:0000486). HP:0000486 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27195816" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27195816" target="_blank">PMID:27195816</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Eleven of 14 patients manifested eye abnormalities in the form of strabismus, esotropia, or myopia."</div>
+
+
+                <div class="evidence-explanation">Named as one of the three forms ocular involvement takes in the largest phenotyping series. The source gives a combined 11/14 count for eye abnormalities as a whole and no per-finding count, so this entry carries no frequency of its own.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-esotropia" data-dismech-node="Esotropia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Esotropia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000565" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000565</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is esotropia (HP:0000565). HP:0000565 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27195816" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27195816" target="_blank">PMID:27195816</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Eleven of 14 patients manifested eye abnormalities in the form of strabismus, esotropia, or myopia."</div>
+
+
+                <div class="evidence-explanation">Named as one of the three forms ocular involvement takes in the largest phenotyping series. The source gives a combined 11/14 count for eye abnormalities as a whole and no per-finding count, so this entry carries no frequency of its own.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-myopia" data-dismech-node="Myopia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Myopia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000545" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000545</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is myopia (HP:0000545). HP:0000545 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27195816" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27195816" target="_blank">PMID:27195816</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Eleven of 14 patients manifested eye abnormalities in the form of strabismus, esotropia, or myopia."</div>
+
+
+                <div class="evidence-explanation">Named as one of the three forms ocular involvement takes in the largest phenotyping series. The source gives a combined 11/14 count for eye abnormalities as a whole and no per-finding count, so this entry carries no frequency of its own.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Genitourinary
                     <span class="cat-count">1</span>
                 </summary>
@@ -6198,15 +6680,18 @@ This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000028" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000028</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000028" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000028</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">The 8/11 count below is for cryptorchidism and/or micropenis combined, so it is an upper bound on cryptorchidism alone; the FREQUENT band is retained because the source also identifies it as one of the earliest recognized features in males, but a cryptorchidism-specific rate is not established.</div>
@@ -6231,6 +6716,7 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6252,6 +6738,7 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6280,7 +6767,7 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
@@ -6305,15 +6792,18 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001999</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001999</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Facial dysmorphism, annotated with Abnormal facial shape (HP:0001999). HP:0001999 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6333,6 +6823,7 @@ This clinical feature is Facial dysmorphism, annotated with Abnormal facial shap
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6361,7 +6852,7 @@ This clinical feature is Facial dysmorphism, annotated with Abnormal facial shap
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-5">
+            <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Limbs
@@ -6384,15 +6875,18 @@ This clinical feature is Facial dysmorphism, annotated with Abnormal facial shap
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0200055" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0200055</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0200055" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0200055</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Small hand (HP:0200055). HP:0200055 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6412,6 +6906,7 @@ This clinical feature is Small hand (HP:0200055). HP:0200055 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6456,15 +6951,18 @@ This clinical feature is Small hand (HP:0200055). HP:0200055 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001773" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001773</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001773" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001773</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Small feet, annotated with Short foot (HP:0001773). HP:0001773 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6484,6 +6982,7 @@ This clinical feature is Small feet, annotated with Short foot (HP:0001773). HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6512,11 +7011,11 @@ This clinical feature is Small feet, annotated with Short foot (HP:0001773). HP:
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-6">
+            <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">4</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-neonatal-hypotonia" data-dismech-node="Neonatal Hypotonia" data-dismech-type="phenotype">
@@ -6535,10 +7034,10 @@ This clinical feature is Small feet, annotated with Short foot (HP:0001773). HP:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001319" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001319</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001319" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001319</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Neonatal hypotonia (HP:0001319), qualified as congenital onset. HP:0001319 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6578,6 +7077,9 @@ This clinical feature is Neonatal hypotonia (HP:0001319), qualified as congenita
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6592,6 +7094,7 @@ This clinical feature is Neonatal hypotonia (HP:0001319), qualified as congenita
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6619,6 +7122,7 @@ This clinical feature is Neonatal hypotonia (HP:0001319), qualified as congenita
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6627,6 +7131,107 @@ This clinical feature is Neonatal hypotonia (HP:0001319), qualified as congenita
 
 
                 <div class="evidence-explanation">The 18-individual cohort corroborates hypotonia as present in all assessed individuals.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-distal-joint-contractures" data-dismech-node="Distal Joint Contractures" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Distal Joint Contractures
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Distal arthrogryposis</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005684" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0005684</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Distal arthrogryposis (HP:0005684). HP:0005684 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33570896" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33570896" target="_blank">PMID:33570896</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"It usually manifests at birth with muscular hypotonia in all and distal joint contractures in a majority of affected individuals."</div>
+
+
+                <div class="evidence-explanation">GeneReviews states distal joint contractures occur in a majority of affected individuals.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27195816" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27195816" target="_blank">PMID:27195816</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The phenotypic spectrum of Schaaf-Yang syndrome ranges from fetal akinesia to neurobehavioral disease and contractures of the small finger joints."</div>
+
+
+                <div class="evidence-explanation">Fountain et al. document small-finger-joint contractures as part of the spectrum.</div>
 
 
 
@@ -6658,15 +7263,18 @@ This clinical feature is Neonatal hypotonia (HP:0001319), qualified as congenita
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002650</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002650</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6686,6 +7294,7 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6730,15 +7339,18 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004349" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0004349</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004349" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0004349</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Reduced bone mineral density (HP:0004349). HP:0004349 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6758,6 +7370,7 @@ This clinical feature is Reduced bone mineral density (HP:0004349). HP:0004349 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6786,7 +7399,7 @@ This clinical feature is Reduced bone mineral density (HP:0004349). HP:0004349 i
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-7">
+            <details class="phenotype-category-group" id="pheno-cat-8">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
@@ -6809,15 +7422,18 @@ This clinical feature is Reduced bone mineral density (HP:0004349). HP:0004349 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001249</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6837,6 +7453,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6861,6 +7478,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6905,15 +7523,18 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000729</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000729</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6933,6 +7554,7 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6957,6 +7579,7 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6997,15 +7620,18 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7025,6 +7651,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7067,15 +7694,18 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010535" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0010535</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010535" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0010535</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Sleep apnea (HP:0010535). HP:0010535 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7095,6 +7725,7 @@ This clinical feature is Sleep apnea (HP:0010535). HP:0010535 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7119,6 +7750,7 @@ This clinical feature is Sleep apnea (HP:0010535). HP:0010535 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7163,15 +7795,18 @@ This clinical feature is Sleep apnea (HP:0010535). HP:0010535 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000708</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000708</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Impulsive, compulsive, stubborn, and manipulative behaviors, annotated with Atypical behavior (HP:0000708). HP:0000708 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7191,6 +7826,7 @@ This clinical feature is Impulsive, compulsive, stubborn, and manipulative behav
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7235,15 +7871,18 @@ This clinical feature is Impulsive, compulsive, stubborn, and manipulative behav
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0100716</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0100716</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Habitual skin picking / automutilation, annotated with Self-injurious behavior (HP:0100716). HP:0100716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7263,6 +7902,7 @@ This clinical feature is Habitual skin picking / automutilation, annotated with 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7291,509 +7931,12 @@ This clinical feature is Habitual skin picking / automutilation, annotated with 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-8">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Respiratory
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-neonatal-respiratory-distress" data-dismech-node="Neonatal Respiratory Distress" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Neonatal Respiratory Distress
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002643" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002643</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Neonatal respiratory distress (HP:0002643), qualified as congenital onset. HP:0002643 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">
-        Onset: CONGENITAL</span>
-
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33570896" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33570896" target="_blank">PMID:33570896</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Respiratory distress is present in many individuals at birth, with approximately half requiring intubation and mechanical ventilation, and approximately 20% requiring tracheostomy."</div>
-
-
-                <div class="evidence-explanation">GeneReviews quantifies the frequency and severity of neonatal respiratory distress.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
             <details class="phenotype-category-group" id="pheno-cat-9">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Growth
-                    <span class="cat-count">2</span>
+                    Prenatal and Birth
+                    <span class="cat-count">1</span>
                 </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-excessive-weight-gain-and-obesity" data-dismech-node="Excessive Weight Gain and Obesity" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Excessive Weight Gain and Obesity
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001513</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (3 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:27195816" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27195816" target="_blank">PMID:27195816</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"only eight of 17 molecularly confirmed individuals had excessive weight gain, typically associated with PWS"</div>
-
-
-                <div class="evidence-explanation">Derived count: 8/17 molecularly confirmed individuals (47%) had excessive weight gain, which falls in the HPO FREQUENT band (30-79%). The same sentence&#39;s surrounding text notes most individuals do not reach the hyperphagic phase, which is why the phenotype is scoped to weight gain/obesity.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33570896" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33570896" target="_blank">PMID:33570896</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"but can transition to hyperphagia and obesity in adulthood"</div>
-
-
-                <div class="evidence-explanation">GeneReviews notes the transition to hyperphagia and obesity in a subset.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:30238631" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30238631" target="_blank">PMID:30238631</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Our clinical report indicates that obesity and its complications are an important additional factor in the mortality associated with SYS."</div>
-
-
-                <div class="evidence-explanation">A clinical report links obesity to SYS mortality.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-short-stature" data-dismech-node="Short Stature" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Short Stature
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0004322</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33570896" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33570896" target="_blank">PMID:33570896</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Other findings may include short stature, seizures, eye anomalies, and hypogonadism."</div>
-
-
-                <div class="evidence-explanation">GeneReviews lists short stature among additional findings.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:27195816" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27195816" target="_blank">PMID:27195816</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"A further assessment of skeletal features showed 12 of 14 cases to have small hands, 8 of 15 to have small feet, and 10 of 16 cases to have small stature."</div>
-
-
-                <div class="evidence-explanation">Sources the FREQUENT band by derived count: 10/16 cases (63%) had small stature, which falls in the 30-79% band.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-10">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">3</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-distal-joint-contractures" data-dismech-node="Distal Joint Contractures" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Distal Joint Contractures
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Distal arthrogryposis</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0005684" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0005684</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Distal arthrogryposis (HP:0005684). HP:0005684 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33570896" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33570896" target="_blank">PMID:33570896</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"It usually manifests at birth with muscular hypotonia in all and distal joint contractures in a majority of affected individuals."</div>
-
-
-                <div class="evidence-explanation">GeneReviews states distal joint contractures occur in a majority of affected individuals.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:27195816" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27195816" target="_blank">PMID:27195816</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The phenotypic spectrum of Schaaf-Yang syndrome ranges from fetal akinesia to neurobehavioral disease and contractures of the small finger joints."</div>
-
-
-                <div class="evidence-explanation">Fountain et al. document small-finger-joint contractures as part of the spectrum.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-eye-abnormalities" data-dismech-node="Eye Abnormalities" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Eye Abnormalities
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Abnormality of the eye</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000478" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000478</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Eye abnormality, annotated with Abnormality of the eye (HP:0000478). HP:0000478 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:27195816" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27195816" target="_blank">PMID:27195816</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Eleven of 14 patients manifested eye abnormalities in the form of strabismus, esotropia, or myopia."</div>
-
-
-                <div class="evidence-explanation">Derived count: 11/14 patients (79%) had eye abnormalities in the largest phenotyping series, placing this in the HPO FREQUENT band (30-79%). The generic HP:0000478 term is used because the source bundles strabismus, esotropia, and myopia without per-finding counts.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-fetal-akinesia-and-arthrogryposis-multiplex-congenita" data-dismech-node="Fetal Akinesia and Arthrogryposis Multiplex Congenita" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -7854,6 +7997,9 @@ This clinical feature is Fetal akinesia sequence (HP:0001989), qualified as ante
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7868,6 +8014,7 @@ This clinical feature is Fetal akinesia sequence (HP:0001989), qualified as ante
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7895,6 +8042,7 @@ This clinical feature is Fetal akinesia sequence (HP:0001989), qualified as ante
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7903,6 +8051,350 @@ This clinical feature is Fetal akinesia sequence (HP:0001989), qualified as ante
 
 
                 <div class="evidence-explanation">Places fetal akinesia at the severe end of the SYS spectrum.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-10">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Respiratory
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-neonatal-respiratory-distress" data-dismech-node="Neonatal Respiratory Distress" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Neonatal Respiratory Distress
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002643" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0002643</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Neonatal respiratory distress (HP:0002643), qualified as congenital onset. HP:0002643 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">
+        Onset: CONGENITAL</span>
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33570896" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33570896" target="_blank">PMID:33570896</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Respiratory distress is present in many individuals at birth, with approximately half requiring intubation and mechanical ventilation, and approximately 20% requiring tracheostomy."</div>
+
+
+                <div class="evidence-explanation">GeneReviews quantifies the frequency and severity of neonatal respiratory distress.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-11">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Growth
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-excessive-weight-gain-and-obesity" data-dismech-node="Excessive Weight Gain and Obesity" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Excessive Weight Gain and Obesity
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001513</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27195816" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27195816" target="_blank">PMID:27195816</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"only eight of 17 molecularly confirmed individuals had excessive weight gain, typically associated with PWS"</div>
+
+
+                <div class="evidence-explanation">Derived count: 8/17 molecularly confirmed individuals (47%) had excessive weight gain, which falls in the HPO FREQUENT band (30-79%). The same sentence&#39;s surrounding text notes most individuals do not reach the hyperphagic phase, which is why the phenotype is scoped to weight gain/obesity.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33570896" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33570896" target="_blank">PMID:33570896</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"but can transition to hyperphagia and obesity in adulthood"</div>
+
+
+                <div class="evidence-explanation">GeneReviews notes the transition to hyperphagia and obesity in a subset.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30238631" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30238631" target="_blank">PMID:30238631</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Our clinical report indicates that obesity and its complications are an important additional factor in the mortality associated with SYS."</div>
+
+
+                <div class="evidence-explanation">A clinical report links obesity to SYS mortality.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-short-stature" data-dismech-node="Short Stature" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Short Stature
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0004322</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33570896" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33570896" target="_blank">PMID:33570896</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Other findings may include short stature, seizures, eye anomalies, and hypogonadism."</div>
+
+
+                <div class="evidence-explanation">GeneReviews lists short stature among additional findings.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27195816" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27195816" target="_blank">PMID:27195816</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A further assessment of skeletal features showed 12 of 14 cases to have small hands, 8 of 15 to have small feet, and 10 of 16 cases to have small stature."</div>
+
+
+                <div class="evidence-explanation">Sources the FREQUENT band by derived count: 10/16 cases (63%) had small stature, which falls in the 30-79% band.</div>
 
 
 
@@ -7973,10 +8465,10 @@ This clinical feature is Fetal akinesia sequence (HP:0001989), qualified as ante
                         Gene: MAGEL2
 
 
-    <a href="https://bioregistry.io/hgnc:6814" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-32">hgnc:6814</a>
+    <a href="https://bioregistry.io/hgnc:6814" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-35">hgnc:6814</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is MAGEL2 (hgnc:6814). hgnc:6814 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -7986,6 +8478,9 @@ This disease-associated gene is MAGEL2 (hgnc:6814). hgnc:6814 is a gene from the
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -8010,6 +8505,7 @@ This disease-associated gene is MAGEL2 (hgnc:6814). hgnc:6814 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8060,7 +8556,7 @@ This disease-associated gene is MAGEL2 (hgnc:6814). hgnc:6814 is a gene from the
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">gastrostomy<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">gastrostomy<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is gastrostomy (NCIT:C52006). NCIT:C52006 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8088,6 +8584,31 @@ This treatment is gastrostomy (NCIT:C52006). NCIT:C52006 is a clinical intervent
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -8126,11 +8647,11 @@ This treatment is gastrostomy (NCIT:C52006). NCIT:C52006 is a clinical intervent
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0011968</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0011968</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Feeding difficulties (HP:0011968). HP:0011968 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8154,6 +8675,7 @@ This treatment targets Feeding difficulties (HP:0011968). HP:0011968 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8185,7 +8707,7 @@ This treatment targets Feeding difficulties (HP:0011968). HP:0011968 is a phenot
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8226,16 +8748,41 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_7872" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-36">CHEBI:7872</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_7872" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-39">CHEBI:7872</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses oxytocin (CHEBI:7872). CHEBI:7872 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Peptide</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
 
 
 
@@ -8272,11 +8819,11 @@ This treatment uses oxytocin (CHEBI:7872). CHEBI:7872 is a therapeutic agent fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0011968</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0011968</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Feeding difficulties (HP:0011968). HP:0011968 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8303,6 +8850,7 @@ This treatment targets Feeding difficulties (HP:0011968). HP:0011968 is a phenot
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8324,6 +8872,7 @@ This treatment targets Feeding difficulties (HP:0011968). HP:0011968 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8355,7 +8904,7 @@ This treatment targets Feeding difficulties (HP:0011968). HP:0011968 is a phenot
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">artificial respiration<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">artificial respiration<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is artificial respiration, annotated with Mechanical Ventilation (NCIT:C70909). NCIT:C70909 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8388,6 +8937,31 @@ This treatment is artificial respiration, annotated with Mechanical Ventilation 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Device</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Assisted ventilation (noninvasive or invasive) is used for neonatal respiratory distress, and CPAP is used for sleep apnea.</div>
 
 
@@ -8403,11 +8977,11 @@ This treatment is artificial respiration, annotated with Mechanical Ventilation 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002643" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0002643</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002643" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0002643</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Neonatal respiratory distress (HP:0002643). HP:0002643 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8420,11 +8994,11 @@ This treatment targets Neonatal respiratory distress (HP:0002643). HP:0002643 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010535" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0010535</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010535" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0010535</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Sleep apnea (HP:0010535). HP:0010535 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8448,6 +9022,7 @@ This treatment targets Sleep apnea (HP:0010535). HP:0010535 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8479,7 +9054,7 @@ This treatment targets Sleep apnea (HP:0010535). HP:0010535 is a phenotype from 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">human growth hormone replacement therapy<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-44">human growth hormone replacement therapy<span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is human growth hormone replacement therapy, annotated with Hormone Replacement Therapy (NCIT:C15599). NCIT:C15599 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8512,6 +9087,31 @@ This treatment is human growth hormone replacement therapy, annotated with Hormo
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Protein replacement</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Growth hormone therapy is used in individuals with short stature and/or linear-growth concerns; polysomnography is recommended for those on long-term GH therapy.</div>
 
 
@@ -8527,11 +9127,11 @@ This treatment is human growth hormone replacement therapy, annotated with Hormo
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0004322</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0004322</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8555,6 +9155,7 @@ This treatment targets Short stature (HP:0004322). HP:0004322 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8586,7 +9187,7 @@ This treatment targets Short stature (HP:0004322). HP:0004322 is a phenotype fro
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-43">physical therapy<span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-46">physical therapy<span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8619,6 +9220,31 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Physical therapy and orthopedic management address joint contractures, progression of contractures, and scoliosis.</div>
 
 
@@ -8634,11 +9260,11 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005684" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0005684</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005684" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0005684</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Distal arthrogryposis (HP:0005684). HP:0005684 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8662,6 +9288,7 @@ This treatment targets Distal arthrogryposis (HP:0005684). HP:0005684 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8729,6 +9356,7 @@ This treatment targets Distal arthrogryposis (HP:0005684). HP:0005684 is a pheno
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8750,6 +9378,7 @@ This treatment targets Distal arthrogryposis (HP:0005684). HP:0005684 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8802,6 +9431,7 @@ This treatment targets Distal arthrogryposis (HP:0005684). HP:0005684 is a pheno
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8849,6 +9479,7 @@ This treatment targets Distal arthrogryposis (HP:0005684). HP:0005684 is a pheno
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8870,6 +9501,7 @@ This treatment targets Distal arthrogryposis (HP:0005684). HP:0005684 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8927,11 +9559,11 @@ This treatment targets Distal arthrogryposis (HP:0005684). HP:0005684 is a pheno
         molecular genetic testing
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-45">NCIT:C19770</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-48">NCIT:C19770</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -8972,6 +9604,7 @@ This treatment targets Distal arthrogryposis (HP:0005684). HP:0005684 is a pheno
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8993,6 +9626,7 @@ This treatment targets Distal arthrogryposis (HP:0005684). HP:0005684 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9038,11 +9672,11 @@ This treatment targets Distal arthrogryposis (HP:0005684). HP:0005684 is a pheno
         molecular genetic testing
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-46">NCIT:C19770</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-49">NCIT:C19770</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -9083,6 +9717,7 @@ This treatment targets Distal arthrogryposis (HP:0005684). HP:0005684 is a pheno
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9104,6 +9739,7 @@ This treatment targets Distal arthrogryposis (HP:0005684). HP:0005684 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9178,6 +9814,7 @@ This treatment targets Distal arthrogryposis (HP:0005684). HP:0005684 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10333,6 +10970,7 @@ phenotypes:
     term:
       id: HP:0000478
       label: Abnormality of the eye
+    coarse_binding_basis: VARIABLE_SPECTRUM
   frequency: FREQUENT
   evidence:
   - reference: PMID:27195816
@@ -10345,8 +10983,69 @@ phenotypes:
     explanation: &gt;-
       Derived count: 11/14 patients (79%) had eye abnormalities in the largest
       phenotyping series, placing this in the HPO FREQUENT band (30-79%). The
-      generic HP:0000478 term is used because the source bundles strabismus,
-      esotropia, and myopia without per-finding counts.
+      aggregate rate is what the source measures; which of the three forms an
+      individual has varies, and each is curated as its own phenotype below
+      without a frequency, since the source gives no per-finding counts.
+- category: Ophthalmologic
+  name: Strabismus
+  phenotype_term:
+    preferred_term: strabismus
+    term:
+      id: HP:0000486
+      label: Strabismus
+  evidence:
+  - reference: PMID:27195816
+    reference_title: &#34;The phenotypic spectrum of Schaaf-Yang syndrome: 18 new affected individuals from 14 families.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Eleven of 14 patients manifested eye abnormalities in the form of
+      strabismus, esotropia, or myopia.
+    explanation: &gt;-
+      Named as one of the three forms ocular involvement takes in the largest
+      phenotyping series. The source gives a combined 11/14 count for eye
+      abnormalities as a whole and no per-finding count, so this entry carries
+      no frequency of its own.
+- category: Ophthalmologic
+  name: Esotropia
+  phenotype_term:
+    preferred_term: esotropia
+    term:
+      id: HP:0000565
+      label: Esotropia
+  evidence:
+  - reference: PMID:27195816
+    reference_title: &#34;The phenotypic spectrum of Schaaf-Yang syndrome: 18 new affected individuals from 14 families.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Eleven of 14 patients manifested eye abnormalities in the form of
+      strabismus, esotropia, or myopia.
+    explanation: &gt;-
+      Named as one of the three forms ocular involvement takes in the largest
+      phenotyping series. The source gives a combined 11/14 count for eye
+      abnormalities as a whole and no per-finding count, so this entry carries
+      no frequency of its own.
+- category: Ophthalmologic
+  name: Myopia
+  phenotype_term:
+    preferred_term: myopia
+    term:
+      id: HP:0000545
+      label: Myopia
+  evidence:
+  - reference: PMID:27195816
+    reference_title: &#34;The phenotypic spectrum of Schaaf-Yang syndrome: 18 new affected individuals from 14 families.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Eleven of 14 patients manifested eye abnormalities in the form of
+      strabismus, esotropia, or myopia.
+    explanation: &gt;-
+      Named as one of the three forms ocular involvement takes in the largest
+      phenotyping series. The source gives a combined 11/14 count for eye
+      abnormalities as a whole and no per-finding count, so this entry carries
+      no frequency of its own.
 - category: Musculoskeletal
   name: Scoliosis
   description: &gt;-
@@ -11495,6 +12194,19 @@ treatments:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Schaaf-Yang Syndrome</strong> · 2026-07-29T22:51:35Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Schaaf-Yang_Syndrome/2026-07-29T225135Z-claude-code-f3f1ec.yaml">View source</a></p>
+                        <p class="research-review-text">Created de-novo Schaaf-Yang syndrome entry MONDO:0014243, gene MAGEL2. Deep research used falcon/Edison provider as leads; GeneReviews baseline PMID:33570896 tagged. All evidence from independently verified primary literature: Schaaf 2013 PMID:24076603, Mejlachowicz 2015 PMID:26365340, Fountain 2017 PMID:27195816, Kleinendorst 2018 PMID:30238631, plus mechanistic support Hao 2013 PMID:23452853 IN_VITRO, Schaller 2010 PMID:20876615 MODEL_ORGANISM, Pravdivyi 2015 PMID:25926624 MODEL_ORGANISM, Castilla-Vallmanya 2023 PMID:36243518 IN_VITRO, Schubert 2025 review PMID:38950199. Nine-node pathophysiology chain with two mechanistic-hypothesis branches: loss-of-function CANONICAL vs neomorphic truncated-protein EMERGING. 15 phenotypes, 4 treatments, MAGEL2 genetic block with c.1996 hotspot. just validate passes schema+terms+references; compliance 98.3 percent.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -11926,7 +12638,7 @@ treatments:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Schaaf-Yang Syndrome", "mondoId": "MONDO:0014243", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Schaaf-Yang_Syndrome", "yamlRevision": "40b8cb4ef28d"};
+        const OS_CONFIG = {"diseaseName": "Schaaf-Yang Syndrome", "mondoId": "MONDO:0014243", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Schaaf-Yang_Syndrome", "yamlRevision": "ce412c87429f"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

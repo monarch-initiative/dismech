@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4209,6 +4281,7 @@ Severity spans a wide range. At the severe end a newborn had total absence of ve
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4230,6 +4303,7 @@ Severity spans a wide range. At the severe end a newborn had total absence of ve
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4333,6 +4407,7 @@ Severity spans a wide range. At the severe end a newborn had total absence of ve
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4354,6 +4429,7 @@ Severity spans a wide range. At the severe end a newborn had total absence of ve
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4391,6 +4467,13 @@ Severity spans a wide range. At the severe end a newborn had total absence of ve
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nkx3-2-loss-of-function" data-dismech-node="NKX3-2 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">NKX3-2 Loss of Function</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Biallelic inactivating NKX3-2 variants abolish the homeobox transcription factor. Reported alleles include three distinct inactivating changes in the founding consanguineous families and, in a perinatally lethal case, the frameshift c.507-508delCA (p.Gly171Cysfs*55) in exon 2.</div>
 
@@ -4535,6 +4618,7 @@ This pathophysiological event involves NKX3-2 transcriptional repressor activity
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4556,6 +4640,7 @@ This pathophysiological event involves NKX3-2 transcriptional repressor activity
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4581,6 +4666,13 @@ This pathophysiological event involves NKX3-2 transcriptional repressor activity
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-derepression-of-the-chondrocyte-maturation-program" data-dismech-node="Derepression of the Chondrocyte Maturation Program" data-dismech-type="pathophysiology">
                 <div class="item-name">Derepression of the Chondrocyte Maturation Program</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">NKX3-2 normally restrains chondrocyte maturation, acting as a transcriptional repressor of Runx2 in the proliferative zone and being switched off as maturation begins. The direction of the mechanism is established by a construct experiment: wild-type Nkx3.2 blocks maturation, while a reverse-function mutant converted into a transcriptional activator accelerates it, and Runx2 mis-expression rescues the Nkx3.2-induced block. Losing NKX3-2 therefore removes a brake on maturation timing rather than removing a positive signal.</div>
 
@@ -4725,6 +4817,7 @@ This pathophysiological event occurs in growth plate, annotated with epiphyseal 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4746,6 +4839,7 @@ This pathophysiological event occurs in growth plate, annotated with epiphyseal 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4773,6 +4867,7 @@ This pathophysiological event occurs in growth plate, annotated with epiphyseal 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4795,6 +4890,13 @@ This pathophysiological event occurs in growth plate, annotated with epiphyseal 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-chondrocyte-survival-signalling" data-dismech-node="Loss of Chondrocyte Survival Signalling" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Chondrocyte Survival Signalling</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">A second, parallel arm of NKX3-2 function, distinct from the maturation brake modelled above. In proliferating chondrocytes NKX3-2 constitutively activates RelA by a ligand-independent route - recruiting the RelA-IkappaB-alpha complex into the nucleus by direct protein-protein interaction and degrading IkappaB-alpha there - and that NF-kappaB activity is required for chondrocyte viability. Losing it removes a survival signal from exactly the cells the maturation brake acts on.
 This makes NKX3-2 a dual-function node rather than a single repressor: a brake on maturation and a survival signal for the cells being braked. The two arms converge, which is consistent with the mouse null showing increased apoptosis alongside failed chondrogenesis.
@@ -4941,6 +5043,7 @@ This pathophysiological event involves decreased negative regulation of apoptoti
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4962,6 +5065,7 @@ This pathophysiological event involves decreased negative regulation of apoptoti
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4989,6 +5093,7 @@ This pathophysiological event involves decreased negative regulation of apoptoti
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5011,6 +5116,13 @@ This pathophysiological event involves decreased negative regulation of apoptoti
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-deranged-endochondral-ossification" data-dismech-node="Deranged Endochondral Ossification" data-dismech-type="pathophysiology">
                 <div class="item-name">Deranged Endochondral Ossification</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The consequence is not uniform under- or over-ossification but a disordered one. In the axial skeleton, vertebral body ossification is delayed and impaired, in the severe case absent altogether. In the appendicular skeleton, epiphyseal ossification centres are large, growth plates are wide, and pseudoepiphyses appear in the short tubular bones. NKX3-2 is therefore required for endochondral ossification of both the axial and appendicular skeleton in humans.</div>
 
@@ -5168,6 +5280,7 @@ This pathophysiological event involves dysregulated endochondral ossification (G
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5189,6 +5302,7 @@ This pathophysiological event involves dysregulated endochondral ossification (G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5214,6 +5328,13 @@ This pathophysiological event involves dysregulated endochondral ossification (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cervical-spine-instability-and-cord-injury" data-dismech-node="Cervical Spine Instability and Cord Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Cervical Spine Instability and Cord Injury</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The clinically decisive consequence of the axial ossification failure, and the reason this disorder is dangerous rather than merely deforming. Reduced or absent ossification of the cervical vertebrae leaves the cervical spine mechanically unsupported, producing instability with anterior or posterior kinking - the swan-neck deformity also called kyknodysostosis - and from there cord injury presenting as limb spasticity.
 Two things make this node worth separating from the general ossification derangement. It hit five of the six patients in the only series to look at it, so within that series it is the rule rather than a complication. And the authors state that the high incidence of cervical spine deformation is unique among skeletal dysplasias, which means it is not a generic consequence of poor vertebral ossification that could be inherited from a sibling disorder.
@@ -5273,6 +5394,7 @@ It is also the only point in this disease where an intervention changes the outc
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5294,6 +5416,7 @@ It is also the only point in this disease where an intervention changes the outc
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5319,6 +5442,13 @@ It is also the only point in this disease where an intervention changes the outc
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-post-embryonic-restraint-on-joint-chondrocyte-proliferation" data-dismech-node="Loss of Post-Embryonic Restraint on Joint Chondrocyte Proliferation" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Post-Embryonic Restraint on Joint Chondrocyte Proliferation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">A distinct, later-acting arm identified in an adult viable zebrafish mutant: chondrocytes show increased proliferation and upregulation of stress-induced pathways, including prostaglandin synthases, and the animals develop cartilage overgrowth and severe spine and craniofacial dysmorphology. This arm is what accounts for the skeletal *overgrowth* of SMMD rather than its ossification deficit, and it is post-embryonic - the same overgrowth is absent in knockdown animals that lack jaw joints, which is the internal control separating the embryonic from the later role.</div>
 
@@ -5462,6 +5592,7 @@ This pathophysiological event involves increased chondrocyte proliferation (GO:0
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5483,6 +5614,7 @@ This pathophysiological event involves increased chondrocyte proliferation (GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5531,7 +5663,7 @@ This pathophysiological event involves increased chondrocyte proliferation (GO:0
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Adult viable nkx3.2 mutant zebrafish\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Survives to adulthood, unlike the embryonic-lethal mouse and knockdown models, and is the only model to reproduce the skeletal overgrowth arm of SMMD. Shows cartilage overgrowth in place of a missing jaw joint, severe facial, skullcap and spine dysmorphology.\"}, {\"id\": \"Cervical Spine Instability and Cord Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinically decisive consequence of the axial ossification failure, and the reason this disorder is dangerous rather than merely deforming. Reduced or absent ossification of the cervical vertebrae leaves the cervical spine mechanically unsupported, producing instability with anterior or posterior kinking - the swan-neck deformity also called kyknodysostosis - and from there cord injury presenting as limb spasticity.\\nTwo things make this node worth separating from the general ossification derangement. It hit five of the six patients in the only series to look at it, so within that series it is the rule rather than a complication. And the authors state that the high incidence of cervical spine deformation is unique among skeletal dysplasias, which means it is not a generic consequence of poor vertebral ossification that could be inherited from a sibling disorder.\\nIt is also the only point in this disease where an intervention changes the outcome: the lesion upstream is embryonic and inaccessible, while cervical instability is detectable and stabilisable before the cord is injured.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Cervical instability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced or absent cervical vertebral ossification leaves the cervical spine unsupported, giving anterior or posterior kinking - the swan-neck deformity the original authors also call kyknodysostosis. The authors note that the high incidence of cervical spine deformation in this disorder is unique among skeletal dysplasias, which is what makes it worth surveillance here rather than being folded into the general vertebral abnormality.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0008462\"}}, {\"id\": \"Coronal cleft vertebrae\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sagittal and coronal clefts in the poorly ossified vertebral bodies, part of the radiographic pattern the diagnosis rests on.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003417\"}}, {\"id\": \"Delayed pubic bone ossification\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Absent or grossly delayed ossification of the pubic bones, reported as a constant radiographic feature. Curated separately from the vertebral finding because it is part of the diagnostic constellation in its own right - the pubis and ischia were carried inside the vertebral snippet and had no phenotype of their own.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0008788\"}}, {\"id\": \"Delayed vertebral ossification\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed and impaired ossification of the vertebral bodies, extending in the most severe reported case to total absence of vertebral body, pubic and ischial ossification at birth.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0031096\"}}, {\"id\": \"Deranged Endochondral Ossification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The consequence is not uniform under- or over-ossification but a disordered one. In the axial skeleton, vertebral body ossification is delayed and impaired, in the severe case absent altogether. In the appendicular skeleton, epiphyseal ossification centres are large, growth plates are wide, and pseudoepiphyses appear in the short tubular bones. NKX3-2 is therefore required for endochondral ossification of both the axial and appendicular skeleton in humans.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"endochondral ossification\"], \"animal_models\": [{\"name\": \"Nkx3-2 null mouse\", \"species\": \"Mouse\", \"genotype\": \"Nkx3-2 null\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Vertebral ossification defects closely resemble those of SMMD patients; appendicular findings are absent.\"}]}}, {\"id\": \"Derepression of the Chondrocyte Maturation Program\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NKX3-2 normally restrains chondrocyte maturation, acting as a transcriptional repressor of Runx2 in the proliferative zone and being switched off as maturation begins. The direction of the mechanism is established by a construct experiment: wild-type Nkx3.2 blocks maturation, while a reverse-function mutant converted into a transcriptional activator accelerates it, and Runx2 mis-expression rescues the Nkx3.2-induced block. Losing NKX3-2 therefore removes a brake on maturation timing rather than removing a positive signal.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"growth plate chondrocyte\"], \"biological_processes\": [\"negative regulation of chondrocyte differentiation\"], \"locations\": [\"growth plate\"]}}, {\"id\": \"Disproportionate short-trunk short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Disproportionate short stature with a short and stiff neck and trunk, the limbs appearing relatively long by contrast. This is the defining clinical presentation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0003521\"}}, {\"id\": \"Enlarged epiphyses\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Large, round \\\"balloon-like\\\" epiphyseal ossification centres in the long tubular bones. The \\\"megaepiphyseal\\\" element of the disease name.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0010580\"}}, {\"id\": \"Flexion contracture\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Flexion contractures of the distal joints may be present in the relatively long limbs.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001371\"}}, {\"id\": \"Loss of Chondrocyte Survival Signalling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A second, parallel arm of NKX3-2 function, distinct from the maturation brake modelled above. In proliferating chondrocytes NKX3-2 constitutively activates RelA by a ligand-independent route - recruiting the RelA-IkappaB-alpha complex into the nucleus by direct protein-protein interaction and degrading IkappaB-alpha there - and that NF-kappaB activity is required for chondrocyte viability. Losing it removes a survival signal from exactly the cells the maturation brake acts on.\\nThis makes NKX3-2 a dual-function node rather than a single repressor: a brake on maturation and a survival signal for the cells being braked. The two arms converge, which is consistent with the mouse null showing increased apoptosis alongside failed chondrogenesis.\\nCurated as PROVISIONAL for this disease. The mechanism is established in chick and mouse chondrocytes and has not been shown in a patient with SMMD, so its contribution to the human phenotype is inferred from the gene rather than demonstrated in the disease.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"proliferating chondrocyte\"], \"biological_processes\": [\"canonical NF-kappaB signal transduction\", \"negative regulation of apoptotic process\"]}}, {\"id\": \"Loss of Post-Embryonic Restraint on Joint Chondrocyte Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A distinct, later-acting arm identified in an adult viable zebrafish mutant: chondrocytes show increased proliferation and upregulation of stress-induced pathways, including prostaglandin synthases, and the animals develop cartilage overgrowth and severe spine and craniofacial dysmorphology. This arm is what accounts for the skeletal *overgrowth* of SMMD rather than its ossification deficit, and it is post-embryonic - the same overgrowth is absent in knockdown animals that lack jaw joints, which is the internal control separating the embryonic from the later role.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"joint-associated chondrocyte\"], \"biological_processes\": [\"chondrocyte proliferation\"], \"animal_models\": [{\"name\": \"Adult viable nkx3.2 mutant zebrafish\", \"species\": \"Zebrafish\", \"genotype\": \"nkx3.2 mutant (adult viable)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Generated specifically to model the skeletal overgrowth defects of SMMD, which prior models could not show, and identifies increased chondrocyte proliferation and a stress response as the cellular basis.\"}]}}, {\"id\": \"NKX3-2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"NKX3-2\"], \"gene_terms\": [{\"label\": \"NKX3-2\", \"id\": \"hgnc:951\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"NKX3-2 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic inactivating NKX3-2 variants abolish the homeobox transcription factor. Reported alleles include three distinct inactivating changes in the founding consanguineous families and, in a perinatally lethal case, the frameshift c.507-508delCA (p.Gly171Cysfs*55) in exon 2.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"NKX3-2 transcriptional repressor activity\"], \"genes\": [\"NKX3-2\"], \"gene_terms\": [{\"label\": \"NKX3-2\", \"id\": \"hgnc:951\"}]}}, {\"id\": \"Nkx3-2 null mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Reproduces the human vertebral ossification defect with striking similarity, but diverges in two directions: the mice are asplenic, which SMMD patients are not, and they lack the limb radiographic abnormalities seen in patients. The authors attribute the missing limb findings to perinatal death of the mutant animals rather than to a species difference in gene function.\"}, {\"id\": \"Prophylactic Cervical Spine Stabilization\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The one intervention in this disorder that changes the outcome rather than managing it. The upstream lesion is an embryonic transcription-factor failure and is not therapeutically accessible after birth; cervical instability is. Stabilization is prophylactic in the strict sense - performed on the basis of the radiographic pattern before cord injury has occurred, not as treatment for an established myelopathy.\\nThe evidence is a proposal rather than a demonstration, and the entry records it that way. The authors write that early diagnosis \\\"might prevent\\\" the neurologic complications; no series has reported outcomes in patients stabilized prophylactically, and with six patients described in total there is no prospect of one soon. This is curated because the reasoning is sound and the stakes are high, not because it has been shown to work.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Pseudoepiphyses of hand bones\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Numerous pseudoepiphyses at the short tubular bones of the hands and feet, reported at all metacarpals and phalanges. Singled out by both source series as a distinguishing feature rather than an incidental radiographic finding.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0004288\"}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Spinal deformity, listed among the skeletal defects characterising the disorder and reproduced as severe spine dysmorphology in the adult zebrafish model. No frequency band is asserted: the only source naming it in humans lists it among the disease\u0027s defects without counting it, and phenotype support is not frequency support.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002650\"}}, {\"id\": \"Spasticity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Limb spasticity is the clinical presentation of cervical cord injury in this disorder, not a primary neurological feature: the lesion is mechanical compression from an unstable cervical spine. Five of six patients in the only series to examine this developed it.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001257\"}}, {\"id\": \"Thick growth plates\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Wide growth plates in the long tubular bones. The \\\"metaphyseal\\\" element of the disease name, and the only metaphyseal finding this entry carries.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0025369\"}}], \"edges\": [{\"source\": \"NKX3-2 Loss of Function\", \"target\": \"Derepression of the Chondrocyte Maturation Program\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"NKX3-2 Loss of Function\", \"target\": \"Loss of Post-Embryonic Restraint on Joint Chondrocyte Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"NKX3-2 Loss of Function\", \"target\": \"Loss of Chondrocyte Survival Signalling\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Derepression of the Chondrocyte Maturation Program\", \"target\": \"Deranged Endochondral Ossification\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deranged Endochondral Ossification\", \"target\": \"Delayed vertebral ossification\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deranged Endochondral Ossification\", \"target\": \"Delayed pubic bone ossification\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deranged Endochondral Ossification\", \"target\": \"Coronal cleft vertebrae\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deranged Endochondral Ossification\", \"target\": \"Enlarged epiphyses\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deranged Endochondral Ossification\", \"target\": \"Thick growth plates\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deranged Endochondral Ossification\", \"target\": \"Pseudoepiphyses of hand bones\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deranged Endochondral Ossification\", \"target\": \"Disproportionate short-trunk short stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deranged Endochondral Ossification\", \"target\": \"Flexion contracture\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Deranged Endochondral Ossification\", \"target\": \"Cervical Spine Instability and Cord Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cervical Spine Instability and Cord Injury\", \"target\": \"Cervical instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cervical Spine Instability and Cord Injury\", \"target\": \"Spasticity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Post-Embryonic Restraint on Joint Chondrocyte Proliferation\", \"target\": \"Scoliosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Prophylactic Cervical Spine Stabilization\", \"target\": \"Cervical Spine Instability and Cord Injury\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Nkx3-2 null mouse\", \"target\": \"Deranged Endochondral Ossification\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Vertebral ossification defects closely resemble those of SMMD patients; appendicular findings are absent.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Asplenia occurs in the mutant mice but not in SMMD patients, and the limb radiographic abnormalities that are a defining human feature are not seen. The perinatal lethality of the model plausibly explains the missing limb phenotype but has not been shown to, so the appendicular arm of the human disease is effectively unmodelled here.\"}, {\"source\": \"Adult viable nkx3.2 mutant zebrafish\", \"target\": \"Loss of Post-Embryonic Restraint on Joint Chondrocyte Proliferation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Generated specifically to model the skeletal overgrowth defects of SMMD, which prior models could not show, and identifies increased chondrocyte proliferation and a stress response as the cellular basis.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Zebrafish skeletal anatomy differs substantially from human: the overgrowth phenotype is read out at a jaw joint that has no direct human counterpart, and the fish spine is not loaded as a human spine is. The prostaglandin-synthase upregulation has not been shown in human SMMD tissue.\"}, {\"source\": \"NKX3-2\", \"target\": \"NKX3-2 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Adult viable nkx3.2 mutant zebrafish\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Survives to adulthood, unlike the embryonic-lethal mouse and knockdown models, and is the only model to reproduce the skeletal overgrowth arm of SMMD. Shows cartilage overgrowth in place of a missing jaw joint, severe facial, skullcap and spine dysmorphology.\"}, {\"id\": \"Cervical Spine Instability and Cord Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinically decisive consequence of the axial ossification failure, and the reason this disorder is dangerous rather than merely deforming. Reduced or absent ossification of the cervical vertebrae leaves the cervical spine mechanically unsupported, producing instability with anterior or posterior kinking - the swan-neck deformity also called kyknodysostosis - and from there cord injury presenting as limb spasticity.\\nTwo things make this node worth separating from the general ossification derangement. It hit five of the six patients in the only series to look at it, so within that series it is the rule rather than a complication. And the authors state that the high incidence of cervical spine deformation is unique among skeletal dysplasias, which means it is not a generic consequence of poor vertebral ossification that could be inherited from a sibling disorder.\\nIt is also the only point in this disease where an intervention changes the outcome: the lesion upstream is embryonic and inaccessible, while cervical instability is detectable and stabilisable before the cord is injured.\", \"meta\": {\"evidence_count\": 2, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Cervical instability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced or absent cervical vertebral ossification leaves the cervical spine unsupported, giving anterior or posterior kinking - the swan-neck deformity the original authors also call kyknodysostosis. The authors note that the high incidence of cervical spine deformation in this disorder is unique among skeletal dysplasias, which is what makes it worth surveillance here rather than being folded into the general vertebral abnormality.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0008462\"}}, {\"id\": \"Coronal cleft vertebrae\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sagittal and coronal clefts in the poorly ossified vertebral bodies, part of the radiographic pattern the diagnosis rests on.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003417\"}}, {\"id\": \"Delayed pubic bone ossification\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Absent or grossly delayed ossification of the pubic bones, reported as a constant radiographic feature. Curated separately from the vertebral finding because it is part of the diagnostic constellation in its own right - the pubis and ischia were carried inside the vertebral snippet and had no phenotype of their own.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0008788\"}}, {\"id\": \"Delayed vertebral ossification\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed and impaired ossification of the vertebral bodies, extending in the most severe reported case to total absence of vertebral body, pubic and ischial ossification at birth.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0031096\"}}, {\"id\": \"Deranged Endochondral Ossification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The consequence is not uniform under- or over-ossification but a disordered one. In the axial skeleton, vertebral body ossification is delayed and impaired, in the severe case absent altogether. In the appendicular skeleton, epiphyseal ossification centres are large, growth plates are wide, and pseudoepiphyses appear in the short tubular bones. NKX3-2 is therefore required for endochondral ossification of both the axial and appendicular skeleton in humans.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"endochondral ossification\"], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Nkx3-2 null mouse\", \"species\": \"Mouse\", \"genotype\": \"Nkx3-2 null\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Vertebral ossification defects closely resemble those of SMMD patients; appendicular findings are absent.\"}]}}, {\"id\": \"Derepression of the Chondrocyte Maturation Program\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NKX3-2 normally restrains chondrocyte maturation, acting as a transcriptional repressor of Runx2 in the proliferative zone and being switched off as maturation begins. The direction of the mechanism is established by a construct experiment: wild-type Nkx3.2 blocks maturation, while a reverse-function mutant converted into a transcriptional activator accelerates it, and Runx2 mis-expression rescues the Nkx3.2-induced block. Losing NKX3-2 therefore removes a brake on maturation timing rather than removing a positive signal.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"growth plate chondrocyte\"], \"biological_processes\": [\"negative regulation of chondrocyte differentiation\"], \"locations\": [\"growth plate\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Disproportionate short-trunk short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Disproportionate short stature with a short and stiff neck and trunk, the limbs appearing relatively long by contrast. This is the defining clinical presentation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0003521\"}}, {\"id\": \"Enlarged epiphyses\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Large, round \\\"balloon-like\\\" epiphyseal ossification centres in the long tubular bones. The \\\"megaepiphyseal\\\" element of the disease name.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0010580\"}}, {\"id\": \"Flexion contracture\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Flexion contractures of the distal joints may be present in the relatively long limbs.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001371\"}}, {\"id\": \"Loss of Chondrocyte Survival Signalling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A second, parallel arm of NKX3-2 function, distinct from the maturation brake modelled above. In proliferating chondrocytes NKX3-2 constitutively activates RelA by a ligand-independent route - recruiting the RelA-IkappaB-alpha complex into the nucleus by direct protein-protein interaction and degrading IkappaB-alpha there - and that NF-kappaB activity is required for chondrocyte viability. Losing it removes a survival signal from exactly the cells the maturation brake acts on.\\nThis makes NKX3-2 a dual-function node rather than a single repressor: a brake on maturation and a survival signal for the cells being braked. The two arms converge, which is consistent with the mouse null showing increased apoptosis alongside failed chondrogenesis.\\nCurated as PROVISIONAL for this disease. The mechanism is established in chick and mouse chondrocytes and has not been shown in a patient with SMMD, so its contribution to the human phenotype is inferred from the gene rather than demonstrated in the disease.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"proliferating chondrocyte\"], \"biological_processes\": [\"canonical NF-kappaB signal transduction\", \"negative regulation of apoptotic process\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Loss of Post-Embryonic Restraint on Joint Chondrocyte Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A distinct, later-acting arm identified in an adult viable zebrafish mutant: chondrocytes show increased proliferation and upregulation of stress-induced pathways, including prostaglandin synthases, and the animals develop cartilage overgrowth and severe spine and craniofacial dysmorphology. This arm is what accounts for the skeletal *overgrowth* of SMMD rather than its ossification deficit, and it is post-embryonic - the same overgrowth is absent in knockdown animals that lack jaw joints, which is the internal control separating the embryonic from the later role.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"joint-associated chondrocyte\"], \"biological_processes\": [\"chondrocyte proliferation\"], \"mechanism_confidence\": \"PROVISIONAL\", \"animal_models\": [{\"name\": \"Adult viable nkx3.2 mutant zebrafish\", \"species\": \"Zebrafish\", \"genotype\": \"nkx3.2 mutant (adult viable)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Generated specifically to model the skeletal overgrowth defects of SMMD, which prior models could not show, and identifies increased chondrocyte proliferation and a stress response as the cellular basis.\"}]}}, {\"id\": \"NKX3-2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"NKX3-2\"], \"gene_terms\": [{\"label\": \"NKX3-2\", \"id\": \"hgnc:951\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"NKX3-2 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic inactivating NKX3-2 variants abolish the homeobox transcription factor. Reported alleles include three distinct inactivating changes in the founding consanguineous families and, in a perinatally lethal case, the frameshift c.507-508delCA (p.Gly171Cysfs*55) in exon 2.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"NKX3-2 transcriptional repressor activity\"], \"genes\": [\"NKX3-2\"], \"gene_terms\": [{\"label\": \"NKX3-2\", \"id\": \"hgnc:951\"}], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Nkx3-2 null mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Reproduces the human vertebral ossification defect with striking similarity, but diverges in two directions: the mice are asplenic, which SMMD patients are not, and they lack the limb radiographic abnormalities seen in patients. The authors attribute the missing limb findings to perinatal death of the mutant animals rather than to a species difference in gene function.\"}, {\"id\": \"Prophylactic Cervical Spine Stabilization\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The one intervention in this disorder that changes the outcome rather than managing it. The upstream lesion is an embryonic transcription-factor failure and is not therapeutically accessible after birth; cervical instability is. Stabilization is prophylactic in the strict sense - performed on the basis of the radiographic pattern before cord injury has occurred, not as treatment for an established myelopathy.\\nThe evidence is a proposal rather than a demonstration, and the entry records it that way. The authors write that early diagnosis \\\"might prevent\\\" the neurologic complications; no series has reported outcomes in patients stabilized prophylactically, and with six patients described in total there is no prospect of one soon. This is curated because the reasoning is sound and the stakes are high, not because it has been shown to work.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Pseudoepiphyses of hand bones\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Numerous pseudoepiphyses at the short tubular bones of the hands and feet, reported at all metacarpals and phalanges. Singled out by both source series as a distinguishing feature rather than an incidental radiographic finding.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0004288\"}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Spinal deformity, listed among the skeletal defects characterising the disorder and reproduced as severe spine dysmorphology in the adult zebrafish model. No frequency band is asserted: the only source naming it in humans lists it among the disease\u0027s defects without counting it, and phenotype support is not frequency support.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002650\"}}, {\"id\": \"Spasticity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Limb spasticity is the clinical presentation of cervical cord injury in this disorder, not a primary neurological feature: the lesion is mechanical compression from an unstable cervical spine. Five of six patients in the only series to examine this developed it.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001257\"}}, {\"id\": \"Thick growth plates\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Wide growth plates in the long tubular bones. The \\\"metaphyseal\\\" element of the disease name, and the only metaphyseal finding this entry carries.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0025369\"}}], \"edges\": [{\"source\": \"NKX3-2 Loss of Function\", \"target\": \"Derepression of the Chondrocyte Maturation Program\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"NKX3-2 Loss of Function\", \"target\": \"Loss of Post-Embryonic Restraint on Joint Chondrocyte Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"NKX3-2 Loss of Function\", \"target\": \"Loss of Chondrocyte Survival Signalling\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Derepression of the Chondrocyte Maturation Program\", \"target\": \"Deranged Endochondral Ossification\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deranged Endochondral Ossification\", \"target\": \"Delayed vertebral ossification\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deranged Endochondral Ossification\", \"target\": \"Delayed pubic bone ossification\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deranged Endochondral Ossification\", \"target\": \"Coronal cleft vertebrae\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deranged Endochondral Ossification\", \"target\": \"Enlarged epiphyses\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deranged Endochondral Ossification\", \"target\": \"Thick growth plates\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deranged Endochondral Ossification\", \"target\": \"Pseudoepiphyses of hand bones\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deranged Endochondral Ossification\", \"target\": \"Disproportionate short-trunk short stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deranged Endochondral Ossification\", \"target\": \"Flexion contracture\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Deranged Endochondral Ossification\", \"target\": \"Cervical Spine Instability and Cord Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cervical Spine Instability and Cord Injury\", \"target\": \"Cervical instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cervical Spine Instability and Cord Injury\", \"target\": \"Spasticity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Post-Embryonic Restraint on Joint Chondrocyte Proliferation\", \"target\": \"Scoliosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Prophylactic Cervical Spine Stabilization\", \"target\": \"Cervical Spine Instability and Cord Injury\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Nkx3-2 null mouse\", \"target\": \"Deranged Endochondral Ossification\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Vertebral ossification defects closely resemble those of SMMD patients; appendicular findings are absent.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Asplenia occurs in the mutant mice but not in SMMD patients, and the limb radiographic abnormalities that are a defining human feature are not seen. The perinatal lethality of the model plausibly explains the missing limb phenotype but has not been shown to, so the appendicular arm of the human disease is effectively unmodelled here.\"}, {\"source\": \"Adult viable nkx3.2 mutant zebrafish\", \"target\": \"Loss of Post-Embryonic Restraint on Joint Chondrocyte Proliferation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Generated specifically to model the skeletal overgrowth defects of SMMD, which prior models could not show, and identifies increased chondrocyte proliferation and a stress response as the cellular basis.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Zebrafish skeletal anatomy differs substantially from human: the overgrowth phenotype is read out at a jaw joint that has no direct human counterpart, and the fish spine is not loaded as a human spine is. The prostaglandin-synthase upregulation has not been shown in human SMMD tissue.\"}, {\"source\": \"NKX3-2\", \"target\": \"NKX3-2 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5552,11 +5684,11 @@ This pathophysiological event involves increased chondrocyte proliferation (GO:0
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Musculoskeletal<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Limbs<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(9)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(6)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Growth<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5596,6 +5728,9 @@ This clinical feature is Duodenal atresia (HP:0002247). HP:0002247 is a phenotyp
                     </div>
 
 
+
+
+
                     <div class="item-desc">Deliberately left unconnected in the pathograph. No mechanism links NKX3-2 loss to foregut atresia in any source read here, and NKX3-2 has a known role in gut and spleen patterning in mouse, so a plausible-sounding edge would be speculation rather than curation. It stays a recorded observation until somebody can source the link.</div>
 
 
@@ -5615,6 +5750,7 @@ This clinical feature is Duodenal atresia (HP:0002247). HP:0002247 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5646,703 +5782,9 @@ This clinical feature is Duodenal atresia (HP:0002247). HP:0002247 is a phenotyp
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Musculoskeletal
-                    <span class="cat-count">5</span>
+                    Limbs
+                    <span class="cat-count">2</span>
                 </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-coronal-cleft-vertebrae" data-dismech-node="Coronal cleft vertebrae" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Coronal cleft vertebrae
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003417" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0003417</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Sagittal and coronal vertebral clefts, annotated with Coronal cleft vertebrae (HP:0003417). HP:0003417 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:22791571" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22791571" target="_blank">PMID:22791571</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Radiographs show a severe ossification delay of the vertebral bodies with sagittal and coronal clefts"</div>
-
-
-                <div class="evidence-explanation">HPO codes the coronal cleft; preferred_term keeps the sagittal component the source reports alongside it.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-enlarged-epiphyses" data-dismech-node="Enlarged epiphyses" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Enlarged epiphyses
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010580" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0010580</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Enlarged epiphyses (HP:0010580). HP:0010580 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20004766" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20004766" target="_blank">PMID:20004766</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"the presence of large epiphyseal ossification centers and wide growth plates in the long tubular bones"</div>
-
-
-                <div class="evidence-explanation">The epiphyseal half of the appendicular signature. The same sentence supports the growth-plate phenotype below, which HPO codes separately.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-scoliosis" data-dismech-node="Scoliosis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Scoliosis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002650</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33462117" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33462117" target="_blank">PMID:33462117</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"which is characterized by skeletal defects including scoliosis, large epiphyses, wide growth plates and supernumerary distal limb joints"</div>
-
-
-                <div class="evidence-explanation">Lists scoliosis among the defining human skeletal defects. Graded OTHER rather than HUMAN_CLINICAL because this publication presents no human data - the sentence is its background characterisation of the disease, not an observation it made.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-flexion-contracture" data-dismech-node="Flexion contracture" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Flexion contracture
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001371" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001371</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Distal joint flexion contractures, annotated with Flexion contracture (HP:0001371). HP:0001371 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20004766" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20004766" target="_blank">PMID:20004766</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The limbs appear relatively long and may show flexion contractures of the distal joints."</div>
-
-
-                <div class="evidence-explanation">Reports the contractures with the source&#39;s own hedge (&#34;may show&#34;), which is why the frequency is recorded as occasional.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-spasticity" data-dismech-node="Spasticity" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Spasticity
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001257</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Limb spasticity, annotated with Spasticity (HP:0001257). HP:0001257 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:22791571" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22791571" target="_blank">PMID:22791571</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"five of six patients in our series suffered cervical cord injury that manifested clinically as limb spasticity"</div>
-
-
-                <div class="evidence-explanation">The frequency and the causal attribution. 5/6 is 83%, in the VERY_FREQUENT band, but on a denominator of six from a single series - the band is what the number supports and the confidence in it is lower than the band alone conveys.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Growth
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-disproportionate-short-trunk-short-stature" data-dismech-node="Disproportionate short-trunk short stature" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Disproportionate short-trunk short stature
-
-                        <span class="phenotype-freq">OBLIGATE</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003521" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0003521</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Disproportionate short stature with short, stiff neck and trunk, annotated with Disproportionate short-trunk short stature (HP:0003521). HP:0003521 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20004766" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20004766" target="_blank">PMID:20004766</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Affected individuals have a disproportionate short stature with a short and stiff neck and trunk."</div>
-
-
-                <div class="evidence-explanation">The core clinical description of the disorder.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">6</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-delayed-vertebral-ossification" data-dismech-node="Delayed vertebral ossification" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Delayed vertebral ossification
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0031096" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0031096</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Delayed and impaired vertebral body ossification, annotated with Delayed vertebral ossification (HP:0031096). HP:0031096 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20004766" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20004766" target="_blank">PMID:20004766</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"the delayed and impaired ossification of the vertebral bodies"</div>
-
-
-                <div class="evidence-explanation">The axial ossification defect as a defining radiographic feature.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:29704686" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29704686" target="_blank">PMID:29704686</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Skeletal survey revealed total absence of the ossification of the vertebral bodies, pubis, and ischia."</div>
-
-
-                <div class="evidence-explanation">The severe end of the same defect, showing it is graded rather than all-or-none.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-delayed-pubic-bone-ossification" data-dismech-node="Delayed pubic bone ossification" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Delayed pubic bone ossification
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0008788" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0008788</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Absent pubic and ischial ossification, annotated with Delayed pubic bone ossification (HP:0008788). HP:0008788 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:29704686" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29704686" target="_blank">PMID:29704686</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Skeletal survey revealed total absence of the ossification of the vertebral bodies, pubis, and ischia"</div>
-
-
-                <div class="evidence-explanation">The perinatally lethal case, where the deficit is total. preferred_term names the ischia as well because the source does; HPO codes the pubis only.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:22791571" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22791571" target="_blank">PMID:22791571</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"missing ossification of the pubic bones"</div>
-
-
-                <div class="evidence-explanation">Independent confirmation in the six-patient series, where it is listed among the constant radiographic features rather than as a finding of the severe end.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-thick-growth-plates" data-dismech-node="Thick growth plates" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Thick growth plates
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0025369" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0025369</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Thick growth plates (HP:0025369). HP:0025369 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20004766" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20004766" target="_blank">PMID:20004766</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"the presence of large epiphyseal ossification centers and wide growth plates in the long tubular bones"</div>
-
-
-                <div class="evidence-explanation">Curated separately from the epiphyseal finding because HPO codes them distinctly and because the growth plate is the metaphyseal compartment - without this the &#34;metaphyseal&#34; third of the disease name has no phenotype behind it.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-pseudoepiphyses-of-hand-bones" data-dismech-node="Pseudoepiphyses of hand bones" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6360,15 +5802,18 @@ This clinical feature is Thick growth plates (HP:0025369). HP:0025369 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004288" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0004288</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004288" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0004288</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pseudoepiphyses of hand and foot bones, annotated with Pseudoepiphyses of hand bones (HP:0004288). HP:0004288 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6388,6 +5833,7 @@ This clinical feature is Pseudoepiphyses of hand and foot bones, annotated with 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6430,15 +5876,18 @@ This clinical feature is Pseudoepiphyses of hand and foot bones, annotated with 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011297" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0011297</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011297" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0011297</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Supernumerary distal limb joints, annotated with Abnormal digit morphology (HP:0011297). HP:0011297 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6461,6 +5910,7 @@ This clinical feature is Supernumerary distal limb joints, annotated with Abnorm
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6469,6 +5919,581 @@ This clinical feature is Supernumerary distal limb joints, annotated with Abnorm
 
 
                 <div class="evidence-explanation">The same background sentence, graded OTHER for the same reason. HPO has no term for a supernumerary limb joint, so the binding is the digit-morphology parent and the finding itself is carried in preferred_term.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Musculoskeletal
+                    <span class="cat-count">9</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-delayed-vertebral-ossification" data-dismech-node="Delayed vertebral ossification" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Delayed vertebral ossification
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031096" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0031096</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Delayed and impaired vertebral body ossification, annotated with Delayed vertebral ossification (HP:0031096). HP:0031096 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20004766" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20004766" target="_blank">PMID:20004766</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the delayed and impaired ossification of the vertebral bodies"</div>
+
+
+                <div class="evidence-explanation">The axial ossification defect as a defining radiographic feature.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29704686" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29704686" target="_blank">PMID:29704686</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Skeletal survey revealed total absence of the ossification of the vertebral bodies, pubis, and ischia."</div>
+
+
+                <div class="evidence-explanation">The severe end of the same defect, showing it is graded rather than all-or-none.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-delayed-pubic-bone-ossification" data-dismech-node="Delayed pubic bone ossification" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Delayed pubic bone ossification
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008788" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0008788</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Absent pubic and ischial ossification, annotated with Delayed pubic bone ossification (HP:0008788). HP:0008788 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29704686" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29704686" target="_blank">PMID:29704686</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Skeletal survey revealed total absence of the ossification of the vertebral bodies, pubis, and ischia"</div>
+
+
+                <div class="evidence-explanation">The perinatally lethal case, where the deficit is total. preferred_term names the ischia as well because the source does; HPO codes the pubis only.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22791571" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22791571" target="_blank">PMID:22791571</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"missing ossification of the pubic bones"</div>
+
+
+                <div class="evidence-explanation">Independent confirmation in the six-patient series, where it is listed among the constant radiographic features rather than as a finding of the severe end.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-coronal-cleft-vertebrae" data-dismech-node="Coronal cleft vertebrae" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Coronal cleft vertebrae
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003417" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0003417</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sagittal and coronal vertebral clefts, annotated with Coronal cleft vertebrae (HP:0003417). HP:0003417 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22791571" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22791571" target="_blank">PMID:22791571</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Radiographs show a severe ossification delay of the vertebral bodies with sagittal and coronal clefts"</div>
+
+
+                <div class="evidence-explanation">HPO codes the coronal cleft; preferred_term keeps the sagittal component the source reports alongside it.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-enlarged-epiphyses" data-dismech-node="Enlarged epiphyses" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Enlarged epiphyses
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010580" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0010580</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Enlarged epiphyses (HP:0010580). HP:0010580 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20004766" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20004766" target="_blank">PMID:20004766</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the presence of large epiphyseal ossification centers and wide growth plates in the long tubular bones"</div>
+
+
+                <div class="evidence-explanation">The epiphyseal half of the appendicular signature. The same sentence supports the growth-plate phenotype below, which HPO codes separately.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-thick-growth-plates" data-dismech-node="Thick growth plates" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Thick growth plates
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0025369" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0025369</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Thick growth plates (HP:0025369). HP:0025369 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20004766" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20004766" target="_blank">PMID:20004766</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the presence of large epiphyseal ossification centers and wide growth plates in the long tubular bones"</div>
+
+
+                <div class="evidence-explanation">Curated separately from the epiphyseal finding because HPO codes them distinctly and because the growth plate is the metaphyseal compartment - without this the &#34;metaphyseal&#34; third of the disease name has no phenotype behind it.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-scoliosis" data-dismech-node="Scoliosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Scoliosis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002650</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33462117" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33462117" target="_blank">PMID:33462117</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"which is characterized by skeletal defects including scoliosis, large epiphyses, wide growth plates and supernumerary distal limb joints"</div>
+
+
+                <div class="evidence-explanation">Lists scoliosis among the defining human skeletal defects. Graded OTHER rather than HUMAN_CLINICAL because this publication presents no human data - the sentence is its background characterisation of the disease, not an observation it made.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-flexion-contracture" data-dismech-node="Flexion contracture" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Flexion contracture
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001371" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001371</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Distal joint flexion contractures, annotated with Flexion contracture (HP:0001371). HP:0001371 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20004766" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20004766" target="_blank">PMID:20004766</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The limbs appear relatively long and may show flexion contractures of the distal joints."</div>
+
+
+                <div class="evidence-explanation">Reports the contractures with the source&#39;s own hedge (&#34;may show&#34;), which is why the frequency is recorded as occasional.</div>
 
 
 
@@ -6500,15 +6525,18 @@ This clinical feature is Supernumerary distal limb joints, annotated with Abnorm
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008462" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0008462</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008462" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0008462</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cervical instability (HP:0008462). HP:0008462 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6531,6 +6559,7 @@ This clinical feature is Cervical instability (HP:0008462). HP:0008462 is a phen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6539,6 +6568,163 @@ This clinical feature is Cervical instability (HP:0008462). HP:0008462 is a phen
 
 
                 <div class="evidence-explanation">The frequency claim and its own caveat in one sentence. Graded VERY_FREQUENT on &#34;high incidence&#34; together with the 5-of-6 cord injury rate, but note the authors themselves flag the small denominator, and this remains the only series to have looked.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-spasticity" data-dismech-node="Spasticity" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Spasticity
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001257</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Limb spasticity, annotated with Spasticity (HP:0001257). HP:0001257 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22791571" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22791571" target="_blank">PMID:22791571</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"five of six patients in our series suffered cervical cord injury that manifested clinically as limb spasticity"</div>
+
+
+                <div class="evidence-explanation">The frequency and the causal attribution. 5/6 is 83%, in the VERY_FREQUENT band, but on a denominator of six from a single series - the band is what the number supports and the confidence in it is lower than the band alone conveys.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Growth
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-disproportionate-short-trunk-short-stature" data-dismech-node="Disproportionate short-trunk short stature" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Disproportionate short-trunk short stature
+
+                        <span class="phenotype-freq">OBLIGATE</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003521" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0003521</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Disproportionate short stature with short, stiff neck and trunk, annotated with Disproportionate short-trunk short stature (HP:0003521). HP:0003521 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20004766" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20004766" target="_blank">PMID:20004766</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Affected individuals have a disproportionate short stature with a short and stiff neck and trunk."</div>
+
+
+                <div class="evidence-explanation">The core clinical description of the disorder.</div>
 
 
 
@@ -6626,6 +6812,9 @@ This disease-associated gene is NKX3-2 (hgnc:951). hgnc:951 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6640,6 +6829,7 @@ This disease-associated gene is NKX3-2 (hgnc:951). hgnc:951 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6664,6 +6854,7 @@ This disease-associated gene is NKX3-2 (hgnc:951). hgnc:951 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6721,6 +6912,9 @@ This disease-associated gene is NKX3-1 (hgnc:7838). hgnc:7838 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6735,6 +6929,7 @@ This disease-associated gene is NKX3-1 (hgnc:7838). hgnc:7838 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6759,6 +6954,7 @@ This disease-associated gene is NKX3-1 (hgnc:7838). hgnc:7838 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6842,6 +7038,31 @@ This treatment is cervical spine stabilization, annotated with Spinal Fusion (NC
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">The one intervention in this disorder that changes the outcome rather than managing it. The upstream lesion is an embryonic transcription-factor failure and is not therapeutically accessible after birth; cervical instability is. Stabilization is prophylactic in the strict sense - performed on the basis of the radiographic pattern before cord injury has occurred, not as treatment for an established myelopathy.
 The evidence is a proposal rather than a demonstration, and the entry records it that way. The authors write that early diagnosis &#34;might prevent&#34; the neurologic complications; no series has reported outcomes in patients stabilized prophylactically, and with six patients described in total there is no prospect of one soon. This is curated because the reasoning is sound and the stakes are high, not because it has been shown to work.</div>
 
@@ -6882,6 +7103,7 @@ The evidence is a proposal rather than a demonstration, and the entry records it
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6945,6 +7167,31 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">There is no disease-modifying treatment. Management is supportive and, at the severe end, intensive: the perinatally lethal case required immediate intubation in the delivery room and surgery for duodenal atresia on day 7, and died of sepsis and respiratory failure on day 14. The clinical picture in that infant suggested very early cervical cord compression, which is the specific risk the axial ossification defect creates and the reason airway and cervical spine assessment matter in this disorder.</div>
 
 
@@ -6969,6 +7216,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6990,6 +7238,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7065,6 +7314,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7086,6 +7336,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7143,6 +7394,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7164,6 +7416,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7238,6 +7491,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7380,6 +7634,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7426,6 +7681,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7447,6 +7703,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7549,6 +7806,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8700,6 +8958,72 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Spondylo-megaepiphyseal-metaphyseal Dysplasia (MONDO:0013228, NKX3-2)</strong> · 2026-09-04T19:45:52Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Spondylo-megaepiphyseal-metaphyseal_Dysplasia/2026-09-04T194552Z-claude-code-0cfc2b.yaml">View source</a></p>
+                        <p class="research-review-text">New entry for SMMD (MONDO:0013228), the NKX3-2-related skeletal dysplasia. Five references,
+39/39 snippets verified.
+
+The pathograph runs from NKX3-2 loss of function through derepression of the chondrocyte
+maturation program to a deranged - not simply deficient - endochondral ossification: axial
+ossification is delayed or absent while appendicular epiphyses are enlarged, which is the
+combination that gives the disease its name. A second, later-acting arm from the adult viable
+zebrafish mutant accounts for the overgrowth component.
+
+THE CERVICAL FINDING, and how it was nearly missed. The first draft of this entry covered
+cervical cord compression only in the perinatally lethal neonate, as a single-case
+observation. The deep-research report surfaced PMID:22791571, a six-patient series devoted to
+exactly this, in which FIVE OF SIX patients suffered cervical cord injury manifesting as limb
+spasticity. That is the survivors&#39; dominant morbidity and the single point in this disease
+where an intervention changes the outcome: the upstream lesion is an embryonic
+transcription-factor failure and is not accessible after birth, while cervical instability is
+detectable and stabilisable before the cord is injured.
+
+Added as a consequence: a Cervical Spine Instability and Cord Injury pathophysiology node
+wired off the ossification defect, Cervical instability (HP:0008462) and Spasticity
+(HP:0001257) phenotypes, a Prophylactic Cervical Spine Stabilization treatment linked to that
+node, and a cervical spine surveillance diagnosis entry.
+
+This was mined BEFORE opening the PR rather than after, which is the direct lesson from the
+two concurrent PRs in this batch: #10995 was pulled up for mining a 1,095-line full text only
+for its abstract, and #10998 for using 7 of 40 verified references while its own notes
+complained the evidence base was thin. The general defect is treating a source as consumed
+once anything has been taken from it.
+
+EVIDENCE DISCIPLINE ON THE NEW MATERIAL. Both new frequency bands are stated with their
+fragility rather than only their number: 5/6 is 83% and sits in VERY_FREQUENT, but on six
+patients from the only series that has looked, and the authors flag the small denominator
+themselves. The treatment is recorded as a proposal, not a demonstration - the source says
+stabilization &#34;might prevent&#34; the complications, and no series has reported outcomes in
+prophylactically stabilised patients. The snippet preserves the authors&#39; own grammatical slip
+(&#34;might prevent of the neurologic complications&#34;), since a snippet does not correct its source.
+
+DELIBERATELY NOT DONE:
+- Duodenal atresia remains the one phenotype not wired into the pathograph. It is a
+  single-patient observation with no sourced mechanistic link to the skeletal lesion, and the
+  reason is recorded in its description. An unsupported edge is worse than an unconnected
+  phenotype.
+- No conforms_to module link. defective_skeletal_mineralization was checked and does not fit:
+  it scopes to rickets, a mineralization failure of otherwise normal cartilage, whereas the
+  lesion here is a transcriptional failure of the chondrocyte maturation program.
+- The report&#39;s obsolete GO:0051092 and mislabelled HP:0006262 (reported as &#34;Pseudoepiphyses of
+  the hand bones&#34;, actually &#34;Aplasia/Hypoplasia of the 5th finger&#34;) were not bound. Its
+  off-topic PMID:17310243 and its one unsupported quote (PMID:10572046) were not used.
+
+REPORT IDENTITY. This is the only one of the three openscientist reports in this batch to
+state a correct MONDO ID: MONDO:0013228, matching the entry and the stub, with OMIM 613330
+agreeing on both sides. just preflight-dr returns WARN because RUNX2 is mentioned at 28% of
+NKX3-2&#39;s rate, but that is expected rather than a second disease entity - NKX3-2 represses
+RUNX2, and that repression is the entry&#39;s second pathophysiology node.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

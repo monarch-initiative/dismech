@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4446,6 +4518,7 @@ Scope note: this entry covers choriocarcinoma proper (both gestational and non-g
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4469,6 +4542,7 @@ respectively."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4538,6 +4612,7 @@ genotype."</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4563,6 +4638,7 @@ cell tumor"</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4628,6 +4704,7 @@ cell tumor."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4812,6 +4889,7 @@ specimens have been described and accepted as early forms of GCC."</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4833,6 +4911,7 @@ specimens have been described and accepted as early forms of GCC."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4999,6 +5078,7 @@ have profound therapeutic and prognostic implications."</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5035,6 +5115,7 @@ novel approaches in this group of patients."</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-paternal-genome-content-and-semi-allogeneic-tumour-identity" data-dismech-node="Paternal Genome Content and Semi-Allogeneic Tumour Identity" data-dismech-type="pathophysiology">
                 <div class="item-name">Paternal Genome Content and Semi-Allogeneic Tumour Identity</div>
+
 
                 <div class="item-desc">Gestational choriocarcinoma derives from the trophoblast of a prior conceptus, so its genome contains a paternal allele complement that is absent from the patient&#39;s own tissues. In the most common precursor, the complete hydatidiform mole, the conceptus genome is entirely androgenetic. The tumour is therefore a partial or complete natural allograft. Two consequences follow and organise the rest of the pathograph: detection of that foreign paternal allele set by STR genotyping definitively separates gestational from non-gestational choriocarcinoma, which matters because the two are treated differently; and the allogeneic tumour is intrinsically immunogenic and must actively suppress host T cells to survive. Non-gestational (germ cell) choriocarcinoma, by contrast, carries only the patient&#39;s own genome and lacks this feature. The imprinting biology of the molar precursor itself (CDKN1C/p57 loss) is curated in Hydatidiform_Mole and Gestational_Trophoblastic_Neoplasm.</div>
 
@@ -5130,6 +5211,7 @@ This pathophysiological event involves trophoblast cell (CL:0000351). CL:0000351
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5153,6 +5235,7 @@ genotype."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5180,6 +5263,7 @@ patient’s normal tissues"</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neoplastic-trophoblastic-transformation-without-villous-formation" data-dismech-node="Neoplastic Trophoblastic Transformation without Villous Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Neoplastic Trophoblastic Transformation without Villous Formation</div>
+
 
                 <div class="item-desc">The transformed cell population reconstitutes the two differentiation states of early implanting trophoblast — a proliferative mononuclear cytotrophoblast compartment and a fused, hormonally active syncytiotrophoblast compartment — but does so as a solid, sheet-like proliferation that never organises chorionic villi. Loss of the villous scaffold is not a cosmetic difference: villous architecture normally constrains trophoblast to a defined invasive front, and its absence accompanies unconstrained, vessel-permeating growth. The proliferative fraction is extreme (Ki-67 often above 90%), with marked nuclear atypia and atypical mitoses.</div>
 
@@ -5359,6 +5443,7 @@ This pathophysiological event involves increased cell population proliferation (
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5385,6 +5470,7 @@ multinucleated syncytiotrophoblast."</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5408,6 +5494,7 @@ trophoblast cells and an absence of chorionic villi."</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hcg-hypersecretion-by-neoplastic-syncytiotrophoblast" data-dismech-node="hCG Hypersecretion by Neoplastic Syncytiotrophoblast" data-dismech-type="pathophysiology">
                 <div class="item-name">hCG Hypersecretion by Neoplastic Syncytiotrophoblast</div>
+
 
                 <div class="item-desc">Neoplastic syncytiotrophoblast retains the endocrine function of normal placental syncytiotrophoblast and secretes human chorionic gonadotropin in quantities proportional to viable tumour burden. Because hCG is essentially absent in the non-pregnant state, this converts an internal, often radiographically occult tumour into a continuously measurable quantity: hCG establishes the diagnosis (a plateauing or rising titre after evacuation), contributes a weighted term to the FIGO/WHO prognostic score, tracks response during chemotherapy, and detects relapse. It is the reason gestational trophoblastic neoplasia can be treated to a biochemical endpoint without tissue confirmation.</div>
 
@@ -5533,6 +5620,7 @@ This pathophysiological event involves increased gonadotropin secretion (GO:0032
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5558,6 +5646,7 @@ serum hCG measurement combined with imaging studies."</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5580,6 +5669,7 @@ serum hCG measurement combined with imaging studies."</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-paraneoplastic-consequences-of-extreme-hcg-elevation" data-dismech-node="Paraneoplastic Consequences of Extreme hCG Elevation" data-dismech-type="pathophysiology">
                 <div class="item-name">Paraneoplastic Consequences of Extreme hCG Elevation</div>
+
 
                 <div class="item-desc">hCG shares an alpha subunit with TSH, LH and FSH and is a weak agonist at the thyrotropin receptor; when tumour-derived concentrations exceed roughly 100,000 mIU/mL, that weak cross-reactivity becomes clinically significant and produces biochemical or overt hyperthyroidism. The same extreme gonadotropin-like signal overstimulates the ovaries, producing bilateral theca-lutein cysts (occasionally with virilisation), and is associated with hyperemesis and pre-eclampsia. These paraneoplastic features are a direct dose-dependent consequence of the biomarker itself rather than of tumour mass, and they resolve as hCG falls with treatment.</div>
 
@@ -5690,6 +5780,7 @@ This pathophysiological event involves increased gonadotropin secretion (GO:0032
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5712,6 +5803,7 @@ This pathophysiological event involves increased gonadotropin secretion (GO:0032
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-deregulated-trophoblast-invasion-and-vascular-permeation" data-dismech-node="Deregulated Trophoblast Invasion and Vascular Permeation" data-dismech-type="pathophysiology">
                 <div class="item-name">Deregulated Trophoblast Invasion and Vascular Permeation</div>
+
 
                 <div class="item-desc">Normal extravillous trophoblast is physiologically one of the most invasive cell types in human biology: it penetrates decidua and myometrium and remodels spiral arteries, and it does so as a tightly regulated, self-limiting program. Choriocarcinoma is that program run without its brakes. Tumour trophoblast permeates myometrium and directly invades vascular channels, so intravasation is an early rather than a late event — this is the mechanistic reason choriocarcinoma metastasises hematogenously at small primary volumes and may present with a metastasis before any uterine lesion is apparent. Conformance note: the module&#39;s canonical upstream driver is EMT activation in a somatic epithelium; here the invasive phenotype is a retained developmental program of trophoblast rather than a de-differentiation event, so this node conforms at the invasion/intravasation step without asserting the module&#39;s EMT trigger node.</div>
 
@@ -5858,6 +5950,7 @@ This pathophysiological event occurs in uterus (UBERON:0000995). UBERON:0000995 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5881,6 +5974,7 @@ untreated."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5908,6 +6002,7 @@ ile vessels."</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vegf-driven-neoangiogenesis" data-dismech-node="VEGF-Driven Neoangiogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">VEGF-Driven Neoangiogenesis</div>
+
 
                 <div class="item-desc">Neoplastic trophoblast drives VEGF-dependent neovascularisation, building the fragile, disorganised tumour vasculature that both sustains the rapidly expanding mass and creates the bleeding diathesis characteristic of choriocarcinoma deposits. This is the mechanistic anchor for the antiangiogenic arm of therapy: the VEGFR-2 inhibitor apatinib is combined with PD-1 blockade in multidrug-resistant disease, so the pathograph needs a node for that drug to target.</div>
 
@@ -6041,6 +6136,7 @@ This pathophysiological event involves increased vascular endothelial growth fac
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6062,6 +6158,7 @@ This pathophysiological event involves increased vascular endothelial growth fac
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6087,6 +6184,7 @@ This pathophysiological event involves increased vascular endothelial growth fac
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hematogenous-dissemination-and-pulmonary-colonisation" data-dismech-node="Hematogenous Dissemination and Pulmonary Colonisation" data-dismech-type="pathophysiology">
                 <div class="item-name">Hematogenous Dissemination and Pulmonary Colonisation</div>
+
 
                 <div class="item-desc">Tumour emboli entering uterine veins arrive first at the pulmonary capillary bed, which is why the lung is by far the commonest metastatic site and why multiple rounded pulmonary nodules are a classic radiographic presentation. Onward arterial spread reaches vagina, liver, brain, spleen, kidney and bowel. Metastatic site is a weighted term in the FIGO/WHO prognostic score precisely because it stratifies risk: lung scores 0, spleen/kidney 1, gastrointestinal 2, and liver or brain 4. Colonisation can occur at very small primary tumour volume, so metastatic disease is a common first presentation.</div>
 
@@ -6212,6 +6310,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6236,6 +6335,7 @@ kidneys, and bowel."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6264,6 +6364,7 @@ hemorrhage as a result of metastasis"</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6286,6 +6387,7 @@ hemorrhage as a result of metastasis"</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-haemorrhagic-destruction-of-colonised-organs" data-dismech-node="Haemorrhagic Destruction of Colonised Organs" data-dismech-type="pathophysiology">
                 <div class="item-name">Haemorrhagic Destruction of Colonised Organs</div>
+
 
                 <div class="item-desc">Every choriocarcinoma deposit reproduces the vascular-erosive phenotype of the primary, so metastases behave less like space-occupying nodules and more like bleeding lesions. Pulmonary deposits cause haemoptysis and dyspnoea; vaginal deposits bleed and should not be biopsied; hepatic deposits bleed intra-abdominally; cerebral deposits may be silent or may cause fatal intracranial haemorrhage. This is also why induction chemotherapy is deliberately gentle in very-high-score disease — rapid lysis of a friable, highly vascular tumour risks catastrophic pulmonary, intraperitoneal or intracranial bleeding.</div>
 
@@ -6362,6 +6464,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6388,6 +6491,7 @@ tal if they cause intracranial haemorrhage."</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6411,6 +6515,7 @@ for pulmonary, intraperitoneal, or intracranial hemorrhage"</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pd-l1-mediated-adaptive-immune-resistance" data-dismech-node="PD-L1-Mediated Adaptive Immune Resistance" data-dismech-type="pathophysiology">
                 <div class="item-name">PD-L1-Mediated Adaptive Immune Resistance</div>
+
 
                 <div class="item-desc">Gestational choriocarcinoma is an allograft growing in an immunocompetent host, which should be rejected — and occasionally is, since spontaneous regressions of metastatic disease are recorded. To survive, the tumour co-opts the same PD-1/PD-L1 axis that normal placental trophoblast uses to maintain fetomaternal tolerance: PD-L1 is expressed strongly and essentially uniformly by neoplastic trophoblast, engaging PD-1 on tumour-infiltrating T cells and shutting down the anti-tumour response. This is an unusually clean example of adaptive immune resistance, because the antigenic stimulus (a foreign paternal genome) is known rather than inferred, and it is directly druggable.</div>
 
@@ -6566,6 +6671,7 @@ This pathophysiological event involves increased negative regulation of T cell m
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6589,6 +6695,7 @@ tumors (n = 41) were PD-L1 positive, with most showing strong staining."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6616,6 +6723,7 @@ gestational trophoblastic neoplasia (GTN)."</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-high-proliferative-fraction-and-chemosensitivity" data-dismech-node="High Proliferative Fraction and Chemosensitivity" data-dismech-type="pathophysiology">
                 <div class="item-name">High Proliferative Fraction and Chemosensitivity</div>
+
 
                 <div class="item-desc">The same feature that makes choriocarcinoma lethal untreated — a near-maximal proliferative fraction with Ki-67 frequently above 90% — makes it exceptionally vulnerable to cell-cycle-dependent cytotoxics. Antifolate (methotrexate), intercalating/transcription-blocking (dactinomycin), topoisomerase-II (etoposide), alkylating (cyclophosphamide) and antimitotic (vincristine) agents all act preferentially on rapidly cycling cells. Combined with a quantitative serum biomarker that permits treatment to a biochemical endpoint, this makes gestational choriocarcinoma one of the most curable of all solid malignancies — single-agent therapy cures low-risk disease and EMA-CO cures the great majority of high-risk disease. Non-gestational germ cell choriocarcinoma does not share this degree of sensitivity to the GTN regimens and is treated on germ cell lines. Modelling note: this node deliberately bundles a cellular property (near-maximal proliferative fraction) with the therapeutic-response property it produces, because the chemosensitivity is the clinically load-bearing consequence and three cytotoxic treatments attach to it via `target_mechanisms`. A future refactor could split it into a proliferation node and a drug-response node.</div>
 
@@ -6707,6 +6815,7 @@ This pathophysiological event involves increased cell population proliferation (
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6735,6 +6844,7 @@ motherapy (high-risk disease) with an excellent prognosis"</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6758,6 +6868,7 @@ immunostaining  &gt;  90%"</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-multidrug-resistant-refractory-disease" data-dismech-node="Multidrug-Resistant Refractory Disease" data-dismech-type="pathophysiology">
                 <div class="item-name">Multidrug-Resistant Refractory Disease</div>
+
 
                 <div class="item-desc">Fewer than 5% of women with gestational choriocarcinoma die, and when they do it is overwhelmingly from disease that has become resistant to multiple cytotoxic agents rather than from untreated bulk. This small refractory population — together with the inherently less chemosensitive non-gestational and intermediate-trophoblast tumours — is the entire remaining unmet need in an otherwise near-curable disease, and is the population in which PD-1/PD-L1 blockade has produced durable responses.</div>
 
@@ -6793,6 +6904,7 @@ immunostaining  &gt;  90%"</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6860,6 +6972,7 @@ novel approaches in this group of patients."</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6882,6 +6995,7 @@ trophoblast cells and an absence of chorionic villi."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6934,6 +7048,7 @@ multinucleated syncytiotrophoblast."</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6983,6 +7098,7 @@ involved organ."</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7006,6 +7122,7 @@ activity"</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7055,6 +7172,7 @@ immunostaining  &gt;  90%"</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7120,19 +7238,21 @@ choriocarcinoma of both germ cell and gestational origin"</div>
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Endocrine<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Endocrine<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Respiratory<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Genitourinary<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Constitutional<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Nervous System<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Neoplasm<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Respiratory<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Other<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Constitutional<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Neoplasm<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -7141,553 +7261,8 @@ choriocarcinoma of both germ cell and gestational origin"</div>
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Digestive
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hepatic-metastases" data-dismech-node="Hepatic Metastases" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hepatic Metastases
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Neoplasm of the liver</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002896" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002896</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Neoplasm of the liver (HP:0002896). HP:0002896 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:36286620" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36286620" target="_blank">PMID:36286620</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Liver metastases are rare
-and often have a poor prognosis"</div>
-
-
-                <div class="evidence-explanation">States that liver metastases are uncommon and prognostically adverse. No `frequency` band is asserted: the prose word &#34;rare&#34; carries no numerator and reported liver involvement in high-risk disease is well above the VERY_RARE (1-4%) band.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Endocrine
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hyperthyroidism" data-dismech-node="Hyperthyroidism" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hyperthyroidism
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000836" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000836</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hyperthyroidism (HP:0000836). HP:0000836 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38008872" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38008872" target="_blank">PMID:38008872</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Raised levels of human chorionic gonadotrophin (hCG) (&gt;100,000 m IU/ml) may cause symptoms of hyperthyroidism"</div>
-
-
-                <div class="evidence-explanation">Directly attributes hyperthyroid symptoms to markedly raised hCG in gestational trophoblastic neoplasia.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Nervous System
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-headache" data-dismech-node="Headache" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Headache
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002315</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:36286620" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36286620" target="_blank">PMID:36286620</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Central nervous system lesions
-may be asymptomatic or produce subtle neuro-
-logic symptoms such as headache."</div>
-
-
-                <div class="evidence-explanation">Documents headache as the typical (and often only) symptom of cerebral metastases.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Respiratory
+                    Blood
                     <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-haemoptysis" data-dismech-node="Haemoptysis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Haemoptysis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Hemoptysis</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002105" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002105</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hemoptysis (HP:0002105). HP:0002105 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:36286620" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36286620" target="_blank">PMID:36286620</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"it can cause dyspnoea, coughing,
-chest pain, tachypnoea, and haemoptysis."</div>
-
-
-                <div class="evidence-explanation">Lists haemoptysis among the respiratory manifestations of trophoblastic pulmonary involvement.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-dyspnoea" data-dismech-node="Dyspnoea" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Dyspnoea
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Dyspnea</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0002094</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:36286620" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36286620" target="_blank">PMID:36286620</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"it can cause dyspnoea, coughing,
-chest pain, tachypnoea, and haemoptysis."</div>
-
-
-                <div class="evidence-explanation">Directly lists dyspnoea as a manifestation of trophoblastic pulmonary involvement.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Constitutional
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-chest-pain" data-dismech-node="Chest Pain" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Chest Pain
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100749" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0100749</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Chest pain (HP:0100749). HP:0100749 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:36286620" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36286620" target="_blank">PMID:36286620</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"it can cause dyspnoea, coughing,
-chest pain, tachypnoea, and haemoptysis."</div>
-
-
-                <div class="evidence-explanation">Directly lists chest pain among the respiratory manifestations.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Neoplasm
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-pulmonary-metastases" data-dismech-node="Pulmonary Metastases" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Pulmonary Metastases
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Neoplasm of the lung</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100526" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0100526</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Neoplasm of the lung (HP:0100526). HP:0100526 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:36286620" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36286620" target="_blank">PMID:36286620</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The most common
-metastatic sites are the lungs"</div>
-
-
-                <div class="evidence-explanation">Directly supports the lung as the predominant metastatic site.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-7">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">5</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-vaginal-bleeding" data-dismech-node="Abnormal Vaginal Bleeding" data-dismech-type="phenotype">
@@ -7706,15 +7281,18 @@ metastatic sites are the lungs"</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0034263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0034263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0034263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0034263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal vaginal bleeding (HP:0034263). HP:0034263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7734,6 +7312,7 @@ This clinical feature is Abnormal vaginal bleeding (HP:0034263). HP:0034263 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7759,6 +7338,7 @@ vaginal bleeding"</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7803,10 +7383,10 @@ not be distinguished from the uterine blood loss."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002170" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002170</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002170" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002170</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intracranial hemorrhage (HP:0002170), qualified as severity severe. HP:0002170 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7835,6 +7415,9 @@ This clinical feature is Intracranial hemorrhage (HP:0002170), qualified as seve
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7849,6 +7432,7 @@ This clinical feature is Intracranial hemorrhage (HP:0002170), qualified as seve
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7877,6 +7461,15 @@ tal if they cause intracranial haemorrhage."</div>
 
                 </div>
 
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Digestive
+                    <span class="cat-count">2</span>
+                </summary>
+
                 <div class="item-box phenotype-box anchor-target" id="phenotype-intra-abdominal-haemorrhage-from-hepatic-metastases" data-dismech-node="Intra-abdominal Haemorrhage from Hepatic Metastases" data-dismech-type="phenotype">
                     <div class="item-name">
                         Intra-abdominal Haemorrhage from Hepatic Metastases
@@ -7893,10 +7486,10 @@ tal if they cause intracranial haemorrhage."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011854" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0011854</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011854" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0011854</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Haemoperitoneum from ruptured hepatic metastases, annotated with Hemoperitoneum (HP:0011854), qualified as severity severe. HP:0011854 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7925,6 +7518,9 @@ This clinical feature is Haemoperitoneum from ruptured hepatic metastases, annot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7939,6 +7535,7 @@ This clinical feature is Haemoperitoneum from ruptured hepatic metastases, annot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7968,9 +7565,93 @@ life-threatening."</div>
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-theca-lutein-ovarian-cysts" data-dismech-node="Theca-Lutein Ovarian Cysts" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hepatic-metastases" data-dismech-node="Hepatic Metastases" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Theca-Lutein Ovarian Cysts
+                        Hepatic Metastases
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Neoplasm of the liver</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002896" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002896</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Neoplasm of the liver (HP:0002896). HP:0002896 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36286620" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36286620" target="_blank">PMID:36286620</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Liver metastases are rare
+and often have a poor prognosis"</div>
+
+
+                <div class="evidence-explanation">States that liver metastases are uncommon and prognostically adverse. No `frequency` band is asserted: the prose word &#34;rare&#34; carries no numerator and reported liver involvement in high-risk disease is well above the VERY_RARE (1-4%) band.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Endocrine
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hyperthyroidism" data-dismech-node="Hyperthyroidism" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hyperthyroidism
 
 
 
@@ -7982,15 +7663,18 @@ life-threatening."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000138" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000138</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000836" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000836</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Theca-lutein ovarian cyst, annotated with Ovarian cyst (HP:0000138). HP:0000138 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Hyperthyroidism (HP:0000836). HP:0000836 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8013,6 +7697,88 @@ This clinical feature is Theca-lutein ovarian cyst, annotated with Ovarian cyst 
 
 
 
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Raised levels of human chorionic gonadotrophin (hCG) (&gt;100,000 m IU/ml) may cause symptoms of hyperthyroidism"</div>
+
+
+                <div class="evidence-explanation">Directly attributes hyperthyroid symptoms to markedly raised hCG in gestational trophoblastic neoplasia.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Genitourinary
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-theca-lutein-ovarian-cysts" data-dismech-node="Theca-Lutein Ovarian Cysts" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Theca-Lutein Ovarian Cysts
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000138" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000138</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Theca-lutein ovarian cyst, annotated with Ovarian cyst (HP:0000138). HP:0000138 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38008872" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38008872" target="_blank">PMID:38008872</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8021,6 +7787,414 @@ This clinical feature is Theca-lutein ovarian cyst, annotated with Ovarian cyst 
 
 
                 <div class="evidence-explanation">Documents theca-lutein cyst formation (and occasional virilisation) as a consequence of markedly raised hCG.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Nervous System
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-headache" data-dismech-node="Headache" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Headache
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0002315</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36286620" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36286620" target="_blank">PMID:36286620</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Central nervous system lesions
+may be asymptomatic or produce subtle neuro-
+logic symptoms such as headache."</div>
+
+
+                <div class="evidence-explanation">Documents headache as the typical (and often only) symptom of cerebral metastases.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-6">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Respiratory
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-haemoptysis" data-dismech-node="Haemoptysis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Haemoptysis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Hemoptysis</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002105" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0002105</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hemoptysis (HP:0002105). HP:0002105 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36286620" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36286620" target="_blank">PMID:36286620</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"it can cause dyspnoea, coughing,
+chest pain, tachypnoea, and haemoptysis."</div>
+
+
+                <div class="evidence-explanation">Lists haemoptysis among the respiratory manifestations of trophoblastic pulmonary involvement.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dyspnoea" data-dismech-node="Dyspnoea" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Dyspnoea
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Dyspnea</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002094</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36286620" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36286620" target="_blank">PMID:36286620</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"it can cause dyspnoea, coughing,
+chest pain, tachypnoea, and haemoptysis."</div>
+
+
+                <div class="evidence-explanation">Directly lists dyspnoea as a manifestation of trophoblastic pulmonary involvement.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-7">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Constitutional
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-chest-pain" data-dismech-node="Chest Pain" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Chest Pain
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100749" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0100749</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chest pain (HP:0100749). HP:0100749 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36286620" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36286620" target="_blank">PMID:36286620</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"it can cause dyspnoea, coughing,
+chest pain, tachypnoea, and haemoptysis."</div>
+
+
+                <div class="evidence-explanation">Directly lists chest pain among the respiratory manifestations.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-8">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Neoplasm
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pulmonary-metastases" data-dismech-node="Pulmonary Metastases" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Pulmonary Metastases
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Neoplasm of the lung</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100526" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0100526</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Neoplasm of the lung (HP:0100526). HP:0100526 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36286620" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36286620" target="_blank">PMID:36286620</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The most common
+metastatic sites are the lungs"</div>
+
+
+                <div class="evidence-explanation">Directly supports the lung as the predominant metastatic site.</div>
 
 
 
@@ -8068,6 +8242,9 @@ This clinical feature is Brain neoplasm (HP:0030692). HP:0030692 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8082,6 +8259,7 @@ This clinical feature is Brain neoplasm (HP:0030692). HP:0030692 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8156,6 +8334,9 @@ This clinical feature is Brain neoplasm (HP:0030692). HP:0030692 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8170,6 +8351,7 @@ This clinical feature is Brain neoplasm (HP:0030692). HP:0030692 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8196,6 +8378,7 @@ patient’s normal tissues"</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8231,6 +8414,9 @@ index gestation, where DNA genotyping can provide highly relevant information."<
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8245,6 +8431,7 @@ index gestation, where DNA genotyping can provide highly relevant information."<
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8272,6 +8459,7 @@ somatic origin."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8379,6 +8567,31 @@ This treatment uses methotrexate (CHEBI:44185). CHEBI:44185 is a therapeutic age
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">First-line therapy for low-risk (FIGO score 0-6) gestational choriocarcinoma. Methotrexate, usually with folinic acid rescue, exploits the tumour&#39;s extreme proliferative fraction; treatment is continued to hCG normalisation plus consolidation courses. Overall survival approaches 100%, and fertility is preserved.</div>
 
 
@@ -8409,6 +8622,7 @@ This treatment uses methotrexate (CHEBI:44185). CHEBI:44185 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8457,6 +8671,7 @@ disease)"</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8480,6 +8695,7 @@ disease)"</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8568,6 +8784,31 @@ This treatment uses actinomycin D (CHEBI:27666). CHEBI:27666 is a therapeutic ag
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">The alternative single agent for low-risk disease — used first-line in some centres and as salvage after methotrexate resistance, which is common enough at FIGO scores 5-6 that a planned second single agent is part of the low-risk algorithm.</div>
 
 
@@ -8598,6 +8839,7 @@ This treatment uses actinomycin D (CHEBI:27666). CHEBI:27666 is a therapeutic ag
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8645,6 +8887,7 @@ single-agent chemotherapy resulting in a survival rate approaching 100%."</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8667,6 +8910,7 @@ single-agent chemotherapy resulting in a survival rate approaching 100%."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8852,6 +9096,31 @@ This treatment uses vincristine (CHEBI:28445). CHEBI:28445 is a therapeutic agen
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">The standard first-line regimen for high-risk (FIGO score 7 or more, or stage IV) gestational choriocarcinoma: etoposide, methotrexate and dactinomycin alternating weekly with cyclophosphamide and vincristine. It is chosen for a favourable toxicity profile, high complete-response rate and high survival. In very-high-score disease gentle induction chemotherapy precedes EMA-CO to avoid catastrophic haemorrhage from rapid lysis of friable, vascular tumour.</div>
 
 
@@ -8882,6 +9151,7 @@ This treatment uses vincristine (CHEBI:28445). CHEBI:28445 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8930,6 +9200,7 @@ motherapy (high-risk disease) with an excellent prognosis"</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8956,6 +9227,7 @@ motherapy (high-risk disease) with an excellent prognosis"</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8978,6 +9250,7 @@ and Stage IV) is treated with multiagent chemotherapy"</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9099,6 +9372,31 @@ This treatment uses cisplatin (CHEBI:27899). CHEBI:27899 is a therapeutic agent 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Non-gestational (germ cell) choriocarcinoma is not managed on the GTN algorithm. It requires surgical staging and cytoreduction — achieving an R0 resection is a favourable prognostic factor — followed by bleomycin-based (BEP-type: bleomycin, etoposide, cisplatin) germ cell chemotherapy. Applying the methotrexate/EMA-CO pathway to a non-gestational tumour is a recognised treatment error, which is why STR genotyping precedes therapy when origin is uncertain.</div>
 
 
@@ -9120,6 +9418,7 @@ This treatment uses cisplatin (CHEBI:27899). CHEBI:27899 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9145,6 +9444,7 @@ followed by bleomycin-based chemotherapy."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9209,6 +9509,31 @@ This treatment is Hysterectomy (NCIT:C15256). NCIT:C15256 is a clinical interven
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Surgery has a defined adjunctive role in gestational choriocarcinoma: excision of chemoresistant foci (uterine or pulmonary) in high-risk disease, and hysterectomy for localised drug-resistant uterine tumour or in women who have completed childbearing. It is not primary therapy for chemosensitive disease, where the goal is cure without surgery and preservation of fertility.</div>
 
 
@@ -9230,6 +9555,7 @@ This treatment is Hysterectomy (NCIT:C15256). NCIT:C15256 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9255,6 +9581,7 @@ surgery for excision of resistant foci of disease"</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9411,6 +9738,31 @@ This treatment uses paclitaxel (CHEBI:45863). CHEBI:45863 is a therapeutic agent
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Roughly 30-40% of patients develop a rising hCG after completing EMA-CO. The first-line cytotoxic salvage is EMA-EP (etoposide, methotrexate, dactinomycin alternating with etoposide and cisplatin), which achieves a response rate near 85%. Patients progressing on EMA-EP move to platinum/taxane doublets alternating as TP/TE, and thereafter to germ-cell regimens. This cytotoxic salvage ladder sits alongside, not instead of, checkpoint blockade for the multidrug-resistant population.</div>
 
 
@@ -9441,6 +9793,7 @@ This treatment uses paclitaxel (CHEBI:45863). CHEBI:45863 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9487,6 +9840,7 @@ This treatment uses paclitaxel (CHEBI:45863). CHEBI:45863 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9508,6 +9862,7 @@ This treatment uses paclitaxel (CHEBI:45863). CHEBI:45863 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9623,6 +9978,31 @@ This treatment uses methotrexate (CHEBI:44185). CHEBI:44185 is a therapeutic age
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Contemporary first-line practice for brain metastases is CNS-penetrating systemic therapy rather than radiation by default: EMA-CO is given with a higher dose and slower infusion of methotrexate (1000 mg/m2 over 12-24 hours) to achieve adequate cerebrospinal-fluid levels, which produces complete responses and can negate the need for whole-brain radiotherapy, with reported five-year survival of 81.5%.</div>
 
 
@@ -9662,6 +10042,7 @@ This treatment uses methotrexate (CHEBI:44185). CHEBI:44185 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9725,6 +10106,31 @@ This treatment is Radiation Therapy (NCIT:C15313). NCIT:C15313 is a clinical int
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Radiotherapy</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Radiotherapy is retained as an adjunct to multiagent chemotherapy for brain metastases in high-risk disease, both for local control and to reduce the risk of intracranial haemorrhage. It is no longer the default CNS-directed modality; that role has passed to CNS-penetrating high-dose methotrexate.</div>
 
 
@@ -9764,6 +10170,7 @@ This treatment is Radiation Therapy (NCIT:C15313). NCIT:C15313 is a clinical int
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9867,6 +10274,31 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Monoclonal antibody</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Anti-PD-1 (pembrolizumab) and anti-PD-L1 (avelumab) antibodies target the checkpoint axis that the allogeneic tumour uses to escape host T cells. Response rates of 50-70% are reported, and the principal role is in chemoresistant disease: in the TROPHIMMUN phase II trial avelumab was active in GTN resistant to single-agent chemotherapy, though not after multiagent failure. Checkpoint blockade is also being explored to de-escalate or replace cytotoxic therapy in young women for whom long-term chemotherapy toxicity matters, and in combination with VEGFR-2-directed agents.</div>
 
 
@@ -9897,6 +10329,7 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9945,6 +10378,7 @@ gestational trophoblastic neoplasia (GTN)."</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9967,6 +10401,7 @@ between 50-70%."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10034,6 +10469,7 @@ to monochemotherapy."</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10056,6 +10492,7 @@ pregnancies and 1 in 40 HMs."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10112,6 +10549,7 @@ surveillance programs and timely initiation of chemotherapy."</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10133,6 +10571,7 @@ surveillance programs and timely initiation of chemotherapy."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10190,6 +10629,7 @@ surveillance programs and timely initiation of chemotherapy."</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10213,6 +10653,7 @@ GTD was found in younger (10 –19 years of age) and older (40 –
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10267,6 +10708,7 @@ GTD was found in younger (10 –19 years of age) and older (40 –
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10288,6 +10730,7 @@ GTD was found in younger (10 –19 years of age) and older (40 –
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10470,6 +10913,7 @@ US-American women are over-represented in national registers,"</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10511,6 +10955,7 @@ US-American women are over-represented in national registers,"</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10533,6 +10978,7 @@ serum hCG measurement combined with imaging studies."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10641,6 +11087,7 @@ eatment serum hCG (IU/L) &lt;103 103 to 104 104 to 105 &gt;105"</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10663,6 +11110,7 @@ serum hCG measurement combined with imaging studies."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10759,6 +11207,7 @@ gestational trophoblastic neoplasia (GTN)."</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10782,6 +11231,7 @@ patient’s normal tissues"</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10874,6 +11324,7 @@ somatic origin."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10970,6 +11421,7 @@ the brain."</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11037,6 +11489,7 @@ ments of hCG, with hCG levels below the detection limit)."</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11088,6 +11541,7 @@ overall survival approaches 100%."</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11112,6 +11566,7 @@ metastases, achieving a survival rate of approximately 90%."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11175,6 +11630,7 @@ metastases, achieving a survival rate of approximately 90%."</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11220,6 +11676,7 @@ metastases, achieving a survival rate of approximately 90%."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11273,6 +11730,7 @@ ligament)"</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11319,6 +11777,7 @@ genital tract involvement"</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11392,6 +11851,7 @@ genital tract involvement"</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11448,6 +11908,7 @@ pregnancies and 1 in 40 HMs."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11556,6 +12017,7 @@ pregnancies and 1 in 40 HMs."</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11631,6 +12093,7 @@ and epithelioid trophoblastic tumour (ETT)."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11712,6 +12175,7 @@ and epithelioid trophoblastic tumour (ETT)."</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11790,6 +12254,7 @@ and epithelioid trophoblastic tumour (ETT)."</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11865,6 +12330,7 @@ moles."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11960,6 +12426,7 @@ This clinical trial targets Neoplasm (HP:0002664). HP:0002664 is a phenotype fro
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12032,6 +12499,7 @@ This clinical trial targets Neoplasm (HP:0002664). HP:0002664 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14917,6 +15385,41 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Cross-check audit + reviewer response: split CNS therapy, add angiogenesis node, add MONDO-bound differentials, add node roles</strong> · 2026-08-01T02:33:35Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Choriocarcinoma/2026-08-01T023335Z-claude-code-a1a52a.yaml">View source</a></p>
+                        <p class="research-review-text">Independent fresh-context audit (adversarial cross-check of a self-reviewed PR), merged with the ai4c-reviewer CHANGES_REQUESTED findings.
+
+REVIEWER IMPORTANT 1 - CNS-Directed Therapy for Cerebral Metastases was typed as radiotherapy but modeled as chemotherapy. Agreed. The single treatment carried therapeutic_modality RADIOTHERAPY and NCIT:C15313 Radiation Therapy while its description and primary evidence were about CNS-penetrating high-dose methotrexate within EMA-CO, and a radiation action term was carrying a small-molecule therapeutic_agent. Split into two treatments exactly as suggested: CNS-Penetrating High-Dose Methotrexate EMA-CO (SMALL_MOLECULE, NCIT:C15632 Chemotherapy, methotrexate agent, EMA-CO regimen_term, PMID:38008872) and Adjunctive Cranial Radiotherapy (RADIOTHERAPY, NCIT:C15313, no agent, PMID:34669197). Both were given target_mechanisms join points that the merged treatment lacked: the methotrexate arm targets Hematogenous Dissemination and Pulmonary Colonisation, the radiotherapy arm targets Haemorrhagic Destruction of Colonised Organs, which is the node whose risk it is given to reduce.
+
+REVIEWER IMPORTANT 2 - angiogenesis not modeled anywhere in the pathograph. Agreed. Added a VEGF-Driven Neoangiogenesis node conforming to tumor_angiogenesis#Angiogenic Switch and VEGF-Driven Neovascularization, wired in from Neoplastic Trophoblastic Transformation and out to both Hematogenous Dissemination and Haemorrhagic Destruction. Two new references were fetched and cached for it. Evidence is deliberately tiered and the tiering is documented on the node: the direct mechanistic demonstration (PMID:40760271, Rap1/VEGF axis driving choriocarcinoma angiogenesis) is IN_VITRO because it is cell-line work, and the clinical evidence (PMID:41627371, camrelizumab plus apatinib achieving complete and durable responses in 70-80 percent of multidrug-resistant GTN) is marked PARTIAL because response to an antiangiogenic agent is indirect evidence for the mechanism and the combination confounds the antiangiogenic contribution with checkpoint blockade. The node notes explicitly record that no cited source quantifies VEGF expression or microvessel density in primary human gestational choriocarcinoma tissue, and that a microvessel-density or VEGF-IHC series would upgrade the node. This is stated rather than glossed because the deep-research artifact itself warns that much of the angiogenesis evidence in this disease comes from complete hydatidiform mole or cell lines rather than causal intervention in human gestational choriocarcinoma.
+
+FOUND BY INDEPENDENT AUDIT:
+1. All ten pathophysiology nodes were missing the role slot, while every node correctly carried biological_scale. Assigned roles using the vocabulary already dominant across the KB: trigger, central_effector, effector, consequence, outcome, adaptive_escape, therapeutic_vulnerability.
+2. differential_diagnoses was absent entirely. For choriocarcinoma this is a substantive gap, because the entity is defined largely by its boundaries. Added five structured, MONDO-bound differentials with distinguishing_features and verified evidence: placental site trophoblastic tumour (MONDO:0020552), epithelioid trophoblastic tumour (MONDO:0016787), invasive hydatidiform mole (MONDO:0020549), complete hydatidiform mole (MONDO:0016785) and non-gestational choriocarcinoma (MONDO:0004322). The PSTT and ETT boundaries are therapeutically consequential because both are relatively chemoresistant, and the non-gestational boundary is the most consequential of all, since it determines whether the semi-allogeneic trigger node applies at all and whether the patient is treated on GTN or germ-cell protocols.
+
+NOT FIXED, flagged for the author: all twelve phenotypes have no incoming causal edge from the pathograph. Wiring them is a modelling decision rather than a repair and would be better done by the curator who built the graph.
+
+ON THE CONTESTED-MODEL CHECK: the gestational versus non-gestational origin question was specifically examined for the failure mode where prose acknowledges a contested model while the graph silently encodes one arm as settled. This entry does NOT have that defect. The Paternal Genome Content and Semi-Allogeneic Tumour Identity trigger node is gestational-specific, and that limitation is explicitly carried as a KNOWLEDGE_GAP discussion attached to that node, asking whether non-gestational germ-cell choriocarcinoma shares the modeled pathophysiology. That is the correct treatment and it is now reinforced by the new non-gestational differential.
+
+VERIFICATION PERFORMED: all 77 ontology identifiers re-resolved with OAK and definitions read, not just labels. All 110 original evidence snippets checked against the cached references; all 110 matched byte-exactly, with zero normalisation needed - the strongest snippet-fidelity result of the four entries audited. All reference_title values diffed against cached paper titles; no misattributions.
+
+VALIDATION: just validate, just validate-terms and just validate-references all pass. 118/118 snippets verified. Weighted compliance 97.0 to 96.0 percent; the decrease is the expected effect of adding a differentials section and a new node, which introduce optional-field denominators that the previously very compact entry did not have.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Choriocarcinoma</strong> · 2026-08-01T00:11:40Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Choriocarcinoma/2026-08-01T001140Z-claude-code-cc9d5d.yaml">View source</a></p>
+                        <p class="research-review-text">Created kb/disorders/Choriocarcinoma.yaml for MONDO:0005207 [GitHub issue #7466, tracker #1079; recommended_action CURATE_ROOT_WITH_SUBTYPES]. Deep research provider: Edison/Falcon via &#39;just research-disorder falcon Choriocarcinoma&#39; - 1273s, 33 citations, 1 artifact; output at research/Choriocarcinoma-deep-research-falcon.md. Falcon output was treated as leads only: every PMID was fetched with &#39;just fetch-reference&#39; and every snippet verified as an exact substring of the cached abstract or full text. Named Entity Confusion preflight run against MONDO:0005207 with OAK - trophoblastic neoplasm plus germ cell tumor parents, NCIT:C2948 xref, ICDO:9100/3 - no confusion detected. Scope decision: this entry covers choriocarcinoma proper - gestational, non-gestational germ cell, and intraplacental early form as three has_subtypes; the wider gestational trophoblastic disease spectrum of invasive mole, PSTT and ETT, and the molar precursor imprinting biology of CDKN1C/p57, are cross-referenced to the existing Gestational_Trophoblastic_Neoplasm and Hydatidiform_Mole entries rather than duplicated. Content: 10 pathophysiology nodes with biological_scale tags and a fully wired downstream chain, conforming to invasion_and_metastasis at Local Invasion and Intravasation and at Metastatic Colonization, and to immune_checkpoint_blockade at Adaptive Immune Resistance; 11 phenotypes with HPO terms; 4 histopathology findings; structured prevalence using measure_type/prevalence_class/rate_per_100000 with no deprecated percentage; genetic section on the paternal androgenetic allele complement and STR genotyping as the gestational-versus-non-gestational discriminator; biochemical serum beta-hCG with a LOINC:21198-7 reference range and FIGO/WHO pre-treatment hCG interpretation bands; FIGO stages I-IV; risk-factor environmental section; 7 treatments including EMA-CO with regimen_term NCIT:C67511 and PD-1/PD-L1 checkpoint blockade wired via target_mechanisms; TROPHIMMUN trial NCT03135769. A red-team self-review against the dismech-pr-review skill was run in a fresh-context subagent before opening the PR, and its findings were applied: added a diagnosis section (hCG criteria, STR genotyping, staging imaging, hCG-defined remission and surveillance); added EMA-EP/TP-TE cytotoxic salvage wired to the refractory node; replaced radiotherapy-first brain-metastasis management with CNS-penetrating high-dose methotrexate within EMA-CO; downgraded eight inferential or disease-group-level evidence items from SUPPORT to PARTIAL; removed three frequency bands and one prevalence-class claim that the sources did not license; dropped an unsupported GO genomic-imprinting annotation; switched the hCG analyte from the free beta-subunit LOINC code to the total-hCG code 19080-1; upgraded two histopathology NCIT terms and one HPO term (hemoperitoneum); split the bundled age/ethnicity risk factor; added two KNOWLEDGE_GAP discussions with proposed experiments; and made the boundary with Gestational_Trophoblastic_Neoplasm bidirectional by adding a cross-reference to that entry&#39;s Choriocarcinoma subtype, flagging the lump/split question for curator adjudication. Additionally, every snippet was audited to be a byte-literal substring of its cache (not merely part-wise matched), and six that passed the validator but were not byte-exact were corrected. Validation: just validate PASS with 110/110 snippets verified, just validate-terms PASS, just validate-references PASS, just compliance 96.7 percent global and 97.0 percent weighted (residual gaps are datasets and evidence on not-yet-performed proposed experiments).
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

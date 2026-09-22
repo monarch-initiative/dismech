@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4266,6 +4338,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4287,6 +4360,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4362,11 +4436,12 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
-                <div class="evidence-snippet">"in-frame bZIP-mutation irrespective of double or single CEBPA-mutated status [12– 14] has been adapted in both ICC and the 2022 ELN recommendation"</div>
+                <div class="evidence-snippet">"in-frame bZIP-mutation irrespective of double or single CEBPA-mutated status ... has been adapted in both ICC and the 2022 ELN recommendation"</div>
 
 
                 <div class="evidence-explanation">The classification review describes the ICC shift to in-frame bZIP mutation irrespective of allelic state.</div>
@@ -4383,6 +4458,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4407,6 +4483,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4522,6 +4599,7 @@ This subtype is caused by variation in CEBPA (hgnc:1833). hgnc:1833 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4603,6 +4681,7 @@ This subtype is caused by variation in CEBPA (hgnc:1833). hgnc:1833 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4624,6 +4703,7 @@ This subtype is caused by variation in CEBPA (hgnc:1833). hgnc:1833 is a gene fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4840,6 +4920,7 @@ This subtype is caused by variation in CEBPA (hgnc:1833). hgnc:1833 is a gene fr
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4904,6 +4985,7 @@ This subtype is caused by variation in CEBPA (hgnc:1833). hgnc:1833 is a gene fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5059,6 +5141,7 @@ This subtype is caused by variation in CEBPA (hgnc:1833). hgnc:1833 is a gene fr
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5080,6 +5163,7 @@ This subtype is caused by variation in CEBPA (hgnc:1833). hgnc:1833 is a gene fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5237,6 +5321,7 @@ This subtype is caused by variation in CEBPA (hgnc:1833). hgnc:1833 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5258,6 +5343,7 @@ This subtype is caused by variation in CEBPA (hgnc:1833). hgnc:1833 is a gene fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5394,6 +5480,7 @@ This subtype is caused by variation in CEBPA (hgnc:1833). hgnc:1833 is a gene fr
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5415,6 +5502,7 @@ This subtype is caused by variation in CEBPA (hgnc:1833). hgnc:1833 is a gene fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5452,6 +5540,7 @@ This subtype is caused by variation in CEBPA (hgnc:1833). hgnc:1833 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-n-terminal-cebpa-p42-to-p30-dysregulation" data-dismech-node="N-Terminal CEBPA p42-to-p30 Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">N-Terminal CEBPA p42-to-p30 Dysregulation</div>
+
 
                 <div class="item-desc">Acquired N-terminal TAD frameshift or nonsense variants truncate the p42 isoform while permitting downstream translation reinitiation and excess p30. The retained p30 protein interferes with normal C/EBPalpha transcriptional control; this is a dominant-negative isoform imbalance rather than simple absence of the protein.</div>
 
@@ -5661,6 +5750,7 @@ This pathophysiological event involves abnormal DNA-binding transcription factor
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5682,6 +5772,7 @@ This pathophysiological event involves abnormal DNA-binding transcription factor
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5707,6 +5798,7 @@ This pathophysiological event involves abnormal DNA-binding transcription factor
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-c-terminal-cebpa-bzip-dna-binding-and-dimerization-dysfunction" data-dismech-node="C-Terminal CEBPA bZIP DNA-Binding and Dimerization Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">C-Terminal CEBPA bZIP DNA-Binding and Dimerization Dysfunction</div>
+
 
                 <div class="item-desc">Acquired C-terminal bZIP in-frame indels or missense variants alter the DNA-binding and leucine-zipper dimerization region. In-frame bZIP indels are the prognostically favorable mutation class, but they remain leukemogenic lesions that disturb CEBPA-regulated transcription and lineage commitment.</div>
 
@@ -5916,6 +6008,7 @@ This pathophysiological event involves abnormal DNA-binding transcription factor
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5938,6 +6031,7 @@ This pathophysiological event involves abnormal DNA-binding transcription factor
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-granulocytic-differentiation-arrest" data-dismech-node="Granulocytic Differentiation Arrest" data-dismech-type="pathophysiology">
                 <div class="item-name">Granulocytic Differentiation Arrest</div>
+
 
                 <div class="item-desc">Variant-specific failure of CEBPA transcription prevents normal granulocytic maturation. Immature myeloid progenitors persist instead of completing the neutrophil differentiation program.</div>
 
@@ -6106,6 +6200,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6128,6 +6223,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-premalignant-hsc-and-leukemia-initiating-progenitor-expansion" data-dismech-node="Premalignant HSC and Leukemia-Initiating Progenitor Expansion" data-dismech-type="pathophysiology">
                 <div class="item-name">Premalignant HSC and Leukemia-Initiating Progenitor Expansion</div>
+
 
                 <div class="item-desc">C-terminal lesions can expand premalignant long-term HSCs, while N-terminal lesions preserve committed myeloid progenitors that can become leukemia-initiating cells. Combined N- and C-terminal lesions incorporate both properties and accelerate disease development.</div>
 
@@ -6305,6 +6401,7 @@ This pathophysiological event involves increased cell population proliferation (
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6327,6 +6424,7 @@ This pathophysiological event involves increased cell population proliferation (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-leukemic-myeloblast-accumulation" data-dismech-node="Leukemic Myeloblast Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Leukemic Myeloblast Accumulation</div>
+
 
                 <div class="item-desc">Leukemic myeloblasts expand in bone marrow and may circulate in blood. This establishes the acute leukemic state and creates a marrow environment that suppresses normal downstream hematopoietic production.</div>
 
@@ -6490,6 +6588,7 @@ This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 i
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6512,6 +6611,7 @@ This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-suppression-of-normal-hematopoiesis" data-dismech-node="Suppression of Normal Hematopoiesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Suppression of Normal Hematopoiesis</div>
+
 
                 <div class="item-desc">The AML marrow environment impedes normal differentiation downstream of the hematopoietic stem-cell compartment. Reduced erythroid, megakaryocytic, and granulocytic output produces multilineage or lineage-specific cytopenias.</div>
 
@@ -6618,6 +6718,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6640,6 +6741,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cytopenia-associated-complications" data-dismech-node="Cytopenia-Associated Complications" data-dismech-type="pathophysiology">
                 <div class="item-name">Cytopenia-Associated Complications</div>
+
 
                 <div class="item-desc">Anemia contributes to fatigue, thrombocytopenia produces bruising or bleeding, and neutropenia increases bacterial and fungal infection risk. These are AML-wide consequences rather than distinctive CEBPA-subtype features.</div>
 
@@ -6730,6 +6832,7 @@ This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 i
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6752,6 +6855,13 @@ This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-correlated-ifn-and-mitochondrial-high-risk-state" data-dismech-node="Correlated IFN and Mitochondrial High-Risk State" data-dismech-type="pathophysiology">
                 <div class="item-name">Correlated IFN and Mitochondrial High-Risk State</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Within the CEBPA bZIP in-frame-indel analytic subgroup, a subset has increased interferon-stimulated and mitochondrial-complex gene expression associated with shorter event-free survival. This node is explicitly an emerging, correlation-based risk hypothesis rather than a settled causal CEBPA mechanism.</div>
 
@@ -6828,6 +6938,7 @@ This pathophysiological event involves increased type I interferon-mediated sign
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6884,6 +6995,7 @@ This pathophysiological event involves increased type I interferon-mediated sign
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6993,6 +7105,9 @@ This clinical feature is Leukemia (HP:0001909). HP:0001909 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7007,6 +7122,7 @@ This clinical feature is Leukemia (HP:0001909). HP:0001909 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7061,6 +7177,9 @@ This clinical feature is Pancytopenia (HP:0001876). HP:0001876 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7075,6 +7194,7 @@ This clinical feature is Pancytopenia (HP:0001876). HP:0001876 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7129,6 +7249,9 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7143,6 +7266,7 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7197,6 +7321,9 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7211,6 +7338,7 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7267,6 +7395,9 @@ This clinical feature is Neutropenia, annotated with Decreased total neutrophil 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7281,6 +7412,7 @@ This clinical feature is Neutropenia, annotated with Decreased total neutrophil 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7337,6 +7469,9 @@ This clinical feature is Leukocytosis, annotated with Increased total leukocyte 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7351,6 +7486,7 @@ This clinical feature is Leukocytosis, annotated with Increased total leukocyte 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7405,6 +7541,9 @@ This clinical feature is Abnormal bleeding (HP:0001892). HP:0001892 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7419,6 +7558,7 @@ This clinical feature is Abnormal bleeding (HP:0001892). HP:0001892 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7482,6 +7622,9 @@ This clinical feature is Recurrent infections (HP:0002719). HP:0002719 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7496,6 +7639,7 @@ This clinical feature is Recurrent infections (HP:0002719). HP:0002719 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7559,6 +7703,9 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7573,6 +7720,7 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7675,6 +7823,9 @@ This disease-associated gene is CEBPA (hgnc:1833). hgnc:1833 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7689,6 +7840,7 @@ This disease-associated gene is CEBPA (hgnc:1833). hgnc:1833 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7722,6 +7874,7 @@ This disease-associated gene is CEBPA (hgnc:1833). hgnc:1833 is a gene from the 
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7741,11 +7894,17 @@ This variant is in CEBPA (hgnc:1833). hgnc:1833 is a gene from the HUGO Gene Nom
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">truncating variant</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Somatic N-terminal TAD frameshift or nonsense variants truncate p42 while preserving downstream p30 translation, producing a dominant-negative isoform imbalance and impaired granulocytic transcription.</div>
@@ -7801,6 +7960,7 @@ This variant is in CEBPA (hgnc:1833). hgnc:1833 is a gene from the HUGO Gene Nom
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7831,6 +7991,7 @@ This variant is in CEBPA (hgnc:1833). hgnc:1833 is a gene from the HUGO Gene Nom
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7850,11 +8011,17 @@ This variant is in CEBPA (hgnc:1833). hgnc:1833 is a gene from the HUGO Gene Nom
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">inframe indel</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Somatic in-frame insertions or deletions in the C-terminal bZIP region disrupt DNA binding and dimerization. This variant class, rather than all CEBPA variants, carries the reproducible favorable-risk association.</div>
@@ -7907,6 +8074,7 @@ This variant is in CEBPA (hgnc:1833). hgnc:1833 is a gene from the HUGO Gene Nom
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7973,6 +8141,9 @@ This disease-associated gene is WT1 (hgnc:12796). hgnc:12796 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7987,6 +8158,7 @@ This disease-associated gene is WT1 (hgnc:12796). hgnc:12796 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8011,6 +8183,7 @@ This disease-associated gene is WT1 (hgnc:12796). hgnc:12796 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8072,6 +8245,9 @@ This disease-associated gene is DNMT3A (hgnc:2978). hgnc:2978 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8086,6 +8262,7 @@ This disease-associated gene is DNMT3A (hgnc:2978). hgnc:2978 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8110,6 +8287,7 @@ This disease-associated gene is DNMT3A (hgnc:2978). hgnc:2978 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8171,6 +8349,9 @@ This disease-associated gene is FLT3 (hgnc:3765). hgnc:3765 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8185,6 +8366,7 @@ This disease-associated gene is FLT3 (hgnc:3765). hgnc:3765 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8209,6 +8391,7 @@ This disease-associated gene is FLT3 (hgnc:3765). hgnc:3765 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8242,6 +8425,7 @@ This disease-associated gene is FLT3 (hgnc:3765). hgnc:3765 is a gene from the H
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8261,11 +8445,17 @@ This variant is in FLT3 (hgnc:3765). hgnc:3765 is a gene from the HUGO Gene Nome
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">internal tandem duplication</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Somatic FLT3 internal tandem duplication reported as an adverse marker in some CEBPA-mutated cohorts.</div>
@@ -8292,6 +8482,7 @@ This variant is in FLT3 (hgnc:3765). hgnc:3765 is a gene from the HUGO Gene Nome
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8419,6 +8610,20 @@ This treatment uses daunorubicin (CHEBI:41977). CHEBI:41977 is a therapeutic age
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Medically fit patients are generally treated with anthracycline- and cytarabine-based induction followed by cytarabine-containing consolidation. This is an AML treatment backbone, not a CEBPA-directed therapy. The favorable reproducible favorable-outcome evidence applies most securely to bZIP in-frame-indel disease treated intensively; it does not establish that every classification-included bZIP variant responds equivalently.</div>
 
 
@@ -8449,6 +8654,7 @@ This treatment uses daunorubicin (CHEBI:41977). CHEBI:41977 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8492,6 +8698,7 @@ This treatment uses daunorubicin (CHEBI:41977). CHEBI:41977 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8595,6 +8802,20 @@ This treatment uses azacitidine (NCIT:C288). NCIT:C288 is a therapeutic agent fr
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">A hypomethylating agent plus venetoclax is a lower-intensity frontline AML option when age, frailty, or comorbidity precludes intensive chemotherapy. CEBPA-specific evidence is limited: favorable-risk AML was excluded from VIALE-A, and the reported CEBPA double-mutated experience is a small subset. The addition of low-dose cytarabine is being studied and is not encoded as established standard care for this molecular subtype.</div>
 
 
@@ -8625,6 +8846,7 @@ This treatment uses azacitidine (NCIT:C288). NCIT:C288 is a therapeutic agent fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8671,6 +8893,7 @@ This treatment uses azacitidine (NCIT:C288). NCIT:C288 is a therapeutic agent fr
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8692,6 +8915,7 @@ This treatment uses azacitidine (NCIT:C288). NCIT:C288 is a therapeutic agent fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8756,6 +8980,31 @@ This treatment is allogeneic hematopoietic stem cell transplantation (NCIT:C4608
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Cell therapy</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Retrospective double-mutated CEBPA cohorts found improved relapse-free but not overall survival from transplantation in first complete remission and support reserving allogeneic transplantation for refractory disease, relapse, or second remission. Whether co-mutations or post-treatment MRD identify a first-remission subgroup with an overall-survival benefit remains unresolved and is represented below as an open discussion, not a recommendation. Suspected germline CEBPA predisposition requires constitutional evaluation before related-donor selection.</div>
 
 
@@ -8786,6 +9035,7 @@ This treatment is allogeneic hematopoietic stem cell transplantation (NCIT:C4608
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8832,6 +9082,7 @@ This treatment is allogeneic hematopoietic stem cell transplantation (NCIT:C4608
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8853,6 +9104,7 @@ This treatment is allogeneic hematopoietic stem cell transplantation (NCIT:C4608
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8912,6 +9164,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -9031,6 +9297,7 @@ This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenot
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9052,6 +9319,7 @@ This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9162,6 +9430,7 @@ This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenot
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9251,6 +9520,7 @@ This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenot
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9272,6 +9542,7 @@ This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9364,6 +9635,7 @@ This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenot
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9450,6 +9722,7 @@ This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9542,6 +9815,7 @@ This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenot
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9563,6 +9837,7 @@ This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9655,6 +9930,7 @@ This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenot
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9676,6 +9952,7 @@ This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9768,6 +10045,7 @@ This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenot
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9789,6 +10067,7 @@ This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9857,6 +10136,7 @@ This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenot
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9906,6 +10186,7 @@ This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9959,6 +10240,7 @@ This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenot
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9980,6 +10262,7 @@ This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10030,6 +10313,7 @@ This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10136,6 +10420,7 @@ This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenot
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10207,6 +10492,7 @@ This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10282,6 +10568,7 @@ This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenot
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10345,6 +10632,7 @@ This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10422,6 +10710,7 @@ This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenot
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10489,6 +10778,7 @@ This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10560,6 +10850,7 @@ This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenot
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10628,6 +10919,7 @@ This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenot
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10678,6 +10970,7 @@ This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10734,6 +11027,7 @@ This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenot
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10782,6 +11076,7 @@ This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10924,6 +11219,7 @@ This experimental model concerns Cebpa (hgnc:1833). hgnc:1833 is a gene from the
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -11047,6 +11343,7 @@ This experimental model concerns Cebpa (hgnc:1833). hgnc:1833 is a gene from the
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -11117,6 +11414,7 @@ This experimental model concerns Cebpa (hgnc:1833). hgnc:1833 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11285,9 +11583,8 @@ definitions:
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
-      in-frame bZIP-mutation irrespective of double or single CEBPA-mutated
-      status [12– 14] has been adapted in both ICC and the 2022 ELN
-      recommendation
+      in-frame bZIP-mutation irrespective of double or single CEBPA-mutated status ... has been
+      adapted in both ICC and the 2022 ELN recommendation
     explanation: The classification review describes the ICC shift to in-frame bZIP mutation irrespective of allelic state.
   - reference: DOI:10.1007/s11899-023-00699-3
     reference_title: Sporadic and Familial Acute Myeloid Leukemia with CEBPA Mutations
@@ -13269,6 +13566,8 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -13772,7 +14071,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Acute Myeloid Leukemia with CEBPA Somatic Mutations", "mondoId": "MONDO:0017894", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Acute_Myeloid_Leukemia_with_CEBPA_Somatic_Mutations", "yamlRevision": "22e42d6083e6"};
+        const OS_CONFIG = {"diseaseName": "Acute Myeloid Leukemia with CEBPA Somatic Mutations", "mondoId": "MONDO:0017894", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Acute_Myeloid_Leukemia_with_CEBPA_Somatic_Mutations", "yamlRevision": "447bc11aed5e"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

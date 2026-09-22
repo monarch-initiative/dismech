@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -467,6 +468,18 @@
         .tag-component {
             background: #f0fdf4;
             color: #166534;
+        }
+
+        /* Same values as disorder.html.j2 so a treatment chip looks identical
+           whether it is read on a disorder page or on a module page. */
+        .tag-treatment {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .tag-gene {
+            background: #dbeafe;
+            color: #1e40af;
         }
 
         .tag-role {
@@ -1044,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1059,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1113,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1126,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1284,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1294,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1335,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1541,6 +1590,9 @@
 
     
     
+
+    
+    
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -1585,7 +1637,7 @@
                 
                 <span class="badge badge-category">Module</span>
                 <span class="badge badge-module">xenobiotic_cardiac_channel_perturbation</span>
-                <span class="badge badge-count">2 disorders</span>
+                <span class="badge badge-count">4 disorders</span>
                 
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 9</a>
                 
@@ -1826,7 +1878,7 @@ Curation note: the AOP-Wiki pathways covering this mechanism (AOP 552, 555, 560,
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
                 <h2 class="card-title">Used By Disorder Entries</h2>
-                <span class="card-count">2</span>
+                <span class="card-count">4</span>
             </div>
             
             <div class="crosslink-list">
@@ -1845,6 +1897,56 @@ Curation note: the AOP-Wiki pathways covering this mechanism (AOP 552, 555, 560,
                         , 
                         
                         Cardiac Triggered Activity and Ventricular Tachyarrhythmia → Arrhythmogenic Triggered Activity
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Acute_Tricyclic_Antidepressant_Poisoning.html">Acute Tricyclic Antidepressant Poisoning</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Cardiac Fast Sodium Channel Blockade → Xenobiotic Cardiac Ion-Channel Perturbation
+                        
+                        
+                        , 
+                        
+                        hERG Potassium Channel Blockade → Xenobiotic Cardiac Ion-Channel Perturbation
+                        
+                        
+                        , 
+                        
+                        Slowed Cardiac Phase 0 Depolarization → Altered Cardiac Action Potential
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Cocaine_Intoxication.html">Cocaine Intoxication</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Cardiac Fast Sodium Channel Blockade → Xenobiotic Cardiac Ion-Channel Perturbation
+                        
+                        
+                        , 
+                        
+                        hERG Potassium Channel Blockade → Xenobiotic Cardiac Ion-Channel Perturbation
+                        
+                        
+                        , 
+                        
+                        Altered Cardiac Action Potential
                         
                         
                     </span>
@@ -1905,11 +2007,13 @@ Curation note: the AOP-Wiki pathways covering this mechanism (AOP 552, 555, 560,
             
             <div class="item-box anchor-target" id="module-pathophysiology-xenobiotic-cardiac-ion-channel-perturbation" data-dismech-node="Xenobiotic Cardiac Ion-Channel Perturbation" data-dismech-type="pathophysiology">
                 <div class="item-name">Xenobiotic Cardiac Ion-Channel Perturbation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">A drug or toxin binds a cardiac ion channel and changes its gating. The change may be blockade, as with IKr/hERG blockade by QT-prolonging drugs, L-type calcium channel blockade by verapamil-class agents, or funny-current blockade by ivabradine; or it may be pathological activation, as with aconitine binding the open state of the cardiac sodium channel and suppressing its inactivation. This is the acquired counterpart of a germline channel variant and is the entry point for drug- and toxin-induced arrhythmia.</div>
                 
@@ -1963,6 +2067,34 @@ This pathophysiological event involves cardiomyocyte, annotated with cardiac mus
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Acute_Tricyclic_Antidepressant_Poisoning.html">Acute Tricyclic Antidepressant Poisoning</a>
+                            
+                            <span class="crosslink-desc">as Cardiac Fast Sodium Channel Blockade</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Acute_Tricyclic_Antidepressant_Poisoning.html">Acute Tricyclic Antidepressant Poisoning</a>
+                            
+                            <span class="crosslink-desc">as hERG Potassium Channel Blockade</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Cocaine_Intoxication.html">Cocaine Intoxication</a>
+                            
+                            <span class="crosslink-desc">as Cardiac Fast Sodium Channel Blockade</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Cocaine_Intoxication.html">Cocaine Intoxication</a>
+                            
+                            <span class="crosslink-desc">as hERG Potassium Channel Blockade</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Familial_Long_QT_Syndrome.html">Familial Long QT Syndrome</a>
                             
                             <span class="crosslink-desc">as QT-Prolonging Drug Unmasking of Reduced Repolarization Reserve</span>
@@ -1992,11 +2124,13 @@ This pathophysiological event involves cardiomyocyte, annotated with cardiac mus
             
             <div class="item-box anchor-target" id="module-pathophysiology-altered-cardiac-ionic-current" data-dismech-node="Altered Cardiac Ionic Current" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered Cardiac Ionic Current</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The current carried by the perturbed channel departs from normal. Blockade reduces peak current, as with suppression of L-type calcium current by verapamil or of I(f) by ivabradine; suppressed inactivation instead sustains an inward current beyond its normal window. Agents are frequently not selective for a single conductance, so the net current change may involve several currents at once.</div>
                 
@@ -2058,11 +2192,13 @@ This pathophysiological event involves cardiomyocyte, annotated with cardiac mus
             
             <div class="item-box anchor-target" id="module-pathophysiology-altered-cardiac-action-potential" data-dismech-node="Altered Cardiac Action Potential" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered Cardiac Action Potential</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The cardiomyocyte action potential departs from its normal configuration -- in duration, plateau amplitude, or the slope of diastolic depolarization. This is the key conformance target: it is where every xenobiotic entry point converges regardless of which channel was hit, and it is the step at which this module and the inherited-channelopathy module become the same chain. The direction of change is agent- and concentration-dependent and is not fixed here.</div>
                 
@@ -2136,6 +2272,25 @@ This pathophysiological event involves abnormal cardiac muscle cell action poten
                 
 
                 
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Used by disorders</div>
+                    <div class="crosslink-list">
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Acute_Tricyclic_Antidepressant_Poisoning.html">Acute Tricyclic Antidepressant Poisoning</a>
+                            
+                            <span class="crosslink-desc">as Slowed Cardiac Phase 0 Depolarization</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Cocaine_Intoxication.html">Cocaine Intoxication</a>
+                            
+                        </div>
+                        
+                    </div>
+                </div>
+                
 
                 
                 <div class="crosslink-block">
@@ -2163,11 +2318,13 @@ This pathophysiological event involves abnormal cardiac muscle cell action poten
             
             <div class="item-box anchor-target" id="module-pathophysiology-arrhythmogenic-triggered-activity" data-dismech-node="Arrhythmogenic Triggered Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Arrhythmogenic Triggered Activity</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The altered action potential permits afterdepolarizations -- early afterdepolarizations arising from a prolonged plateau, delayed afterdepolarizations from calcium overload -- which reach threshold and generate ectopic beats. This is the working-myocardium branch of the module.</div>
                 
@@ -2275,11 +2432,13 @@ This pathophysiological event involves abnormal membrane depolarization during a
             
             <div class="item-box anchor-target" id="module-pathophysiology-pacemaker-rate-depression" data-dismech-node="Pacemaker Rate Depression" data-dismech-type="pathophysiology">
                 <div class="item-name">Pacemaker Rate Depression</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Reduced pacemaker current at the sinoatrial node flattens diastolic depolarization and slows spontaneous firing, producing bradycardia. This is the pacemaker branch of the module, and is the therapeutic mechanism of ivabradine as well as the toxic mechanism of excessive funny-current or calcium-channel blockade.</div>
                 
@@ -2373,11 +2532,13 @@ This pathophysiological event involves decreased regulation of heart rate (GO:00
             
             <div class="item-box anchor-target" id="module-pathophysiology-xenobiotic-induced-cardiac-arrhythmia" data-dismech-node="Xenobiotic-Induced Cardiac Arrhythmia" data-dismech-type="pathophysiology">
                 <div class="item-name">Xenobiotic-Induced Cardiac Arrhythmia</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The clinical endpoint: a rhythm disturbance attributable to a drug or toxin acting on a cardiac ion channel. Depending on the branch reached, this presents as torsade de pointes and polymorphic ventricular tachycardia from triggered activity, or as symptomatic bradycardia and sinus arrest from rate depression.</div>
                 
@@ -2456,6 +2617,9 @@ This pathophysiological event involves abnormal cardiac conduction (GO:0061337).
             </div>
             
         </div>
+        
+
+        
         
 
         <footer class="page-footer">

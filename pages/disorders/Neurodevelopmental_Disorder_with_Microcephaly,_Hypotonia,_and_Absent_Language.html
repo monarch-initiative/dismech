@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4230,6 +4302,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4251,6 +4324,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4436,6 +4510,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4594,6 +4669,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4758,6 +4834,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4782,6 +4859,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4803,6 +4881,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4967,6 +5046,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4988,6 +5068,7 @@
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -5025,6 +5106,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-psmb1-loss-of-function" data-dismech-node="Biallelic PSMB1 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic PSMB1 Loss of Function</div>
+
 
                 <div class="item-desc">The homozygous PSMB1 missense variant c.307T&gt;C p.(Tyr103His) is the initiating lesion. PSMB1 encodes beta6, a non-catalytic beta-type subunit of the inner beta-rings of the 20S proteasome core particle. The variant is characterised as a partial rather than complete loss of function.</div>
 
@@ -5078,6 +5160,8 @@ This genetic context concerns PSMB1 (hgnc:9537). hgnc:9537 is a gene from the HU
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -5090,6 +5174,9 @@ This genetic context concerns PSMB1 (hgnc:9537). hgnc:9537 is a gene from the HU
         <span class="tag tag-classification">functional_impact_category: PARTIAL_LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Homozygous germline missense substitution p.(Tyr103His), inherited from consanguineous heterozygous parents.</div>
 
@@ -5139,6 +5226,7 @@ This genetic context concerns PSMB1 (hgnc:9537). hgnc:9537 is a gene from the HU
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5160,6 +5248,7 @@ This genetic context concerns PSMB1 (hgnc:9537). hgnc:9537 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5185,6 +5274,7 @@ This genetic context concerns PSMB1 (hgnc:9537). hgnc:9537 is a gene from the HU
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-destabilised-beta6-alpha5-interface-of-the-20s-core-particle" data-dismech-node="Destabilised beta6-alpha5 Interface of the 20S Core Particle" data-dismech-type="pathophysiology">
                 <div class="item-name">Destabilised beta6-alpha5 Interface of the 20S Core Particle</div>
+
 
                 <div class="item-desc">The 20S core particle is built from four stacked heptameric rings in the order alpha7-beta7-beta7-alpha7, so every beta subunit sits against defined neighbouring alpha and beta subunits. Weakening the beta6 (PSMB1) contact with alpha5 (PSMA5) destabilises the assembled core particle.</div>
 
@@ -5276,6 +5366,7 @@ This pathophysiological event involves proteasome beta-ring, annotated with prot
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5297,6 +5388,7 @@ This pathophysiological event involves proteasome beta-ring, annotated with prot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5322,6 +5414,7 @@ This pathophysiological event involves proteasome beta-ring, annotated with prot
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-beta6-maturation-and-20s-core-particle-assembly" data-dismech-node="Impaired beta6 Maturation and 20S Core Particle Assembly" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired beta6 Maturation and 20S Core Particle Assembly</div>
+
 
                 <div class="item-desc">Beta-ring assembly is an ordered, POMP-dependent process in which beta6 is incorporated onto the nascent alpha-ring, and each beta subunit must have its propeptide processed for the core particle to mature. In cells expressing the variant, beta6 maturation is absent and the unprocessed proform persists, with reduced overall subunit content — i.e. the defect is one of proteasome biogenesis rather than of catalysis.</div>
 
@@ -5464,6 +5557,7 @@ This pathophysiological event involves decreased beta6 propeptide processing, an
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5485,6 +5579,7 @@ This pathophysiological event involves decreased beta6 propeptide processing, an
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5512,6 +5607,7 @@ This pathophysiological event involves decreased beta6 propeptide processing, an
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5534,6 +5630,7 @@ This pathophysiological event involves decreased beta6 propeptide processing, an
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-proteasome-proteolytic-capacity" data-dismech-node="Reduced Proteasome Proteolytic Capacity" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Proteasome Proteolytic Capacity</div>
+
 
                 <div class="item-desc">Proteolysis in the 20S core particle is carried out by the caspase-like (beta1), trypsin-like (beta2) and chymotrypsin-like (beta5) active sites. Beta6 is not itself catalytic, so the activity loss is an indirect consequence of having fewer intact core particles. In the SH-SY5Y cell model the measured deficit was modest — a slight reduction of chymotrypsin-like activity — which is consistent with a partial rather than complete loss of function and is an important quantitative caveat.</div>
 
@@ -5663,6 +5760,7 @@ This pathophysiological event involves decreased proteasome threonine-type endop
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5684,6 +5782,7 @@ This pathophysiological event involves decreased proteasome threonine-type endop
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5709,6 +5808,7 @@ This pathophysiological event involves decreased proteasome threonine-type endop
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-ubiquitin-dependent-protein-homeostasis" data-dismech-node="Impaired Ubiquitin-Dependent Protein Homeostasis" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Ubiquitin-Dependent Protein Homeostasis</div>
+
 
                 <div class="item-desc">Reduced proteasomal throughput leaves K48-polyubiquitinated substrates undegraded, shifting the balance between protein synthesis and degradation. Across proteasomopathies this state is associated with protein aggregation and activated cellular stress responses; whether those specific downstream features occur in PSMB1-mutant cells has not been shown directly. The type I interferon arm of the class mechanism is deliberately NOT carried into this chain: PSMB1 is the one 20S core-particle subunit whose variants have not been shown to provoke immune dysregulation.</div>
 
@@ -5834,6 +5934,7 @@ This pathophysiological event involves decreased proteasome-mediated ubiquitin-d
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5856,6 +5957,7 @@ This pathophysiological event involves decreased proteasome-mediated ubiquitin-d
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-brain-growth-and-neurodevelopment" data-dismech-node="Impaired Brain Growth and Neurodevelopment" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Brain Growth and Neurodevelopment</div>
+
 
                 <div class="item-desc">The organ-level consequence is failure of normal brain growth, expressed clinically as microcephaly with severe developmental delay, intellectual disability, profoundly impaired expressive language and hypotonia. Neurons and neural progenitors of the developing brain are the implicated cell populations; no human neuropathology has been reported, so the cellular attribution derives from the model organism and from the clinical phenotype.</div>
 
@@ -6068,6 +6170,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6089,6 +6192,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6205,6 +6309,9 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6219,6 +6326,7 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6282,6 +6390,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6296,6 +6407,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6320,6 +6432,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6374,6 +6487,9 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6388,6 +6504,7 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6451,6 +6568,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6465,6 +6585,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6489,6 +6610,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6554,6 +6676,9 @@ This clinical feature is Absent speech (HP:0001344). HP:0001344 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6568,6 +6693,7 @@ This clinical feature is Absent speech (HP:0001344). HP:0001344 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6622,6 +6748,9 @@ This clinical feature is Severe intellectual disability (HP:0010864). HP:0010864
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6636,6 +6765,7 @@ This clinical feature is Severe intellectual disability (HP:0010864). HP:0010864
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6660,6 +6790,7 @@ This clinical feature is Severe intellectual disability (HP:0010864). HP:0010864
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6714,6 +6845,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6728,6 +6862,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6752,6 +6887,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6806,6 +6942,9 @@ This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6820,6 +6959,7 @@ This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6873,6 +7013,9 @@ This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenoty
                     </div>
 
 
+
+
+
                     <div class="item-desc">Bound at the non-specific level that the published evidence actually supports. The OMIM/MedGen clinical synopsis for this entity additionally records aggressive behaviour (HP:0000718), but no citable publication states it: the only quotable source is the review&#39;s &#34;abnormal behaviors&#34; row. A separate aggression phenotype should be split out if and when a second family is reported with a quotable description.</div>
 
 
@@ -6892,6 +7035,7 @@ This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6948,6 +7092,9 @@ This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6962,6 +7109,7 @@ This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7027,6 +7175,9 @@ This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7041,6 +7192,7 @@ This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7141,6 +7293,9 @@ This disease-associated gene is PSMB1 (hgnc:9537). hgnc:9537 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7155,6 +7310,7 @@ This disease-associated gene is PSMB1 (hgnc:9537). hgnc:9537 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7182,6 +7338,7 @@ This disease-associated gene is PSMB1 (hgnc:9537). hgnc:9537 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7203,6 +7360,7 @@ This disease-associated gene is PSMB1 (hgnc:9537). hgnc:9537 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7239,6 +7397,12 @@ This disease-associated gene is PSMB1 (hgnc:9537). hgnc:9537 is a gene from the 
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Homozygous missense substitution in PSMB1 (NM_002793.4), the only NEDMHAL-causing allele reported to date. Structural modelling places it at the beta6-alpha5 inter-subunit interface; in a cell model it abolishes beta6 maturation, leaving the proform present, and reduces overall subunit content with a slight fall in chymotrypsin-like activity.</div>
 
 
@@ -7263,6 +7427,7 @@ This disease-associated gene is PSMB1 (hgnc:9537). hgnc:9537 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7353,6 +7518,31 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">No disease-modifying or mechanism-targeted therapy exists. Management is entirely supportive: developmental and rehabilitative therapies, audiological follow-up for hearing impairment, and behavioural management. Note that proteasome inhibitors used in oncology act in the direction opposite to what this disease mechanism would require and have no role here.</div>
 
 
@@ -7401,6 +7591,31 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -7459,6 +7674,31 @@ This treatment is speech and language therapy, annotated with Speech Language Th
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Speech-language therapy including augmentative and alternative communication, given the absent or profoundly impaired expressive language.</div>
 
 
@@ -7507,6 +7747,31 @@ This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinica
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -7565,6 +7830,31 @@ This treatment is aural rehabilitation and hearing management, annotated with Re
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Device</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Audiological follow-up with amplification where indicated. Hearing impairment was present in both published patients and is a modifiable contributor to the communication phenotype. NCIT has no clinical-action term for hearing-device use, so the generic rehabilitation action is used.</div>
 
 
@@ -7613,6 +7903,20 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -7677,6 +7981,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7751,6 +8056,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7836,6 +8142,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7857,6 +8164,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7973,6 +8281,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8017,6 +8326,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8137,6 +8447,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8178,6 +8489,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9765,6 +10077,153 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Curation caveats. (1) No `frequency:` qualifier is asserted on any phenotype. Every available proportion is a 2/2 or 1/2 count from a single sibship, which is not a population frequency; the counts are stated in the phenotype descriptions and evidenced instead. (2) The biochemical work behind the mechanism chain was done in human SH-SY5Y neuroblastoma cells expressing the variant, not in patient-derived fibroblasts — a deep-research draft asserted patient fibroblasts and was not followed. (3) The measured functional deficit is modest (a slight reduction in chymotrypsin-like activity), which sits uneasily with the severity of the clinical phenotype and is recorded as such rather than smoothed over. (4) No GeneReviews chapter exists for PSMB1 or NEDMHAL; a PubMed search for one returned nothing, so the GeneReviews phenotype baseline step was not applicable. (5) An `Inability to walk` phenotype (HP:0002540) was drafted from the OMIM/MedGen clinical synopsis and then removed: its only available evidence was the motor-delay table row already cited elsewhere, and motor delay does not support non-ambulation. The synopsis records it, but no citable publication states it, and OMIM is not a snippet-validatable reference source here. (6) The deep-research datum that the variant is absent from gnomAD and from 300 in-house control chromosomes is NOT curated: it appears only in the deep-research report, not in any cached abstract, so adding it would be exactly the treat-a-DR-lead-as-truth failure the evidence SOP warns about. (7) Named-entity-confusion watch: this entity must not be conflated with the similarly named MONDO:0100348 (neurodevelopmental disorder with microcephaly, impaired language, and gait abnormalities) or MONDO:0971172 (RNU4-2-related, with hypotonia and absent language), nor with CDK19-related DEE87 (OMIM:618916), which surfaced during literature search on description similarity alone.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Neurodevelopmental Disorder with Microcephaly, Hypotonia, and Absent Language</strong> · 2026-08-18T15:31:53Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Neurodevelopmental_Disorder_with_Microcephaly_Hypotonia_and_Absent_Language/2026-08-18T153153Z-claude-code-843ba1.yaml">View source</a></p>
+                        <p class="research-review-text">New entry for NEDMHAL (MONDO:0859287, OMIM:620038), the PSMB1/beta6
+neurodevelopmental proteasomopathy.
+
+Duplicate preflight: no existing kb/ entry, PR, or issue for MONDO:0859287,
+PSMB1, or NEDMHAL. The only prior PSMB1 mention in kb/ is an unrelated
+gene-list line in Proteasome_Associated_Autoinflammatory_Syndrome.yaml.
+
+Deep research: falcon was attempted first as the default provider but the
+Edison API returned HTTP 402 Payment Required, so no falcon report exists.
+Two other providers were run instead and both reports are committed:
+claude_code (296s, 11 web searches, reference_validation 3/3 verified,
+confabulation_rate 0.0, on_topic 3/3) and openscientist (1016s,
+reference_validation 7/7 verified, confabulation_rate 0.0, on_topic 7/7).
+Neither report listed any unresolved or off-topic reference.
+
+NEC preflight: `just preflight-dr` returned SKIP on both reports because
+MONDO records no causal gene (RO:0004003) for MONDO:0859287, so the
+automated gene-identity check could not discriminate. The manual fallback
+was run and passes decisively on both reports: PSMB1 dominates gene
+mentions (59 vs 7 for the next gene in the claude_code report; 50 vs 6 in
+the openscientist report), the reports&#39; OMIM identifiers include 620038
+which matches the MONDO xref, and MedGen records PSMB1 (6q27) as the
+associated gene for this concept. This entity is at elevated NEC risk from
+two near-identically named MONDO terms (MONDO:0100348 and MONDO:0971172)
+and from CDK19-related DEE87 (OMIM:618916), which surfaced in the
+claude_code report&#39;s searches; all three are named in the entry&#39;s `notes`
+as an explicit do-not-conflate list.
+
+GeneReviews: PubMed searches for a GeneReviews chapter on PSMB1 or NEDMHAL
+returned no results, so the GeneReviews baseline step was not applicable.
+The OMIM/MedGen clinical synopsis was used as the equivalent baseline and
+every feature it lists is represented in `phenotypes`.
+
+Content curated: 6-node atomic pathophysiology chain from the homozygous
+PSMB1 p.(Tyr103His) allele through the destabilised beta6-alpha5 interface,
+impaired beta6 maturation and 20S assembly, reduced proteolytic capacity and
+impaired ubiquitin-dependent proteostasis, to impaired brain growth; 12
+phenotypes; genetic section with the single reported allele; a zebrafish
+psmb1 animal model and an SH-SY5Y experimental model, both linked into the
+pathograph via modeled_mechanisms; supportive treatments; diagnosis;
+differential diagnoses; and four discussions covering the single-kindred
+evidence base, the zebrafish HUMAN_MODEL_MISMATCH, the interferon knowledge
+gap, and the 20S-versus-19S open question.
+
+Deliberate curation decisions worth recording. (1) No `frequency:` qualifier
+is asserted on any phenotype: every available proportion is a 2/2 or 1/2
+count from one sibship, which is not a population frequency. Counts are
+stated in phenotype descriptions and evidenced from the review&#39;s clinical
+features table instead. (2) The claude_code report asserted that the
+biochemical work was done in patient fibroblasts; the primary abstract and
+the Wolfgramm review table both say human SH-SY5Y cells. The report was not
+followed on this point and the entry says SH-SY5Y. (3) The measured
+functional deficit is only a slight reduction of chymotrypsin-like activity,
+which sits uneasily with the clinical severity; this is recorded in the
+pathophysiology node description rather than smoothed over. (4) The type I
+interferon arm of the proteasomopathy class mechanism is deliberately NOT
+carried into the mechanism chain, because PMID:37256937 explicitly names
+PSMB1 as the one 20S core-particle subunit whose variants have not been
+shown to provoke immune dysregulation. (5) No `datasets:` block: no dataset
+was found that is actually about this disease, and dataset relevance triage
+is a required manual step. (6) Table-row snippets from the review&#39;s
+clinical-features table are quoted verbatim as exact substrings; each
+explanation names which column is the PSMB1 form, and the column mapping was
+verified against the table&#39;s own patient-count and inheritance rows.
+
+References used: PMID:32129449 (Ansar 2020, the founding report),
+PMID:39220754 (Cuinat 2024 proteasomopathy review, full text),
+PMID:42370079 (Wolfgramm 2026 proteasomopathy mechanisms review, full text),
+PMID:37256937 (Ebstein 2023 PSMC3/interferon paper, full text). All fetched
+with `just fetch-reference`; no reference cache file was hand-written.
+
+Validation: `just validate` passes (schema, terms, references). `just
+count-verified-snippets` reports 54/54 snippets verified against cached
+references. `just check-title-snippets` reports no new title-quoting
+snippets. `just check-duplicate-keys` reports no duplicate mapping keys.
+`just validate-disorders` (the batched pre-PR sweep CI runs) passes.
+Compliance rose from 48.6% to 85.3% after adding reference_title to every
+evidence item.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Address PR #8847 review: rebind behaviour term, drop unsupported phenotype</strong> · 2026-08-18T15:31:53Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Neurodevelopmental_Disorder_with_Microcephaly_Hypotonia_and_Absent_Language/2026-08-18T153153Z-claude-code-843ba1.yaml">View source</a></p>
+                        <p class="research-review-text">Addresses the two blocking findings from the automated review on PR #8847,
+plus four of its six non-blocking suggestions.
+
+Blocking finding 1 — `Behavioural Abnormalities` bound HP:0000718 Aggressive
+behavior while its only evidence documented non-specific &#34;abnormal
+behaviors&#34;. Rebound to HP:0000708, whose canonical label is `Atypical
+behavior` (the review quoted the label as &#34;Behavioral abnormality&#34;, which is
+not the current canonical form; the canonical label is used here so term
+validation passes). The aggression descriptor from the OMIM/MedGen synopsis
+is retained in `notes` as a split candidate pending a citable source.
+
+Blocking finding 2 — `Inability to Walk` cited the identical motor-delay
+table row already used by the `Motor Delay` phenotype, and motor delay does
+not support non-ambulation. The phenotype was removed rather than
+re-evidenced: the OMIM/MedGen synopsis records it but no citable publication
+states it, and OMIM is not a snippet-validatable reference prefix in this
+repo. The decision and its reasoning are recorded in the entry&#39;s `notes`.
+
+Non-blocking suggestions addressed:
+- Uncited cached reference PMID:38866022 (Deb 2024, PSMD11) is now cited
+  twice: for the primary-proteasomopathy class definition naming PSMB1, and
+  in the interferon knowledge-gap discussion, where it supplies the concrete
+  picture of what a demonstrated interferon arm looks like (impaired 26S
+  assembly, persistent type I IFN signature, PKR/ISR mediator) against which
+  the PSMB1 gap is defined.
+- Added an audiological assessment and hearing-management treatment, since
+  hearing impairment is curated at 2/2. NCIT has no clinical-action term for
+  hearing-device use, so the generic NCIT:C15315 Rehabilitation action is
+  used with a specific `preferred_term`.
+- Wired the distal pathograph: `Impaired Brain Growth and Neurodevelopment`
+  now has `downstream` edges into Microcephaly (DIRECT), Severe Intellectual
+  Disability and Global Developmental Delay (both
+  INDIRECT_UNKNOWN_INTERMEDIATES), each separately evidenced.
+- Re-typed `Reduced Proteasome Proteolytic Capacity` from CELLULAR to
+  MOLECULAR, since it is an enzyme-activity claim.
+
+One suggestion declined, deliberately: the gnomAD / 300-control-chromosome
+absence datum. It appears only in the claude_code deep-research report and in
+no cached abstract, so curating it would be precisely the
+treat-a-DR-lead-as-ground-truth failure the evidence SOP warns against. The
+decline and its reasoning are recorded in the entry&#39;s `notes` so a later
+curator does not re-litigate it.
+
+Re-validated: `just validate` passes; 58/58 snippets verified against cached
+references; folded-hyphens, snippet-length, title-snippets, duplicate-keys,
+environmental-evidence and term-cache-integrity guards all pass;
+`just validate-disorders` passes; targeted pytest selection passes.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4082,6 +4154,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aspscr1-tfe3-fusion-oncogene" data-dismech-node="ASPSCR1-TFE3 Fusion Oncogene" data-dismech-type="pathophysiology">
                 <div class="item-name">ASPSCR1-TFE3 Fusion Oncogene</div>
 
+
                 <div class="item-desc">A characteristic unbalanced der(17)t(X;17)(p11;q25) translocation fuses ASPSCR1 to TFE3, creating an aberrant transcription factor that redirects gene expression programs in tumor cells.</div>
 
 
@@ -4206,6 +4279,31 @@ This pathophysiological event involves TFE3 (hgnc:11752). hgnc:11752 is a gene f
 
 
 
+    <div class="item-meta">
+        <span class="tag tag-classification">Genetic context</span>
+
+
+
+
+
+
+
+
+
+        <span class="tag tag-classification">variant_origin: SOMATIC</span>
+
+
+
+
+
+
+    </div>
+
+
+
+
+
+
 
 
 
@@ -4321,6 +4419,7 @@ This pathophysiological event involves abnormal positive regulation of transcrip
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4342,6 +4441,7 @@ This pathophysiological event involves abnormal positive regulation of transcrip
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4367,6 +4467,7 @@ This pathophysiological event involves abnormal positive regulation of transcrip
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-angiogenic-tumor-program" data-dismech-node="Angiogenic Tumor Program" data-dismech-type="pathophysiology">
                 <div class="item-name">Angiogenic Tumor Program</div>
+
 
                 <div class="item-desc">Alveolar soft part sarcoma is typically highly vascular, with expression of angiogenic programs that support tumor growth and provide the rationale for antiangiogenic systemic therapies.</div>
 
@@ -4492,6 +4593,7 @@ This pathophysiological event involves increased angiogenesis (GO:0001525). GO:0
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4513,6 +4615,7 @@ This pathophysiological event involves increased angiogenesis (GO:0001525). GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4540,6 +4643,7 @@ This pathophysiological event involves increased angiogenesis (GO:0001525). GO:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4562,6 +4666,7 @@ This pathophysiological event involves increased angiogenesis (GO:0001525). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitochondrial-biology-program" data-dismech-node="Mitochondrial Biology Program" data-dismech-type="pathophysiology">
                 <div class="item-name">Mitochondrial Biology Program</div>
+
 
                 <div class="item-desc">ASPSCR1-TFE3 regulates mitochondrial biology and mitochondrial biogenesis as part of the core oncogenic transcriptional program.</div>
 
@@ -4638,6 +4743,7 @@ This pathophysiological event involves abnormal mitochondrion organization (GO:0
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4659,6 +4765,7 @@ This pathophysiological event involves abnormal mitochondrion organization (GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4684,6 +4791,7 @@ This pathophysiological event involves abnormal mitochondrion organization (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cyclin-d1-cdk4-cell-cycle-dependency" data-dismech-node="Cyclin D1-CDK4 Cell-Cycle Dependency" data-dismech-type="pathophysiology">
                 <div class="item-name">Cyclin D1-CDK4 Cell-Cycle Dependency</div>
+
 
                 <div class="item-desc">Recent preclinical work shows that ASPSCR1-TFE3-driven transcriptional programs create a cyclin D1/CDK4-dependent proliferation state that may be targetable with CDK4/6 inhibition, especially in combination with angiogenesis inhibition.</div>
 
@@ -4826,6 +4934,7 @@ This pathophysiological event involves increased cell population proliferation (
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4847,6 +4956,7 @@ This pathophysiological event involves increased cell population proliferation (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4872,6 +4982,7 @@ This pathophysiological event involves increased cell population proliferation (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-metastatic-progression" data-dismech-node="Metastatic Progression" data-dismech-type="pathophysiology">
                 <div class="item-name">Metastatic Progression</div>
+
 
                 <div class="item-desc">Alveolar soft part sarcoma often follows an indolent primary course but can metastasize to the lungs, brain, bone, and other sites, sometimes years after initial diagnosis.</div>
 
@@ -4979,6 +5090,7 @@ This pathophysiological event involves increased cell population proliferation (
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5000,6 +5112,7 @@ This pathophysiological event involves increased cell population proliferation (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5062,6 +5175,7 @@ This pathophysiological event involves increased cell population proliferation (
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5109,6 +5223,7 @@ This pathophysiological event involves increased cell population proliferation (
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5151,7 +5266,7 @@ This pathophysiological event involves increased cell population proliferation (
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ASPSCR1-TFE3 Fusion - ASPSCR1 Partner\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ASPSCR1\"], \"gene_terms\": [{\"label\": \"ASPSCR1\", \"id\": \"hgnc:13825\"}], \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"ASPSCR1-TFE3 Fusion - TFE3 Partner\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TFE3\"], \"gene_terms\": [{\"label\": \"TFE3\", \"id\": \"hgnc:11752\"}], \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"ASPSCR1-TFE3 Fusion Oncogene\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A characteristic unbalanced der(17)t(X;17)(p11;q25) translocation fuses ASPSCR1 to TFE3, creating an aberrant transcription factor that redirects gene expression programs in tumor cells.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"mesenchymal cell\"], \"biological_processes\": [\"positive regulation of transcription by RNA polymerase II\"], \"genes\": [\"ASPSCR1\", \"TFE3\"], \"gene_terms\": [{\"label\": \"ASPSCR1\", \"id\": \"hgnc:13825\"}, {\"label\": \"TFE3\", \"id\": \"hgnc:11752\"}], \"experimental_models\": [{\"name\": \"ASPSCR1-TFE3-Positive ASPS Tumor Cell Lines\", \"model_type\": \"CELL_LINE\", \"description\": \"Models fusion-dependent transcriptional and chromatin regulation.\"}]}}, {\"id\": \"ASPSCR1-TFE3-Positive ASPS Tumor Cell Lines\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Human ASPS tumor-cell lines and fusion perturbation systems model the transcriptional, chromatin, proliferative, angiogenic, and mitochondrial programs controlled by ASPSCR1::TFE3. Cell culture cannot reproduce the integrated human tumor microenvironment or establish clinical efficacy.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"CELL_LINE\", \"conditions\": [\"ASPSCR1::TFE3 expression or disruption\", \"cyclin D1/CDK4 pathway disruption\"], \"publication\": \"PMID:38657118\"}}, {\"id\": \"Angiogenic Tumor Program\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Alveolar soft part sarcoma is typically highly vascular, with expression of angiogenic programs that support tumor growth and provide the rationale for antiangiogenic systemic therapies.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"endothelial cell\"], \"biological_processes\": [\"angiogenesis\"]}}, {\"id\": \"Antiangiogenic Targeted Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Antiangiogenic tyrosine kinase inhibitors, including pazopanib, sunitinib, and cediranib, have clinical activity in advanced ASPS and align with the tumor\u0027s angiogenic transcriptional program.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"pazopanib\", \"sunitinib\", \"cediranib\"]}}, {\"id\": \"Axitinib Plus Pembrolizumab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Combined VEGFR tyrosine-kinase inhibition and PD-1 checkpoint blockade has prospective phase 2 activity in advanced ASPS but remains an investigational combination requiring randomized evaluation.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"axitinib\", \"pembrolizumab\"]}}, {\"id\": \"Bone Metastases\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bone is a recurrent metastatic site in advanced alveolar soft part sarcoma.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0010622\"}}, {\"id\": \"Brain Metastases\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Brain metastases are a recognized complication in advanced disease.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0100006\"}}, {\"id\": \"Cyclin D1-CDK4 Cell-Cycle Dependency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Recent preclinical work shows that ASPSCR1-TFE3-driven transcriptional programs create a cyclin D1/CDK4-dependent proliferation state that may be targetable with CDK4/6 inhibition, especially in combination with angiogenesis inhibition.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cell cycle G1/S phase transition\", \"cell population proliferation\"], \"experimental_models\": [{\"name\": \"ASPSCR1-TFE3-Positive ASPS Tumor Cell Lines\", \"model_type\": \"CELL_LINE\", \"description\": \"Models loss of proliferative capacity after cyclin D1/CDK4 disruption.\"}]}}, {\"id\": \"Deep Soft Tissue Mass\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Patients commonly present with a slow-growing deep soft tissue mass, especially in the extremities.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0031459\"}}, {\"id\": \"Investigational Combined CDK4/6 and Angiogenesis Inhibition\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Preclinical ASPS models support combining CDK4/6 inhibition with antiangiogenic inhibition. This strategy halted xenograft growth, but no clinical efficacy or safety inference can yet be made.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"palbociclib\", \"sunitinib\"]}}, {\"id\": \"Metastatic Progression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Alveolar soft part sarcoma often follows an indolent primary course but can metastasize to the lungs, brain, bone, and other sites, sometimes years after initial diagnosis.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cell population proliferation\"]}}, {\"id\": \"Mitochondrial Biology Program\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ASPSCR1-TFE3 regulates mitochondrial biology and mitochondrial biogenesis as part of the core oncogenic transcriptional program.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"mitochondrion organization\"]}}, {\"id\": \"Pulmonary Metastases\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hematogenous spread commonly involves the lung and may be present at diagnosis or emerge after a long interval.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0100526\"}}], \"edges\": [{\"source\": \"ASPSCR1-TFE3 Fusion Oncogene\", \"target\": \"Angiogenic Tumor Program\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Aberrant transcriptional activity promotes angiogenic tumor biology\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ASPSCR1-TFE3 Fusion Oncogene\", \"target\": \"Mitochondrial Biology Program\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ASPSCR1-TFE3 transcriptional programs include mitochondrial biology.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ASPSCR1-TFE3 Fusion Oncogene\", \"target\": \"Cyclin D1-CDK4 Cell-Cycle Dependency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ASPSCR1-TFE3 transcriptional programs drive cyclin D1/CDK4-dependent proliferation\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Angiogenic Tumor Program\", \"target\": \"Metastatic Progression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Prominent angiogenic activity supports hematogenous metastatic progression.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"vascular-network construction and tumor-cell intravasation\"]}, {\"source\": \"Cyclin D1-CDK4 Cell-Cycle Dependency\", \"target\": \"Deep Soft Tissue Mass\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Proliferative tumor-cell outgrowth produces the characteristic slow-growing deep soft tissue mass.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"tumor-cell proliferation and mass effect\"]}, {\"source\": \"Metastatic Progression\", \"target\": \"Pulmonary Metastases\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hematogenous metastatic progression commonly seeds the lungs.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Metastatic Progression\", \"target\": \"Brain Metastases\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic dissemination can involve the central nervous system.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Metastatic Progression\", \"target\": \"Bone Metastases\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic dissemination can involve skeletal sites.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Antiangiogenic Targeted Therapy\", \"target\": \"Angiogenic Tumor Program\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Axitinib Plus Pembrolizumab\", \"target\": \"Angiogenic Tumor Program\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Investigational Combined CDK4/6 and Angiogenesis Inhibition\", \"target\": \"Cyclin D1-CDK4 Cell-Cycle Dependency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Investigational Combined CDK4/6 and Angiogenesis Inhibition\", \"target\": \"Angiogenic Tumor Program\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"ASPSCR1-TFE3-Positive ASPS Tumor Cell Lines\", \"target\": \"ASPSCR1-TFE3 Fusion Oncogene\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Models fusion-dependent transcriptional and chromatin regulation.\"}, {\"source\": \"ASPSCR1-TFE3-Positive ASPS Tumor Cell Lines\", \"target\": \"Cyclin D1-CDK4 Cell-Cycle Dependency\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Models loss of proliferative capacity after cyclin D1/CDK4 disruption.\"}, {\"source\": \"ASPSCR1-TFE3 Fusion - ASPSCR1 Partner\", \"target\": \"ASPSCR1-TFE3 Fusion Oncogene\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ASPSCR1-TFE3 Fusion - TFE3 Partner\", \"target\": \"ASPSCR1-TFE3 Fusion Oncogene\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ASPSCR1-TFE3 Fusion - ASPSCR1 Partner\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ASPSCR1\"], \"gene_terms\": [{\"label\": \"ASPSCR1\", \"id\": \"hgnc:13825\"}], \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"ASPSCR1-TFE3 Fusion - TFE3 Partner\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TFE3\"], \"gene_terms\": [{\"label\": \"TFE3\", \"id\": \"hgnc:11752\"}], \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"ASPSCR1-TFE3 Fusion Oncogene\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A characteristic unbalanced der(17)t(X;17)(p11;q25) translocation fuses ASPSCR1 to TFE3, creating an aberrant transcription factor that redirects gene expression programs in tumor cells.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"mesenchymal cell\"], \"biological_processes\": [\"positive regulation of transcription by RNA polymerase II\"], \"genes\": [\"ASPSCR1\", \"TFE3\"], \"gene_terms\": [{\"label\": \"ASPSCR1\", \"id\": \"hgnc:13825\"}, {\"label\": \"TFE3\", \"id\": \"hgnc:11752\"}], \"genetic_context\": {\"variant_origin\": \"SOMATIC\"}, \"experimental_models\": [{\"name\": \"ASPSCR1-TFE3-Positive ASPS Tumor Cell Lines\", \"model_type\": \"CELL_LINE\", \"description\": \"Models fusion-dependent transcriptional and chromatin regulation.\"}]}}, {\"id\": \"ASPSCR1-TFE3-Positive ASPS Tumor Cell Lines\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Human ASPS tumor-cell lines and fusion perturbation systems model the transcriptional, chromatin, proliferative, angiogenic, and mitochondrial programs controlled by ASPSCR1::TFE3. Cell culture cannot reproduce the integrated human tumor microenvironment or establish clinical efficacy.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"CELL_LINE\", \"conditions\": [\"ASPSCR1::TFE3 expression or disruption\", \"cyclin D1/CDK4 pathway disruption\"], \"publication\": \"PMID:38657118\"}}, {\"id\": \"Angiogenic Tumor Program\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Alveolar soft part sarcoma is typically highly vascular, with expression of angiogenic programs that support tumor growth and provide the rationale for antiangiogenic systemic therapies.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"endothelial cell\"], \"biological_processes\": [\"angiogenesis\"]}}, {\"id\": \"Antiangiogenic Targeted Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Antiangiogenic tyrosine kinase inhibitors, including pazopanib, sunitinib, and cediranib, have clinical activity in advanced ASPS and align with the tumor\u0027s angiogenic transcriptional program.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"pazopanib\", \"sunitinib\", \"cediranib\"]}}, {\"id\": \"Axitinib Plus Pembrolizumab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Combined VEGFR tyrosine-kinase inhibition and PD-1 checkpoint blockade has prospective phase 2 activity in advanced ASPS but remains an investigational combination requiring randomized evaluation.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"axitinib\", \"pembrolizumab\"]}}, {\"id\": \"Bone Metastases\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bone is a recurrent metastatic site in advanced alveolar soft part sarcoma.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0010622\"}}, {\"id\": \"Brain Metastases\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Brain metastases are a recognized complication in advanced disease.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0100006\"}}, {\"id\": \"Cyclin D1-CDK4 Cell-Cycle Dependency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Recent preclinical work shows that ASPSCR1-TFE3-driven transcriptional programs create a cyclin D1/CDK4-dependent proliferation state that may be targetable with CDK4/6 inhibition, especially in combination with angiogenesis inhibition.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cell cycle G1/S phase transition\", \"cell population proliferation\"], \"experimental_models\": [{\"name\": \"ASPSCR1-TFE3-Positive ASPS Tumor Cell Lines\", \"model_type\": \"CELL_LINE\", \"description\": \"Models loss of proliferative capacity after cyclin D1/CDK4 disruption.\"}]}}, {\"id\": \"Deep Soft Tissue Mass\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Patients commonly present with a slow-growing deep soft tissue mass, especially in the extremities.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0031459\"}}, {\"id\": \"Investigational Combined CDK4/6 and Angiogenesis Inhibition\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Preclinical ASPS models support combining CDK4/6 inhibition with antiangiogenic inhibition. This strategy halted xenograft growth, but no clinical efficacy or safety inference can yet be made.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"palbociclib\", \"sunitinib\"]}}, {\"id\": \"Metastatic Progression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Alveolar soft part sarcoma often follows an indolent primary course but can metastasize to the lungs, brain, bone, and other sites, sometimes years after initial diagnosis.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cell population proliferation\"]}}, {\"id\": \"Mitochondrial Biology Program\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ASPSCR1-TFE3 regulates mitochondrial biology and mitochondrial biogenesis as part of the core oncogenic transcriptional program.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"mitochondrion organization\"]}}, {\"id\": \"Pulmonary Metastases\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hematogenous spread commonly involves the lung and may be present at diagnosis or emerge after a long interval.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0100526\"}}], \"edges\": [{\"source\": \"ASPSCR1-TFE3 Fusion Oncogene\", \"target\": \"Angiogenic Tumor Program\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Aberrant transcriptional activity promotes angiogenic tumor biology\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ASPSCR1-TFE3 Fusion Oncogene\", \"target\": \"Mitochondrial Biology Program\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ASPSCR1-TFE3 transcriptional programs include mitochondrial biology.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ASPSCR1-TFE3 Fusion Oncogene\", \"target\": \"Cyclin D1-CDK4 Cell-Cycle Dependency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ASPSCR1-TFE3 transcriptional programs drive cyclin D1/CDK4-dependent proliferation\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Angiogenic Tumor Program\", \"target\": \"Metastatic Progression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Prominent angiogenic activity supports hematogenous metastatic progression.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"vascular-network construction and tumor-cell intravasation\"]}, {\"source\": \"Cyclin D1-CDK4 Cell-Cycle Dependency\", \"target\": \"Deep Soft Tissue Mass\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Proliferative tumor-cell outgrowth produces the characteristic slow-growing deep soft tissue mass.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"tumor-cell proliferation and mass effect\"]}, {\"source\": \"Metastatic Progression\", \"target\": \"Pulmonary Metastases\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hematogenous metastatic progression commonly seeds the lungs.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Metastatic Progression\", \"target\": \"Brain Metastases\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic dissemination can involve the central nervous system.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Metastatic Progression\", \"target\": \"Bone Metastases\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic dissemination can involve skeletal sites.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Antiangiogenic Targeted Therapy\", \"target\": \"Angiogenic Tumor Program\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Axitinib Plus Pembrolizumab\", \"target\": \"Angiogenic Tumor Program\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Investigational Combined CDK4/6 and Angiogenesis Inhibition\", \"target\": \"Cyclin D1-CDK4 Cell-Cycle Dependency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Investigational Combined CDK4/6 and Angiogenesis Inhibition\", \"target\": \"Angiogenic Tumor Program\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"ASPSCR1-TFE3-Positive ASPS Tumor Cell Lines\", \"target\": \"ASPSCR1-TFE3 Fusion Oncogene\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Models fusion-dependent transcriptional and chromatin regulation.\"}, {\"source\": \"ASPSCR1-TFE3-Positive ASPS Tumor Cell Lines\", \"target\": \"Cyclin D1-CDK4 Cell-Cycle Dependency\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Models loss of proliferative capacity after cyclin D1/CDK4 disruption.\"}, {\"source\": \"ASPSCR1-TFE3 Fusion - ASPSCR1 Partner\", \"target\": \"ASPSCR1-TFE3 Fusion Oncogene\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ASPSCR1-TFE3 Fusion - TFE3 Partner\", \"target\": \"ASPSCR1-TFE3 Fusion Oncogene\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5170,9 +5285,9 @@ This pathophysiological event involves increased cell population proliferation (
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Neoplasm<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Musculoskeletal<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Neoplasm<span class="pill-count">(3)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5181,8 +5296,116 @@ This pathophysiological event involves increased cell population proliferation (
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Musculoskeletal
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-bone-metastases" data-dismech-node="Bone Metastases" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Bone Metastases
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Neoplasm of the skeletal system</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010622" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0010622</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Bone metastases, annotated with Neoplasm of the skeletal system (HP:0010622). HP:0010622 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35971085" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35971085" target="_blank">PMID:35971085</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"bone, n = 12"</div>
+
+
+                <div class="evidence-explanation">The national registry cohort reports bone metastases in 14% of metastatic ASPS patients.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40171452" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40171452" target="_blank">PMID:40171452</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The most common site of primary was the extremities (73%), and the most common sites of metastasis included the lungs (82%) and bones (21%)."</div>
+
+
+                <div class="evidence-explanation">A contemporary real-world cohort reports bones as a common metastatic site.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Neoplasm
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-deep-soft-tissue-mass" data-dismech-node="Deep Soft Tissue Mass" data-dismech-type="phenotype">
@@ -5201,15 +5424,18 @@ This pathophysiological event involves increased cell population proliferation (
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031459" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0031459</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031459" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0031459</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Deep soft tissue mass, annotated with Soft tissue neoplasm (HP:0031459). HP:0031459 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5229,6 +5455,7 @@ This clinical feature is Deep soft tissue mass, annotated with Soft tissue neopl
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5253,6 +5480,7 @@ This clinical feature is Deep soft tissue mass, annotated with Soft tissue neopl
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5295,15 +5523,18 @@ This clinical feature is Deep soft tissue mass, annotated with Soft tissue neopl
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100526" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0100526</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100526" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0100526</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Neoplasm of the lung (HP:0100526). HP:0100526 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5323,6 +5554,7 @@ This clinical feature is Neoplasm of the lung (HP:0100526). HP:0100526 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5350,6 +5582,7 @@ This clinical feature is Neoplasm of the lung (HP:0100526). HP:0100526 is a phen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5373,15 +5606,6 @@ This clinical feature is Neoplasm of the lung (HP:0100526). HP:0100526 is a phen
 
                 </div>
 
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
-                </summary>
-
                 <div class="item-box phenotype-box anchor-target" id="phenotype-brain-metastases" data-dismech-node="Brain Metastases" data-dismech-type="phenotype">
                     <div class="item-name">
                         Brain Metastases
@@ -5398,15 +5622,18 @@ This clinical feature is Neoplasm of the lung (HP:0100526). HP:0100526 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100006" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0100006</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100006" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0100006</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Neoplasm of the central nervous system (HP:0100006). HP:0100006 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5426,6 +5653,7 @@ This clinical feature is Neoplasm of the central nervous system (HP:0100006). HP
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5453,6 +5681,7 @@ This clinical feature is Neoplasm of the central nervous system (HP:0100006). HP
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5461,100 +5690,6 @@ This clinical feature is Neoplasm of the central nervous system (HP:0100006). HP
 
 
                 <div class="evidence-explanation">The same cohort supports clinical severity of brain metastasis in ASPS.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-bone-metastases" data-dismech-node="Bone Metastases" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Bone Metastases
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Neoplasm of the skeletal system</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010622" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0010622</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Bone metastases, annotated with Neoplasm of the skeletal system (HP:0010622). HP:0010622 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:35971085" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35971085" target="_blank">PMID:35971085</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"bone, n = 12"</div>
-
-
-                <div class="evidence-explanation">The national registry cohort reports bone metastases in 14% of metastatic ASPS patients.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:40171452" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40171452" target="_blank">PMID:40171452</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The most common site of primary was the extremities (73%), and the most common sites of metastasis included the lungs (82%) and bones (21%)."</div>
-
-
-                <div class="evidence-explanation">A contemporary real-world cohort reports bones as a common metastatic site.</div>
 
 
 
@@ -5644,6 +5779,9 @@ This disease-associated gene is ASPSCR1 (hgnc:13825). hgnc:13825 is a gene from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5658,6 +5796,7 @@ This disease-associated gene is ASPSCR1 (hgnc:13825). hgnc:13825 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5717,6 +5856,9 @@ This disease-associated gene is TFE3 (hgnc:11752). hgnc:11752 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5731,6 +5873,7 @@ This disease-associated gene is TFE3 (hgnc:11752). hgnc:11752 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5814,6 +5957,31 @@ This treatment is surgical excision, annotated with Excision (NCIT:C15232). NCIT
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Complete resection with negative margins is the preferred local therapy when disease is localized and technically resectable.</div>
 
 
@@ -5835,6 +6003,7 @@ This treatment is surgical excision, annotated with Excision (NCIT:C15232). NCIT
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5898,6 +6067,31 @@ This treatment is Radiation Therapy (NCIT:C15313). NCIT:C15313 is a clinical int
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Radiotherapy</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Radiation therapy can be used when surgical margins are inadequate or when tumors are unresectable.</div>
 
 
@@ -5919,6 +6113,7 @@ This treatment is Radiation Therapy (NCIT:C15313). NCIT:C15313 is a clinical int
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6030,6 +6225,31 @@ This treatment uses cediranib.</span>
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Antiangiogenic tyrosine kinase inhibitors, including pazopanib, sunitinib, and cediranib, have clinical activity in advanced ASPS and align with the tumor&#39;s angiogenic transcriptional program.</div>
 
 
@@ -6060,6 +6280,7 @@ This treatment uses cediranib.</span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6106,6 +6327,7 @@ This treatment uses cediranib.</span>
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6130,6 +6352,7 @@ This treatment uses cediranib.</span>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6151,6 +6374,7 @@ This treatment uses cediranib.</span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6236,6 +6460,31 @@ This treatment uses Atezolizumab (NCIT:C106250). NCIT:C106250 is a therapeutic a
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Monoclonal antibody</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Anti-PD-L1 immune checkpoint inhibitor pharmacotherapy is an important systemic option for advanced ASPS, with prospective evidence for atezolizumab.</div>
 
 
@@ -6260,6 +6509,7 @@ This treatment uses Atezolizumab (NCIT:C106250). NCIT:C106250 is a therapeutic a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6281,6 +6531,7 @@ This treatment uses Atezolizumab (NCIT:C106250). NCIT:C106250 is a therapeutic a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6383,6 +6634,31 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Combined VEGFR tyrosine-kinase inhibition and PD-1 checkpoint blockade has prospective phase 2 activity in advanced ASPS but remains an investigational combination requiring randomized evaluation.</div>
 
 
@@ -6413,6 +6689,7 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6456,6 +6733,7 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6558,6 +6836,31 @@ This treatment uses sunitinib (CHEBI:38940). CHEBI:38940 is a therapeutic agent 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Preclinical ASPS models support combining CDK4/6 inhibition with antiangiogenic inhibition. This strategy halted xenograft growth, but no clinical efficacy or safety inference can yet be made.</div>
 
 
@@ -6588,6 +6891,7 @@ This treatment uses sunitinib (CHEBI:38940). CHEBI:38940 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6638,6 +6942,7 @@ This treatment uses sunitinib (CHEBI:38940). CHEBI:38940 is a therapeutic agent 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6678,6 +6983,7 @@ This treatment uses sunitinib (CHEBI:38940). CHEBI:38940 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6740,6 +7046,7 @@ This treatment uses sunitinib (CHEBI:38940). CHEBI:38940 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6842,6 +7149,7 @@ This treatment uses sunitinib (CHEBI:38940). CHEBI:38940 is a therapeutic agent 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6926,6 +7234,7 @@ This treatment uses sunitinib (CHEBI:38940). CHEBI:38940 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7038,6 +7347,7 @@ This treatment uses sunitinib (CHEBI:38940). CHEBI:38940 is a therapeutic agent 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7102,6 +7412,7 @@ This treatment uses sunitinib (CHEBI:38940). CHEBI:38940 is a therapeutic agent 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7152,6 +7463,7 @@ This treatment uses sunitinib (CHEBI:38940). CHEBI:38940 is a therapeutic agent 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7173,6 +7485,7 @@ This treatment uses sunitinib (CHEBI:38940). CHEBI:38940 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7246,6 +7559,7 @@ This treatment uses sunitinib (CHEBI:38940). CHEBI:38940 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7342,6 +7656,7 @@ This treatment uses sunitinib (CHEBI:38940). CHEBI:38940 is a therapeutic agent 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7405,6 +7720,7 @@ This treatment uses sunitinib (CHEBI:38940). CHEBI:38940 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7474,6 +7790,7 @@ This treatment uses sunitinib (CHEBI:38940). CHEBI:38940 is a therapeutic agent 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7537,6 +7854,7 @@ This treatment uses sunitinib (CHEBI:38940). CHEBI:38940 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7699,6 +8017,7 @@ This treatment uses sunitinib (CHEBI:38940). CHEBI:38940 is a therapeutic agent 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7747,6 +8066,7 @@ This treatment uses sunitinib (CHEBI:38940). CHEBI:38940 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7801,6 +8121,7 @@ This treatment uses sunitinib (CHEBI:38940). CHEBI:38940 is a therapeutic agent 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7849,6 +8170,7 @@ This treatment uses sunitinib (CHEBI:38940). CHEBI:38940 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7990,6 +8312,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8038,6 +8361,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8082,6 +8406,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8270,6 +8595,7 @@ This experimental model concerns TFE3 (hgnc:11752). hgnc:11752 is a gene from th
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8355,6 +8681,8 @@ prevalence:
       100,000 per year.
 pathophysiology:
 - name: ASPSCR1-TFE3 Fusion Oncogene
+  genetic_context:
+    variant_origin: SOMATIC
   biological_scale: MOLECULAR
   description: &gt;-
     A characteristic unbalanced der(17)t(X;17)(p11;q25) translocation fuses
@@ -9550,6 +9878,18 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Falcon deep research emphasized the ASPSCR1-TFE3 fusion, angiogenic tumor biology, high lung and brain metastatic burden, atezolizumab clinical activity, and emerging preclinical CDK4/6 vulnerability. Report citations were mapped to PMID-backed caches where possible before YAML evidence was added.</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -10621,7 +10961,7 @@ This motivates clinical exploration of CDK4/6 inhibitors with anti-angiogenic ag
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Alveolar Soft Part Sarcoma", "mondoId": "MONDO:0011655", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Alveolar_Soft_Part_Sarcoma", "yamlRevision": "c841ea412497"};
+        const OS_CONFIG = {"diseaseName": "Alveolar Soft Part Sarcoma", "mondoId": "MONDO:0011655", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Alveolar_Soft_Part_Sarcoma", "yamlRevision": "5a92509fa107"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

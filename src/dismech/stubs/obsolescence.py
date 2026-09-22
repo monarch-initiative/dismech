@@ -36,11 +36,12 @@ neither may become a hard dependency of `just check-stubs`. Two paths:
 
 from __future__ import annotations
 
-import os
 import re
 import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
+
+from dismech import oak_db
 
 #: `owl:deprecated true` is the OWL-standard retirement marker.
 DEPRECATED_PREDICATE = "owl:deprecated"
@@ -71,12 +72,10 @@ def default_mondo_db() -> Path:
     """Where OAK keeps `mondo.db`.
 
     OAK resolves `sqlite:obo:mondo` through pystow, which reads `PYSTOW_HOME`
-    and nothing else — not `OAK_DB_DIR`. Mirrors the resolution in
-    `scripts/fetch_ontology_dbs.sh` so both look in the same place.
+    and nothing else — not `OAK_DB_DIR`. `dismech.oak_db` holds that resolution
+    so this and the hierarchy-cache tooling cannot drift apart on it.
     """
-    home = os.environ.get("PYSTOW_HOME")
-    base = Path(home) if home else Path.home() / ".data"
-    return base / "oaklib" / "mondo.db"
+    return oak_db.local_build_path("mondo")
 
 
 def normalize_term(value: object) -> str:

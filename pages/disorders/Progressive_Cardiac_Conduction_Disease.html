@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4180,6 +4252,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4226,6 +4299,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-scn5a-loss-of-function-variant-in-the-cardiac-sodium-channel" data-dismech-node="SCN5A Loss-of-Function Variant in the Cardiac Sodium Channel" data-dismech-type="pathophysiology">
                 <div class="item-name">SCN5A Loss-of-Function Variant in the Cardiac Sodium Channel</div>
+
 
                 <div class="item-desc">The prototypical initiating lesion in PCCD is a loss-of-function variant in SCN5A, encoding the alpha subunit of the cardiac voltage-gated sodium channel Nav1.5 that carries the depolarizing sodium current (INa) responsible for rapid impulse conduction. The same loss-of-function SCN5A alleles underlie Brugada syndrome, so PCCD sits within the sodium-channel-disease spectrum; other PCCD genes include TRPM4.</div>
 
@@ -4394,6 +4468,7 @@ This pathophysiological event involves decreased Voltage-gated sodium channel ac
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4415,6 +4490,7 @@ This pathophysiological event involves decreased Voltage-gated sodium channel ac
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4440,6 +4516,7 @@ This pathophysiological event involves decreased Voltage-gated sodium channel ac
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-sodium-current-and-conduction-slowing" data-dismech-node="Reduced Sodium Current and Conduction Slowing" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Sodium Current and Conduction Slowing</div>
+
 
                 <div class="item-desc">Reduced Nav1.5 sodium current slows the rate of rise of the cardiac action potential, which slows impulse propagation through the His-Purkinje system and atrioventricular node. On the surface ECG this manifests as progressive lengthening of the P-wave and the PR and QRS intervals, the electrocardiographic signature of conduction slowing.</div>
 
@@ -4573,6 +4650,7 @@ This pathophysiological event involves decreased Cardiac Conduction (GO:0061337)
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4595,6 +4673,7 @@ This pathophysiological event involves decreased Cardiac Conduction (GO:0061337)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-age-related-conduction-system-fibrosis" data-dismech-node="Age-Related Conduction-System Fibrosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Age-Related Conduction-System Fibrosis</div>
+
 
                 <div class="item-desc">A distinctive feature of SCN5A-linked PCCD is that a monogenic ion-channel defect progressively produces structural change: with aging the ventricular myocardium and conduction system develop extensive fibrosis, which further degrades conduction and accounts for the relentless, age-dependent progression of block. This was the first demonstration that a primary channelopathy can drive myocardial structural anomalies.</div>
 
@@ -4718,6 +4797,7 @@ This pathophysiological event involves increased Extracellular Matrix Organizati
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4740,6 +4820,7 @@ This pathophysiological event involves increased Extracellular Matrix Organizati
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-atrioventricular-and-bundle-branch-block" data-dismech-node="Progressive Atrioventricular and Bundle-Branch Block" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Atrioventricular and Bundle-Branch Block</div>
+
 
                 <div class="item-desc">Conduction slowing, amplified by fibrosis, progresses over years to higher-grade block: right or left bundle-branch block, hemiblock, and increasing degrees of atrioventricular block up to complete heart block. The hallmark of the disease is that this block aggravates with aging, often culminating in the need for a permanent pacemaker.</div>
 
@@ -4863,6 +4944,7 @@ This pathophysiological event involves abnormal Cardiac Conduction (GO:0061337).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4885,6 +4967,7 @@ This pathophysiological event involves abnormal Cardiac Conduction (GO:0061337).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-syncope-pacemaker-dependence-and-sudden-death-risk" data-dismech-node="Syncope, Pacemaker Dependence and Sudden Death Risk" data-dismech-type="pathophysiology">
                 <div class="item-name">Syncope, Pacemaker Dependence and Sudden Death Risk</div>
+
 
                 <div class="item-desc">High-grade atrioventricular block and bradyarrhythmia reduce cerebral and systemic perfusion, producing syncope (Stokes-Adams attacks) and, if untreated, a risk of sudden death from asystole. Definitive treatment of symptomatic high-grade block is permanent pacemaker implantation, on which affected individuals become dependent.</div>
 
@@ -4995,6 +5078,7 @@ This pathophysiological event involves abnormal Cardiac Conduction (GO:0061337).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5057,28 +5141,15 @@ This pathophysiological event involves abnormal Cardiac Conduction (GO:0061337).
             </div>
 
 
-            <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(2)</span></button>
+            <div class="item-box phenotype-box anchor-target" id="phenotype-heart-block" data-dismech-node="Heart Block" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Heart Block
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(2)</span></button>
-
-                <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
-            </div>
+                    <span class="phenotype-freq">OBLIGATE</span>
 
 
-            <details class="phenotype-category-group" id="pheno-cat-1">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Cardiovascular
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-atrioventricular-block" data-dismech-node="Atrioventricular Block" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Atrioventricular Block
-
-
+                    <span class="phenotype-category">Cardiovascular</span>
 
 
 
@@ -5087,163 +5158,18 @@ This pathophysiological event involves abnormal Cardiac Conduction (GO:0061337).
 
 
 
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001678" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001678</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012722" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0012722</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Atrioventricular block (HP:0001678). HP:0001678 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:15809371" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15809371" target="_blank">PMID:15809371</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Scn5a+/- mice showed extensive fibrosis of their ventricular myocardium"</div>
-
-
-                <div class="evidence-explanation">The Lenègre model recapitulates the age-related atrial and ventricular conduction impairment underlying AV block.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-syncope" data-dismech-node="Syncope" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Syncope
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001279" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001279</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Syncope (HP:0001279). HP:0001279 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:16643399" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16643399" target="_blank">PMID:16643399</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"conduction defect progressively aggravated with aging leading in five occasions to pacemaker implantations"</div>
-
-
-                <div class="evidence-explanation">The progression to symptomatic high-grade block requiring pacing is the substrate for syncope in PCCD.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-heart-block" data-dismech-node="Heart Block" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Heart Block
-
-                        <span class="phenotype-freq">OBLIGATE</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012722" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0012722</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
 This clinical feature is Heart block (HP:0012722). HP:0012722 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -5263,6 +5189,7 @@ This clinical feature is Heart block (HP:0012722). HP:0012722 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5287,33 +5214,106 @@ This clinical feature is Heart block (HP:0012722). HP:0012722 is a phenotype fro
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-right-bundle-branch-block" data-dismech-node="Right Bundle Branch Block" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Right Bundle Branch Block
+            <div class="item-box phenotype-box anchor-target" id="phenotype-atrioventricular-block" data-dismech-node="Atrioventricular Block" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Atrioventricular Block
 
 
+                    <span class="phenotype-category">Cardiovascular</span>
 
 
 
 
                     <span class="phenotype-id">
 
-                        <span class="phenotype-term-label">Complete right bundle branch block</span>
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001678" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001678</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Atrioventricular block (HP:0001678). HP:0001678 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011712" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0011712</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15809371" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15809371" target="_blank">PMID:15809371</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Scn5a+/- mice showed extensive fibrosis of their ventricular myocardium"</div>
+
+
+                <div class="evidence-explanation">The Lenègre model recapitulates the age-related atrial and ventricular conduction impairment underlying AV block.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-right-bundle-branch-block" data-dismech-node="Right Bundle Branch Block" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Right Bundle Branch Block
+
+
+                    <span class="phenotype-category">Cardiovascular</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011712" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0011712</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Complete right bundle branch block (HP:0011712). HP:0011712 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -5333,6 +5333,7 @@ This clinical feature is Complete right bundle branch block (HP:0011712). HP:001
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5357,34 +5358,80 @@ This clinical feature is Complete right bundle branch block (HP:0011712). HP:001
 
 
 
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-syncope" data-dismech-node="Syncope" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Syncope
+
+
+                    <span class="phenotype-category">Cardiovascular</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001279" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001279</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Syncope (HP:0001279). HP:0001279 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
                 </div>
 
-            </details>
 
-            <script>
-            (function() {
-                // TOC pill click: expand target group and scroll to it
-                document.querySelectorAll('.pheno-toc-pill').forEach(function(pill) {
-                    pill.addEventListener('click', function() {
-                        var target = document.getElementById(pill.dataset.target);
-                        if (target) {
-                            target.open = true;
-                            target.scrollIntoView({behavior: 'smooth', block: 'start'});
-                        }
-                    });
-                });
-                // Expand/collapse all toggle
-                var btn = document.getElementById('phenoToggleAll');
-                if (btn) {
-                    btn.addEventListener('click', function() {
-                        var groups = document.querySelectorAll('.phenotype-category-group');
-                        var anyOpen = Array.from(groups).some(function(g) { return g.open; });
-                        groups.forEach(function(g) { g.open = !anyOpen; });
-                        btn.textContent = anyOpen ? 'Expand all' : 'Collapse all';
-                    });
-                }
-            })();
-            </script>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16643399" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16643399" target="_blank">PMID:16643399</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"conduction defect progressively aggravated with aging leading in five occasions to pacemaker implantations"</div>
+
+
+                <div class="evidence-explanation">The progression to symptomatic high-grade block requiring pacing is the substrate for syncope in PCCD.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
 
         </div>
 
@@ -5431,6 +5478,9 @@ This disease-associated gene is SCN5A (hgnc:10593). hgnc:10593 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5445,6 +5495,7 @@ This disease-associated gene is SCN5A (hgnc:10593). hgnc:10593 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5523,6 +5574,31 @@ This treatment is pacemaker placement (NCIT:C80434). NCIT:C80434 is a clinical i
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Device</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 

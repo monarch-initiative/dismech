@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4152,6 +4224,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4221,6 +4294,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4343,6 +4417,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4377,6 +4452,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-localized-s-aureus-colonization-and-exfoliative-toxin-production" data-dismech-node="Localized S. aureus Colonization and Exfoliative Toxin Production" data-dismech-type="pathophysiology">
                 <div class="item-name">Localized S. aureus Colonization and Exfoliative Toxin Production</div>
+
 
                 <div class="item-desc">A toxigenic strain of Staphylococcus aureus colonizes or infects a localized, usually occult, site such as the nasopharynx, conjunctiva, umbilicus, throat, or perineum, and secretes exfoliative toxin. The exfoliative toxins are glutamate-specific serine proteases of the chymotrypsin family; mutating the catalytically active serine to alanine abolishes cleavage while leaving substrate binding intact, establishing that protease activity, not mere binding, is what produces disease.</div>
 
@@ -4476,6 +4552,7 @@ This pathophysiological event involves increased exfoliative toxin serine protea
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4497,6 +4574,7 @@ This pathophysiological event involves increased exfoliative toxin serine protea
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4522,6 +4600,7 @@ This pathophysiological event involves increased exfoliative toxin serine protea
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hematogenous-toxin-dissemination" data-dismech-node="Hematogenous Toxin Dissemination" data-dismech-type="pathophysiology">
                 <div class="item-name">Hematogenous Toxin Dissemination</div>
+
 
                 <div class="item-desc">Exfoliative toxin travels through the bloodstream from the localized source to the entire skin surface, which is why widespread exfoliation coexists with a trivial or inapparent primary infection and with sterile blister fluid. What disseminates is the toxin, not the bacterium.</div>
 
@@ -4596,6 +4675,7 @@ This pathophysiological event occurs in skin of body (UBERON:0002097). UBERON:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4618,6 +4698,7 @@ This pathophysiological event occurs in skin of body (UBERON:0002097). UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-toxin-clearance-and-neutralization" data-dismech-node="Failure of Toxin Clearance and Neutralization" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Toxin Clearance and Neutralization</div>
+
 
                 <div class="item-desc">Disseminated toxin only produces generalized disease if the host cannot clear or neutralize it. Infants have immature renal excretion and low anti-toxin antibody titers, and adults who develop SSSS characteristically have renal insufficiency or immunosuppression. This node, not toxin potency and not the dissemination step, is what explains the age and comorbidity distribution of the disease.</div>
 
@@ -4671,6 +4752,7 @@ This pathophysiological event occurs in skin of body (UBERON:0002097). UBERON:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4692,6 +4774,7 @@ This pathophysiological event occurs in skin of body (UBERON:0002097). UBERON:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4717,6 +4800,7 @@ This pathophysiological event occurs in skin of body (UBERON:0002097). UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-calcium-dependent-recognition-and-proteolytic-cleavage-of-desmoglein-1" data-dismech-node="Calcium-Dependent Recognition and Proteolytic Cleavage of Desmoglein 1" data-dismech-type="pathophysiology">
                 <div class="item-name">Calcium-Dependent Recognition and Proteolytic Cleavage of Desmoglein 1</div>
+
 
                 <div class="item-desc">Exfoliative toxin hydrolyzes desmoglein 1 once, after glutamic acid residue 381, in the linker between extracellular domains 3 and 4. The specificity is remarkable on three counts: the substrate is desmoglein 1 and not the closely related desmoglein 3 or E-cadherin; ETA and ETB converge on the same bond; and cleavage requires the native calcium-stabilized fold of desmoglein 1, so recognition is conformational rather than purely sequence-based. Loss of the desmoglein 1 ectodomain with retention of its endodomain has been confirmed in skin biopsies from patients, not only in vitro.</div>
 
@@ -4926,6 +5010,7 @@ This pathophysiological event involves increased desmoglein 1 proteolysis, annot
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4947,6 +5032,7 @@ This pathophysiological event involves increased desmoglein 1 proteolysis, annot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4974,6 +5060,7 @@ This pathophysiological event involves increased desmoglein 1 proteolysis, annot
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4998,6 +5085,7 @@ This pathophysiological event involves increased desmoglein 1 proteolysis, annot
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-plakoglobin-sequestration-by-truncated-desmoglein-1" data-dismech-node="Plakoglobin Sequestration by Truncated Desmoglein 1" data-dismech-type="pathophysiology">
                 <div class="item-name">Plakoglobin Sequestration by Truncated Desmoglein 1</div>
+
 
                 <div class="item-desc">Cleavage is not the whole story, because the stump is not inert. The ectodomain-truncated desmoglein 1 stays anchored in the membrane and remains bound to its catenin partner plakoglobin. Uncoupling the truncated cadherin from plakoglobin by point mutation removes its pathogenic effect entirely, which is what makes the sequestration itself, rather than merely the loss of the ectodomain, a causal step.</div>
 
@@ -5072,6 +5160,7 @@ This pathophysiological event involves desmosome (GO:0030057). GO:0030057 is a c
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5093,6 +5182,7 @@ This pathophysiological event involves desmosome (GO:0030057). GO:0030057 is a c
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5118,6 +5208,7 @@ This pathophysiological event involves desmosome (GO:0030057). GO:0030057 is a c
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-desmosomal-cadherin-destabilization" data-dismech-node="Desmosomal Cadherin Destabilization" data-dismech-type="pathophysiology">
                 <div class="item-name">Desmosomal Cadherin Destabilization</div>
+
 
                 <div class="item-desc">Levels of the endogenous desmosomal cadherins fall, so the desmosome fails by two routes at once: direct loss of desmoglein 1 adhesion and collateral depletion of its partners. Raising plakoglobin levels restores cadherin expression, desmosome organization, and functional adhesion, and histone deacetylase inhibition does the same by upregulating the cadherins directly, which is what shows this depletion is a required step rather than a bystander finding.</div>
 
@@ -5230,6 +5321,7 @@ This pathophysiological event involves desmosome (GO:0030057). GO:0030057 is a c
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5251,6 +5343,7 @@ This pathophysiological event involves desmosome (GO:0030057). GO:0030057 is a c
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5276,6 +5369,7 @@ This pathophysiological event involves desmosome (GO:0030057). GO:0030057 is a c
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-granular-layer-acantholysis-and-intraepidermal-split" data-dismech-node="Granular-Layer Acantholysis and Intraepidermal Split" data-dismech-type="pathophysiology">
                 <div class="item-name">Granular-Layer Acantholysis and Intraepidermal Split</div>
+
 
                 <div class="item-desc">Keratinocytes lose contact with one another precisely at the stratum granulosum, just beneath the stratum corneum, producing an acantholytic intraepidermal split. The level is set by desmoglein compensation: desmoglein 3 is co-expressed with desmoglein 1 in the deeper epidermis and throughout mucosa and preserves adhesion there, so only the superficial epidermis, where desmoglein 1 is unshared, comes apart. This is why mucous membranes are spared, and it is the reason SSSS and pemphigus foliaceus are histologic mirror images. Notably the split is pure adhesive failure, with no necrotic keratinocytes and little or no inflammatory infiltrate, which is the histologic distinction from toxic epidermal necrolysis.</div>
 
@@ -5454,6 +5548,7 @@ This pathophysiological event occurs in stratum granulosum of epidermis (UBERON:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5475,6 +5570,7 @@ This pathophysiological event occurs in stratum granulosum of epidermis (UBERON:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5500,6 +5596,7 @@ This pathophysiological event occurs in stratum granulosum of epidermis (UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-epidermal-barrier-failure-and-systemic-complications" data-dismech-node="Epidermal Barrier Failure and Systemic Complications" data-dismech-type="pathophysiology">
                 <div class="item-name">Epidermal Barrier Failure and Systemic Complications</div>
+
 
                 <div class="item-desc">Loss of the superficial epidermis strips the skin of its permeability and thermal barrier. Denuded skin loses fluid and heat, so dehydration, electrolyte derangement, and hypothermia follow, particularly in neonates, and the breach permits secondary bacterial invasion progressing to sepsis and pneumonia. Because the dermis is untouched, the barrier reconstitutes and healing is scarless, and contemporary treated pediatric cohorts report severe complications in a small minority and essentially no deaths.</div>
 
@@ -5623,6 +5720,7 @@ This pathophysiological event involves decreased establishment of skin barrier (
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5644,6 +5742,7 @@ This pathophysiological event involves decreased establishment of skin barrier (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5669,6 +5768,7 @@ This pathophysiological event involves decreased establishment of skin barrier (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-peptidoglycan-cross-linking-by-penicillin-binding-proteins-beta-lactam-target" data-dismech-node="Peptidoglycan Cross-Linking by Penicillin-Binding Proteins (Beta-Lactam Target)" data-dismech-type="pathophysiology">
                 <div class="item-name">Peptidoglycan Cross-Linking by Penicillin-Binding Proteins (Beta-Lactam Target)</div>
+
 
                 <div class="item-desc">Peptidoglycan cross-linking by staphylococcal penicillin-binding proteins is the target of the anti-staphylococcal beta-lactams that are first-line here. Beta-lactam acylation of the penicillin-binding protein active site halts cross-linking and is bactericidal, which removes the organism producing the toxin. It does nothing to circulating toxin already released, which is why exfoliation continues briefly after treatment starts.</div>
 
@@ -5760,6 +5860,7 @@ This pathophysiological event involves decreased peptidoglycan-based cell wall b
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5782,6 +5883,7 @@ This pathophysiological event involves decreased peptidoglycan-based cell wall b
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-staphylococcal-mrna-translation-by-the-ribosome-clindamycin-target" data-dismech-node="Staphylococcal mRNA Translation by the Ribosome (Clindamycin Target)" data-dismech-type="pathophysiology">
                 <div class="item-name">Staphylococcal mRNA Translation by the Ribosome (Clindamycin Target)</div>
+
 
                 <div class="item-desc">Bacterial ribosomal translation is the target of clindamycin, added here on the theory that suppressing protein synthesis suppresses exfoliative toxin output. Clindamycin resistance encountered in this setting has been inducible, macrolide-induced, rather than constitutive.</div>
 
@@ -5873,6 +5975,7 @@ This pathophysiological event involves decreased bacterial translation, annotate
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5895,6 +5998,7 @@ This pathophysiological event involves decreased bacterial translation, annotate
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-suppression-of-exfoliative-toxin-synthesis" data-dismech-node="Suppression of Exfoliative Toxin Synthesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Suppression of Exfoliative Toxin Synthesis</div>
+
 
                 <div class="item-desc">The anti-toxin rationale for adjunctive clindamycin, curated here because the mechanism is coherent and the clinical test of it is negative. Adding clindamycin does not shorten hospitalization and does not improve outcome in SSSS, and current evidence favors beta-lactam monotherapy. This node exists to hold that null result against its mechanism rather than to endorse the therapy: a pretty mechanism should not launder a negative trial.</div>
 
@@ -5933,6 +6037,7 @@ This pathophysiological event involves decreased bacterial translation, annotate
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5954,6 +6059,7 @@ This pathophysiological event involves decreased bacterial translation, annotate
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -6025,13 +6131,11 @@ This pathophysiological event involves decreased bacterial translation, annotate
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Immune<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Integument<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Integument<span class="pill-count">(4)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Metabolism<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Metabolism<span class="pill-count">(4)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Nervous System<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6090,6 +6194,9 @@ This clinical feature is Conjunctivitis (HP:0000509), qualified as temporality a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6104,6 +6211,7 @@ This clinical feature is Conjunctivitis (HP:0000509), qualified as temporality a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6187,6 +6295,9 @@ This clinical feature is Erythroderma (HP:0001019), qualified as temporality acu
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6201,6 +6312,7 @@ This clinical feature is Erythroderma (HP:0001019), qualified as temporality acu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6275,6 +6387,9 @@ This clinical feature is Sepsis (HP:0100806), qualified as temporality acute. HP
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6289,6 +6404,7 @@ This clinical feature is Sepsis (HP:0100806), qualified as temporality acute. HP
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6313,6 +6429,7 @@ This clinical feature is Sepsis (HP:0100806), qualified as temporality acute. HP
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6367,6 +6484,9 @@ This clinical feature is Pneumonia (HP:0002090). HP:0002090 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6381,6 +6501,7 @@ This clinical feature is Pneumonia (HP:0002090). HP:0002090 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6413,7 +6534,7 @@ This clinical feature is Pneumonia (HP:0002090). HP:0002090 is a phenotype from 
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Integument
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">4</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-skin-detachment" data-dismech-node="Skin Detachment" data-dismech-type="phenotype">
@@ -6464,6 +6585,9 @@ This clinical feature is Skin detachment (HP:0032156), qualified as temporality 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6478,6 +6602,7 @@ This clinical feature is Skin detachment (HP:0032156), qualified as temporality 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6552,6 +6677,9 @@ This clinical feature is Abnormal blistering of the skin (HP:0008066), qualified
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6566,6 +6694,7 @@ This clinical feature is Abnormal blistering of the skin (HP:0008066), qualified
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6590,6 +6719,7 @@ This clinical feature is Abnormal blistering of the skin (HP:0008066), qualified
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6662,6 +6792,9 @@ This clinical feature is Skin erosion (HP:0200041), qualified as temporality acu
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6676,6 +6809,7 @@ This clinical feature is Skin erosion (HP:0200041), qualified as temporality acu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6702,13 +6836,85 @@ This clinical feature is Skin erosion (HP:0200041), qualified as temporality acu
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-acantholysis" data-dismech-node="Acantholysis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Acantholysis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100792" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0100792</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Acantholysis (HP:0100792). HP:0100792 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24841497" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24841497" target="_blank">PMID:24841497</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Histologically, the superficial epidermis is detached, the separation level being at the granular layer."</div>
+
+
+                <div class="evidence-explanation">Reports the granular-layer plane of keratinocyte separation seen on biopsy.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
             <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">4</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-fever" data-dismech-node="Fever" data-dismech-type="phenotype">
@@ -6725,10 +6931,10 @@ This clinical feature is Skin erosion (HP:0200041), qualified as temporality acu
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001945</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001945</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Fever (HP:0001945), qualified as temporality acute. HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6757,6 +6963,9 @@ This clinical feature is Fever (HP:0001945), qualified as temporality acute. HP:
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6771,6 +6980,7 @@ This clinical feature is Fever (HP:0001945), qualified as temporality acute. HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6813,10 +7023,10 @@ This clinical feature is Fever (HP:0001945), qualified as temporality acute. HP:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002902" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002902</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002902" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002902</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hyponatremia (HP:0002902), qualified as temporality acute. HP:0002902 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6845,6 +7055,9 @@ This clinical feature is Hyponatremia (HP:0002902), qualified as temporality acu
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6859,6 +7072,7 @@ This clinical feature is Hyponatremia (HP:0002902), qualified as temporality acu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6901,10 +7115,10 @@ This clinical feature is Hyponatremia (HP:0002902), qualified as temporality acu
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001944" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001944</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001944" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001944</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dehydration (HP:0001944), qualified as temporality acute. HP:0001944 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6933,6 +7147,9 @@ This clinical feature is Dehydration (HP:0001944), qualified as temporality acut
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6947,6 +7164,7 @@ This clinical feature is Dehydration (HP:0001944), qualified as temporality acut
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6974,6 +7192,7 @@ This clinical feature is Dehydration (HP:0001944), qualified as temporality acut
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6982,6 +7201,78 @@ This clinical feature is Dehydration (HP:0001944), qualified as temporality acut
 
 
                 <div class="evidence-explanation">Confirms that fluid deficits requiring resuscitation are part of the clinical picture.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypothermia" data-dismech-node="Hypothermia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hypothermia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002045" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002045</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypothermia (HP:0002045). HP:0002045 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11062541" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11062541" target="_blank">PMID:11062541</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This unique proteolytic attack on the desmosome causes a blister just below the stratum corneum, which forms the epidermal barrier, presumably allowing the bacteria in bullous impetigo to proliferate and spread beneath this barrier."</div>
+
+
+                <div class="evidence-explanation">Establishes that the split removes the stratum corneum barrier. The thermoregulatory consequence of losing that barrier over a large area is inferred rather than measured in this source, hence PARTIAL.</div>
 
 
 
@@ -7022,15 +7313,18 @@ This clinical feature is Dehydration (HP:0001944), qualified as temporality acut
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000737" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000737</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000737" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000737</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Irritability (HP:0000737). HP:0000737 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">The quantified finding is skin tenderness, for which HPO has no adequate term. Irritability is curated as the closest available manifestation of that tenderness in infants and toddlers, and the frequency band is inherited from the tenderness figure rather than measured for irritability directly.</div>
@@ -7055,6 +7349,7 @@ This clinical feature is Irritability (HP:0000737). HP:0000737 is a phenotype fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7063,151 +7358,6 @@ This clinical feature is Irritability (HP:0000737). HP:0000737 is a phenotype fr
 
 
                 <div class="evidence-explanation">Skin tenderness, the driver of irritability in this age group, was present in 81% of patients. PARTIAL because the measured quantity is tenderness rather than irritability itself.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-acantholysis" data-dismech-node="Acantholysis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Acantholysis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100792" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0100792</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Acantholysis (HP:0100792). HP:0100792 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:24841497" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24841497" target="_blank">PMID:24841497</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Histologically, the superficial epidermis is detached, the separation level being at the granular layer."</div>
-
-
-                <div class="evidence-explanation">Reports the granular-layer plane of keratinocyte separation seen on biopsy.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hypothermia" data-dismech-node="Hypothermia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hypothermia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002045" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0002045</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hypothermia (HP:0002045). HP:0002045 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:11062541" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11062541" target="_blank">PMID:11062541</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-
-                </div>
-
-                <div class="evidence-snippet">"This unique proteolytic attack on the desmosome causes a blister just below the stratum corneum, which forms the epidermal barrier, presumably allowing the bacteria in bullous impetigo to proliferate and spread beneath this barrier."</div>
-
-
-                <div class="evidence-explanation">Establishes that the split removes the stratum corneum barrier. The thermoregulatory consequence of losing that barrier over a large area is inferred rather than measured in this source, hence PARTIAL.</div>
 
 
 
@@ -7384,6 +7534,31 @@ This treatment uses cefazolin (CHEBI:474053). CHEBI:474053 is a therapeutic agen
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Prompt intravenous anti-staphylococcal beta-lactam therapy is first line. Nafcillin, oxacillin, flucloxacillin, or a first-generation cephalosporin such as cefazolin are used empirically until susceptibilities are available. Note that antibiotics stop further toxin production but neither neutralize circulating toxin nor reverse desmoglein 1 that has already been cleaved, so exfoliation may continue briefly after treatment begins and should not be read as treatment failure.</div>
 
 
@@ -7426,6 +7601,7 @@ This treatment uses cefazolin (CHEBI:474053). CHEBI:474053 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7447,6 +7623,7 @@ This treatment uses cefazolin (CHEBI:474053). CHEBI:474053 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7532,6 +7709,31 @@ This treatment uses vancomycin (CHEBI:28001). CHEBI:28001 is a therapeutic agent
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Vancomycin is substituted where methicillin-resistant S. aureus is suspected, in critically ill patients, or in communities with high MRSA prevalence. Most contemporary pediatric series nonetheless recover only methicillin-sensitive isolates.</div>
 
 
@@ -7571,6 +7773,7 @@ This treatment uses vancomycin (CHEBI:28001). CHEBI:28001 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7656,6 +7859,31 @@ This treatment uses clindamycin (CHEBI:3745). CHEBI:3745 is a therapeutic agent 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Clindamycin has been added on the theory that ribosomal inhibition suppresses exfoliative toxin synthesis. The mechanistic rationale is sound but the clinical result is null: adding clindamycin does not shorten hospitalization or improve outcome, and current evidence favors beta-lactam monotherapy. Where clindamycin resistance is found in this setting it has been inducible rather than constitutive.</div>
 
 
@@ -7698,6 +7926,7 @@ This treatment uses clindamycin (CHEBI:3745). CHEBI:3745 is a therapeutic agent 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7722,6 +7951,7 @@ This treatment uses clindamycin (CHEBI:3745). CHEBI:3745 is a therapeutic agent 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7743,6 +7973,7 @@ This treatment uses clindamycin (CHEBI:3745). CHEBI:3745 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7807,6 +8038,31 @@ This treatment is fluid therapy (NCIT:C116537). NCIT:C116537 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Intravenous fluid replacement for children unable to maintain oral intake, bland emollients and non-adherent dressings for the denuded skin, analgesia, and attention to thermoregulation. Two negatives matter as much as the positives: surgical debridement is harmful and should be avoided, and silver sulfadiazine is avoided because of systemic absorption across denuded skin.</div>
 
 
@@ -7831,6 +8087,7 @@ This treatment is fluid therapy (NCIT:C116537). NCIT:C116537 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7852,6 +8109,7 @@ This treatment is fluid therapy (NCIT:C116537). NCIT:C116537 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7916,6 +8174,31 @@ This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C12133
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Intravenous immunoglobulin was historically recommended on the rationale of supplying neutralizing anti-toxin antibody, but its use has since been associated with prolonged hospitalization and it is rarely given in contemporary practice. The association may reflect confounding by severity, so this is an equivocal rather than a refuted therapy.</div>
 
 
@@ -7942,6 +8225,7 @@ This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C12133
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7963,6 +8247,7 @@ This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C12133
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8038,6 +8323,7 @@ This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C12133
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8059,6 +8345,7 @@ This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C12133
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8116,6 +8403,7 @@ This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C12133
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8137,6 +8425,7 @@ This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C12133
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8191,6 +8480,7 @@ This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C12133
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8261,6 +8551,7 @@ This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C12133
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8313,6 +8604,7 @@ This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C12133
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8334,6 +8626,7 @@ This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C12133
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8386,6 +8679,7 @@ This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C12133
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8462,6 +8756,7 @@ This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C12133
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8520,6 +8815,7 @@ This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C12133
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8575,6 +8871,7 @@ This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C12133
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8675,6 +8972,7 @@ This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C12133
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8696,6 +8994,7 @@ This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C12133
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8757,6 +9056,7 @@ This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C12133
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8778,6 +9078,7 @@ This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C12133
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8838,6 +9139,7 @@ This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C12133
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8862,6 +9164,7 @@ This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C12133
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8883,6 +9186,7 @@ This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C12133
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8970,6 +9274,7 @@ This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C12133
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9035,6 +9340,7 @@ This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C12133
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9108,6 +9414,7 @@ This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C12133
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9175,6 +9482,7 @@ This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C12133
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9319,6 +9627,7 @@ This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C12133
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9358,6 +9667,7 @@ This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C12133
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9465,6 +9775,7 @@ This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C12133
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11407,6 +11718,30 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Scope. This entry models generalized, toxin-mediated SSSS. Bullous impetigo, the localized form produced by the same toxins acting at the site of colonization, is recorded as a differential rather than folded in.
+Genetics. There is deliberately no genetic block. SSSS has no causal human gene, no inheritance pattern, and no established susceptibility locus. DSG1 appears in the pathophysiology as the toxin&#39;s substrate, not as a disease gene, and germline DSG1 disease (SAM syndrome, striate palmoplantar keratoderma) is captured as a differential.
+Adult mortality. Reported adult case-fatality figures of 40 to 63% come from small selected series in which renal failure and immunosuppression both predispose to SSSS and independently carry high mortality. They are recorded in clinical_burden as an observed rate with that confounding stated, and should not be reused as a mechanistic claim about the disease.
+Toxin serotype geography. ETA predominates in Europe, the United States, and Africa while ETB predominates in Japan, and carriage prevalence figures for eta and etb among MSSA and MRSA are documented. Those figures appear only in review full text rather than in any abstract, so they are recorded here rather than as evidence-bearing claims.
+A fifth exfoliative toxin serotype, ETE, was described from an ovine mastitis strain and cleaves human and swine desmoglein 1 but not canine desmoglein 1. It is not established as a cause of human SSSS and is therefore not modeled.
+ETD is likewise not modeled as an SSSS toxin. PMID:39411997 states that ETA and ETB are responsible for most human cases and that ETD, while similar and capable of disrupting the epithelial barrier, &#34;is not strongly associated with SSSS&#34;. An earlier revision of this entry listed ETD among the SSSS toxins and had it converging on the desmoglein 1 cleavage site; that claim was uncited and is contradicted by the review the entry itself cites, so it was removed.
+Deep research. Curated from a claude_code deep-research report (research/Staphylococcal_Scalded_Skin_Syndrome-deep-research-claude_code.md). Every snippet above was re-verified against the cached PubMed record rather than taken from the report.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Staphylococcal Scalded Skin Syndrome</strong> · 2026-08-15T13:47:27Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Staphylococcal_Scalded_Skin_Syndrome/2026-08-15T134727Z-claude-code-31b606.yaml">View source</a></p>
+                        <p class="research-review-text">New KB entry for staphylococcal scalded skin syndrome (MONDO:0018181), curated from a claude_code deep-research report (research/Staphylococcal_Scalded_Skin_Syndrome-deep-research-claude_code.md; 34/34 report references resolved, 0 unresolved, per the appended Reference Validation section). Modeled the six-node toxin cascade: localized S. aureus colonization with exfoliative toxin secretion, hematogenous toxin dissemination gated by host renal clearance and anti-toxin antibody, calcium-dependent single-bond cleavage of desmoglein 1 after Glu381, plakoglobin sequestration by the truncated cadherin, granular-layer acantholysis, and epidermal barrier failure with systemic complications. Eleven phenotypes, five treatments (including adjunctive clindamycin carried with REFUTE evidence for the null clinical result despite a sound ribosomal anti-toxin rationale), three diagnosis entries, three prevalence records, a three-phase progression, four differential diagnoses including the DSG1 genetic phenocopy SAM syndrome, two animal models with modeled_mechanisms and a readout, and four discussions (superantigen controversy, desmocollin-1 alternative target, host genetic susceptibility, dermal infiltrate fate). Deliberately no genetic block: SSSS has no causal human gene. Validated: just validate (schema) passed, just validate-terms passed, just count-verified-snippets reported 68/68 verified against cached references. One DR-sourced snippet was corrected during verification (&#39;histone deacetylation&#39; to &#39;histone deacetylase&#39;, PMID:21075858). Seeded cache/chebi and cache/enums for CHEBI:7447 and CHEBI:5098 by running the term validator against a local sqlite:obo:chebi adapter, then restored conf/oak_config.yaml unchanged.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

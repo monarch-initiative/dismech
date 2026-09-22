@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4108,6 +4180,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4129,6 +4202,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4531,6 +4605,7 @@ GeneReviews does not adjudicate between the two reports but states the field&#39
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-sc5d-loss-of-function" data-dismech-node="Biallelic SC5D Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic SC5D Loss of Function</div>
 
+
                 <div class="item-desc">Homozygous or compound heterozygous SC5D variants. Reported alleles are predominantly missense, and residual activity tracks with severity across the small reported cohort.</div>
 
 
@@ -4583,6 +4658,7 @@ GeneReviews does not adjudicate between the two reports but states the field&#39
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4605,6 +4681,7 @@ GeneReviews does not adjudicate between the two reports but states the field&#39
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-deficient-sterol-c5-desaturase-activity" data-dismech-node="Deficient Sterol C5-Desaturase Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Deficient Sterol C5-Desaturase Activity</div>
+
 
                 <div class="item-desc">The conversion of lathosterol to 7-dehydrocholesterol, the penultimate step of cholesterol synthesis, is blocked.</div>
 
@@ -4742,6 +4819,7 @@ This pathophysiological event involves decreased C-5 sterol desaturase activity 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4764,6 +4842,7 @@ This pathophysiological event involves decreased C-5 sterol desaturase activity 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lathosterol-accumulation" data-dismech-node="Lathosterol Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Lathosterol Accumulation</div>
+
 
                 <div class="item-desc">Plasma and tissue lathosterol rise, in the reported mild case to more than tenfold above the upper limit of the control range. Accumulation is the diagnostic signature and appears to drive the storage arm of the disease specifically.</div>
 
@@ -4864,6 +4943,7 @@ This pathophysiological event involves decreased C-5 sterol desaturase activity 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4886,6 +4966,7 @@ This pathophysiological event involves decreased C-5 sterol desaturase activity 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cholesterol-deficiency" data-dismech-node="Cholesterol Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Cholesterol Deficiency</div>
+
 
                 <div class="item-desc">Cellular cholesterol falls. In the mouse knockout this, rather than the accumulated precursor, is what accounts for the malformation phenotype.</div>
 
@@ -4961,6 +5042,7 @@ This pathophysiological event involves decreased C-5 sterol desaturase activity 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4983,6 +5065,7 @@ This pathophysiological event involves decreased C-5 sterol desaturase activity 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-hedgehog-signalling" data-dismech-node="Impaired Hedgehog Signalling" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Hedgehog Signalling</div>
+
 
                 <div class="item-desc">The route by which a biosynthetic block becomes a malformation syndrome rather than a purely degenerative disease. This is the mechanism shared with Smith-Lemli-Opitz and the other post-squalene defects.</div>
 
@@ -5094,6 +5177,7 @@ This pathophysiological event involves decreased smoothened signaling pathway (G
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5116,6 +5200,7 @@ This pathophysiological event involves decreased smoothened signaling pathway (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lysosomal-lamellar-inclusion-formation" data-dismech-node="Lysosomal Lamellar Inclusion Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Lysosomal Lamellar Inclusion Formation</div>
+
 
                 <div class="item-desc">Lamellar inclusions on electron microscopy, with a mucolipidosis-like appearance on light microscopy in the most severely affected. This storage component is what makes lathosterolosis unusual among the cholesterol biosynthesis defects.</div>
 
@@ -5154,6 +5239,7 @@ This pathophysiological event involves decreased smoothened signaling pathway (G
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5176,6 +5262,7 @@ This pathophysiological event involves decreased smoothened signaling pathway (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-congenital-malformation-pattern" data-dismech-node="Congenital Malformation Pattern" data-dismech-type="pathophysiology">
                 <div class="item-name">Congenital Malformation Pattern</div>
+
 
                 <div class="item-desc">A recognisable pattern involving the axial and appendicular skeleton, liver, central nervous and urogenital systems.</div>
 
@@ -5214,6 +5301,7 @@ This pathophysiological event involves decreased smoothened signaling pathway (G
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5236,6 +5324,7 @@ This pathophysiological event involves decreased smoothened signaling pathway (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-liver-disease" data-dismech-node="Progressive Liver Disease" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Liver Disease</div>
+
 
                 <div class="item-desc">Ranges from normal liver function tests through transaminitis to portal fibrosis and cirrhosis. It is the arm that responds to lowering the accumulated sterol.</div>
 
@@ -5291,6 +5380,7 @@ This pathophysiological event involves decreased smoothened signaling pathway (G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5415,6 +5505,9 @@ This clinical feature is Hepatic fibrosis (HP:0001395). HP:0001395 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5429,6 +5522,7 @@ This clinical feature is Hepatic fibrosis (HP:0001395). HP:0001395 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5485,6 +5579,9 @@ This clinical feature is Cirrhosis (HP:0001394). HP:0001394 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5499,6 +5596,7 @@ This clinical feature is Cirrhosis (HP:0001394). HP:0001394 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5564,6 +5662,9 @@ This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5578,6 +5679,7 @@ This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5634,6 +5736,9 @@ This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5648,6 +5753,7 @@ This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5713,6 +5819,9 @@ This clinical feature is Genitourinary anomaly, annotated with Abnormality of th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5727,6 +5836,7 @@ This clinical feature is Genitourinary anomaly, annotated with Abnormality of th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5751,6 +5861,7 @@ This clinical feature is Genitourinary anomaly, annotated with Abnormality of th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5816,6 +5927,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5830,6 +5944,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5886,6 +6001,9 @@ This clinical feature is High palate (HP:0000218). HP:0000218 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5900,6 +6018,7 @@ This clinical feature is High palate (HP:0000218). HP:0000218 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5924,6 +6043,7 @@ This clinical feature is High palate (HP:0000218). HP:0000218 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5980,6 +6100,9 @@ This clinical feature is Anteverted nares (HP:0000463). HP:0000463 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5994,6 +6117,7 @@ This clinical feature is Anteverted nares (HP:0000463). HP:0000463 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6018,6 +6142,7 @@ This clinical feature is Anteverted nares (HP:0000463). HP:0000463 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6074,6 +6199,9 @@ This clinical feature is Long philtrum (HP:0000343). HP:0000343 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6088,6 +6216,7 @@ This clinical feature is Long philtrum (HP:0000343). HP:0000343 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6112,6 +6241,7 @@ This clinical feature is Long philtrum (HP:0000343). HP:0000343 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6168,6 +6298,9 @@ This clinical feature is Downslanted palpebral fissures (HP:0000494). HP:0000494
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6182,6 +6315,7 @@ This clinical feature is Downslanted palpebral fissures (HP:0000494). HP:0000494
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6238,6 +6372,9 @@ This clinical feature is Epicanthus (HP:0000286). HP:0000286 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6252,6 +6389,7 @@ This clinical feature is Epicanthus (HP:0000286). HP:0000286 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6308,6 +6446,9 @@ This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6322,6 +6463,7 @@ This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6387,6 +6529,9 @@ This clinical feature is Postaxial polydactyly (HP:0100259). HP:0100259 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6401,6 +6546,7 @@ This clinical feature is Postaxial polydactyly (HP:0100259). HP:0100259 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6457,6 +6603,9 @@ This clinical feature is Toe syndactyly (HP:0001770). HP:0001770 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6471,6 +6620,7 @@ This clinical feature is Toe syndactyly (HP:0001770). HP:0001770 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6538,6 +6688,9 @@ This clinical feature is Elevated circulating hepatic transaminase concentration
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6552,6 +6705,7 @@ This clinical feature is Elevated circulating hepatic transaminase concentration
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6617,6 +6771,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6631,6 +6788,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6696,6 +6854,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6710,6 +6871,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6766,6 +6928,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6780,6 +6945,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6836,6 +7002,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6850,6 +7019,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6874,6 +7044,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6972,6 +7143,9 @@ This disease-associated gene is SC5D (hgnc:10547). hgnc:10547 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6986,6 +7160,7 @@ This disease-associated gene is SC5D (hgnc:10547). hgnc:10547 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7010,6 +7185,7 @@ This disease-associated gene is SC5D (hgnc:10547). hgnc:10547 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7092,6 +7268,31 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">GeneReviews lists hepatotoxic medications and chemicals as agents to avoid. This carries more weight in this disease than the generic version of the advice: the hepatic arm is the dominant morbidity driver, it is the arm liver transplantation addresses, and the entry&#39;s only pharmacotherapy is a statin - so protecting the liver is a management instruction about the same organ the treatment plan turns on.</div>
 
 
@@ -7131,6 +7332,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7216,6 +7418,31 @@ This treatment uses simvastatin (CHEBI:9150). CHEBI:9150 is a therapeutic agent 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Inhibits HMG-CoA reductase upstream of the block, reducing flux into the pathway and so lowering the accumulated lathosterol. It does not restore the missing enzyme, and reported benefit is inconsistent.</div>
 
 
@@ -7271,6 +7498,7 @@ This treatment uses simvastatin (CHEBI:9150). CHEBI:9150 is a therapeutic agent 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7292,6 +7520,7 @@ This treatment uses simvastatin (CHEBI:9150). CHEBI:9150 is a therapeutic agent 
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -7355,6 +7584,31 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">GeneReviews sets a monitoring plan that is unusually specific for a disease with this few patients, and its shape follows the mechanism: the ophthalmologic and hepatic arms are both progressive and both actionable, so each gets an interval. Developmental milestones at every visit; annual ophthalmology; liver enzymes at every visit with ultrasound and FibroScan every six months; and a plasma sterol profile before starting simvastatin and every one to two months on it. That last interval is the one that carries mechanistic weight - it monitors the substrate behind the block, because the clinical endpoint the statin is meant to change has never been established.</div>
 
 
@@ -7376,6 +7630,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7439,6 +7694,31 @@ This treatment is Organ Transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Named alongside simvastatin as a potential targeted therapy. It addresses the hepatic arm definitively by replacing the affected organ, while doing nothing for the malformation or storage arms - which is consistent with the entry&#39;s reading that those arms have different biochemical causes.</div>
 
 
@@ -7478,6 +7758,7 @@ This treatment is Organ Transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7569,6 +7850,7 @@ This treatment is Organ Transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7625,6 +7907,7 @@ This treatment is Organ Transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7691,6 +7974,7 @@ This treatment is Organ Transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7765,6 +8049,7 @@ This treatment is Organ Transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7896,6 +8181,7 @@ This treatment is Organ Transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8024,6 +8310,7 @@ This treatment is Organ Transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8075,6 +8362,7 @@ This treatment is Organ Transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9498,6 +9786,34 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">GeneReviews. PMID:38060690 is a dedicated lathosterolosis chapter and is tagged and mined across all four sections. The first version of this entry missed it entirely - the deep-research report cited the bookshelf ID but not a PMID, and I did not search for one. It supplies the diagnostic criterion, liver transplantation as a second targeted therapy, the digit anomalies, and the statement that simvastatin&#39;s safety and efficacy are unproven here.
+Relationship to Smith-Lemli-Opitz syndrome. SC5D acts one step before DHCR7, and kb/disorders/Smith-Lemli-Opitz_syndrome.yaml is already curated. The two share the hedgehog mechanism and much of the malformation pattern, which is why lathosterolosis was initially described as atypical SLOS. They differ in the storage component, which is a feature of lathosterolosis and not of SLOS.
+Named Entity Confusion. The preflight passed for this report, with DHCR7 mentioned only five times against SC5D&#39;s thirty-three. Sentences describing SLOS were still used only for pathway context; no SLOS observation is cited here as a lathosterolosis finding.
+Ontology correction. The research report offered CHEBI:16833 for lathosterol. That term is neurosporene, a carotenoid. The correct term is CHEBI:17168 (5alpha-cholest-7-en-3beta-ol), whose canonical label is the systematic name rather than the common one, so preferred_term carries &#34;lathosterol&#34; for display.
+Evidence for a disease with this few patients. Frequencies are graded against a literature of roughly a dozen cases and should be read as &#34;reported in most described patients&#34;, not as cohort statistics. The prevalence record is deliberately CASES_IN_LITERATURE rather than a rate.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Add missed GeneReviews chapter, diagnosis, liver transplantation, reference titles</strong> · 2026-08-27T21:39:43Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Lathosterolosis/2026-08-27T213943Z-claude-code-b39fff.yaml">View source</a></p>
+                        <p class="research-review-text">Applied the findings of the REQUEST_CHANGES review on the sibling PR 9755 to this entry proactively. Two substantive gaps. (1) reference_title was absent from all 23 evidence items; backfilled with scripts/backfill_reference_titles.py. (2) A dedicated GeneReviews chapter for lathosterolosis exists (PMID:38060690) and the first version of this entry missed it entirely - the deep-research report cited the bookshelf ID NBK597809 but no PMID, and I did not search for one. It is now tagged and mined across all four sections, supplying: a diagnosis: section with the plasma-sterol-or-molecular criterion; liver transplantation as a second targeted therapy with MODULATES on the hepatic arm; postaxial polydactyly, toe syndactyly and cirrhosis as phenotypes; and the statement that simvastatin&#39;s safety and efficacy are unproven in this disease. That last one materially improves the lath_statin_benefit_conflict discussion: GeneReviews does not adjudicate between the two conflicting case reports but states the field&#39;s position and still recommends plasma sterol monitoring before and during therapy, which is the practical shape of the uncertainty. Stub deleted. Validation: 28/28 snippets verified plus raw-substring re-check at 28/28; no declared-uncited or cited-undeclared references; schema, terms, entity-refs, duplicate-keys and reference titles all pass.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Lathosterolosis</strong> · 2026-08-27T19:18:53Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Lathosterolosis/2026-08-27T191853Z-claude-code-b563a8.yaml">View source</a></p>
+                        <p class="research-review-text">Curated lathosterolosis (MONDO:0011816, SC5D) from a claude_code deep-research report. Eight pathophysiology nodes in one connected component. The entry&#39;s central structure is that the enzymatic block produces two biochemical consequences with different downstream arms, modeled as two hypothesis groups: cholesterol deficiency drives the malformation arm via impaired hedgehog signalling (CANONICAL, supported by the Sc5d-null mouse attributing the defects to decreased cholesterol rather than increased lathosterol), while lathosterol accumulation drives the lysosomal storage and hepatic arms (ALTERNATIVE). Simvastatin is curated with conflicting evidence deliberately retained - one report of biochemical and histological improvement graded SUPPORT, and a second patient&#39;s absence of perceived benefit graded REFUTE - plus a KNOWLEDGE_GAP discussion noting the two endpoints are not the same and so are not strictly contradictory. Prevalence is CASES_IN_LITERATURE, not a rate. Correction: the report offered CHEBI:16833 for lathosterol, which is neurosporene, a carotenoid; the correct term is CHEBI:17168. A title mismatch was also caught and fixed - PMID:33204591 had been given the title belonging to PMID:31259789. Validation: 23/23 snippets verified plus an independent raw-substring re-check at 23/23; schema, terms, entity-refs and duplicate-keys pass.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

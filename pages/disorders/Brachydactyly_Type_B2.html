@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4182,6 +4254,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4228,6 +4301,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-subtle-alteration-of-noggin-ligand-binding" data-dismech-node="Subtle Alteration of NOGGIN Ligand Binding" data-dismech-type="pathophysiology">
                 <div class="item-name">Subtle Alteration of NOGGIN Ligand Binding</div>
+
 
                 <div class="item-desc">NOGGIN is a secreted antagonist that sequesters BMPs and GDFs, setting the level of BMP signal a tissue receives. Loss-of-function NOG alleles cause joint-fusion phenotypes — proximal symphalangism, multiple synostoses, stapes ankylosis — but not brachydactyly. The BDB2 variants behave differently: free-binding-energy calculations for the modelled NOG-GDF5 complex and micromass functional assays do not indicate a major loss of function, so the interpretation is a subtle shift in which ligands NOG binds and how tightly, tilting the BMP balance rather than removing the brake. That distinction is what explains why these alleles add terminal digital deficiency to the familiar NOG joint phenotype.
 </div>
@@ -4395,6 +4469,7 @@ This pathophysiological event involves dysregulated BMP Signaling Pathway (GO:00
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4416,6 +4491,7 @@ This pathophysiological event involves dysregulated BMP Signaling Pathway (GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4441,6 +4517,7 @@ This pathophysiological event involves dysregulated BMP Signaling Pathway (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-deregulated-bmp-balance-at-the-digital-ray-and-interphalangeal-joints" data-dismech-node="Deregulated BMP Balance at the Digital Ray and Interphalangeal Joints" data-dismech-type="pathophysiology">
                 <div class="item-name">Deregulated BMP Balance at the Digital Ray and Interphalangeal Joints</div>
+
 
                 <div class="item-desc">BMP signalling both drives chondrocyte differentiation within the digital condensation and specifies where the interzone forms that will become a joint. Shifting the balance therefore hits two things at once: segments fail to form distally (brachydactyly) and joints fail to cavitate proximally (symphalangism, carpal synostosis). The clinical combination in BDB2 — proximal joint fusion together with terminal digital deficiency — is the human read-out of that dual effect, and the authors read it as evidence that the ROR2 and BMP receptor pathways are functionally connected, plausibly via a heteromeric receptor complex at the cell surface.
 </div>
@@ -4665,6 +4742,7 @@ This pathophysiological event involves abnormal Embryonic Digit Morphogenesis (G
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4686,6 +4764,7 @@ This pathophysiological event involves abnormal Embryonic Digit Morphogenesis (G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4711,6 +4790,7 @@ This pathophysiological event involves abnormal Embryonic Digit Morphogenesis (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-terminal-digital-deficiency-with-proximal-joint-fusion" data-dismech-node="Terminal Digital Deficiency with Proximal Joint Fusion" data-dismech-type="pathophysiology">
                 <div class="item-name">Terminal Digital Deficiency with Proximal Joint Fusion</div>
+
 
                 <div class="item-desc">The realised malformation: hypoplasia or aplasia of distal and middle phalanges of fingers and toes II-V — typically severe in rays IV-V and milder in II-III — together with proximal and occasionally distal symphalangism, fusion of carpal and tarsal bones, and partial cutaneous syndactyly. The joint-fusion component is what separates the phenotype clinically from ROR2-related BDB1.
 </div>
@@ -4837,6 +4917,7 @@ This pathophysiological event involves abnormal Limb Morphogenesis (GO:0035108).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4901,11 +4982,9 @@ This pathophysiological event involves abnormal Limb Morphogenesis (GO:0035108).
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Limbs<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Limbs<span class="pill-count">(6)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Musculoskeletal<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(3)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4915,14 +4994,14 @@ This pathophysiological event involves abnormal Limb Morphogenesis (GO:0035108).
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Limbs
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">6</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-carpal-synostosis" data-dismech-node="Carpal Synostosis" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-type-b-brachydactyly" data-dismech-node="Type B Brachydactyly" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Carpal Synostosis
+                        Type B Brachydactyly
 
-                        <span class="phenotype-freq">FREQUENT</span>
+                        <span class="phenotype-freq">OBLIGATE</span>
 
 
 
@@ -4934,15 +5013,18 @@ This pathophysiological event involves abnormal Limb Morphogenesis (GO:0035108).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009702" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0009702</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005831" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0005831</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Carpal synostosis (HP:0009702). HP:0009702 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Type B brachydactyly (HP:0005831). HP:0005831 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -4965,6 +5047,81 @@ This clinical feature is Carpal synostosis (HP:0009702). HP:0009702 is a phenoty
 
 
 
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Brachydactyly type B (BDB) is characterized by terminal deficiency of fingers and toes"</div>
+
+
+                <div class="evidence-explanation">Defines the cardinal digital phenotype of the type B group.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-carpal-synostosis" data-dismech-node="Carpal Synostosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Carpal Synostosis
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009702" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0009702</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Carpal synostosis (HP:0009702). HP:0009702 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17668388" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17668388" target="_blank">PMID:17668388</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4973,6 +5130,82 @@ This clinical feature is Carpal synostosis (HP:0009702). HP:0009702 is a phenoty
 
 
                 <div class="evidence-explanation">Carpal synostosis is named alongside proximal symphalangism in the subtype definition.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-aplasia-or-hypoplasia-of-the-distal-phalanges-of-the-hand" data-dismech-node="Aplasia or Hypoplasia of the Distal Phalanges of the Hand" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Aplasia or Hypoplasia of the Distal Phalanges of the Hand
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Aplasia/Hypoplasia of the distal phalanges of the hand</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009835" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0009835</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Aplasia/Hypoplasia of the distal phalanges of the hand (HP:0009835). HP:0009835 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17668388" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17668388" target="_blank">PMID:17668388</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Brachydactyly type B (BDB) is characterized by terminal deficiency of fingers and toes"</div>
+
+
+                <div class="evidence-explanation">Terminal deficiency of the fingers is the defining skeletal lesion.</div>
 
 
 
@@ -5004,15 +5237,18 @@ This clinical feature is Carpal synostosis (HP:0009702). HP:0009702 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012725" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0012725</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012725" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0012725</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cutaneous syndactyly (HP:0012725). HP:0012725 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5035,6 +5271,7 @@ This clinical feature is Cutaneous syndactyly (HP:0012725). HP:0012725 is a phen
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5043,6 +5280,80 @@ This clinical feature is Cutaneous syndactyly (HP:0012725). HP:0012725 is a phen
 
 
                 <div class="evidence-explanation">Partial cutaneous syndactyly is part of the defining BDB2 description, not merely of the type B phenotype in general.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-distal-finger-symphalangism" data-dismech-node="Distal Finger Symphalangism" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Distal Finger Symphalangism
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001204" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001204</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Distal finger symphalangism (HP:0001204). HP:0001204 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36064339" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36064339" target="_blank">PMID:36064339</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"BDB2611,377Hypoplasia of distal phalanges with distal and proximal symphalangism, fusion of carpal or tarsal bones, and partial cutaneous syndactylyNOG602,991"</div>
+
+
+                <div class="evidence-explanation">A recent review tabulates distal as well as proximal symphalangism in the defining BDB2 description.</div>
 
 
 
@@ -5074,15 +5385,18 @@ This clinical feature is Cutaneous syndactyly (HP:0012725). HP:0012725 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008368" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0008368</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008368" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0008368</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Tarsal synostosis (HP:0008368). HP:0008368 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5102,6 +5416,7 @@ This clinical feature is Tarsal synostosis (HP:0008368). HP:0008368 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5153,15 +5468,18 @@ This clinical feature is Tarsal synostosis (HP:0008368). HP:0008368 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100264" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0100264</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100264" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0100264</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Proximal symphalangism (HP:0100264). HP:0100264 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5181,6 +5499,7 @@ This clinical feature is Proximal symphalangism (HP:0100264). HP:0100264 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5192,227 +5511,6 @@ This clinical feature is Proximal symphalangism (HP:0100264). HP:0100264 is a ph
 
 
                 <div class="evidence-explanation">Proximal symphalangism is part of the clinical definition of this subtype.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">3</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-type-b-brachydactyly" data-dismech-node="Type B Brachydactyly" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Type B Brachydactyly
-
-                        <span class="phenotype-freq">OBLIGATE</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0005831" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0005831</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Type B brachydactyly (HP:0005831). HP:0005831 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:17668388" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17668388" target="_blank">PMID:17668388</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Brachydactyly type B (BDB) is characterized by terminal deficiency of fingers and toes"</div>
-
-
-                <div class="evidence-explanation">Defines the cardinal digital phenotype of the type B group.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-aplasia-or-hypoplasia-of-the-distal-phalanges-of-the-hand" data-dismech-node="Aplasia or Hypoplasia of the Distal Phalanges of the Hand" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Aplasia or Hypoplasia of the Distal Phalanges of the Hand
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Aplasia/Hypoplasia of the distal phalanges of the hand</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0009835" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0009835</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Aplasia/Hypoplasia of the distal phalanges of the hand (HP:0009835). HP:0009835 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:17668388" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17668388" target="_blank">PMID:17668388</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Brachydactyly type B (BDB) is characterized by terminal deficiency of fingers and toes"</div>
-
-
-                <div class="evidence-explanation">Terminal deficiency of the fingers is the defining skeletal lesion.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-distal-finger-symphalangism" data-dismech-node="Distal Finger Symphalangism" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Distal Finger Symphalangism
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001204" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001204</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Distal finger symphalangism (HP:0001204). HP:0001204 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:36064339" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36064339" target="_blank">PMID:36064339</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"BDB2611,377Hypoplasia of distal phalanges with distal and proximal symphalangism, fusion of carpal or tarsal bones, and partial cutaneous syndactylyNOG602,991"</div>
-
-
-                <div class="evidence-explanation">A recent review tabulates distal as well as proximal symphalangism in the defining BDB2 description.</div>
 
 
 
@@ -5504,6 +5602,9 @@ This disease-associated gene is NOG (hgnc:7866). hgnc:7866 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5518,6 +5619,7 @@ This disease-associated gene is NOG (hgnc:7866). hgnc:7866 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5542,6 +5644,7 @@ This disease-associated gene is NOG (hgnc:7866). hgnc:7866 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5624,6 +5727,31 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Counseling for autosomal dominant transmission of a NOG missense allele, including the point that other NOG variants in the family&#39;s differential cause joint fusion without brachydactyly.</div>
 
 
@@ -5645,6 +5773,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5709,6 +5838,31 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Surgery is reserved for meaningful impairment of hand function or selected cosmetic indications; fused proximal joints limit what reconstruction can restore.</div>
 
 
@@ -5730,6 +5884,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5794,6 +5949,31 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Physical and occupational therapy where terminal deficiency and joint fusion limit grip and pinch.</div>
 
 
@@ -5815,6 +5995,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5925,6 +6106,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5946,6 +6128,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6023,6 +6206,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6044,6 +6228,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 

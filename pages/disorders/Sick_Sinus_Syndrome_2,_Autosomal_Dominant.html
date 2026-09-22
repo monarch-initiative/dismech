@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4251,6 +4323,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4272,6 +4345,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4418,6 +4492,7 @@
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4439,6 +4514,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4535,6 +4611,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4618,6 +4695,7 @@
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4644,6 +4722,7 @@
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4668,6 +4747,7 @@
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4751,6 +4831,7 @@
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4772,6 +4853,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4858,6 +4940,7 @@
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4879,6 +4962,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4963,6 +5047,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4997,6 +5082,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hcn4-loss-of-function-variant" data-dismech-node="HCN4 Loss-of-Function Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">HCN4 Loss-of-Function Variant</div>
+
 
                 <div class="item-desc">A heterozygous loss-of-function variant in HCN4 alters the pore-forming subunit of the cardiac pacemaker channel. Reported disease alleles cluster in three structural regions with three corresponding biophysical consequences: pore-domain missense changes (G480R, G482R) that impair channel synthesis, trafficking, and gating; C-linker and cyclic-nucleotide-binding-domain changes (S672R, K530N) that shift activation gating; and C-terminal truncations (573X, 695X) that delete the cyclic-nucleotide-binding domain. All are heterozygous, and most act dominant-negatively on wild-type subunits within the heterotetramer.</div>
 
@@ -5241,6 +5327,7 @@ This pathophysiological event occurs in sinoatrial node (UBERON:0002351). UBERON
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5262,6 +5349,7 @@ This pathophysiological event occurs in sinoatrial node (UBERON:0002351). UBERON
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5289,6 +5377,7 @@ This pathophysiological event occurs in sinoatrial node (UBERON:0002351). UBERON
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5311,6 +5400,7 @@ This pathophysiological event occurs in sinoatrial node (UBERON:0002351). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-funny-current-and-slowed-diastolic-depolarization" data-dismech-node="Reduced Funny Current and Slowed Diastolic Depolarization" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Funny Current and Slowed Diastolic Depolarization</div>
+
 
                 <div class="item-desc">The funny current I_f is the hyperpolarization-activated inward cation current that drives the early phase of spontaneous diastolic depolarization in sinoatrial node pacemaker cells. Mutant HCN4 channels activate at more negative voltages than wild-type channels, so at the diastolic potentials actually reached by a pacemaker cell less inward current flows. The diastolic depolarization slope falls, the interval to threshold lengthens, and the intrinsic firing rate of the node drops. The biophysical change has been described as mimicking mild vagal stimulation — a permanent, genetically imposed version of a physiological brake.</div>
 
@@ -5548,6 +5638,7 @@ This pathophysiological event occurs in sinoatrial node (UBERON:0002351). UBERON
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5569,6 +5660,7 @@ This pathophysiological event occurs in sinoatrial node (UBERON:0002351). UBERON
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5596,6 +5688,7 @@ This pathophysiological event occurs in sinoatrial node (UBERON:0002351). UBERON
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5618,6 +5711,7 @@ This pathophysiological event occurs in sinoatrial node (UBERON:0002351). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-camp-dependent-rate-modulation" data-dismech-node="Loss of cAMP-Dependent Rate Modulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of cAMP-Dependent Rate Modulation</div>
+
 
                 <div class="item-desc">Beta-adrenergic stimulation raises intracellular cAMP, which binds the cyclic-nucleotide-binding domain of HCN4 and shifts activation to more positive voltages, accelerating diastolic depolarization; vagal tone does the reverse. Truncating HCN4 alleles such as 573X delete this domain entirely, so the residual current is insensitive to cAMP. This is the proposed mechanistic basis of chronotropic incompetence in SSS2 — a failure of rate adaptation that is separable from the resting bradycardia. The corresponding mouse model shows that cAMP sensitivity of I_f sets basal and maximal heart rate while relative rate regulation during exercise is partially preserved by other mechanisms.</div>
 
@@ -5805,6 +5899,7 @@ This pathophysiological event involves decreased regulation of SA node cell acti
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5826,6 +5921,7 @@ This pathophysiological event involves decreased regulation of SA node cell acti
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5855,6 +5951,7 @@ This pathophysiological event involves decreased regulation of SA node cell acti
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5877,6 +5974,7 @@ This pathophysiological event involves decreased regulation of SA node cell acti
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sinoatrial-node-automaticity-failure" data-dismech-node="Sinoatrial Node Automaticity Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Sinoatrial Node Automaticity Failure</div>
+
 
                 <div class="item-desc">Depressed pacemaker-cell firing translates into failure of the sinoatrial node to generate and deliver impulses at an appropriate rate: sinus bradycardia at rest, intermittent sinus pauses or arrest, and an inadequate rate response to demand. Because the node also anchors atrial activation, chronic bradycardia and the associated atrial electrical and structural remodeling raise susceptibility to atrial fibrillation, giving the tachycardia-bradycardia pattern that is unusually common in HCN4 carriers.</div>
 
@@ -6123,6 +6221,7 @@ This pathophysiological event occurs in sinoatrial node (UBERON:0002351). UBERON
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6144,6 +6243,7 @@ This pathophysiological event occurs in sinoatrial node (UBERON:0002351). UBERON
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6169,6 +6269,7 @@ This pathophysiological event occurs in sinoatrial node (UBERON:0002351). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-ventricular-trabecular-compaction" data-dismech-node="Impaired Ventricular Trabecular Compaction" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Ventricular Trabecular Compaction</div>
+
 
                 <div class="item-desc">HCN4 is expressed during cardiac development, and in several independent pedigrees the same segregating HCN4 allele produces both bradycardia and left ventricular noncompaction — a myocardium with a persistently trabeculated, poorly compacted layer and deep intertrabecular recesses. This developmental arm is what distinguishes the HCN4 form of familial sick sinus syndrome from the sodium-channel forms, in which no structural abnormality is found. It is curated here as a parallel branch of the same genetic lesion rather than as maladaptive remodeling secondary to the arrhythmia: the noncompaction is present from childhood and does not follow a preceding phase of cardiomyocyte injury and neurohormonal activation. Some pedigrees additionally show dilation of the ascending aorta.</div>
 
@@ -6323,6 +6424,7 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6344,6 +6446,7 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6371,6 +6474,7 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6393,6 +6497,7 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-syncope-and-sudden-cardiac-death" data-dismech-node="Syncope and Sudden Cardiac Death" data-dismech-type="pathophysiology">
                 <div class="item-name">Syncope and Sudden Cardiac Death</div>
+
 
                 <div class="item-desc">Severe bradycardia or a prolonged sinus pause transiently abolishes effective cardiac output, producing presyncope and syncope from cerebral hypoperfusion; an unterminated pause carries a risk of asystolic sudden death. This is the shared clinical endpoint with the other inherited arrhythmia syndromes, reached in SSS2 through bradyarrhythmia rather than ventricular tachyarrhythmia. Prognosis is variable and allele-dependent: the G480R pore-domain family remained asymptomatic with normal exercise capacity throughout long-term follow-up and required no pacemaker.</div>
 
@@ -6431,6 +6536,7 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6452,6 +6558,7 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6517,30 +6624,15 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
             </div>
 
 
-            <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(5)</span></button>
+            <div class="item-box phenotype-box anchor-target" id="phenotype-sinus-bradycardia" data-dismech-node="Sinus Bradycardia" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Sinus Bradycardia
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(7)</span></button>
-
-                <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
-            </div>
+                    <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-            <details class="phenotype-category-group" id="pheno-cat-1">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Cardiovascular
-                    <span class="cat-count">5</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-prolonged-qt-interval" data-dismech-node="Prolonged QT Interval" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Prolonged QT Interval
-
-                        <span class="phenotype-freq">VERY_RARE</span>
-
-
+                    <span class="phenotype-category">Cardiovascular</span>
 
 
 
@@ -6549,16 +6641,385 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
 
 
 
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001657" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001657</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001688" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001688</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
+This clinical feature is Sinus bradycardia (HP:0001688). HP:0001688 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16407510" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16407510" target="_blank">PMID:16407510</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We found that sinus bradycardia in members of a large family was associated with a mutation in the gene coding for the pacemaker HCN4 ion channel."</div>
+
+
+                <div class="evidence-explanation">Sinus bradycardia is the defining familial phenotype in the founding HCN4 pedigree.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35328031" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35328031" target="_blank">PMID:35328031</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Sinus bradycardia and dilation of the ascending aorta occurred in five studied patients."</div>
+
+
+                <div class="evidence-explanation">Supports the VERY_FREQUENT band: sinus bradycardia was present in five of the six prospectively enrolled patients in this HCN4/LVNC series.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-sick-sinus-syndrome" data-dismech-node="Sick Sinus Syndrome" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Sick Sinus Syndrome
+
+
+                    <span class="phenotype-category">Cardiovascular</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011704" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0011704</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sick sinus syndrome (HP:0011704). HP:0011704 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28104484" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28104484" target="_blank">PMID:28104484</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"SSS with HCN4 mutations may form a distinct SSS subgroup characterized by early clinical manifestation after adolescence and frequent association with AF and LVNC."</div>
+
+
+                <div class="evidence-explanation">Defines HCN4-related disease as a distinct clinical subgroup of sick sinus syndrome.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-sinus-pauses-and-sinus-arrest" data-dismech-node="Sinus Pauses and Sinus Arrest" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Sinus Pauses and Sinus Arrest
+
+
+                    <span class="phenotype-category">Cardiovascular</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011702" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0011702</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal electrophysiology of sinoatrial node origin (HP:0011702). HP:0011702 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34383451" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34383451" target="_blank">PMID:34383451</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Electrocardiography findings include sinus bradycardia, sinus pauses or arrest, sinoatrial exit block, chronotropic incompetence, or alternating bradycardia and tachycardia (i.e., bradycardia-tachycardia syndrome)."</div>
+
+
+                <div class="evidence-explanation">Sinus pauses and arrest are core electrocardiographic manifestations of sinus node dysfunction, the syndrome SSS2 produces.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-chronotropic-incompetence" data-dismech-node="Chronotropic Incompetence" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Chronotropic Incompetence
+
+
+                    <span class="phenotype-category">Cardiovascular</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033992" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0033992</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chronotropic incompetence (HP:0033992). HP:0033992 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (4 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12750403" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12750403" target="_blank">PMID:12750403</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Taken together, the clinical, genetic, and in vitro data provide a likely explanation for the patient&#39;s sinus bradycardia and the chronotropic incompetence."</div>
+
+
+                <div class="evidence-explanation">Documents chronotropic incompetence in the index HCN4-573X patient and attributes it to the cAMP-insensitive pacemaker channel.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17646576" data-dismech-supports="REFUTE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17646576" target="_blank">PMID:17646576</a>
+                    </span>
+
+
+                    <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"All affected family members were asymptomatic with normal exercise capacity during long-term follow-up."</div>
+
+
+                <div class="evidence-explanation">Counter-evidence that chronotropic incompetence is not obligate in SSS2: the HCN4-G480R family retained normal exercise capacity.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28465117" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28465117" target="_blank">PMID:28465117</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Under maximum exercise test carriers achieved significantly lower heart rates than non-carrier family members, and percent heart rate reserve and percent corrected heart rate reserve were significantly lower in carriers."</div>
+
+
+                <div class="evidence-explanation">A quantified heart-rate-reserve comparison between genotyped carriers and non-carrier relatives in the same family, which is the comparison the two case reports above cannot make.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-prolonged-qt-interval" data-dismech-node="Prolonged QT Interval" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Prolonged QT Interval
+
+                    <span class="phenotype-freq">VERY_RARE</span>
+
+
+                    <span class="phenotype-category">Cardiovascular</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001657" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001657</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
 This clinical feature is Prolonged QT interval (HP:0001657). HP:0001657 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -6578,6 +7039,7 @@ This clinical feature is Prolonged QT interval (HP:0001657). HP:0001657 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6605,6 +7067,7 @@ This clinical feature is Prolonged QT interval (HP:0001657). HP:0001657 is a phe
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6626,15 +7089,16 @@ This clinical feature is Prolonged QT interval (HP:0001657). HP:0001657 is a phe
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-atrial-fibrillation" data-dismech-node="Atrial Fibrillation" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Atrial Fibrillation
+            <div class="item-box phenotype-box anchor-target" id="phenotype-atrial-fibrillation" data-dismech-node="Atrial Fibrillation" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Atrial Fibrillation
 
-                        <span class="phenotype-freq">FREQUENT</span>
+                    <span class="phenotype-freq">FREQUENT</span>
 
 
+                    <span class="phenotype-category">Cardiovascular</span>
 
 
 
@@ -6643,16 +7107,18 @@ This clinical feature is Prolonged QT interval (HP:0001657). HP:0001657 is a phe
 
 
 
+    <a href="http://purl.obolibrary.org/obo/HP_0005110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0005110</a>
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0005110</a>
 
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Atrial fibrillation (HP:0005110). HP:0005110 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -6672,6 +7138,7 @@ This clinical feature is Atrial fibrillation (HP:0005110). HP:0005110 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6696,6 +7163,7 @@ This clinical feature is Atrial fibrillation (HP:0005110). HP:0005110 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6725,6 +7193,7 @@ This clinical feature is Atrial fibrillation (HP:0005110). HP:0005110 is a pheno
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6746,15 +7215,16 @@ This clinical feature is Atrial fibrillation (HP:0005110). HP:0005110 is a pheno
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-mitral-valve-prolapse" data-dismech-node="Mitral Valve Prolapse" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Mitral Valve Prolapse
+            <div class="item-box phenotype-box anchor-target" id="phenotype-left-ventricular-noncompaction" data-dismech-node="Left Ventricular Noncompaction" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Left Ventricular Noncompaction
 
-                        <span class="phenotype-freq">OCCASIONAL</span>
+                    <span class="phenotype-freq">FREQUENT</span>
 
 
+                    <span class="phenotype-category">Cardiovascular</span>
 
 
 
@@ -6763,605 +7233,18 @@ This clinical feature is Atrial fibrillation (HP:0005110). HP:0005110 is a pheno
 
 
 
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001634" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001634</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Mitral valve prolapse (HP:0001634). HP:0001634 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:35257104" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35257104" target="_blank">PMID:35257104</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"more recently, a more complex phenotype has emerged, including primarily noncompaction cardiomyopathy (NCC), aortic dilatation but also mitral valve defects, early-onset atrial fibrillation, atrioventricular block, and ventricular tachycardia"</div>
-
-
-                <div class="evidence-explanation">Places mitral valve disease in the extended HCN4 phenotype spectrum alongside the noncompaction and aortic findings already curated here.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:35257104" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35257104" target="_blank">PMID:35257104</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"a mildly dysplastic aortic valve with mild central regurgitation and no stenosis and mild mitral valve prolapse"</div>
-
-
-                <div class="evidence-explanation">Documents mitral valve prolapse directly in a p.Gly482Arg carrier, giving an individual observation behind the spectrum statement above. The frequency is banded OCCASIONAL because it is reported in individual carriers rather than counted in any cohort.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-syncope" data-dismech-node="Syncope" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Syncope
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001279" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001279</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Syncope (HP:0001279). HP:0001279 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:34383451" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34383451" target="_blank">PMID:34383451</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"About 50% of patients present with cerebral hypoperfusion (e.g., syncope, presyncope, lightheadedness, cerebrovascular accident)."</div>
-
-
-                <div class="evidence-explanation">Syncope is a direct manifestation of the cerebral hypoperfusion caused by sinus node dysfunction.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-atrioventricular-block" data-dismech-node="Atrioventricular Block" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Atrioventricular Block
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001678" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001678</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Atrioventricular block (HP:0001678). HP:0001678 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:26835093" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26835093" target="_blank">PMID:26835093</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Funny channel-linked arrhythmias, however, also include atrioventricular (AV) block and atrial fibrillation, in agreement with an emerging new concept according to which defective funny channels have a still unexplored role in impairing AV conduction and triggering atrial fibrillation."</div>
-
-
-                <div class="evidence-explanation">A review places AV block in the HCN4 arrhythmia spectrum. The review itself describes the AV-conduction role as an emerging and still unexplored concept, so this is the weakest arm of the phenotype.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">7</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-sinus-bradycardia" data-dismech-node="Sinus Bradycardia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Sinus Bradycardia
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001688" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001688</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Sinus bradycardia (HP:0001688). HP:0001688 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:16407510" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16407510" target="_blank">PMID:16407510</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"We found that sinus bradycardia in members of a large family was associated with a mutation in the gene coding for the pacemaker HCN4 ion channel."</div>
-
-
-                <div class="evidence-explanation">Sinus bradycardia is the defining familial phenotype in the founding HCN4 pedigree.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:35328031" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35328031" target="_blank">PMID:35328031</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Sinus bradycardia and dilation of the ascending aorta occurred in five studied patients."</div>
-
-
-                <div class="evidence-explanation">Supports the VERY_FREQUENT band: sinus bradycardia was present in five of the six prospectively enrolled patients in this HCN4/LVNC series.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-sick-sinus-syndrome" data-dismech-node="Sick Sinus Syndrome" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Sick Sinus Syndrome
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011704" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0011704</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030682" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0030682</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Sick sinus syndrome (HP:0011704). HP:0011704 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:28104484" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28104484" target="_blank">PMID:28104484</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"SSS with HCN4 mutations may form a distinct SSS subgroup characterized by early clinical manifestation after adolescence and frequent association with AF and LVNC."</div>
-
-
-                <div class="evidence-explanation">Defines HCN4-related disease as a distinct clinical subgroup of sick sinus syndrome.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-sinus-pauses-and-sinus-arrest" data-dismech-node="Sinus Pauses and Sinus Arrest" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Sinus Pauses and Sinus Arrest
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Abnormal electrophysiology of sinoatrial node origin</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011702" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0011702</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal electrophysiology of sinoatrial node origin (HP:0011702). HP:0011702 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:34383451" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34383451" target="_blank">PMID:34383451</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Electrocardiography findings include sinus bradycardia, sinus pauses or arrest, sinoatrial exit block, chronotropic incompetence, or alternating bradycardia and tachycardia (i.e., bradycardia-tachycardia syndrome)."</div>
-
-
-                <div class="evidence-explanation">Sinus pauses and arrest are core electrocardiographic manifestations of sinus node dysfunction, the syndrome SSS2 produces.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-chronotropic-incompetence" data-dismech-node="Chronotropic Incompetence" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Chronotropic Incompetence
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0033992" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0033992</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Chronotropic incompetence (HP:0033992). HP:0033992 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (4 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:12750403" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12750403" target="_blank">PMID:12750403</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Taken together, the clinical, genetic, and in vitro data provide a likely explanation for the patient&#39;s sinus bradycardia and the chronotropic incompetence."</div>
-
-
-                <div class="evidence-explanation">Documents chronotropic incompetence in the index HCN4-573X patient and attributes it to the cAMP-insensitive pacemaker channel.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:17646576" data-dismech-supports="REFUTE">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17646576" target="_blank">PMID:17646576</a>
-                    </span>
-
-
-                    <span class="evidence-support support-REFUTE">REFUTE</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"All affected family members were asymptomatic with normal exercise capacity during long-term follow-up."</div>
-
-
-                <div class="evidence-explanation">Counter-evidence that chronotropic incompetence is not obligate in SSS2: the HCN4-G480R family retained normal exercise capacity.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:28465117" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28465117" target="_blank">PMID:28465117</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Under maximum exercise test carriers achieved significantly lower heart rates than non-carrier family members, and percent heart rate reserve and percent corrected heart rate reserve were significantly lower in carriers."</div>
-
-
-                <div class="evidence-explanation">A quantified heart-rate-reserve comparison between genotyped carriers and non-carrier relatives in the same family, which is the comparison the two case reports above cannot make.</div>
-
-
-
-            </div>
-
-
-            <div class="evidence-more">+ 1 more reference</div>
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-left-ventricular-noncompaction" data-dismech-node="Left Ventricular Noncompaction" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Left Ventricular Noncompaction
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030682" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0030682</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
 This clinical feature is Left ventricular noncompaction (HP:0030682). HP:0030682 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -7381,6 +7264,7 @@ This clinical feature is Left ventricular noncompaction (HP:0030682). HP:0030682
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7408,6 +7292,7 @@ This clinical feature is Left ventricular noncompaction (HP:0030682). HP:0030682
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7429,35 +7314,36 @@ This clinical feature is Left ventricular noncompaction (HP:0030682). HP:0030682
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-biventricular-noncompaction-with-preserved-systolic-function" data-dismech-node="Biventricular Noncompaction with Preserved Systolic Function" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Biventricular Noncompaction with Preserved Systolic Function
+            <div class="item-box phenotype-box anchor-target" id="phenotype-biventricular-noncompaction-with-preserved-systolic-function" data-dismech-node="Biventricular Noncompaction with Preserved Systolic Function" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Biventricular Noncompaction with Preserved Systolic Function
 
-                        <span class="phenotype-freq">OCCASIONAL</span>
+                    <span class="phenotype-freq">OCCASIONAL</span>
 
 
+                    <span class="phenotype-category">Cardiovascular</span>
 
 
 
 
                     <span class="phenotype-id">
 
-                        <span class="phenotype-term-label">Biventricular noncompaction cardiomyopathy</span>
 
 
+    <a href="http://purl.obolibrary.org/obo/HP_0012818" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0012818</a>
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012818" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0012818</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Biventricular noncompaction cardiomyopathy (HP:0012818). HP:0012818 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -7480,6 +7366,7 @@ This clinical feature is Biventricular noncompaction cardiomyopathy (HP:0012818)
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7508,6 +7395,7 @@ This clinical feature is Biventricular noncompaction cardiomyopathy (HP:0012818)
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7529,33 +7417,133 @@ This clinical feature is Biventricular noncompaction cardiomyopathy (HP:0012818)
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-dilatation-of-the-ascending-aorta" data-dismech-node="Dilatation of the Ascending Aorta" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Dilatation of the Ascending Aorta
+            <div class="item-box phenotype-box anchor-target" id="phenotype-mitral-valve-prolapse" data-dismech-node="Mitral Valve Prolapse" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Mitral Valve Prolapse
+
+                    <span class="phenotype-freq">OCCASIONAL</span>
 
 
+                    <span class="phenotype-category">Cardiovascular</span>
 
 
 
 
                     <span class="phenotype-id">
 
-                        <span class="phenotype-term-label">Ascending tubular aorta aneurysm</span>
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001634" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001634</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Mitral valve prolapse (HP:0001634). HP:0001634 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004970" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0004970</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35257104" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35257104" target="_blank">PMID:35257104</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"more recently, a more complex phenotype has emerged, including primarily noncompaction cardiomyopathy (NCC), aortic dilatation but also mitral valve defects, early-onset atrial fibrillation, atrioventricular block, and ventricular tachycardia"</div>
+
+
+                <div class="evidence-explanation">Places mitral valve disease in the extended HCN4 phenotype spectrum alongside the noncompaction and aortic findings already curated here.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35257104" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35257104" target="_blank">PMID:35257104</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"a mildly dysplastic aortic valve with mild central regurgitation and no stenosis and mild mitral valve prolapse"</div>
+
+
+                <div class="evidence-explanation">Documents mitral valve prolapse directly in a p.Gly482Arg carrier, giving an individual observation behind the spectrum statement above. The frequency is banded OCCASIONAL because it is reported in individual carriers rather than counted in any cohort.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-dilatation-of-the-ascending-aorta" data-dismech-node="Dilatation of the Ascending Aorta" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Dilatation of the Ascending Aorta
+
+
+                    <span class="phenotype-category">Cardiovascular</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004970" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0004970</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dilatation of the ascending aorta, annotated with Ascending tubular aorta aneurysm (HP:0004970). HP:0004970 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -7575,6 +7563,7 @@ This clinical feature is Dilatation of the ascending aorta, annotated with Ascen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7599,34 +7588,152 @@ This clinical feature is Dilatation of the ascending aorta, annotated with Ascen
 
 
 
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-syncope" data-dismech-node="Syncope" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Syncope
+
+
+                    <span class="phenotype-category">Neurologic</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001279" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001279</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Syncope (HP:0001279). HP:0001279 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
                 </div>
 
-            </details>
 
-            <script>
-            (function() {
-                // TOC pill click: expand target group and scroll to it
-                document.querySelectorAll('.pheno-toc-pill').forEach(function(pill) {
-                    pill.addEventListener('click', function() {
-                        var target = document.getElementById(pill.dataset.target);
-                        if (target) {
-                            target.open = true;
-                            target.scrollIntoView({behavior: 'smooth', block: 'start'});
-                        }
-                    });
-                });
-                // Expand/collapse all toggle
-                var btn = document.getElementById('phenoToggleAll');
-                if (btn) {
-                    btn.addEventListener('click', function() {
-                        var groups = document.querySelectorAll('.phenotype-category-group');
-                        var anyOpen = Array.from(groups).some(function(g) { return g.open; });
-                        groups.forEach(function(g) { g.open = !anyOpen; });
-                        btn.textContent = anyOpen ? 'Expand all' : 'Collapse all';
-                    });
-                }
-            })();
-            </script>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34383451" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34383451" target="_blank">PMID:34383451</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"About 50% of patients present with cerebral hypoperfusion (e.g., syncope, presyncope, lightheadedness, cerebrovascular accident)."</div>
+
+
+                <div class="evidence-explanation">Syncope is a direct manifestation of the cerebral hypoperfusion caused by sinus node dysfunction.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-atrioventricular-block" data-dismech-node="Atrioventricular Block" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Atrioventricular Block
+
+
+                    <span class="phenotype-category">Cardiovascular</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001678" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001678</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Atrioventricular block (HP:0001678). HP:0001678 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26835093" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26835093" target="_blank">PMID:26835093</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Funny channel-linked arrhythmias, however, also include atrioventricular (AV) block and atrial fibrillation, in agreement with an emerging new concept according to which defective funny channels have a still unexplored role in impairing AV conduction and triggering atrial fibrillation."</div>
+
+
+                <div class="evidence-explanation">A review places AV block in the HCN4 arrhythmia spectrum. The review itself describes the AV-conduction role as an emerging and still unexplored concept, so this is the weakest arm of the phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
 
         </div>
 
@@ -7675,6 +7782,9 @@ This disease-associated gene is HCN4 (hgnc:16882). hgnc:16882 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7689,6 +7799,7 @@ This disease-associated gene is HCN4 (hgnc:16882). hgnc:16882 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7716,6 +7827,7 @@ This disease-associated gene is HCN4 (hgnc:16882). hgnc:16882 is a gene from the
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7737,6 +7849,7 @@ This disease-associated gene is HCN4 (hgnc:16882). hgnc:16882 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7770,6 +7883,7 @@ This disease-associated gene is HCN4 (hgnc:16882). hgnc:16882 is a gene from the
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7791,7 +7905,13 @@ This variant is in HCN4 (hgnc:16882). hgnc:16882 is a gene from the HUGO Gene No
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Missense change near the cyclic-nucleotide-binding site, identified in a large familial sinus bradycardia pedigree. Mutant channels retain a normal response to cAMP but activate at more negative voltages than wild-type, reducing the inward diastolic current.</div>
@@ -7847,6 +7967,7 @@ This variant is in HCN4 (hgnc:16882). hgnc:16882 is a gene from the HUGO Gene No
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7877,6 +7998,7 @@ This variant is in HCN4 (hgnc:16882). hgnc:16882 is a gene from the HUGO Gene No
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7898,7 +8020,13 @@ This variant is in HCN4 (hgnc:16882). hgnc:16882 is a gene from the HUGO Gene No
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Heterozygous single-base deletion in exon 5 producing a C-terminally truncated subunit that lacks the cyclic-nucleotide-binding domain. Trafficking is normal, but the resulting current is cAMP-insensitive and the subunit exerts a dominant-negative effect on wild-type channels.</div>
@@ -7975,6 +8103,7 @@ This variant is in HCN4 (hgnc:16882). hgnc:16882 is a gene from the HUGO Gene No
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7996,6 +8125,7 @@ This variant is in HCN4 (hgnc:16882). hgnc:16882 is a gene from the HUGO Gene No
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8029,6 +8159,7 @@ This variant is in HCN4 (hgnc:16882). hgnc:16882 is a gene from the HUGO Gene No
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8050,7 +8181,13 @@ This variant is in HCN4 (hgnc:16882). hgnc:16882 is a gene from the HUGO Gene No
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">C-terminal truncating allele reported in a family with the combined sinus node dysfunction and noncompaction phenotype, in the same series that described G482R and P883R. It is grouped with 573X as a truncation, but unlike 573X it has not been characterised electrophysiologically in the cited work, so its consequence is inferred from the variant class and the family phenotype rather than measured.</div>
@@ -8106,6 +8243,7 @@ This variant is in HCN4 (hgnc:16882). hgnc:16882 is a gene from the HUGO Gene No
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8136,6 +8274,7 @@ This variant is in HCN4 (hgnc:16882). hgnc:16882 is a gene from the HUGO Gene No
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8157,7 +8296,13 @@ This variant is in HCN4 (hgnc:16882). hgnc:16882 is a gene from the HUGO Gene No
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Pore-domain missense change segregating with autosomal dominant isolated sinus node dysfunction in a 16-member family. Reduces channel synthesis and membrane trafficking and shifts activation to more negative voltages, yet carries a benign long-term course.</div>
@@ -8213,6 +8358,7 @@ This variant is in HCN4 (hgnc:16882). hgnc:16882 is a gene from the HUGO Gene No
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8243,6 +8389,7 @@ This variant is in HCN4 (hgnc:16882). hgnc:16882 is a gene from the HUGO Gene No
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8264,7 +8411,13 @@ This variant is in HCN4 (hgnc:16882). hgnc:16882 is a gene from the HUGO Gene No
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Pore-domain missense change segregating with the combined sinus node dysfunction and biventricular noncompaction phenotype. Mutant subunits are nonfunctional and dominant-negative on wild-type current.</div>
@@ -8341,6 +8494,7 @@ This variant is in HCN4 (hgnc:16882). hgnc:16882 is a gene from the HUGO Gene No
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8371,6 +8525,7 @@ This variant is in HCN4 (hgnc:16882). hgnc:16882 is a gene from the HUGO Gene No
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8392,7 +8547,13 @@ This variant is in HCN4 (hgnc:16882). hgnc:16882 is a gene from the HUGO Gene No
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">C-linker missense change identified by screening 422 patients with tachyarrhythmias. Homomeric mutant channels behave almost like wild-type; the loss of function appears only in heteromeric mutant/wild-type channels, which show a hyperpolarizing shift of half-maximal activation — the biophysical situation of a heterozygous carrier.</div>
@@ -8448,6 +8609,7 @@ This variant is in HCN4 (hgnc:16882). hgnc:16882 is a gene from the HUGO Gene No
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8478,6 +8640,7 @@ This variant is in HCN4 (hgnc:16882). hgnc:16882 is a gene from the HUGO Gene No
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8499,7 +8662,13 @@ This variant is in HCN4 (hgnc:16882). hgnc:16882 is a gene from the HUGO Gene No
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Missense change in the C-linker region that reduces the amount of channel reaching the membrane. It is the worked example of the trafficking class of HCN4 allele, and it acts dominant-negatively on the wild-type subunit rather than by simple loss of one copy. The index carrier had recurrent syncope with a prolonged QT interval and torsade de pointes as well as sinus node dysfunction, so this allele&#39;s reported phenotype reaches repolarisation and ventricular arrhythmia as well as impulse generation.</div>
@@ -8576,6 +8745,7 @@ This variant is in HCN4 (hgnc:16882). hgnc:16882 is a gene from the HUGO Gene No
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8597,6 +8767,7 @@ This variant is in HCN4 (hgnc:16882). hgnc:16882 is a gene from the HUGO Gene No
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8632,6 +8803,7 @@ This variant is in HCN4 (hgnc:16882). hgnc:16882 is a gene from the HUGO Gene No
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8653,7 +8825,13 @@ This variant is in HCN4 (hgnc:16882). hgnc:16882 is a gene from the HUGO Gene No
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">C-terminal missense change that does not fit the loss-of-function pattern the rest of these alleles follow. It segregated with the combined sinus node dysfunction and noncompaction phenotype in one proband, but when characterised functionally it shifted activation to more depolarised potentials and, co-expressed with wild-type subunits as in a heterozygote, produced higher rather than lower current density. It is also common enough (minor allele frequency around 0.9%) that it cannot be a fully penetrant cause on its own. The authors of the functional study read it as a modifier acting with a common KCNE1 variant to favour atrial fibrillation and tachycardia-induced cardiomyopathy, rather than as an SSS2 allele. Both readings stand in the literature and neither has been withdrawn.</div>
@@ -8709,6 +8887,7 @@ This variant is in HCN4 (hgnc:16882). hgnc:16882 is a gene from the HUGO Gene No
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8733,6 +8912,7 @@ This variant is in HCN4 (hgnc:16882). hgnc:16882 is a gene from the HUGO Gene No
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8754,6 +8934,7 @@ This variant is in HCN4 (hgnc:16882). hgnc:16882 is a gene from the HUGO Gene No
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8787,6 +8968,7 @@ This variant is in HCN4 (hgnc:16882). hgnc:16882 is a gene from the HUGO Gene No
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8808,7 +8990,13 @@ This variant is in HCN4 (hgnc:16882). hgnc:16882 is a gene from the HUGO Gene No
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Canonical splice-donor variant segregating in a large bradycardia family with a two-point LOD score of 4.87. Its interest is that the family was characterised by Holter and exercise testing rather than by patch clamp, so it supplies the quantitative human chronotropic phenotype: carriers reach lower peak heart rates, have a reduced heart rate reserve, and show increased short-term heart rate variability even after normalisation for rate.</div>
@@ -8861,6 +9049,7 @@ This variant is in HCN4 (hgnc:16882). hgnc:16882 is a gene from the HUGO Gene No
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8949,6 +9138,31 @@ This treatment is pacemaker implantation, annotated with Pacemaker Placement (NC
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Device</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Pacing is the definitive therapy for symptomatic bradycardia or symptomatic pauses; it does not correct the channel defect. In HCN4 carriers the age at implantation is later than in SCN5A-related familial sick sinus syndrome, and some HCN4 alleles never require a device. Chronotropic pharmacotherapy may defer but does not replace it.</div>
 
 
@@ -8979,6 +9193,7 @@ This treatment is pacemaker implantation, annotated with Pacemaker Placement (NC
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9025,6 +9240,7 @@ This treatment is pacemaker implantation, annotated with Pacemaker Placement (NC
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9046,6 +9262,7 @@ This treatment is pacemaker implantation, annotated with Pacemaker Placement (NC
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9131,6 +9348,31 @@ This treatment uses cilostazol (CHEBI:31401). CHEBI:31401 is a therapeutic agent
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Cilostazol, a phosphodiesterase-3 inhibitor, raises heart rate in sinus node dysfunction and has been used to defer or avoid permanent pacing in symptomatic sick sinus syndrome. It is a rate-raising palliative acting downstream of the pacemaker-current defect rather than a correction of it, and the supporting evidence comes from unselected sick sinus syndrome cohorts, not from genotyped HCN4 carriers.</div>
 
 
@@ -9164,6 +9406,7 @@ This treatment uses cilostazol (CHEBI:31401). CHEBI:31401 is a therapeutic agent
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9211,6 +9454,7 @@ This treatment uses cilostazol (CHEBI:31401). CHEBI:31401 is a therapeutic agent
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9235,6 +9479,7 @@ This treatment uses cilostazol (CHEBI:31401). CHEBI:31401 is a therapeutic agent
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9298,6 +9543,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Because SSS2 carriers already run a reduced pacemaker current, drugs that further depress sinoatrial automaticity or conduction (beta-blockers, non-dihydropyridine calcium channel blockers, digoxin, and the selective I_f blocker ivabradine, whose molecular target is HCN4 itself) can unmask or worsen symptomatic bradycardia. Extrinsic contributors to sinus node dysfunction are frequently reversible, so medication review is part of management as well as of diagnosis.</div>
 
 
@@ -9324,6 +9583,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9348,6 +9608,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9411,6 +9672,31 @@ This treatment is anticoagulation therapy (NCIT:C63341). NCIT:C63341 is a clinic
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Atrial fibrillation occurs in roughly 44% of HCN4 carriers, so thromboembolic prophylaxis is part of routine management once it is documented, prescribed on the same risk-score basis as in any other atrial fibrillation rather than on the genotype. What is genuinely unsettled is the carrier without documented atrial fibrillation: sinus node dysfunction carries an independently raised ischaemic stroke risk even in its absence, and the yearly stroke incidence in sinus node dysfunction with and without atrial fibrillation is indistinguishable, which has been read as evidence of an underlying atrial myopathy rather than of arrhythmia-driven stasis. No trial has tested anticoagulation in that group, and none of this evidence is HCN4-genotyped.</div>
 
 
@@ -9437,6 +9723,7 @@ This treatment is anticoagulation therapy (NCIT:C63341). NCIT:C63341 is a clinic
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9458,6 +9745,7 @@ This treatment is anticoagulation therapy (NCIT:C63341). NCIT:C63341 is a clinic
 
 
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
 
 
 
@@ -9485,6 +9773,7 @@ This treatment is anticoagulation therapy (NCIT:C63341). NCIT:C63341 is a clinic
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9548,6 +9837,31 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">SSS2 is autosomal dominant with variable penetrance, so first-degree relatives of a proband carry a 50% prior risk and may be affected while entirely asymptomatic. Counselling plus cascade ECG, Holter, echocardiographic and HCN4 sequencing of relatives identifies those carriers, which matters here because the HCN4 phenotype includes a structural (noncompaction) arm that is not detected by rhythm assessment alone.</div>
 
 
@@ -9572,6 +9886,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9593,6 +9908,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9701,6 +10017,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9785,6 +10102,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9875,6 +10193,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9942,6 +10261,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9994,6 +10314,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10015,6 +10336,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10070,6 +10392,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10091,6 +10414,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10148,6 +10472,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10169,6 +10494,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10245,6 +10571,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10350,6 +10677,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10424,6 +10752,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10503,6 +10832,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10579,6 +10909,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10600,6 +10931,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10675,6 +11007,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10765,6 +11098,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -10840,6 +11174,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -10912,6 +11247,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11049,6 +11385,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -11095,6 +11432,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11253,6 +11591,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -11312,6 +11651,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -11351,6 +11691,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11398,6 +11739,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11538,6 +11880,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -11597,6 +11940,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -11636,6 +11980,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11680,6 +12025,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11807,6 +12153,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -11846,6 +12193,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11890,6 +12238,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11991,6 +12340,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -12044,6 +12394,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -12084,6 +12435,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -15384,6 +15736,38 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">LUMP-VS-SPLIT DECISION. kb/disorders/Familial_Sick_Sinus_Syndrome.yaml (MONDO:0012061) already carried an HCN4 pathophysiology node, an HCN4 genetic entry, and left ventricular noncompaction as a phenotype. This entry was nevertheless curated separately because MONDO:0008102 is a distinct disease-series-by-gene entity (is_a MONDO:0012061, RO:0004003 to HGNC:16882, xref OMIM:163800) and because the umbrella is deliberately gene-heterogeneous: it also spans the autosomal recessive SCN5A form, LMNA, ANK2, and GWAS-level susceptibility loci, so its HCN4 content is necessarily a summary. This entry adds what the umbrella cannot: the funny-current mechanism at pacemaker-cell resolution, the three structural classes of HCN4 allele and their distinct biophysical consequences, the separable cAMP-modulation arm that produces chronotropic incompetence, two HCN4 mouse models, an in-silico human sinoatrial node model, and the quantitative HCN4-specific phenotype frequencies (atrial fibrillation 43.8%, noncompaction 50%). The umbrella should retain its HCN4 content as the summary view; a follow-up may add MONDO:0008102 to it as a has_subtypes term.
+NEC PREFLIGHT. &#34;Sick sinus syndrome 2&#34; sits in a numbered series whose members have different causal genes (SSS1 SCN5A, SSS2 HCN4, SSS3 MYH6, SSS4 GNB2), a high named-entity-confusion risk class. The MONDO record for MONDO:0008102 was read directly (runoak -i sqlite:obo:mondo info MONDO:0008102 -O obo) and asserts RO:0004003 HGNC:16882 (HCN4) with xref OMIM:163800. `just preflight-dr` on the falcon report returned PASS (HCN4 mentioned 91 times, SCN5A 3), and every citation used here was independently confirmed to concern HCN4 rather than SCN5A, MYH6 or GNB2.
+DEEP RESEARCH. A falcon (Edison) deep-research run was performed (research/Sick_Sinus_Syndrome_2_Autosomal_Dominant-deep-research-falcon.md; reference_validation reports 8/8 references verified, confabulation_rate 0.0). Its narrative was used as a lead only. It cited reviews rather than the primary SSS2 literature and its suggested ontology identifiers were largely wrong when checked with OAK (for example HP:0005209 and HP:0030247 offered for chronotropic incompetence and sinus pause, HP:0012810 for left ventricular noncompaction, and NCIT:C15632 offered as &#34;Pacemaker Implantation&#34; when that identifier is Chemotherapy). Every ontology term in this entry was therefore looked up independently with OAK, and the evidence base was rebuilt from the primary pedigree, electrophysiology, and cohort papers.
+GENEREVIEWS. PubMed was searched for a GeneReviews chapter covering sick sinus syndrome, sinus node dysfunction, or HCN4 (queries &#34;sick sinus syndrome[TI] GeneReviews[TI]&#34;, &#34;sinus node dysfunction GeneReviews[All Fields]&#34;, &#34;HCN4 GeneReviews[All Fields]&#34;). No GeneReviews chapter exists for this disorder; the hits returned were unrelated chapters (Brugada Syndrome, Heritable Thoracic Aortic Disease, Hereditary Transthyretin Amyloidosis), so no GeneReviews baseline could be applied.
+TREATMENTS SCOPE. Four treatment entries are curated: pacing (definitive), chronotropic pharmacotherapy with cilostazol (pacemaker-deferring), avoidance of bradycardia-inducing medications, and genetic counselling with cascade family screening. Two management topics raised by the deep-research artifact are deliberately NOT curated. (1) Theophylline: the DR describes it as the most widely used outpatient drug for sinus node dysfunction, but the claim traces to a review rather than to a citable primary study with a quotable abstract, and no theophylline trial in sick sinus syndrome could be sourced with an exact-quote snippet — per the evidence SOP the claim is dropped rather than supported by a manufactured quote. (2) Anticoagulation for the atrial fibrillation curated here at FREQUENT: stroke-prevention anticoagulation is driven by CHA2DS2-VASc risk and is not specific to, or modified by, the HCN4 lesion, so it belongs to atrial fibrillation management rather than to the SSS2 mechanism graph. Acute in-hospital chronotropes (atropine, isoproterenol) are likewise generic bradycardia rescue rather than SSS2-specific and are omitted for the same reason.
+IVABRADINE. Ivabradine is a selective I_f (HCN4) blocker used to slow heart rate in angina and heart failure. On mechanistic grounds it would be expected to aggravate the pacemaker-current deficit in an SSS2 carrier, but no cited publication states this for HCN4 carriers specifically, so it is named in the &#34;Avoidance of Bradycardia-Inducing Medications&#34; treatment description as a mechanistic inference and is not asserted there as an evidenced claim: the evidence attached to that entry supports drug-induced sinus node dysfunction in general, not ivabradine harm in HCN4 carriers.
+SINOATRIAL EXIT BLOCK. HP:0012723 (Sinoatrial block) exists and is a descendant of the HP:0011702 term used for the pause/arrest phenotype, and exit block appears in the general sick-sinus-syndrome ECG criteria quoted here. It is not curated as a separate phenotype because no HCN4-specific source in the cached references reports it in genotyped carriers; adding it would assert a genotype-phenotype link the evidence does not carry.
+UNCITED REFERENCE CACHES. Two cached references are deliberately not cited. PMID:27173043 (Vermeer et al 2016) is the primary report of ascending aortic dilatation in HCN4 families and would be the better citation for that phenotype, but it is a JACC letter with no abstract retrievable through the reference cache, so the frequency is cited through the case report PMID:35257104 with directness INDIRECT instead. PMID:33185997 has the same problem. Neither is a defective source; there is simply no quotable text to attach a snippet to. The remaining uncited caches back the openscientist deep-research report rather than this entry.
+PREVALENCE. There is still no general-population prevalence estimate specific to SSS2, and none is asserted. What the prevalence records hold instead are four conditioned occurrence figures, each labelled with the ascertainment that produced it: the HCN4 share of mutation-positive familial sick sinus syndrome probands, the HCN4 share of paediatric and of adult isolated left ventricular noncompaction cohorts, and the Danish nationwide cumulative incidence of pacemaker-treated sinus node dysfunction in first-degree relatives, which is heritable sinus node dysfunction at population scale rather than genotyped SSS2. The per-gene case fraction (2 of 38 familial SSS families) remains under genetic.case_fractions, which is the correct slot for a genetic-spectrum share rather than a population rate.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Augment SSS2: prevalence, progression, models, datasets, knowledge gaps, edge evidence</strong> · 2026-09-03T08:03:55Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Sick_Sinus_Syndrome_2_Autosomal_Dominant/2026-09-03T080355Z-claude-code-967d0b.yaml">View source</a></p>
+                        <p class="research-review-text">Augmentation pass on the existing MONDO:0008102 entry (created 2026-08-17, issue #8548, PR #8771). DEEP RESEARCH: openscientist (Edison/falcon report for this disorder already existed on main and was read rather than regenerated, since re-running would have overwritten the committed report the original curation was built from). The openscientist run validated clean -- 16/16 references resolved, confabulation_rate 0.0, 24/24 CURIEs resolved -- with needs_review true for one quote (PMID:18375593) that could not be matched beyond the abstract; that reference was not used. preflight-dr against MONDO:0008102 returned PASS (HCN4 56 mentions vs SCN5A 4, OMIM 163800 matching). Its suggested HP:0011702 and HP:0011664 names were paraphrases of the ontology labels and were not copied. ADDED: four structured prevalence records, each an ascertainment-conditioned occurrence figure with the conditioning stated in notes (HCN4 share of mutation-positive familial SSS probands 16/48 PMID:28104484; HCN4 share of paediatric LVNC 4/31 PMID:35893073; ordinal rank in adult LVNC PMID:30471092; Danish nationwide cumulative incidence of pacemaker-treated SND in first-degree relatives PMID:39535890, graded INDIRECT because the cohort is not genotyped). Four progression phases from prenatal bradycardia (PMID:39698436) through asymptomatic childhood (PMID:35257104), post-adolescent symptomatic SND (PMID:28104484), to age-dependent aortic dilatation, the last recorded with the report&#39;s own contradicting family. Three phenotypes: biventricular noncompaction with preserved systolic function (PMID:34088380), mitral valve prolapse and prolonged QT interval (PMID:15123648, PMID:39698436). Two variants, D553N trafficking-defective (PMID:15123648) and the c.1737+1 G&gt;T splice allele (PMID:28465117), the latter also supplying the only formal exercise-test measurement of chronotropic incompetence against non-carrier relatives. Two experimental_models: the patient-derived hiPSC gene-dose pair (PMID:40414080, relationship PERTURBS with fidelity UNKNOWN because only pluripotency characterisation is published) and the wild-type hiPSC pacemaker-cardiomyocyte I_f platform (PMID:33934225, relationship MEASURES). Three verified GEO datasets (geo:GSE279632, geo:GSE189782, geo:GSE329403) with relevance triage in notes -- none is an SSS2 cohort, and the mouse GOF accession is labelled as the opposite-direction allele. Four discussions: the unexplained aortic-wall mechanism, whether noncompaction is developmental or rate-driven, the HCN4 variant-causality threshold (CONTROVERSY, PMID:33095298 V759I functionally normal and non-segregating), and a HUMAN_MODEL_MISMATCH on chronotropic incompetence in the hHCN4-573X mouse. Evidence added to 11 of the 12 causal edges; the compaction-to-aortic-dilatation edge is deliberately left uncited and carries the knowledge-gap discussion instead. Top-level evidence added to both animal models and to four of five differential diagnoses (PMID:21131953 for SANDD, PMID:30645171 for SSS4). CLEANUP: rewrote nine explanation strings that still argued for the retired supports value PARTIAL (issue #10003 prose backlog) and encoded the inference step as directness INDIRECT where that is what they meant; refreshed the stale PREVALENCE paragraph in notes. NOT USED: PMID:27173043 (Vermeer 2016, the primary aortic-dilatation report) and PMID:33185997 have no retrievable abstract, so the aortic frequency is cited through the case report PMID:35257104 with directness INDIRECT rather than quoted from the primary. VALIDATION ACTUALLY RUN: just validate; just validate-terms (passed); count-verified-snippets 127/127; check-duplicate-keys, check-entity-refs, check-causal-targets, check-qualifier-terms plus check-qualifier-terms-online, check-enum-values, check-folded-hyphens, check-snippet-length, check-title-snippets, check-snippet-grading (one new divergence found and fixed), check-environmental-evidence; verify-datasets 3/3 OK; check-groupings on Inherited_Arrhythmia_Syndromes (SATISFIED); validate-disorders as the final batched sweep; pytest tests/test_data.py. Compliance moved 89.5 to 99.7 percent. RED-TEAM REVIEW BEFORE COMMIT: a subagent review against .claude/skills/dismech-pr-review raised 20 findings and all were acted on. The substantive ones: the four prevalence records initially asserted prevalence_class ABOVE_1_IN_1000 and rate_per_100000 for ascertainment-conditioned cohorts, which would have exported as SSS2 population prevalence, so the three cohort-share records were moved to genetic.case_fractions (the slot this entry&#39;s own notes already named as correct for a genetic-spectrum share) and only the Danish population-scale record remains under prevalence; the biventricular-noncompaction frequency was cut from FREQUENT to OCCASIONAL because the 53.1% is conditioned on already having noncompaction rather than measured across SSS2 carriers; the aortic progression phase no longer claims adult onset, since the cited family has dilatation in two adolescents and none in their 50-year-old mother; the childhood phase no longer says carriers have no device indication, since the proband in that same family had 66 pauses of three seconds or longer and was implanted; the geo:GSE279632 record now names the CITE-seq component it actually is rather than the whole series; the hiPSC-line limitation no longer assumes the heterozygous carrier is affected, which a consanguineous pedigree does not establish; two weak causal-edge snippets were replaced (a disease definition, and an eight-word generic sentence that omitted sudden cardiac death) and directness INDIRECT was added to every item resting on generic sinus-node-dysfunction literature; the SSS4 differential explanation now says its quote is that paper&#39;s background summarising the primary GNB2 report rather than its own KCNJ5 result; and an unsourced superlative on the D553N allele was dropped. Acting on the review&#39;s content-gap finding, a Stroke Prevention in Atrial Fibrillation treatment (PMID:37977871, PMID:40315941) and a paired knowledge-gap discussion were added, scoped to documented atrial fibrillation because the meta-analysis states in terms that anticoagulation in sinus node dysfunction is untested. Two review points were answered in place rather than by the suggested change: the hiPSC I_f platform keeps fidelity MODERATE, since its own limitations already record the immaturity that grade reflects, and the CL:1000477 binding is kept with preferred_term rewritten to hiPSC-derived sinoatrial-node-like pacemaker cardiomyocyte so the ontology term carries the intended identity while preferred_term carries the qualification, which is the Ontology Term Contract pattern. Three new phenotypes were checked against the pathograph: biventricular noncompaction was given a causal edge from the trabecular compaction node, and mitral valve prolapse and prolonged QT interval were deliberately left unconnected with a line in each description saying why.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Sick Sinus Syndrome 2, Autosomal Dominant (HCN4)</strong> · 2026-08-17T16:41:58Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Sick_Sinus_Syndrome_2_Autosomal_Dominant/2026-08-17T164158Z-claude-code-081352.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo curation of MONDO:0008102 (SSS2, HCN4-related autosomal dominant sinus node dysfunction), fulfilling issue #8548. LUMP-VS-SPLIT: the existing umbrella entry Familial_Sick_Sinus_Syndrome (MONDO:0012061) already carried an HCN4 node, an HCN4 genetic entry and LVNC as a phenotype, but MONDO models MONDO:0008102 as a distinct disease-series-by-gene entity (is_a MONDO:0012061, RO:0004003 HGNC:16882, xref OMIM:163800) and the umbrella is deliberately gene-heterogeneous (recessive SCN5A form, LMNA, ANK2, GWAS loci), so a standalone HCN4-specific entry was created and cross-referenced in both directions via differential_diagnoses rather than duplicating the umbrella. NEC PREFLIGHT: the MONDO record was read directly with runoak and confirms HCN4 and OMIM:163800; preflight-dr on the falcon report returned PASS (HCN4 91 mentions vs SCN5A 3). DEEP RESEARCH: falcon (Edison) run, reference_validation 8/8 verified and confabulation_rate 0.0, but it cited reviews rather than the primary SSS2 literature and its suggested HPO/NCIT identifiers were largely wrong on OAK lookup, so it was used as a lead only and the evidence base was rebuilt from primary papers: PMID:16407510, PMID:12750403, PMID:17646576, PMID:23178648, PMID:25145517, PMID:25145518, PMID:28104484, PMID:35328031, PMID:19570998, PMID:21220308, PMID:37760888, PMID:34383451, PMID:26835093. Declares conforms_to against three cardiac_ion_channel_repolarization module nodes including the sinoatrial-node automaticity-failure branch, and was added as a member of the Inherited_Arrhythmia_Syndromes grouping (check-groupings reports SATISFIED). No GeneReviews chapter exists for this disorder; PubMed was searched and only unrelated chapters were returned. VALIDATION ACTUALLY RUN: schema and term validation via the repository pre-edit hook (both clean); count-verified-snippets 59/59 verified against cached references; check-title-snippets OK; check-duplicate-keys OK; validate-grouping and check-groupings OK; pytest tests/test_data.py; and validate-disorders as the final batched pre-PR sweep.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

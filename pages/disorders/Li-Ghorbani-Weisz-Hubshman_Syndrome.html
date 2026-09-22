@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4109,6 +4181,7 @@ There is a mechanism-directed treatment lead worth noting. Valproate is a histon
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4130,6 +4203,7 @@ There is a mechanism-directed treatment lead worth noting. Valproate is a histon
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4203,6 +4277,7 @@ There is a mechanism-directed treatment lead worth noting. Valproate is a histon
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4227,6 +4302,7 @@ There is a mechanism-directed treatment lead worth noting. Valproate is a histon
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4248,6 +4324,7 @@ There is a mechanism-directed treatment lead worth noting. Valproate is a histon
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4351,6 +4428,7 @@ There is a mechanism-directed treatment lead worth noting. Valproate is a histon
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4372,6 +4450,7 @@ There is a mechanism-directed treatment lead worth noting. Valproate is a histon
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4454,6 +4533,7 @@ There is a mechanism-directed treatment lead worth noting. Valproate is a histon
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4475,6 +4555,7 @@ There is a mechanism-directed treatment lead worth noting. Valproate is a histon
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4512,6 +4593,7 @@ There is a mechanism-directed treatment lead worth noting. Valproate is a histon
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-kat8-loss-of-function" data-dismech-node="KAT8 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">KAT8 Loss of Function</div>
+
 
                 <div class="item-desc">Pathogenic KAT8 variants alter either the chromobarrel domain or the acetyltransferase core. The acetyltransferase domain comprises a KAT8/Mof-specific region absent from other MYST family members plus the MYST domain itself. Of the characterised missense variants, three alter the chromobarrel domain and four the acetyltransferase domain, so the disease can arise either by disrupting catalysis directly or by disrupting the reader module that positions the enzyme. KAT8 is highly intolerant of loss-of-function change and moderately intolerant of missense change.</div>
 
@@ -4644,6 +4726,7 @@ This pathophysiological event involves histone H4K16 acetyltransferase activity 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4665,6 +4748,7 @@ This pathophysiological event involves histone H4K16 acetyltransferase activity 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4690,6 +4774,7 @@ This pathophysiological event involves histone H4K16 acetyltransferase activity 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-nucleosomal-h4k16-acetylation" data-dismech-node="Loss of Nucleosomal H4K16 Acetylation" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Nucleosomal H4K16 Acetylation</div>
+
 
                 <div class="item-desc">H4K16 acetylation is an evolutionarily conserved mark, and KAT8 is the major enzyme that writes it in mammals. Its level is high in the neocortex and hippocampus of the adult brain, at P5, and in the cerebrocortical neuroepithelium at E12.5 - the distribution that first implicated KAT8 in cerebral development. In Emx1-Cre conditional knockout mice the mark disappears from the cerebrocortical neuroepithelium and hippocampal primordium while being retained in the ganglionic eminences, which is what makes the resulting phenotype attributable to KAT8 in that specific lineage rather than to a global effect.
 KAT8 works through two distinct complexes - MSL and NSL - and the disease may reflect disruption of both. Variants in KANSL1, which encodes the NSL1 subunit, cause Koolen-de Vries syndrome, and MSL3 variants cause an X-linked developmental disorder. Individuals with KAT8 variants show epilepsy and other features absent in MSL3 disease, which argues KAT8 is not simply acting through one complex.</div>
@@ -4780,6 +4865,7 @@ This pathophysiological event involves decreased histone H4K16 acetyltransferase
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4801,6 +4887,7 @@ This pathophysiological event involves decreased histone H4K16 acetyltransferase
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4828,6 +4915,7 @@ This pathophysiological event involves decreased histone H4K16 acetyltransferase
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4852,6 +4940,7 @@ This pathophysiological event involves decreased histone H4K16 acetyltransferase
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-neural-stem-and-progenitor-cell-expansion" data-dismech-node="Impaired Neural Stem and Progenitor Cell Expansion" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Neural Stem and Progenitor Cell Expansion</div>
+
 
                 <div class="item-desc">Loss of H4K16ac impairs neural stem and progenitor cell development. Mutant NSPCs form poor neurospheres, and - importantly - pharmacological KAT8 inhibition abolishes neurosphere formation from wild-type cortex. That second result matters because it separates an acute requirement for KAT8 activity from the accumulated consequences of a developmental knockout. The inhibitor experiment was designed as a comparison: MG149 targets both KAT5 and KAT8 while NU9056 is KAT5-specific, so the difference between them isolates the KAT8 contribution.</div>
 
@@ -4995,6 +5084,7 @@ This pathophysiological event involves decreased neural precursor cell prolifera
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5016,6 +5106,7 @@ This pathophysiological event involves decreased neural precursor cell prolifera
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5041,6 +5132,7 @@ This pathophysiological event involves decreased neural precursor cell prolifera
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aberrant-neurogenesis-and-neuroepithelial-apoptosis" data-dismech-node="Aberrant Neurogenesis and Neuroepithelial Apoptosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Aberrant Neurogenesis and Neuroepithelial Apoptosis</div>
+
 
                 <div class="item-desc">The mutant cerebrocortical neuroepithelium shows faulty proliferation, premature and aberrant neurogenesis, and massive apoptosis. The combination - progenitors both differentiating too early and dying - depletes the progenitor pool from two directions at once, which is why the structural consequence is hypoplasia rather than a subtler patterning defect.</div>
 
@@ -5164,6 +5256,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5186,6 +5279,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cerebral-hypoplasia" data-dismech-node="Cerebral Hypoplasia" data-dismech-type="pathophysiology">
                 <div class="item-name">Cerebral Hypoplasia</div>
+
 
                 <div class="item-desc">Cerebral hypoplasia of the neocortex and hippocampus in the conditional knockout, matching the brain MRI anomalies and the intellectual disability and epilepsy seen in patients.</div>
 
@@ -5282,6 +5376,7 @@ This pathophysiological event occurs in hippocampal formation (UBERON:0002421). 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5303,6 +5398,7 @@ This pathophysiological event occurs in hippocampal formation (UBERON:0002421). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5374,9 +5470,7 @@ This pathophysiological event occurs in hippocampal formation (UBERON:0002421). 
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Head and Neck<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(7)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(8)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5421,6 +5515,9 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5435,6 +5532,7 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5501,6 +5599,9 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5515,6 +5616,7 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5547,7 +5649,7 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">7</span>
+                    <span class="cat-count">8</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-global-developmental-delay" data-dismech-node="Global Developmental Delay" data-dismech-type="phenotype">
@@ -5577,6 +5679,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Graded FREQUENT, not VERY_FREQUENT. The only quantifier the source gives is &#34;frequently observed&#34;, with no count, and under the frequency conventions that maps to the 30-79% band. VERY_FREQUENT would assert 80-99%, which nothing in the cohort description supports.</div>
 
 
@@ -5599,6 +5704,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5607,6 +5713,107 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                 <div class="evidence-explanation">States global developmental delay among the frequent findings.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-brain-morphology" data-dismech-node="Abnormal Brain Morphology" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Abnormal Brain Morphology
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012443" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0012443</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal brain morphology (HP:0012443). HP:0012443 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Graded OCCASIONAL. &#34;Several individuals&#34; out of nine gives no count, and the companion sentence calls the defects variable, so neither FREQUENT nor a specific malformation can be asserted from the cached text. If the supplementary table is later obtained, the right move is to split this into the specific malformations with their own counts.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31794431" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31794431" target="_blank">PMID:31794431</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Several individuals showed brain MRI anom-"</div>
+
+
+                <div class="evidence-explanation">The clinical statement. The quote ends on a hyphenated line break in the cached full text, which is why it stops at &#34;anom-&#34;.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31794431" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31794431" target="_blank">PMID:31794431</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"able brain MRI defects in the clinical cases (Supplemental Figure "</div>
+
+
+                <div class="evidence-explanation">The authors&#39; own reading, that the MRI defects are variable and together with the intellectual disability and epilepsy indicate abnormal brain development consistent with the knockout mouse. Begins mid-word because &#34;variable&#34; is hyphenated across a line break in the cached text.</div>
 
 
 
@@ -5638,15 +5845,18 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001249</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Graded FREQUENT, not VERY_FREQUENT, on the same reasoning as Global Developmental Delay: both are named in one sentence as &#34;frequently observed&#34;, which maps to the 30-79% band. The deep research reports intellectual disability in 9 of 9 individuals, which would justify VERY_FREQUENT, but that count is in supplementary material the cached full text does not carry, and this entry does not assert what it cannot quote. A cached quote giving the 80-99% count is what would move this.</div>
@@ -5671,6 +5881,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5692,6 +5903,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5736,15 +5948,18 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000750</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000750</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Delayed speech and language development (HP:0000750). HP:0000750 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5764,6 +5979,7 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5806,15 +6022,18 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5834,6 +6053,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5858,6 +6078,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5900,15 +6121,18 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000729</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000729</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5928,6 +6152,7 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5970,15 +6195,18 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007018" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0007018</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007018" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0007018</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). HP:0007018 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5998,6 +6226,7 @@ This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6040,15 +6269,18 @@ This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001270</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001270</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6071,6 +6303,7 @@ This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype fro
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6079,111 +6312,6 @@ This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype fro
 
 
                 <div class="evidence-explanation">States gross and fine motor delay as common findings.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-brain-morphology" data-dismech-node="Abnormal Brain Morphology" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Abnormal Brain Morphology
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012443" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0012443</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal brain morphology (HP:0012443). HP:0012443 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Graded OCCASIONAL. &#34;Several individuals&#34; out of nine gives no count, and the companion sentence calls the defects variable, so neither FREQUENT nor a specific malformation can be asserted from the cached text. If the supplementary table is later obtained, the right move is to split this into the specific malformations with their own counts.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31794431" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31794431" target="_blank">PMID:31794431</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Several individuals showed brain MRI anom-"</div>
-
-
-                <div class="evidence-explanation">The clinical statement. The quote ends on a hyphenated line break in the cached full text, which is why it stops at &#34;anom-&#34;.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31794431" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31794431" target="_blank">PMID:31794431</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"able brain MRI defects in the clinical cases (Supplemental Figure "</div>
-
-
-                <div class="evidence-explanation">The authors&#39; own reading, that the MRI defects are variable and together with the intellectual disability and epilepsy indicate abnormal brain development consistent with the knockout mouse. Begins mid-word because &#34;variable&#34; is hyphenated across a line break in the cached text.</div>
 
 
 
@@ -6271,6 +6399,9 @@ This disease-associated gene is KAT8 (hgnc:17933). hgnc:17933 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6285,6 +6416,7 @@ This disease-associated gene is KAT8 (hgnc:17933). hgnc:17933 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6312,6 +6444,7 @@ This disease-associated gene is KAT8 (hgnc:17933). hgnc:17933 is a gene from the
 
 
 
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -6335,6 +6468,7 @@ intolerance] score of 3.66)"</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6369,6 +6503,12 @@ intolerance] score of 3.66)"</div>
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Three heterozygous de novo missense substitutions in the chromobarrel domain, curated as one entry because the founding study treats them as one functional class and tests them together. They impede the acetyltransferase activity of KAT8, which is the experiment that establishes the chromobarrel domain as required for KAT8 to acetylate nucleosomal H4K16 rather than merely for substrate binding.
 p.Tyr90Cys is also the recurrent allele of the founding cohort: individuals T1, T2 and T3 are unrelated and all carry a Tyr90 substitution. Recurrence across unrelated probands is an independent pathogenicity argument, curated here rather than as a separate variant so the same allele is not listed twice.</div>
 
@@ -6397,6 +6537,7 @@ p.Tyr90Cys is also the recurrent allele of the founding cohort: individuals T1, 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6421,6 +6562,7 @@ p.Tyr90Cys is also the recurrent allele of the founding cohort: individuals T1, 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6442,6 +6584,7 @@ p.Tyr90Cys is also the recurrent allele of the founding cohort: individuals T1, 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6478,6 +6621,12 @@ p.Tyr90Cys is also the recurrent allele of the founding cohort: individuals T1, 
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">The only non-missense allele among the founding nine, converting codon 176 to a termination codon. It is curated separately because it is the allele that shows the disorder is not exclusively a missense or dominant-negative mechanism.</div>
 
 
@@ -6502,6 +6651,7 @@ p.Tyr90Cys is also the recurrent allele of the founding cohort: individuals T1, 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6536,6 +6686,12 @@ p.Tyr90Cys is also the recurrent allele of the founding cohort: individuals T1, 
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Homozygous missense variant segregating with LIGOWS in a consanguineous Pakistani family, the basis of the first autosomal recessive report for this locus.</div>
 
 
@@ -6560,6 +6716,7 @@ p.Tyr90Cys is also the recurrent allele of the founding cohort: individuals T1, 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6669,6 +6826,31 @@ This treatment uses valproic acid (CHEBI:39867). CHEBI:39867 is a therapeutic ag
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Valproate is used for the epilepsy, and there is a mechanistic argument for preferring it here rather than treating the choice as arbitrary: valproate inhibits histone deacetylases and so promotes histone acetylation, which could partly offset the acetylation deficit created by impaired KAT8. Both of the two individuals with epilepsy treated with valproate responded.
 The strength of this should not be overstated. Two responders is an observation, not a trial, there is no report of the acetylation mark being measured before and after treatment in a patient, and valproate is a broad-spectrum anticonvulsant that would be expected to help many epilepsies regardless of mechanism. The mechanistic rationale makes it a reasonable first choice and a testable hypothesis, not established mechanism-directed therapy.</div>
 
@@ -6700,6 +6882,7 @@ The strength of this should not be overstated. Two responders is an observation,
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6765,6 +6948,7 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6848,6 +7032,7 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7062,6 +7247,7 @@ This experimental model concerns KAT8 (hgnc:17933). hgnc:17933 is a gene from th
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7101,6 +7287,7 @@ This experimental model concerns KAT8 (hgnc:17933). hgnc:17933 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7180,6 +7367,7 @@ This experimental model concerns KAT8 (hgnc:17933). hgnc:17933 is a gene from th
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7229,6 +7417,7 @@ This experimental model concerns KAT8 (hgnc:17933). hgnc:17933 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8192,6 +8381,86 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Round-4 review: separate the two H4K16 nodes, name the recurrent allele, add ADHD</strong> · 2026-08-27T21:37:17Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Li-Ghorbani-Weisz-Hubshman_Syndrome/2026-08-27T213717Z-claude-code-e8cbe6.yaml">View source</a></p>
+                        <p class="research-review-text">Addressed all four findings from the round-4 review on PR #9662. Each was verified against
+the cited source before acting; three were confirmed exactly as reported, and one had a
+correct diagnosis with an unusable prescription.
+
+Finding 1 (duplicate GO binding) - real, fixed differently than requested. Both the KAT8
+Loss of Function node and the Loss of Nucleosomal H4K16 Acetylation node carried
+GO:0046972 with LOSS_OF_FUNCTION, which does make them ontologically indistinguishable.
+The requested fix was to rebind the mark node to GO:0043984 (histone H4-K16 acetylation)
+in biological_processes with DECREASED. That term is obsolete, and its obsoletion comment
+states the reason: &#34;This term was obsoleted because it represents a molecular function.&#34;
+Its three regulation terms (GO:2000618, GO:2000619, GO:2000620) are obsolete for the same
+reason. GO has therefore ruled that this concept is a molecular function, which is what
+the entry already encodes, and there is no live biological-process term to move it to.
+Separated the nodes by modifier instead: the enzyme node keeps LOSS_OF_FUNCTION
+(qualitative - missense substitutions impede the activity itself) and the mark node
+becomes DECREASED (quantitative - the mark is depleted from a lineage). That is the
+INCREASED/DECREASED versus GAIN/LOSS_OF_FUNCTION distinction CLAUDE.md already draws, and
+DECREASED is PATO-bound so the node stays queryable. Recorded the obsoletion and the
+reasoning in the node notes so the next curator does not retry the same rebinding.
+
+Finding 2 (recurrent allele is named in the cache) - confirmed and fixed. The variant
+entry asserted that the cached full text states the recurrence without naming the allele.
+That was false: PMID_31794431 line 508 reads &#34;The recurrent variant in individuals T1, T2,
+and T3 alter Tyr90&#34; and line 677 gives p.Tyr90Cys. Folded the standalone entry into the
+chromobarrel-domain class, which already names p.Tyr90Cys, so the same allele is no longer
+listed twice, and moved both recurrence evidence items onto it with the naming sentence
+added.
+
+Finding 3 (Intellectual Disability frequency) - confirmed and fixed. ID was VERY_FREQUENT
+on a snippet carrying no frequency information, while Global Developmental Delay from the
+same source sentence was deliberately FREQUENT. Regraded ID to FREQUENT and gave it the
+&#34;frequently observed&#34; sentence, which names intellectual disability directly. The notes
+record that deep research reports 9 of 9, which would justify VERY_FREQUENT, but that
+count lives in supplementary material the cache does not carry.
+
+Finding 4 (ADHD missing) - confirmed and added. Cache line 474 gives &#34;1 individual
+displayed characteristics of attention deficit hyperactivity disorder&#34;, 1 of 9, bound to
+HP:0007018 at OCCASIONAL, mirroring the existing Autistic Behavior entry. Trimmed the
+borrowed ADHD clause out of that entry&#39;s description now that ADHD stands on its own.
+
+Validation: just validate (51/51 snippets verified, up from 49), check-entity-refs,
+check-duplicate-keys, validate-terms, check-not4curation, check-snippet-grading,
+check-snippet-length, check-title-snippets, check-folded-hyphens all pass.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Li-Ghorbani-Weisz-Hubshman Syndrome (MONDO:0033547, KAT8)</strong> · 2026-08-27T14:39:03Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Li-Ghorbani-Weisz-Hubshman_Syndrome/2026-08-27T143903Z-claude-code-e42c38.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of Li-Ghorbani-Weisz-Hubshman syndrome (KAT8, MONDO:0033547) from the claim in issue #9621.
+
+Deep research: claude_code provider (falcon/Edison returned HTTP 402, key out of credit). The report validated clean (3/3 references resolved, 0 off topic) but was thin - only three references, which is what an ultra-rare disorder with roughly one substantive publication looks like. The bulk of this entry comes from direct PubMed E-utilities searching and from the full text of PMID:31794431, which is cached in full rather than abstract-only.
+
+No GeneReviews chapter exists for this disorder; the PubMed search returned nothing, so the Step 3b baseline does not apply.
+
+Six-node pathograph: KAT8 loss of function to loss of nucleosomal H4K16 acetylation to impaired NSPC expansion to aberrant neurogenesis with neuroepithelial apoptosis to cerebral hypoplasia.
+
+Judgement calls worth flagging:
+- Dual inheritance is curated as two Inheritance blocks, not one. Eight of the nine founding individuals had de novo heterozygous variants, but PMID:41347281 reports a homozygous variant segregating recessively in a consanguineous Pakistani family, and the founding study had already flagged one individual (T9) whose variants behaved differently. A KNOWLEDGE_GAP discussion sets out the residual-activity hypothesis that would reconcile the two and notes it is directly testable with the same assay the founding study already used.
+- The valproate treatment entry carries a mechanistic rationale (valproate is an HDAC inhibitor, so it might offset the acetylation deficit) but is deliberately hedged in both the description and a KNOWLEDGE_GAP discussion. Two responders is not a trial, nobody has measured H4K16ac in a treated patient, and valproate is a broad-spectrum anticonvulsant. The target_mechanisms evidence item is graded PARTIAL because the authors write &#34;may ameliorate&#34;.
+- Autistic behavior graded OCCASIONAL (2 of 9), not treated as a core feature, despite appearing in the abstract&#39;s feature list.
+- Cardiac anomalies (4 of 9) curated as a phenotype so the entry does not read as purely neurological.
+
+Evidence-mechanics notes for a reviewer:
+- An evidence item citing PMID:17694080 was written and then removed. Its snippet was the article title, which is not a finding, and it contributed only nomenclature context.
+- Two snippets were re-quoted after `just validate-disorders` rejected them: the fast snippet counter tolerated spans crossing line breaks in the cached full text, but the authoritative validator did not. The replacements begin or end mid-word (&#34;gest that KAT8...&#34;, &#34;...brain MRI anom-&#34;) because the cached text hyphenates across lines and snippets must be exact substrings. The explanation fields say so.
+- One snippet was re-quoted to fix a check-snippet-grading divergence: the same summary sentence was graded HUMAN_CLINICAL in genetic[] and MODEL_ORGANISM on the animal-model link. The animal-model item now quotes a sentence about mouse Kat8 specifically.
+
+Validation: just validate-disorders passes (schema, terms, references), 39/39 snippets verified. Also clean on check-duplicate-keys, check-entity-refs, check-folded-hyphens, check-snippet-length, check-title-snippets, check-snippet-grading, check-empty-snippets.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

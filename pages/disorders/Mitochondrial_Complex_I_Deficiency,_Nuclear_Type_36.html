@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,13 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
 
 
 
@@ -4256,6 +4328,7 @@ Two framings of the entity coexist in the literature and this entry keeps both v
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4280,6 +4353,7 @@ Two framings of the entity coexist in the literature and this entry keeps both v
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4301,6 +4375,7 @@ Two framings of the entity coexist in the literature and this entry keeps both v
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4456,6 +4531,7 @@ What remains open is therefore not whether the missense protein is present - it 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4480,6 +4556,7 @@ What remains open is therefore not whether the missense protein is present - it 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4501,6 +4578,7 @@ What remains open is therefore not whether the missense protein is present - it 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4582,6 +4660,7 @@ Worth noting for the structural record: MONDO:0030902 has exactly one superclass
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4603,6 +4682,7 @@ Worth noting for the structural record: MONDO:0030902 has exactly one superclass
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4684,6 +4764,7 @@ The one thing the diagnosis demonstrably changed for these families is recorded 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4718,6 +4799,7 @@ The one thing the diagnosis demonstrably changed for these families is recorded 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-ndufc2-variant" data-dismech-node="Biallelic NDUFC2 Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic NDUFC2 Variant</div>
+
 
                 <div class="item-desc">Two damaged copies of NDUFC2. Two alleles are known and each is homozygous in one family. The Saudi siblings carry c.346_*7del, a 22-nucleotide deletion that removes the stop codon and replaces the last four residues with a 21-residue extension, p.(His116_Arg119delins21). The Moroccan boy carries c.173A&gt;T, p.(His58Leu), at a histidine conserved across species, with every in silico predictor calling it damaging. Neither allele class is present homozygously in population databases: gnomAD contains no homozygous loss-of-function NDUFC2 variant at all.</div>
 
@@ -4819,6 +4901,8 @@ This genetic context concerns NDUFC2 (hgnc:7706). hgnc:7706 is a gene from the H
 
 
 
+
+
         <span class="tag tag-classification">allele_type: a homozygous stop-loss deletion and a homozygous missense variant at a conserved histidine</span>
 
 
@@ -4834,6 +4918,9 @@ This genetic context concerns NDUFC2 (hgnc:7706). hgnc:7706 is a gene from the H
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Two consanguineous families. Homozygosity is molecularly confirmed in two of the three patients; the second Saudi sibling was not genotyped, because no DNA was available, and is presumed homozygous from parental segregation and a concordant phenotype. Only the two index subjects, one per family, had biochemical study.</div>
 
@@ -4883,6 +4970,7 @@ This genetic context concerns NDUFC2 (hgnc:7706). hgnc:7706 is a gene from the H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4904,6 +4992,7 @@ This genetic context concerns NDUFC2 (hgnc:7706). hgnc:7706 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4931,6 +5020,7 @@ This genetic context concerns NDUFC2 (hgnc:7706). hgnc:7706 is a gene from the H
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4953,6 +5043,7 @@ This genetic context concerns NDUFC2 (hgnc:7706). hgnc:7706 is a gene from the H
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-ndufc2-from-the-complex-i-membrane-arm" data-dismech-node="Loss of NDUFC2 from the Complex I Membrane Arm" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of NDUFC2 from the Complex I Membrane Arm</div>
+
 
                 <div class="item-desc">NDUFC2 is a membrane protein of the proton-pumping arm, assigned to the ND2 module, facing the intermembrane space, and in contact with twelve other subunits - NDUFA8 in the ND1 module, five subunits of its own ND2 module, and five of the ND4 module. That is an unusual amount of connectivity for a small accessory subunit and is the structural reason a defect in it is an assembly defect rather than a catalytic one. Complexome profiling of patient fibroblasts confirms the loss of NDUFC2 itself.</div>
 
@@ -5068,6 +5159,7 @@ This pathophysiological event involves mitochondrial inner membrane (GO:0005743)
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5089,6 +5181,7 @@ This pathophysiological event involves mitochondrial inner membrane (GO:0005743)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5116,6 +5209,7 @@ This pathophysiological event involves mitochondrial inner membrane (GO:0005743)
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5138,6 +5232,7 @@ This pathophysiological event involves mitochondrial inner membrane (GO:0005743)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-nd1-and-nd2-module-assembly" data-dismech-node="Failure of ND1 and ND2 Module Assembly" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of ND1 and ND2 Module Assembly</div>
+
 
                 <div class="item-desc">Losing NDUFC2 takes its neighbours with it. Complexome profiling of both index patients shows concurrent loss of the subunits NDUFC2 associates with, in the ND1 and ND2 modules. The negative results are as informative as the positive ones: neither an ND5 nor an N module intermediate was found at all, while the distal ND4 module was still detected - so the distal membrane module assembles independently while the two proximal ones do not. The authors read this as NDUFC2 possibly acting as a scaffold for ND1 module formation.</div>
 
@@ -5244,6 +5339,7 @@ This pathophysiological event involves decreased mitochondrial respiratory chain
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5265,6 +5361,7 @@ This pathophysiological event involves decreased mitochondrial respiratory chain
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5292,6 +5389,7 @@ This pathophysiological event involves decreased mitochondrial respiratory chain
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5314,6 +5412,7 @@ This pathophysiological event involves decreased mitochondrial respiratory chain
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-stalled-complex-i-biogenesis" data-dismech-node="Stalled Complex I Biogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Stalled Complex I Biogenesis</div>
+
 
                 <div class="item-desc">Assembly does not fail from the start - it gets part-way and stops. The Q module forms successfully, and the process then halts because the ND1 subunit is not incorporated into the inner membrane, leaving aberrant intermediates rather than holoenzyme. In one patient&#39;s fibroblasts no fully assembled complex I was detectable at all; in the other it was greatly decreased. All other oxidative phosphorylation complexes were unaffected, which is what makes the deficiency isolated.</div>
 
@@ -5426,6 +5525,7 @@ This pathophysiological event involves decreased mitochondrial respiratory chain
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5447,6 +5547,7 @@ This pathophysiological event involves decreased mitochondrial respiratory chain
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5472,6 +5573,7 @@ This pathophysiological event involves decreased mitochondrial respiratory chain
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-isolated-complex-i-deficiency" data-dismech-node="Isolated Complex I Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Isolated Complex I Deficiency</div>
+
 
                 <div class="item-desc">The measured biochemical endpoint and the phenotype the entity is named for. Residual complex I activity was 16 percent of control in one patient&#39;s fibroblasts and 19 percent in the other&#39;s, with 48 percent in that patient&#39;s muscle - so the deficiency is severe but graded, and tissue-dependent. Lentiviral expression of wild-type NDUFC2 raised both the steady-state subunit levels and the amount of assembled complex I, without reaching control levels in either line.</div>
 
@@ -5567,6 +5669,7 @@ This pathophysiological event involves decreased mitochondrial ATP synthesis cou
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5588,6 +5691,7 @@ This pathophysiological event involves decreased mitochondrial ATP synthesis cou
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5613,6 +5717,7 @@ This pathophysiological event involves decreased mitochondrial ATP synthesis cou
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-complex-i-containing-supercomplexes" data-dismech-node="Loss of Complex I-Containing Supercomplexes" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Complex I-Containing Supercomplexes</div>
+
 
                 <div class="item-desc">Complex I does not work alone: it associates with complexes III and IV into supercomplexes, and those are lost too. Blue native electrophoresis of digitonin-solubilised patient mitochondria shows a dramatic deficiency of the complex I-containing supercomplexes. This is a consequence of having no holoenzyme to incorporate rather than a separate lesion, but it is worth recording as its own node because it is what the respiratory measurements are made against.</div>
 
@@ -5685,6 +5790,7 @@ This pathophysiological event involves mitochondrial inner membrane (GO:0005743)
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5707,6 +5813,7 @@ This pathophysiological event involves mitochondrial inner membrane (GO:0005743)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-mitochondrial-respiration" data-dismech-node="Impaired Mitochondrial Respiration" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Mitochondrial Respiration</div>
+
 
                 <div class="item-desc">The cellular consequence, measured directly. High-resolution respirometry of intact cells shows severely decreased oxygen consumption in both patients&#39; fibroblast lines. A cell that cannot oxidise NADH through complex I cannot maintain normal electron flux into the rest of the chain, and the shortfall shows as reduced respiration rather than as a compensated steady state.</div>
 
@@ -5787,6 +5894,7 @@ This pathophysiological event involves mitochondrial inner membrane (GO:0005743)
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5809,6 +5917,7 @@ This pathophysiological event involves mitochondrial inner membrane (GO:0005743)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lactate-and-pyruvate-accumulation" data-dismech-node="Lactate and Pyruvate Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Lactate and Pyruvate Accumulation</div>
+
 
                 <div class="item-desc">Every reported patient had elevated serum lactate - 3.6 to 7.6 mmol per litre in the first, 4.0 to 10.0 in her brother and above 20 during an intercurrent illness, and 3.2 in the third, whose pyruvate was raised as well. Two of the three also had elevated plasma alanine, the transamination product of accumulated pyruvate, and one had raised proline and increased urinary fumarate.</div>
 
@@ -5866,6 +5975,7 @@ This pathophysiological event involves mitochondrial inner membrane (GO:0005743)
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5887,6 +5997,7 @@ This pathophysiological event involves mitochondrial inner membrane (GO:0005743)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5912,6 +6023,13 @@ This pathophysiological event involves mitochondrial inner membrane (GO:0005743)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-basal-ganglia-thalamic-and-brainstem-injury" data-dismech-node="Basal Ganglia, Thalamic and Brainstem Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Basal Ganglia, Thalamic and Brainstem Injury</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">The tissue lesion that defines Leigh syndrome, and it is present in all three children. Imaging showed bilateral symmetrical high T2 signal in the thalami, substantia nigra and medulla in the first patient, in the basal ganglia and lentiform nuclei in her brother, and in the thalami, basal ganglia and brainstem in the third. The first patient also had corticospinal-tract signal change with white matter volume loss and periventricular leukomalacia; the second had a Dandy-Walker malformation with partial corpus callosum agenesis, which is a malformation rather than a degenerative lesion and is recorded as its own phenotype.</div>
 
@@ -6099,6 +6217,7 @@ This pathophysiological event occurs in substantia nigra (UBERON:0002038). UBERO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6120,6 +6239,7 @@ This pathophysiological event occurs in substantia nigra (UBERON:0002038). UBERO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6168,7 +6288,7 @@ This pathophysiological event occurs in substantia nigra (UBERON:0002038). UBERO
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Basal Ganglia, Thalamic and Brainstem Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The tissue lesion that defines Leigh syndrome, and it is present in all three children. Imaging showed bilateral symmetrical high T2 signal in the thalami, substantia nigra and medulla in the first patient, in the basal ganglia and lentiform nuclei in her brother, and in the thalami, basal ganglia and brainstem in the third. The first patient also had corticospinal-tract signal change with white matter volume loss and periventricular leukomalacia; the second had a Dandy-Walker malformation with partial corpus callosum agenesis, which is a malformation rather than a degenerative lesion and is recorded as its own phenotype.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"locations\": [\"basal ganglia\", \"thalamus\", \"brainstem\", \"substantia nigra\"]}}, {\"id\": \"Biallelic NDUFC2 Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Two damaged copies of NDUFC2. Two alleles are known and each is homozygous in one family. The Saudi siblings carry c.346_*7del, a 22-nucleotide deletion that removes the stop codon and replaces the last four residues with a 21-residue extension, p.(His116_Arg119delins21). The Moroccan boy carries c.173A\u003eT, p.(His58Leu), at a histidine conserved across species, with every in silico predictor calling it damaging. Neither allele class is present homozygously in population databases: gnomAD contains no homozygous loss-of-function NDUFC2 variant at all.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"NDUFC2\"], \"gene_terms\": [{\"label\": \"NDUFC2\", \"id\": \"hgnc:7706\"}], \"genetic_context\": {\"allele_type\": \"a homozygous stop-loss deletion and a homozygous missense variant at a conserved histidine\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Two consanguineous families. Homozygosity is molecularly confirmed in two of the three patients; the second Saudi sibling was not genotyped, because no DNA was available, and is presumed homozygous from parental segregation and a concordant phenotype. Only the two index subjects, one per family, had biochemical study.\", \"gene_terms\": [{\"label\": \"NDUFC2\", \"id\": \"hgnc:7706\"}]}}}, {\"id\": \"Decreased Activity of Mitochondrial Complex I\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The defining biochemical finding: 16 percent residual activity in one patient\u0027s fibroblasts, 19 percent in the other\u0027s and 48 percent in that patient\u0027s muscle, with all other respiratory chain complexes normal.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0011923\"}}, {\"id\": \"Developmental Regression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Loss of all previously acquired developmental skills in the second patient, triggered by a severe respiratory infection at nineteen months. Regression provoked by intercurrent illness is the characteristic tempo of Leigh syndrome and is what distinguishes it from a static encephalopathy.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002376\"}}, {\"id\": \"Failure of ND1 and ND2 Module Assembly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Losing NDUFC2 takes its neighbours with it. Complexome profiling of both index patients shows concurrent loss of the subunits NDUFC2 associates with, in the ND1 and ND2 modules. The negative results are as informative as the positive ones: neither an ND5 nor an N module intermediate was found at all, while the distal ND4 module was still detected - so the distal membrane module assembles independently while the two proximal ones do not. The authors read this as NDUFC2 possibly acting as a scaffold for ND1 module formation.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"mitochondrial respiratory chain complex I assembly\"], \"experimental_models\": [{\"name\": \"Patient fibroblast complexome profiling\", \"model_type\": \"OTHER\", \"relationship\": \"MEASURES\", \"fidelity\": \"HIGH\", \"description\": \"Complexome profiling is what resolves an assembly defect into a module-level map. It showed the loss of NDUFC2\u0027s associating subunits in the ND1 and ND2 modules, the independent survival of the ND4 module, and the complete absence of ND5 and N module intermediates.\"}]}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental impairment in all three: unable to walk at two years and unable to stand unsupported or speak at six in the first patient, global delay with poor growth in her brother, and psychomotor delay from the first months of life in the third.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hyperalaninemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated plasma alanine in the first patient, the expected transamination product of accumulated pyruvate and a standard secondary marker of a respiratory chain block. Notably it was normal in the third patient, whose lactate and pyruvate were both raised.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003348\"}}, {\"id\": \"Impaired Mitochondrial Respiration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The cellular consequence, measured directly. High-resolution respirometry of intact cells shows severely decreased oxygen consumption in both patients\u0027 fibroblast lines. A cell that cannot oxidise NADH through complex I cannot maintain normal electron flux into the rest of the chain, and the shortfall shows as reduced respiration rather than as a compensated steady state.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Increased Circulating Lactate Concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Raised serum lactate in all three children, from 3.2 to 10.0 mmol per litre at baseline against a normal range topping out at about 2.2, and above 20 in one child during an intercurrent illness.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0002151\"}}, {\"id\": \"Isolated Complex I Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The measured biochemical endpoint and the phenotype the entity is named for. Residual complex I activity was 16 percent of control in one patient\u0027s fibroblasts and 19 percent in the other\u0027s, with 48 percent in that patient\u0027s muscle - so the deficiency is severe but graded, and tissue-dependent. Lentiviral expression of wild-type NDUFC2 raised both the steady-state subunit levels and the amount of assembled complex I, without reaching control levels in either line.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"mitochondrial ATP synthesis coupled electron transport\"]}}, {\"id\": \"Lactate and Pyruvate Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Every reported patient had elevated serum lactate - 3.6 to 7.6 mmol per litre in the first, 4.0 to 10.0 in her brother and above 20 during an intercurrent illness, and 3.2 in the third, whose pyruvate was raised as well. Two of the three also had elevated plasma alanine, the transamination product of accumulated pyruvate, and one had raised proline and increased urinary fumarate.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Leigh Syndrome\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"All three children were diagnosed with Leigh syndrome, and the entity entered the literature under that name. It is the presentation for which ClinGen first curated the gene.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OBLIGATE\"}}, {\"id\": \"Lentiviral NDUFC2 complementation of patient fibroblasts\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Fibroblasts from both index patients were transduced with wild-type NDUFC2 under a doxycycline-inducible lentiviral vector. Induction raised NDUFC2 itself and the complex I subunits NDUFB8, NDUFA9 and NDUFV1, and increased the amount of fully assembled complex I. The rescue was partial in both lines and more prominent in the missense patient than in the stop-loss patient.\", \"meta\": {\"model_type\": \"OTHER\"}}, {\"id\": \"Loss of Complex I-Containing Supercomplexes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Complex I does not work alone: it associates with complexes III and IV into supercomplexes, and those are lost too. Blue native electrophoresis of digitonin-solubilised patient mitochondria shows a dramatic deficiency of the complex I-containing supercomplexes. This is a consequence of having no holoenzyme to incorporate rather than a separate lesion, but it is worth recording as its own node because it is what the respiratory measurements are made against.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Loss of NDUFC2 from the Complex I Membrane Arm\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NDUFC2 is a membrane protein of the proton-pumping arm, assigned to the ND2 module, facing the intermembrane space, and in contact with twelve other subunits - NDUFA8 in the ND1 module, five subunits of its own ND2 module, and five of the ND4 module. That is an unusual amount of connectivity for a small accessory subunit and is the structural reason a defect in it is an assembly defect rather than a catalytic one. Complexome profiling of patient fibroblasts confirms the loss of NDUFC2 itself.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"NDUFC2\"], \"gene_terms\": [{\"label\": \"NDUFC2\", \"id\": \"hgnc:7706\"}]}}, {\"id\": \"NDUFC2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"NDUFC2\"], \"gene_terms\": [{\"label\": \"NDUFC2\", \"id\": \"hgnc:7706\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Optic Disc Pallor\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral optic disc pallor in the first patient at six years, on an ophthalmological examination that followed an unremarkable hearing assessment. The third patient had poor eye contact and severe central conduction abnormalities on visual evoked potentials, which is a different finding and is described rather than counted here.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000543\"}}, {\"id\": \"Patient fibroblast complexome profiling\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Mass-spectrometric complexome profiling of mitochondria from both index patients\u0027 fibroblasts against an age-matched control, which is where the module-level account of this disease comes from. It is the assay that identified which intermediates accumulate and which never appear.\", \"meta\": {\"model_type\": \"OTHER\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures in two of the three children, and in both cases provoked rather than spontaneous at onset: the second developed them during a severe respiratory infection at nineteen months, and the third had intermittent clonic seizures of the upper limbs under anaesthesia. The first child explicitly did not develop seizures.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Spasticity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Spasticity with brisk reflexes in the first patient at six years, and progressive spasticity with muscle atrophy dominating the second patient\u0027s course. The third had truncal hypotonia with limb hypertonia instead, which is a different tone pattern and is described rather than counted here.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001257\"}}, {\"id\": \"Stalled Complex I Biogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Assembly does not fail from the start - it gets part-way and stops. The Q module forms successfully, and the process then halts because the ND1 subunit is not incorporated into the inner membrane, leaving aberrant intermediates rather than holoenzyme. In one patient\u0027s fibroblasts no fully assembled complex I was detectable at all; in the other it was greatly decreased. All other oxidative phosphorylation complexes were unaffected, which is what makes the deficiency isolated.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"mitochondrial respiratory chain complex I assembly\"], \"experimental_models\": [{\"name\": \"Lentiviral NDUFC2 complementation of patient fibroblasts\", \"model_type\": \"OTHER\", \"relationship\": \"RESCUES\", \"fidelity\": \"HIGH\", \"description\": \"Supplying wild-type NDUFC2 to the patients\u0027 own cells restores assembly, which is the demonstration that the variants rather than something else in those genomes cause the stall.\"}]}}], \"edges\": [{\"source\": \"Biallelic NDUFC2 Variant\", \"target\": \"Loss of NDUFC2 from the Complex I Membrane Arm\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of NDUFC2 from the Complex I Membrane Arm\", \"target\": \"Failure of ND1 and ND2 Module Assembly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of ND1 and ND2 Module Assembly\", \"target\": \"Stalled Complex I Biogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Stalled Complex I Biogenesis\", \"target\": \"Isolated Complex I Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Stalled Complex I Biogenesis\", \"target\": \"Loss of Complex I-Containing Supercomplexes\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Isolated Complex I Deficiency\", \"target\": \"Impaired Mitochondrial Respiration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Isolated Complex I Deficiency\", \"target\": \"Decreased Activity of Mitochondrial Complex I\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Loss of Complex I-Containing Supercomplexes\", \"target\": \"Impaired Mitochondrial Respiration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Mitochondrial Respiration\", \"target\": \"Lactate and Pyruvate Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pyruvate that cannot be oxidised is reduced to lactate to regenerate NAD+, which is the standard route from a complex I block to a lactic acidosis.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Mitochondrial Respiration\", \"target\": \"Basal Ganglia, Thalamic and Brainstem Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Lactate and Pyruvate Accumulation\", \"target\": \"Increased Circulating Lactate Concentration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lactate and Pyruvate Accumulation\", \"target\": \"Hyperalaninemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Basal Ganglia, Thalamic and Brainstem Injury\", \"target\": \"Leigh Syndrome\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Basal Ganglia, Thalamic and Brainstem Injury\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Basal Ganglia, Thalamic and Brainstem Injury\", \"target\": \"Spasticity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Basal Ganglia, Thalamic and Brainstem Injury\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Basal Ganglia, Thalamic and Brainstem Injury\", \"target\": \"Developmental Regression\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Basal Ganglia, Thalamic and Brainstem Injury\", \"target\": \"Optic Disc Pallor\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lentiviral NDUFC2 complementation of patient fibroblasts\", \"target\": \"Stalled Complex I Biogenesis\", \"predicate\": \"rescues\", \"is_orphan\": false, \"description\": \"Supplying wild-type NDUFC2 to the patients\u0027 own cells restores assembly, which is the demonstration that the variants rather than something else in those genomes cause the stall.\", \"relationship\": \"RESCUES\", \"fidelity\": \"HIGH\", \"limitations\": \"The rescue is partial in both lines and neither reaches control levels of assembled complex I, and the authors work through why: complex I is thought to assemble within 24 hours and the induction ran for 72, so time is not the limitation, but the mutant protein or the aberrant subassemblies already present may interfere. The system is a cultured fibroblast, so it says nothing about brain; the third patient could not be tested at all for lack of material; and doxycycline-driven expression is non-physiological in level and timing.\"}, {\"source\": \"Patient fibroblast complexome profiling\", \"target\": \"Failure of ND1 and ND2 Module Assembly\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"Complexome profiling is what resolves an assembly defect into a module-level map. It showed the loss of NDUFC2\u0027s associating subunits in the ND1 and ND2 modules, the independent survival of the ND4 module, and the complete absence of ND5 and N module intermediates.\", \"relationship\": \"MEASURES\", \"fidelity\": \"HIGH\", \"limitations\": \"Cultured fibroblasts, not the affected tissue, and two patients. The readout is abundance across a gradient rather than a direct measurement of assembly order, so the assembly sequence is inferred by comparing the observed intermediates against a published model. The scaffold interpretation the authors draw from it is offered as a possibility rather than a conclusion.\"}, {\"source\": \"NDUFC2\", \"target\": \"Biallelic NDUFC2 Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NDUFC2\", \"target\": \"Loss of NDUFC2 from the Complex I Membrane Arm\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Basal Ganglia, Thalamic and Brainstem Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The tissue lesion that defines Leigh syndrome, and it is present in all three children. Imaging showed bilateral symmetrical high T2 signal in the thalami, substantia nigra and medulla in the first patient, in the basal ganglia and lentiform nuclei in her brother, and in the thalami, basal ganglia and brainstem in the third. The first patient also had corticospinal-tract signal change with white matter volume loss and periventricular leukomalacia; the second had a Dandy-Walker malformation with partial corpus callosum agenesis, which is a malformation rather than a degenerative lesion and is recorded as its own phenotype.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"locations\": [\"basal ganglia\", \"thalamus\", \"brainstem\", \"substantia nigra\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Biallelic NDUFC2 Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Two damaged copies of NDUFC2. Two alleles are known and each is homozygous in one family. The Saudi siblings carry c.346_*7del, a 22-nucleotide deletion that removes the stop codon and replaces the last four residues with a 21-residue extension, p.(His116_Arg119delins21). The Moroccan boy carries c.173A\u003eT, p.(His58Leu), at a histidine conserved across species, with every in silico predictor calling it damaging. Neither allele class is present homozygously in population databases: gnomAD contains no homozygous loss-of-function NDUFC2 variant at all.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"NDUFC2\"], \"gene_terms\": [{\"label\": \"NDUFC2\", \"id\": \"hgnc:7706\"}], \"genetic_context\": {\"allele_type\": \"a homozygous stop-loss deletion and a homozygous missense variant at a conserved histidine\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Two consanguineous families. Homozygosity is molecularly confirmed in two of the three patients; the second Saudi sibling was not genotyped, because no DNA was available, and is presumed homozygous from parental segregation and a concordant phenotype. Only the two index subjects, one per family, had biochemical study.\", \"gene_terms\": [{\"label\": \"NDUFC2\", \"id\": \"hgnc:7706\"}]}}}, {\"id\": \"Decreased Activity of Mitochondrial Complex I\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The defining biochemical finding: 16 percent residual activity in one patient\u0027s fibroblasts, 19 percent in the other\u0027s and 48 percent in that patient\u0027s muscle, with all other respiratory chain complexes normal.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0011923\"}}, {\"id\": \"Developmental Regression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Loss of all previously acquired developmental skills in the second patient, triggered by a severe respiratory infection at nineteen months. Regression provoked by intercurrent illness is the characteristic tempo of Leigh syndrome and is what distinguishes it from a static encephalopathy.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002376\"}}, {\"id\": \"Failure of ND1 and ND2 Module Assembly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Losing NDUFC2 takes its neighbours with it. Complexome profiling of both index patients shows concurrent loss of the subunits NDUFC2 associates with, in the ND1 and ND2 modules. The negative results are as informative as the positive ones: neither an ND5 nor an N module intermediate was found at all, while the distal ND4 module was still detected - so the distal membrane module assembles independently while the two proximal ones do not. The authors read this as NDUFC2 possibly acting as a scaffold for ND1 module formation.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"mitochondrial respiratory chain complex I assembly\"], \"experimental_models\": [{\"name\": \"Patient fibroblast complexome profiling\", \"model_type\": \"OTHER\", \"relationship\": \"MEASURES\", \"fidelity\": \"HIGH\", \"description\": \"Complexome profiling is what resolves an assembly defect into a module-level map. It showed the loss of NDUFC2\u0027s associating subunits in the ND1 and ND2 modules, the independent survival of the ND4 module, and the complete absence of ND5 and N module intermediates.\"}]}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental impairment in all three: unable to walk at two years and unable to stand unsupported or speak at six in the first patient, global delay with poor growth in her brother, and psychomotor delay from the first months of life in the third.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hyperalaninemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated plasma alanine in the first patient, the expected transamination product of accumulated pyruvate and a standard secondary marker of a respiratory chain block. Notably it was normal in the third patient, whose lactate and pyruvate were both raised.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003348\"}}, {\"id\": \"Impaired Mitochondrial Respiration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The cellular consequence, measured directly. High-resolution respirometry of intact cells shows severely decreased oxygen consumption in both patients\u0027 fibroblast lines. A cell that cannot oxidise NADH through complex I cannot maintain normal electron flux into the rest of the chain, and the shortfall shows as reduced respiration rather than as a compensated steady state.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Increased Circulating Lactate Concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Raised serum lactate in all three children, from 3.2 to 10.0 mmol per litre at baseline against a normal range topping out at about 2.2, and above 20 in one child during an intercurrent illness.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0002151\"}}, {\"id\": \"Isolated Complex I Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The measured biochemical endpoint and the phenotype the entity is named for. Residual complex I activity was 16 percent of control in one patient\u0027s fibroblasts and 19 percent in the other\u0027s, with 48 percent in that patient\u0027s muscle - so the deficiency is severe but graded, and tissue-dependent. Lentiviral expression of wild-type NDUFC2 raised both the steady-state subunit levels and the amount of assembled complex I, without reaching control levels in either line.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"mitochondrial ATP synthesis coupled electron transport\"]}}, {\"id\": \"Lactate and Pyruvate Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Every reported patient had elevated serum lactate - 3.6 to 7.6 mmol per litre in the first, 4.0 to 10.0 in her brother and above 20 during an intercurrent illness, and 3.2 in the third, whose pyruvate was raised as well. Two of the three also had elevated plasma alanine, the transamination product of accumulated pyruvate, and one had raised proline and increased urinary fumarate.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Leigh Syndrome\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"All three children were diagnosed with Leigh syndrome, and the entity entered the literature under that name. It is the presentation for which ClinGen first curated the gene.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OBLIGATE\"}}, {\"id\": \"Lentiviral NDUFC2 complementation of patient fibroblasts\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Fibroblasts from both index patients were transduced with wild-type NDUFC2 under a doxycycline-inducible lentiviral vector. Induction raised NDUFC2 itself and the complex I subunits NDUFB8, NDUFA9 and NDUFV1, and increased the amount of fully assembled complex I. The rescue was partial in both lines and more prominent in the missense patient than in the stop-loss patient.\", \"meta\": {\"model_type\": \"OTHER\"}}, {\"id\": \"Loss of Complex I-Containing Supercomplexes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Complex I does not work alone: it associates with complexes III and IV into supercomplexes, and those are lost too. Blue native electrophoresis of digitonin-solubilised patient mitochondria shows a dramatic deficiency of the complex I-containing supercomplexes. This is a consequence of having no holoenzyme to incorporate rather than a separate lesion, but it is worth recording as its own node because it is what the respiratory measurements are made against.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Loss of NDUFC2 from the Complex I Membrane Arm\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NDUFC2 is a membrane protein of the proton-pumping arm, assigned to the ND2 module, facing the intermembrane space, and in contact with twelve other subunits - NDUFA8 in the ND1 module, five subunits of its own ND2 module, and five of the ND4 module. That is an unusual amount of connectivity for a small accessory subunit and is the structural reason a defect in it is an assembly defect rather than a catalytic one. Complexome profiling of patient fibroblasts confirms the loss of NDUFC2 itself.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"NDUFC2\"], \"gene_terms\": [{\"label\": \"NDUFC2\", \"id\": \"hgnc:7706\"}]}}, {\"id\": \"NDUFC2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"NDUFC2\"], \"gene_terms\": [{\"label\": \"NDUFC2\", \"id\": \"hgnc:7706\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Optic Disc Pallor\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral optic disc pallor in the first patient at six years, on an ophthalmological examination that followed an unremarkable hearing assessment. The third patient had poor eye contact and severe central conduction abnormalities on visual evoked potentials, which is a different finding and is described rather than counted here.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000543\"}}, {\"id\": \"Patient fibroblast complexome profiling\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Mass-spectrometric complexome profiling of mitochondria from both index patients\u0027 fibroblasts against an age-matched control, which is where the module-level account of this disease comes from. It is the assay that identified which intermediates accumulate and which never appear.\", \"meta\": {\"model_type\": \"OTHER\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures in two of the three children, and in both cases provoked rather than spontaneous at onset: the second developed them during a severe respiratory infection at nineteen months, and the third had intermittent clonic seizures of the upper limbs under anaesthesia. The first child explicitly did not develop seizures.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Spasticity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Spasticity with brisk reflexes in the first patient at six years, and progressive spasticity with muscle atrophy dominating the second patient\u0027s course. The third had truncal hypotonia with limb hypertonia instead, which is a different tone pattern and is described rather than counted here.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001257\"}}, {\"id\": \"Stalled Complex I Biogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Assembly does not fail from the start - it gets part-way and stops. The Q module forms successfully, and the process then halts because the ND1 subunit is not incorporated into the inner membrane, leaving aberrant intermediates rather than holoenzyme. In one patient\u0027s fibroblasts no fully assembled complex I was detectable at all; in the other it was greatly decreased. All other oxidative phosphorylation complexes were unaffected, which is what makes the deficiency isolated.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"mitochondrial respiratory chain complex I assembly\"], \"experimental_models\": [{\"name\": \"Lentiviral NDUFC2 complementation of patient fibroblasts\", \"model_type\": \"OTHER\", \"relationship\": \"RESCUES\", \"fidelity\": \"HIGH\", \"description\": \"Supplying wild-type NDUFC2 to the patients\u0027 own cells restores assembly, which is the demonstration that the variants rather than something else in those genomes cause the stall.\"}]}}], \"edges\": [{\"source\": \"Biallelic NDUFC2 Variant\", \"target\": \"Loss of NDUFC2 from the Complex I Membrane Arm\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of NDUFC2 from the Complex I Membrane Arm\", \"target\": \"Failure of ND1 and ND2 Module Assembly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of ND1 and ND2 Module Assembly\", \"target\": \"Stalled Complex I Biogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Stalled Complex I Biogenesis\", \"target\": \"Isolated Complex I Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Stalled Complex I Biogenesis\", \"target\": \"Loss of Complex I-Containing Supercomplexes\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Isolated Complex I Deficiency\", \"target\": \"Impaired Mitochondrial Respiration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Isolated Complex I Deficiency\", \"target\": \"Decreased Activity of Mitochondrial Complex I\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Loss of Complex I-Containing Supercomplexes\", \"target\": \"Impaired Mitochondrial Respiration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Mitochondrial Respiration\", \"target\": \"Lactate and Pyruvate Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pyruvate that cannot be oxidised is reduced to lactate to regenerate NAD+, which is the standard route from a complex I block to a lactic acidosis.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Mitochondrial Respiration\", \"target\": \"Basal Ganglia, Thalamic and Brainstem Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Lactate and Pyruvate Accumulation\", \"target\": \"Increased Circulating Lactate Concentration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lactate and Pyruvate Accumulation\", \"target\": \"Hyperalaninemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Basal Ganglia, Thalamic and Brainstem Injury\", \"target\": \"Leigh Syndrome\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Basal Ganglia, Thalamic and Brainstem Injury\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Basal Ganglia, Thalamic and Brainstem Injury\", \"target\": \"Spasticity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Basal Ganglia, Thalamic and Brainstem Injury\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Basal Ganglia, Thalamic and Brainstem Injury\", \"target\": \"Developmental Regression\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Basal Ganglia, Thalamic and Brainstem Injury\", \"target\": \"Optic Disc Pallor\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lentiviral NDUFC2 complementation of patient fibroblasts\", \"target\": \"Stalled Complex I Biogenesis\", \"predicate\": \"rescues\", \"is_orphan\": false, \"description\": \"Supplying wild-type NDUFC2 to the patients\u0027 own cells restores assembly, which is the demonstration that the variants rather than something else in those genomes cause the stall.\", \"relationship\": \"RESCUES\", \"fidelity\": \"HIGH\", \"limitations\": \"The rescue is partial in both lines and neither reaches control levels of assembled complex I, and the authors work through why: complex I is thought to assemble within 24 hours and the induction ran for 72, so time is not the limitation, but the mutant protein or the aberrant subassemblies already present may interfere. The system is a cultured fibroblast, so it says nothing about brain; the third patient could not be tested at all for lack of material; and doxycycline-driven expression is non-physiological in level and timing.\"}, {\"source\": \"Patient fibroblast complexome profiling\", \"target\": \"Failure of ND1 and ND2 Module Assembly\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"Complexome profiling is what resolves an assembly defect into a module-level map. It showed the loss of NDUFC2\u0027s associating subunits in the ND1 and ND2 modules, the independent survival of the ND4 module, and the complete absence of ND5 and N module intermediates.\", \"relationship\": \"MEASURES\", \"fidelity\": \"HIGH\", \"limitations\": \"Cultured fibroblasts, not the affected tissue, and two patients. The readout is abundance across a gradient rather than a direct measurement of assembly order, so the assembly sequence is inferred by comparing the observed intermediates against a published model. The scaffold interpretation the authors draw from it is offered as a possibility rather than a conclusion.\"}, {\"source\": \"NDUFC2\", \"target\": \"Biallelic NDUFC2 Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NDUFC2\", \"target\": \"Loss of NDUFC2 from the Complex I Membrane Arm\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6187,15 +6307,23 @@ This pathophysiological event occurs in substantia nigra (UBERON:0002038). UBERO
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Head and Neck<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Musculoskeletal<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Metabolism<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(8)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(2)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Nervous System<span class="pill-count">(3)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Cellular<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Growth<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6204,8 +6332,203 @@ This pathophysiological event occurs in substantia nigra (UBERON:0002038). UBERO
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Head and Neck
+                    Cardiovascular
                     <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-perimembranous-ventricular-septal-defect" data-dismech-node="Perimembranous Ventricular Septal Defect" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Perimembranous Ventricular Septal Defect
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011682" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0011682</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Perimembranous ventricular septal defect (HP:0011682). HP:0011682 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">One patient of three, and his sister explicitly had no cardiac abnormality. Cardiac involvement is therefore not a feature of the disease on this evidence; it is a feature of one child, and the two siblings share a genotype, which makes intrafamilial variability rather than genotype the operative explanation. The band is 1/3, which the schema places in FREQUENT, and it is a count rather than a population frequency.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32969598" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32969598" target="_blank">PMID:32969598</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Postnatal echocardiography revealed a perimembranous VSD with left pulmonary artery stenosis."</div>
+
+
+                <div class="evidence-explanation">The cardiac finding in the second patient.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32969598" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32969598" target="_blank">PMID:32969598</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"She did not develop seizures and had no cardiac, renal or hepatic abnormalities."</div>
+
+
+                <div class="evidence-explanation">His sister, same genotype, no cardiac abnormality - which is what makes this an intrafamilial difference rather than a disease feature.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Eye
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-optic-disc-pallor" data-dismech-node="Optic Disc Pallor" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Optic Disc Pallor
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000543" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000543</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Optic disc pallor (HP:0000543). HP:0000543 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">One of the three reported children, so the band is 1/3 and falls in FREQUENT by the schema&#39;s 30-79 percent definition. It is a count in a three-patient series, not a population frequency. The third patient&#39;s visual evoked potential abnormality is a different finding and is not counted here.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32969598" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32969598" target="_blank">PMID:32969598</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A hearing assessment was unremarkable, but an ophthalmological examination revealed bilateral optic disc pallor."</div>
+
+
+                <div class="evidence-explanation">The optic finding, with the negative hearing assessment in the same sentence that bounds the sensory involvement.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Head and Neck
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-microcephaly" data-dismech-node="Microcephaly" data-dismech-type="phenotype">
@@ -6224,15 +6547,18 @@ This pathophysiological event occurs in substantia nigra (UBERON:0002038). UBERO
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000252</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">One of the three reported children, so the band is 1/3 and falls in FREQUENT by the schema&#39;s 30-79 percent definition. It is a count in a three-patient series, not a population frequency. Head circumference is not reported for the other two children, so an unremarkable head size in them is assumed rather than recorded.</div>
@@ -6254,6 +6580,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6280,13 +6607,301 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dandy-walker-malformation" data-dismech-node="Dandy-Walker Malformation" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Dandy-Walker Malformation
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001305" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001305</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dandy-Walker malformation (HP:0001305). HP:0001305 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Recorded as its own phenotype rather than folded into the Leigh imaging, because it is a structural malformation of prenatal origin rather than a degenerative lesion, and because it is the one feature in the series that is not obviously explained by the bioenergetic account. Whether it is part of the NDUFC2 phenotype or a coincidental finding in a consanguineous family cannot be told from one patient, and the entry does not claim either way.
+On the frequency band: one of the three reported children, so 1/3, which is FREQUENT by the schema&#39;s 30-79 percent definition. That is a count in a three-patient series and is emphatically not a claim that a third of NDUFC2 patients have a Dandy-Walker malformation.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32969598" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32969598" target="_blank">PMID:32969598</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The MRI also revealed a Dandy–Walker malformation with partial agenesis of the corpus callosum"</div>
+
+
+                <div class="evidence-explanation">The malformation as reported on neonatal imaging.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-2">
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Metabolism
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-circulating-lactate-concentration" data-dismech-node="Increased Circulating Lactate Concentration" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Increased Circulating Lactate Concentration
+
+                        <span class="phenotype-freq">OBLIGATE</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002151" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002151</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Increased circulating lactate concentration (HP:0002151). HP:0002151 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Three of three reported children, which is why the band is OBLIGATE rather than VERY_FREQUENT - the schema reserves VERY_FREQUENT for 80-99 percent. The denominator is three, so this records that no reported patient lacked the finding, not that none ever will.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32969598" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32969598" target="_blank">PMID:32969598</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Following birth, he was noted to have persistently elevated serum lactate (4.0–10.0 mmol/l; normal range 0.7–2.2 mmol/l)."</div>
+
+
+                <div class="evidence-explanation">The lactate elevation in the second patient, with the laboratory&#39;s reference interval.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32969598" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32969598" target="_blank">PMID:32969598</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Serum lactate ranged from 3.6 to 7.6 mmol/l (normal range 0.7–2.2 mmol/l), whilst ammonia, blood glucose and thyroid function were unremarkable."</div>
+
+
+                <div class="evidence-explanation">The same finding in the first patient, together with the negatives that make it a specific rather than a general metabolic derangement.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hyperalaninemia" data-dismech-node="Hyperalaninemia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hyperalaninemia
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003348" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0003348</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hyperalaninemia (HP:0003348). HP:0003348 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Elevated in the first patient and explicitly normal in the third; plasma amino acids are not reported for the second, so the denominator for this finding is two of the three children. Either denominator puts it in the FREQUENT band, but the band is a count in a very small series rather than a population frequency.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32969598" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32969598" target="_blank">PMID:32969598</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Plasma amino acid analysis detected elevated alanine (724 μmol/l, normal range 143–439 μmol/l) and elevated proline (366 μmol/l, normal range 52–298 μmol/l)."</div>
+
+
+                <div class="evidence-explanation">The measurement with its reference interval.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32969598" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32969598" target="_blank">PMID:32969598</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Routine blood investigations including plasma amino acid levels were reported normal, but serum lactate and pyruvate levels were elevated"</div>
+
+
+                <div class="evidence-explanation">The contrary finding in the third patient, recorded so that a normal amino-acid profile is not read as excluding the diagnosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-spasticity" data-dismech-node="Spasticity" data-dismech-type="phenotype">
@@ -6305,15 +6920,18 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001257</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001257</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Two of the three children, so 2/3, within the FREQUENT band. The third had truncal hypotonia with limb hypertonia, a different tone abnormality, and is not counted as either present or absent for spasticity.</div>
@@ -6335,6 +6953,7 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6362,6 +6981,7 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6385,9 +7005,85 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-muscle-tone" data-dismech-node="Abnormal Muscle Tone" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Abnormal Muscle Tone
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003808" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0003808</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Truncal hypotonia with limb hypertonia, annotated with Abnormal muscle tone (HP:0003808). HP:0003808 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">One of the three children, so 1/3 or 33 percent, which is inside the FREQUENT band. Bound to Abnormal muscle tone rather than to Hypotonia. The claim spans hypotonia and hypertonia in the same patient, so a hypotonia binding would have been narrower than the entry name and broader than the preferred_term at once - the one combination that fits neither. Axial hypotonia (HP:0008936) would be the most specific term for the truncal half alone, but taking it would drop the limb hypertonia from the binding entirely; splitting into two entries would instead double-count one patient&#39;s single tone examination. The other two children have spasticity, which is curated separately - this entry exists so that the third child&#39;s documented tone abnormality is retrievable rather than surviving only as prose.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32969598" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32969598" target="_blank">PMID:32969598</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Clinical evaluation performed at 5 months showed impaired growth (weight and length &lt; 3rd centile), microcephaly (&lt; 3rd centile), poor eye contact, non-paralytic strabismus, truncal hypotonia with limb hypertonia, paucity of spontaneous movements and lack of postural control."</div>
+
+
+                <div class="evidence-explanation">The third patient&#39;s tone examination, in the same sentence that records his growth and head size.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-3">
+            <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
@@ -6410,15 +7106,18 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Three of three reported children, hence OBLIGATE rather than VERY_FREQUENT. As elsewhere in this entry the denominator is three, so the band records the whole published series and not a population.</div>
@@ -6443,6 +7142,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6464,6 +7164,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6506,15 +7207,18 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">The provoked character in both cases is worth keeping. Neither child had an established epilepsy in the ordinary sense at the time of report, and one had a normal electroencephalogram, so this is a seizure susceptibility unmasked by metabolic or anaesthetic stress rather than a primary epilepsy phenotype.</div>
@@ -6539,6 +7243,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6560,6 +7265,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6602,15 +7308,18 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002376" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002376</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002376" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002376</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">One of the three reported children, so the band is 1/3 and falls in FREQUENT by the schema&#39;s 30-79 percent definition. It is a count in a three-patient series, not a population frequency, and should not be read as one.</div>
@@ -6632,6 +7341,7 @@ This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6660,7 +7370,117 @@ This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-7">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Cellular
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-decreased-activity-of-mitochondrial-complex-i" data-dismech-node="Decreased Activity of Mitochondrial Complex I" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Decreased Activity of Mitochondrial Complex I
+
+                        <span class="phenotype-freq">OBLIGATE</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011923" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0011923</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Decreased activity of mitochondrial complex I (HP:0011923). HP:0011923 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">OBLIGATE because it is the entity&#39;s defining measurement and was found in both patients in whom it was assayed. The unassayed patient is the second Saudi sibling, named here rather than by position because the entry numbers patients first/second/third to match the paper&#39;s Subjects 1/2/3, and it was Subject 2 who had no material available. So the denominator for the assay is two rather than three, while the denominator for the disease is three.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32969598" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32969598" target="_blank">PMID:32969598</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Assessment of mitochondrial respiratory chain enzyme activities revealed a severe and isolated complex I deficiency in the fibroblasts from Subject 1 (16% residual activity compared to controls)"</div>
+
+
+                <div class="evidence-explanation">The quantified deficiency, with the residual figure.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32969598" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32969598" target="_blank">PMID:32969598</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Similar investigations for Subject 2 were not possible due to a lack of available samples for analysis"</div>
+
+
+                <div class="evidence-explanation">Why the assay denominator is two of three, recorded rather than left as an implied gap.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-8">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Growth
@@ -6683,15 +7503,18 @@ This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001508</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001508</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Three of three reported children, hence OBLIGATE rather than VERY_FREQUENT, following the same convention as the other whole-series phenotypes in this entry. The denominator is three. The three are not strictly the same observation - the first child is recorded against the fifth centile at six years while the other two are below the third centile in infancy - so the shared term records growth failure rather than a common threshold, and the individual measurements are kept in the description.</div>
@@ -6713,6 +7536,7 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6740,6 +7564,7 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6761,6 +7586,7 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6789,108 +7615,12 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-5">
+            <details class="phenotype-category-group" id="pheno-cat-9">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
-                    <span class="cat-count">8</span>
+                    <span class="cat-count">1</span>
                 </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-decreased-activity-of-mitochondrial-complex-i" data-dismech-node="Decreased Activity of Mitochondrial Complex I" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Decreased Activity of Mitochondrial Complex I
-
-                        <span class="phenotype-freq">OBLIGATE</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011923" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0011923</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Decreased activity of mitochondrial complex I (HP:0011923). HP:0011923 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">OBLIGATE because it is the entity&#39;s defining measurement and was found in both patients in whom it was assayed. The unassayed patient is the second Saudi sibling, named here rather than by position because the entry numbers patients first/second/third to match the paper&#39;s Subjects 1/2/3, and it was Subject 2 who had no material available. So the denominator for the assay is two rather than three, while the denominator for the disease is three.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32969598" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32969598" target="_blank">PMID:32969598</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Assessment of mitochondrial respiratory chain enzyme activities revealed a severe and isolated complex I deficiency in the fibroblasts from Subject 1 (16% residual activity compared to controls)"</div>
-
-
-                <div class="evidence-explanation">The quantified deficiency, with the residual figure.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32969598" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32969598" target="_blank">PMID:32969598</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Similar investigations for Subject 2 were not possible due to a lack of available samples for analysis"</div>
-
-
-                <div class="evidence-explanation">Why the assay denominator is two of three, recorded rather than left as an implied gap.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-leigh-syndrome" data-dismech-node="Leigh Syndrome" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6900,6 +7630,9 @@ This clinical feature is Decreased activity of mitochondrial complex I (HP:00119
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No phenotype_term is bound. Leigh syndrome is a disease concept, MONDO:0009723, rather than an HPO phenotype, and this follows the sibling entry MC1DN34, which curates it the same way (as does MC1DN13, still an open pull request). Unlike MC1DN13, where the Leigh presentation occurred in one of four patients, here it is the presentation in all three - so the tension between the MONDO complex I deficiency naming and the clinical Leigh framing is a naming question rather than a phenotypic one.</div>
@@ -6921,6 +7654,7 @@ This clinical feature is Decreased activity of mitochondrial complex I (HP:00119
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6948,6 +7682,7 @@ This clinical feature is Decreased activity of mitochondrial complex I (HP:00119
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6956,511 +7691,6 @@ This clinical feature is Decreased activity of mitochondrial complex I (HP:00119
 
 
                 <div class="evidence-explanation">The expert panel&#39;s framing of the same relationship. Graded OTHER because a curation narrative is an expert synthesis rather than a study.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-circulating-lactate-concentration" data-dismech-node="Increased Circulating Lactate Concentration" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Increased Circulating Lactate Concentration
-
-                        <span class="phenotype-freq">OBLIGATE</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002151" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002151</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Increased circulating lactate concentration (HP:0002151). HP:0002151 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Three of three reported children, which is why the band is OBLIGATE rather than VERY_FREQUENT - the schema reserves VERY_FREQUENT for 80-99 percent. The denominator is three, so this records that no reported patient lacked the finding, not that none ever will.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32969598" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32969598" target="_blank">PMID:32969598</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Following birth, he was noted to have persistently elevated serum lactate (4.0–10.0 mmol/l; normal range 0.7–2.2 mmol/l)."</div>
-
-
-                <div class="evidence-explanation">The lactate elevation in the second patient, with the laboratory&#39;s reference interval.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32969598" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32969598" target="_blank">PMID:32969598</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Serum lactate ranged from 3.6 to 7.6 mmol/l (normal range 0.7–2.2 mmol/l), whilst ammonia, blood glucose and thyroid function were unremarkable."</div>
-
-
-                <div class="evidence-explanation">The same finding in the first patient, together with the negatives that make it a specific rather than a general metabolic derangement.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-optic-disc-pallor" data-dismech-node="Optic Disc Pallor" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Optic Disc Pallor
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000543" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000543</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Optic disc pallor (HP:0000543). HP:0000543 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">One of the three reported children, so the band is 1/3 and falls in FREQUENT by the schema&#39;s 30-79 percent definition. It is a count in a three-patient series, not a population frequency. The third patient&#39;s visual evoked potential abnormality is a different finding and is not counted here.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32969598" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32969598" target="_blank">PMID:32969598</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"A hearing assessment was unremarkable, but an ophthalmological examination revealed bilateral optic disc pallor."</div>
-
-
-                <div class="evidence-explanation">The optic finding, with the negative hearing assessment in the same sentence that bounds the sensory involvement.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-muscle-tone" data-dismech-node="Abnormal Muscle Tone" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Abnormal Muscle Tone
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003808" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0003808</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Truncal hypotonia with limb hypertonia, annotated with Abnormal muscle tone (HP:0003808). HP:0003808 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">One of the three children, so 1/3 or 33 percent, which is inside the FREQUENT band. Bound to Abnormal muscle tone rather than to Hypotonia. The claim spans hypotonia and hypertonia in the same patient, so a hypotonia binding would have been narrower than the entry name and broader than the preferred_term at once - the one combination that fits neither. Axial hypotonia (HP:0008936) would be the most specific term for the truncal half alone, but taking it would drop the limb hypertonia from the binding entirely; splitting into two entries would instead double-count one patient&#39;s single tone examination. The other two children have spasticity, which is curated separately - this entry exists so that the third child&#39;s documented tone abnormality is retrievable rather than surviving only as prose.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32969598" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32969598" target="_blank">PMID:32969598</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Clinical evaluation performed at 5 months showed impaired growth (weight and length &lt; 3rd centile), microcephaly (&lt; 3rd centile), poor eye contact, non-paralytic strabismus, truncal hypotonia with limb hypertonia, paucity of spontaneous movements and lack of postural control."</div>
-
-
-                <div class="evidence-explanation">The third patient&#39;s tone examination, in the same sentence that records his growth and head size.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hyperalaninemia" data-dismech-node="Hyperalaninemia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hyperalaninemia
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003348" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0003348</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hyperalaninemia (HP:0003348). HP:0003348 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Elevated in the first patient and explicitly normal in the third; plasma amino acids are not reported for the second, so the denominator for this finding is two of the three children. Either denominator puts it in the FREQUENT band, but the band is a count in a very small series rather than a population frequency.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32969598" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32969598" target="_blank">PMID:32969598</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Plasma amino acid analysis detected elevated alanine (724 μmol/l, normal range 143–439 μmol/l) and elevated proline (366 μmol/l, normal range 52–298 μmol/l)."</div>
-
-
-                <div class="evidence-explanation">The measurement with its reference interval.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32969598" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32969598" target="_blank">PMID:32969598</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Routine blood investigations including plasma amino acid levels were reported normal, but serum lactate and pyruvate levels were elevated"</div>
-
-
-                <div class="evidence-explanation">The contrary finding in the third patient, recorded so that a normal amino-acid profile is not read as excluding the diagnosis.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-dandy-walker-malformation" data-dismech-node="Dandy-Walker Malformation" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Dandy-Walker Malformation
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001305" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001305</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Dandy-Walker malformation (HP:0001305). HP:0001305 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Recorded as its own phenotype rather than folded into the Leigh imaging, because it is a structural malformation of prenatal origin rather than a degenerative lesion, and because it is the one feature in the series that is not obviously explained by the bioenergetic account. Whether it is part of the NDUFC2 phenotype or a coincidental finding in a consanguineous family cannot be told from one patient, and the entry does not claim either way.
-On the frequency band: one of the three reported children, so 1/3, which is FREQUENT by the schema&#39;s 30-79 percent definition. That is a count in a three-patient series and is emphatically not a claim that a third of NDUFC2 patients have a Dandy-Walker malformation.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32969598" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32969598" target="_blank">PMID:32969598</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The MRI also revealed a Dandy–Walker malformation with partial agenesis of the corpus callosum"</div>
-
-
-                <div class="evidence-explanation">The malformation as reported on neonatal imaging.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-perimembranous-ventricular-septal-defect" data-dismech-node="Perimembranous Ventricular Septal Defect" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Perimembranous Ventricular Septal Defect
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011682" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0011682</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Perimembranous ventricular septal defect (HP:0011682). HP:0011682 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">One patient of three, and his sister explicitly had no cardiac abnormality. Cardiac involvement is therefore not a feature of the disease on this evidence; it is a feature of one child, and the two siblings share a genotype, which makes intrafamilial variability rather than genotype the operative explanation. The band is 1/3, which the schema places in FREQUENT, and it is a count rather than a population frequency.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32969598" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32969598" target="_blank">PMID:32969598</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Postnatal echocardiography revealed a perimembranous VSD with left pulmonary artery stenosis."</div>
-
-
-                <div class="evidence-explanation">The cardiac finding in the second patient.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32969598" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32969598" target="_blank">PMID:32969598</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"She did not develop seizures and had no cardiac, renal or hepatic abnormalities."</div>
-
-
-                <div class="evidence-explanation">His sister, same genotype, no cardiac abnormality - which is what makes this an intrafamilial difference rather than a disease feature.</div>
 
 
 
@@ -7550,6 +7780,9 @@ This disease-associated gene is NDUFC2 (hgnc:7706). hgnc:7706 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7564,6 +7797,7 @@ This disease-associated gene is NDUFC2 (hgnc:7706). hgnc:7706 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7591,6 +7825,7 @@ This disease-associated gene is NDUFC2 (hgnc:7706). hgnc:7706 is a gene from the
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7612,6 +7847,7 @@ This disease-associated gene is NDUFC2 (hgnc:7706). hgnc:7706 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7695,6 +7931,31 @@ This treatment is ventriculoperitoneal shunt placement (NCIT:C168483). NCIT:C168
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">The second patient developed acute hydrocephalus at five months, on a background of an antenatally detected Dandy-Walker malformation, and had an urgent ventriculoperitoneal shunt inserted. This is decompression of a structural complication, not treatment of the complex I defect, and it is the only surgical intervention reported in the series.</div>
 
 
@@ -7716,6 +7977,7 @@ This treatment is ventriculoperitoneal shunt placement (NCIT:C168483). NCIT:C168
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7780,6 +8042,20 @@ This treatment is nasogastric tube feeding, annotated with Nasogastric Intubatio
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">The same patient developed recurrent chest infections and pulmonary aspiration, which were taken to indicate an unsafe swallow, and was placed on nasogastric tube feeding. Securing enteral nutrition and reducing aspiration risk is standard supportive management of a progressive Leigh syndrome course, and it is the only feeding intervention recorded in this series.</div>
 
 
@@ -7801,6 +8077,7 @@ This treatment is nasogastric tube feeding, annotated with Nasogastric Intubatio
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7876,6 +8153,7 @@ This treatment is nasogastric tube feeding, annotated with Nasogastric Intubatio
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7900,6 +8178,7 @@ This treatment is nasogastric tube feeding, annotated with Nasogastric Intubatio
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7921,6 +8200,7 @@ This treatment is nasogastric tube feeding, annotated with Nasogastric Intubatio
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7989,6 +8269,7 @@ This treatment is nasogastric tube feeding, annotated with Nasogastric Intubatio
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8039,6 +8320,7 @@ This treatment is nasogastric tube feeding, annotated with Nasogastric Intubatio
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8060,6 +8342,7 @@ This treatment is nasogastric tube feeding, annotated with Nasogastric Intubatio
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8128,6 +8411,7 @@ This treatment is nasogastric tube feeding, annotated with Nasogastric Intubatio
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8309,6 +8593,7 @@ This treatment is nasogastric tube feeding, annotated with Nasogastric Intubatio
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8368,6 +8653,7 @@ This treatment is nasogastric tube feeding, annotated with Nasogastric Intubatio
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8407,6 +8693,7 @@ This treatment is nasogastric tube feeding, annotated with Nasogastric Intubatio
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8519,6 +8806,7 @@ This treatment is nasogastric tube feeding, annotated with Nasogastric Intubatio
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8558,6 +8846,7 @@ This treatment is nasogastric tube feeding, annotated with Nasogastric Intubatio
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10197,6 +10486,8 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
