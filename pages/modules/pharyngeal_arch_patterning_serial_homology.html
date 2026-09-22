@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -467,6 +468,18 @@
         .tag-component {
             background: #f0fdf4;
             color: #166534;
+        }
+
+        /* Same values as disorder.html.j2 so a treatment chip looks identical
+           whether it is read on a disorder page or on a module page. */
+        .tag-treatment {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .tag-gene {
+            background: #dbeafe;
+            color: #1e40af;
         }
 
         .tag-role {
@@ -1044,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1059,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1113,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1126,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1284,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1294,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1335,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1541,6 +1590,9 @@
 
     
     
+
+    
+    
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -1581,7 +1633,7 @@
                 
                 <span class="badge badge-category">Module</span>
                 <span class="badge badge-module">pharyngeal_arch_patterning_serial_homology</span>
-                <span class="badge badge-count">6 disorders</span>
+                <span class="badge badge-count">8 disorders</span>
                 
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 3</a>
                 
@@ -1870,7 +1922,7 @@ This mechanism module involves abnormal Embryonic Cranial Skeleton Morphogenesis
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
                 <h2 class="card-title">Used By Disorder Entries</h2>
-                <span class="card-count">6</span>
+                <span class="card-count">8</span>
             </div>
             
             <div class="crosslink-list">
@@ -1914,6 +1966,51 @@ This mechanism module involves abnormal Embryonic Cranial Skeleton Morphogenesis
                         , 
                         
                         Cranial Neural Crest Patterning Defect → Disrupted Pharyngeal-Arch Patterning and Neural-Crest Skeletogenesis
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Bilateral_Microtia-Deafness-Cleft_Palate_Syndrome.html">Bilateral Microtia-Deafness-Cleft Palate Syndrome</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Loss of Second Pharyngeal Arch Neural Crest Identity → Cranial Neural Crest and Pharyngeal Arch Program Perturbation
+                        
+                        
+                        , 
+                        
+                        Homeotic Transformation of Second-Arch Skeletal Derivatives → Disrupted Pharyngeal-Arch Patterning and Neural-Crest Skeletogenesis
+                        
+                        
+                        , 
+                        
+                        Failed Auricular Morphogenesis → Serially Homologous Craniofacial Malformation Across Arch Derivatives
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/BMP2-Related_Short_Stature-Facial_Dysmorphism-Skeletal_Anomalies_Syndrome.html">BMP2-Related Short Stature-Facial Dysmorphism-Skeletal Anomalies Syndrome</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Impaired Cranial Neural Crest Osteogenic Differentiation → Cranial Neural Crest and Pharyngeal Arch Program Perturbation
+                        
+                        
+                        , 
+                        
+                        Craniofacial Skeletal Hypoplasia → Serially Homologous Craniofacial Malformation Across Arch Derivatives
                         
                         
                     </span>
@@ -1998,7 +2095,7 @@ This mechanism module involves abnormal Embryonic Cranial Skeleton Morphogenesis
                         
                         
                         
-                        Impaired Ribosome Biogenesis in Neural Crest Cells → Cranial Neural Crest and Pharyngeal Arch Program Perturbation
+                        Impaired Ribosome Biogenesis → Cranial Neural Crest and Pharyngeal Arch Program Perturbation
                         
                         
                         , 
@@ -2054,11 +2151,13 @@ This mechanism module involves abnormal Embryonic Cranial Skeleton Morphogenesis
             
             <div class="item-box anchor-target" id="module-pathophysiology-cranial-neural-crest-and-pharyngeal-arch-program-perturbation" data-dismech-node="Cranial Neural Crest and Pharyngeal Arch Program Perturbation" data-dismech-type="pathophysiology">
                 <div class="item-name">Cranial Neural Crest and Pharyngeal Arch Program Perturbation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The conserved initiating lesion compromises the cranial neural crest cells that build the facial skeleton, or the program that patterns the pharyngeal arches they populate. This includes ribosome- and spliceosome-biogenesis defects that deplete neural crest by triggering nucleolar-stress apoptosis (the Treacher Collins / mandibulofacial dysostosis mechanism) and disruption of the EDN1-EDNRA signaling that establishes arch dorsoventral (jaw) identity through downstream DLX5/DLX6.</div>
                 
@@ -2151,6 +2250,20 @@ This pathophysiological event involves abnormal Neural Crest Cell Development (G
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Bilateral_Microtia-Deafness-Cleft_Palate_Syndrome.html">Bilateral Microtia-Deafness-Cleft Palate Syndrome</a>
+                            
+                            <span class="crosslink-desc">as Loss of Second Pharyngeal Arch Neural Crest Identity</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/BMP2-Related_Short_Stature-Facial_Dysmorphism-Skeletal_Anomalies_Syndrome.html">BMP2-Related Short Stature-Facial Dysmorphism-Skeletal Anomalies Syndrome</a>
+                            
+                            <span class="crosslink-desc">as Impaired Cranial Neural Crest Osteogenic Differentiation</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Burn-McKeown_Syndrome.html">Burn-McKeown Syndrome</a>
                             
                             <span class="crosslink-desc">as Impaired U5 snRNP and Tri-snRNP Spliceosome Function</span>
@@ -2174,7 +2287,7 @@ This pathophysiological event involves abnormal Neural Crest Cell Development (G
                         <div class="crosslink-item">
                             <a href="../disorders/Treacher_Collins_Syndrome.html">Treacher Collins Syndrome</a>
                             
-                            <span class="crosslink-desc">as Impaired Ribosome Biogenesis in Neural Crest Cells</span>
+                            <span class="crosslink-desc">as Impaired Ribosome Biogenesis</span>
                             
                         </div>
                         
@@ -2199,11 +2312,13 @@ This pathophysiological event involves abnormal Neural Crest Cell Development (G
             
             <div class="item-box anchor-target" id="module-pathophysiology-disrupted-pharyngeal-arch-patterning-and-neural-crest-skeletogenesis" data-dismech-node="Disrupted Pharyngeal-Arch Patterning and Neural-Crest Skeletogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Pharyngeal-Arch Patterning and Neural-Crest Skeletogenesis</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Loss of neural crest or of arch-patterning signal mis-specifies and/or reduces the neural-crest-derived skeletal elements of the arches. When the EDN1-EDNRA-DLX code is disrupted, neural crest cells of the mandibular (lower-jaw) portion of the first arch lose their identity and are re-patterned toward a more maxillary (upper-jaw) fate — a homeotic transformation that is the clearest demonstration that the arch program is serially reused along the dorsoventral axis.</div>
                 
@@ -2296,6 +2411,13 @@ This pathophysiological event involves abnormal Embryonic Skeletal System Morpho
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Bilateral_Microtia-Deafness-Cleft_Palate_Syndrome.html">Bilateral Microtia-Deafness-Cleft Palate Syndrome</a>
+                            
+                            <span class="crosslink-desc">as Homeotic Transformation of Second-Arch Skeletal Derivatives</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Burn-McKeown_Syndrome.html">Burn-McKeown Syndrome</a>
                             
                             <span class="crosslink-desc">as Defective Cranial Neural Crest Formation and Differentiation</span>
@@ -2344,11 +2466,13 @@ This pathophysiological event involves abnormal Embryonic Skeletal System Morpho
             
             <div class="item-box anchor-target" id="module-pathophysiology-serially-homologous-craniofacial-malformation-across-arch-derivatives" data-dismech-node="Serially Homologous Craniofacial Malformation Across Arch Derivatives" data-dismech-type="pathophysiology">
                 <div class="item-name">Serially Homologous Craniofacial Malformation Across Arch Derivatives</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Because the arch derivatives are serial homologs built by the same neural-crest program, the malformation recurs across arch elements as a symmetric bundle: hypoplasia of the zygomatic bones, maxilla, and mandible together with ear (first/second-arch) anomalies and palatal clefting. A single patterning or neural-crest lesion therefore presents as a coordinated multi-element craniofacial malformation rather than an isolated defect.</div>
                 
@@ -2488,6 +2612,20 @@ This pathophysiological event involves abnormal Embryonic Cranial Skeleton Morph
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Bilateral_Microtia-Deafness-Cleft_Palate_Syndrome.html">Bilateral Microtia-Deafness-Cleft Palate Syndrome</a>
+                            
+                            <span class="crosslink-desc">as Failed Auricular Morphogenesis</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/BMP2-Related_Short_Stature-Facial_Dysmorphism-Skeletal_Anomalies_Syndrome.html">BMP2-Related Short Stature-Facial Dysmorphism-Skeletal Anomalies Syndrome</a>
+                            
+                            <span class="crosslink-desc">as Craniofacial Skeletal Hypoplasia</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Craniofacial_Microsomia.html">Craniofacial Microsomia</a>
                             
                             <span class="crosslink-desc">as Asymmetric Hypoplasia of First- and Second-Arch Derivatives</span>
@@ -2516,6 +2654,9 @@ This pathophysiological event involves abnormal Embryonic Cranial Skeleton Morph
             </div>
             
         </div>
+        
+
+        
         
 
         <footer class="page-footer">

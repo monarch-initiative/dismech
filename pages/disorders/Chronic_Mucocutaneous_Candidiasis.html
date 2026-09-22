@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,18 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4246,6 +4323,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4313,6 +4391,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4454,6 +4533,7 @@ This subtype is caused by variation in STAT1 (hgnc:11362). hgnc:11362 is a gene 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4538,6 +4618,7 @@ This subtype is caused by variation in IL17RA (hgnc:5985). hgnc:5985 is a gene f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4628,6 +4709,7 @@ This subtype is caused by variation in IL17RC (hgnc:18358). hgnc:18358 is a gene
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4712,6 +4794,7 @@ This subtype is caused by variation in IL17F (hgnc:16404). hgnc:16404 is a gene 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4802,6 +4885,7 @@ This subtype is caused by variation in TRAF3IP2 (hgnc:1343). hgnc:1343 is a gene
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4884,6 +4968,7 @@ This subtype is caused by variation in RORC (hgnc:10260). hgnc:10260 is a gene f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4972,6 +5057,7 @@ This subtype is caused by variation in CARD9 (hgnc:16391). hgnc:16391 is a gene 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5056,6 +5142,7 @@ This subtype is caused by variation in AIRE (hgnc:360). hgnc:360 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5285,6 +5372,7 @@ This subtype is caused by variation in AIRE (hgnc:360). hgnc:360 is a gene from 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5309,6 +5397,7 @@ This subtype is caused by variation in AIRE (hgnc:360). hgnc:360 is a gene from 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5330,6 +5419,7 @@ This subtype is caused by variation in AIRE (hgnc:360). hgnc:360 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5458,6 +5548,7 @@ This subtype is caused by variation in AIRE (hgnc:360). hgnc:360 is a gene from 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5479,6 +5570,7 @@ This subtype is caused by variation in AIRE (hgnc:360). hgnc:360 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5655,6 +5747,7 @@ This subtype is caused by variation in AIRE (hgnc:360). hgnc:360 is a gene from 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5816,6 +5909,7 @@ This subtype is caused by variation in AIRE (hgnc:360). hgnc:360 is a gene from 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5850,6 +5944,7 @@ This subtype is caused by variation in AIRE (hgnc:360). hgnc:360 is a gene from 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-commensal-candida-albicans-colonization-of-barrier-surfaces" data-dismech-node="Commensal Candida albicans Colonization of Barrier Surfaces" data-dismech-type="pathophysiology">
                 <div class="item-name">Commensal Candida albicans Colonization of Barrier Surfaces</div>
+
 
                 <div class="item-desc">Candida albicans is a commensal of the oral cavity, gastrointestinal tract and genital mucosa in healthy people. CMC is therefore not an exposure problem: the organism is already present, and disease reflects failure of the host to hold a resident commensal in check at the barrier. This is why the phenotype is chronic and relapsing rather than episodic, and why eradication is rarely achievable.</div>
 
@@ -5975,6 +6070,7 @@ This pathophysiological event occurs in nail (UBERON:0001705). UBERON:0001705 is
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5997,6 +6093,7 @@ This pathophysiological event occurs in nail (UBERON:0001705). UBERON:0001705 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-stat1-hyperactivation-from-impaired-nuclear-dephosphorylation" data-dismech-node="STAT1 Hyperactivation from Impaired Nuclear Dephosphorylation" data-dismech-type="pathophysiology">
                 <div class="item-name">STAT1 Hyperactivation from Impaired Nuclear Dephosphorylation</div>
+
 
                 <div class="item-desc">The proximal molecular lesion of the commonest CMC subtype. Heterozygous STAT1 substitutions - predominantly in the coiled-coil domain - impair nuclear dephosphorylation of activated STAT1, so phosphorylated STAT1 persists and STAT1-dependent transcription is increased in response to IFN-alpha/beta, IFN-gamma and IL-27, and also in response to cytokines that normally act predominantly through STAT3, such as IL-6 and IL-21. The alleles are genuinely hypermorphic; this is a gain, not a loss, of STAT1 function, and it is the direct pharmacological target of JAK inhibition.</div>
 
@@ -6240,6 +6337,7 @@ This pathophysiological event involves increased type II interferon-mediated sig
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6261,6 +6359,7 @@ This pathophysiological event involves increased type II interferon-mediated sig
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6286,6 +6385,7 @@ This pathophysiological event involves increased type II interferon-mediated sig
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-suppression-of-th17-cell-development" data-dismech-node="Suppression of Th17 Cell Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Suppression of Th17 Cell Development</div>
+
 
                 <div class="item-desc">The cellular consequence of STAT1 hyperactivation, and the step that makes the inversion intelligible. IFN-alpha/beta, IFN-gamma and IL-27 are physiological inhibitors of IL-17-producing T-cell development and act through STAT1, so amplifying STAT1 amplifies the brake. In parallel, IL-6 and IL-21 are physiological inducers of Th17 cells that act through STAT3 but also engage STAT1, so a STAT1-biased response at those shared receptors diverts the inducing signal. A gain of function in the interferon arm therefore produces a loss of function in the Th17 arm.</div>
 
@@ -6477,6 +6577,7 @@ This pathophysiological event involves decreased T-helper 17 cell differentiatio
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6498,6 +6599,7 @@ This pathophysiological event involves decreased T-helper 17 cell differentiatio
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6525,6 +6627,7 @@ This pathophysiological event involves decreased T-helper 17 cell differentiatio
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6547,6 +6650,7 @@ This pathophysiological event involves decreased T-helper 17 cell differentiatio
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-the-th17-inducing-transcriptional-program" data-dismech-node="Loss of the Th17-Inducing Transcriptional Program" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of the Th17-Inducing Transcriptional Program</div>
+
 
                 <div class="item-desc">An alternative route to the same deficit, entered by lesions in the transcriptional machinery that builds IL-17-producing lymphocytes rather than in the signals that restrain them. Bi-allelic RORC loss of function removes RORgamma/RORgammaT, the master transcription factor for IL-17A/F-producing lymphocytes, abolishing those cells entirely. Dominant-negative STAT3 (AD-HIES) prevents naive T cells polarizing to Th17 and lowers RORgammat expression. DOCK8 deficiency reduces Th17 numbers as part of a broader combined immunodeficiency.</div>
 
@@ -6815,6 +6919,7 @@ This pathophysiological event involves decreased T-helper 17 cell differentiatio
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6836,6 +6941,7 @@ This pathophysiological event involves decreased T-helper 17 cell differentiatio
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6861,6 +6967,7 @@ This pathophysiological event involves decreased T-helper 17 cell differentiatio
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-card9-dependent-myeloid-antifungal-signalling-failure" data-dismech-node="CARD9-Dependent Myeloid Antifungal Signalling Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">CARD9-Dependent Myeloid Antifungal Signalling Failure</div>
+
 
                 <div class="item-desc">CARD9 is the cytosolic adaptor that transduces C-type lectin receptor (Dectin-1) recognition of fungal cell-wall beta-glucan in myeloid cells. Its loss has two separable consequences and this dual role is what makes CARD9 deficiency clinically distinct within CMC. First, CARD9-dependent myeloid cytokine output is required to drive Th17 differentiation, so CARD9-deficient patients have low Th17 counts and develop CMC by the shared IL-17 route. Second - and unlike every other CMC etiology - CARD9 loss also cripples myeloid antifungal effector function itself, permitting fungal invasion beyond the barrier. The two arms are modelled as separate downstream edges precisely so that invasive/CNS disease is not flattened into the mucocutaneous phenotype.</div>
 
@@ -7162,6 +7269,7 @@ This pathophysiological event involves decreased defense response to fungus (GO:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7183,6 +7291,7 @@ This pathophysiological event involves decreased defense response to fungus (GO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7208,6 +7317,7 @@ This pathophysiological event involves decreased defense response to fungus (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neutralizing-anti-il-17a-anti-il-17f-and-anti-il-22-autoantibodies" data-dismech-node="Neutralizing Anti-IL-17A, Anti-IL-17F and Anti-IL-22 Autoantibodies" data-dismech-type="pathophysiology">
                 <div class="item-name">Neutralizing Anti-IL-17A, Anti-IL-17F and Anti-IL-22 Autoantibodies</div>
+
 
                 <div class="item-desc">The acquired phenocopy. In AIRE-deficient APECED/APS-1, failure of thymic negative selection generates high-titre neutralizing autoantibodies against IL-17A, IL-17F and IL-22. Th17 cells and IL-17 receptors are structurally intact; the cytokines are simply removed from circulation before they can signal. The entry point into the shared pathway is therefore one step downstream of the genetic etiologies - at the receptor rather than at cytokine production. The autoantibodies precede CMC onset in all informative cases, establishing direction of causation, and the same autoantibodies explain CMC in rare thymoma patients. Only this arm of APS-1 is modelled here; AIRE-dependent tolerance failure and the endocrine autoimmunity are curated in the APS-1 entry.</div>
 
@@ -7360,6 +7470,7 @@ This pathophysiological event involves AIRE (hgnc:360). hgnc:360 is a gene from 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7381,6 +7492,7 @@ This pathophysiological event involves AIRE (hgnc:360). hgnc:360 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7408,6 +7520,7 @@ This pathophysiological event involves AIRE (hgnc:360). hgnc:360 is a gene from 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7430,6 +7543,7 @@ This pathophysiological event involves AIRE (hgnc:360). hgnc:360 is a gene from 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-il-17-receptor-and-act1-adaptor-deficiency" data-dismech-node="IL-17 Receptor and ACT1 Adaptor Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">IL-17 Receptor and ACT1 Adaptor Deficiency</div>
+
 
                 <div class="item-desc">The most direct lesions on the circuit, and the ones that carry the strongest inferential weight because they are the most selective. IL-17RA deficiency is complete and abolishes responses to IL-17A homodimers, IL-17F homodimers and IL-17A/F heterodimers. IL-17RC deficiency abolishes IL-17A/F responses while sparing IL-17E (IL-25), pinning the requirement on IL-17A/F specifically. ACT1/TRAF3IP2 deficiency leaves both receptor chains intact but destroys the SEFIR-mediated adaptor coupling, so the signal is received and not transduced. Each is described by its discoverers as an experiment of nature showing that the affected component is essential for mucocutaneous anti-Candida immunity and otherwise largely redundant.</div>
 
@@ -7728,6 +7842,7 @@ This pathophysiological event involves decreased interleukin-17-mediated signali
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7749,6 +7864,7 @@ This pathophysiological event involves decreased interleukin-17-mediated signali
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7774,6 +7890,7 @@ This pathophysiological event involves decreased interleukin-17-mediated signali
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-deficient-il-17a-il-17f-and-il-22-production" data-dismech-node="Deficient IL-17A, IL-17F and IL-22 Production" data-dismech-type="pathophysiology">
                 <div class="item-name">Deficient IL-17A, IL-17F and IL-22 Production</div>
+
 
                 <div class="item-desc">The first convergence point of the pathograph. Whether the upstream lesion is STAT1 hyperactivation, loss of the RORgammat/STAT3 transcriptional program, CARD9-dependent myeloid instruction, or a dominant-negative IL17F allele that makes the cytokine but renders it inert, the shared result is that too little bioactive IL-17A, IL-17F and IL-22 reaches the barrier. Circulating IL-17A-producing T cells are low in the great majority - but not all - of STAT1 GOF patients, which is why a normal Th17 count does not exclude the diagnosis.</div>
 
@@ -8042,6 +8159,7 @@ This pathophysiological event involves decreased T-helper 17 cell differentiatio
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8063,6 +8181,7 @@ This pathophysiological event involves decreased T-helper 17 cell differentiatio
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8088,6 +8207,7 @@ This pathophysiological event involves decreased T-helper 17 cell differentiatio
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-epithelial-il-17-receptor-signal-transduction" data-dismech-node="Loss of Epithelial IL-17 Receptor Signal Transduction" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Epithelial IL-17 Receptor Signal Transduction</div>
+
 
                 <div class="item-desc">The narrowest point of the pathograph and the node at which every CMC etiology, genetic or acquired, ultimately converges. IL-17A and IL-17F engage an IL-17RA/IL-17RC heterodimeric receptor on keratinocytes, mucosal epithelial cells and fibroblasts; ACT1 is recruited through homotypic SEFIR-domain interaction and activates NF-kB, MAPK and C/EBP, inducing IL-6, CXCL1 (GRO-alpha), G-CSF, beta-defensins and S100 proteins. Loss of this transduction step - by ligand deficiency, ligand neutralization, receptor-chain loss or adaptor loss - is the immediate cause of the barrier failure.</div>
 
@@ -8265,6 +8385,7 @@ This pathophysiological event involves decreased interleukin-17-mediated signali
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8286,6 +8407,7 @@ This pathophysiological event involves decreased interleukin-17-mediated signali
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8311,6 +8433,7 @@ This pathophysiological event involves decreased interleukin-17-mediated signali
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-the-epithelial-antimicrobial-and-neutrophil-recruiting-response" data-dismech-node="Failure of the Epithelial Antimicrobial and Neutrophil-Recruiting Response" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of the Epithelial Antimicrobial and Neutrophil-Recruiting Response</div>
+
 
                 <div class="item-desc">Without IL-17 signalling, barrier epithelium fails to produce the antimicrobial peptides (beta-defensins, S100 proteins) and the chemokines (CXCL1/GRO-alpha, IL-6, G-CSF) that recruit and sustain neutrophils at the mucosal surface. The functional readout used to diagnose the defect is exactly this: patient fibroblasts and keratinocytes fail to induce IL-6 and GRO-alpha in response to IL-17A or IL-17F. The tissue consequence is that Candida hyphae are not cleared from the superficial epithelium.</div>
 
@@ -8564,6 +8687,7 @@ This pathophysiological event involves decreased defense response to fungus (GO:
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8586,6 +8710,7 @@ This pathophysiological event involves decreased defense response to fungus (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-persistent-mucocutaneous-candida-albicans-infection" data-dismech-node="Persistent Mucocutaneous Candida albicans Infection" data-dismech-type="pathophysiology">
                 <div class="item-name">Persistent Mucocutaneous Candida albicans Infection</div>
+
 
                 <div class="item-desc">The defining clinical state: recurrent or persistent superficial Candida infection of the oral mucosa (the commonest and usually first site), oesophagus, nails, skin and genital mucosa, with no comparable susceptibility to other classes of pathogen. In STAT1 GOF the median age at onset is one year, and disease persists in nearly 40% of patients despite prolonged antifungal treatment - chronic suppression rather than cure is the realistic goal.</div>
 
@@ -8738,6 +8863,7 @@ This pathophysiological event occurs in nail (UBERON:0001705). UBERON:0001705 is
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8759,6 +8885,7 @@ This pathophysiological event occurs in nail (UBERON:0001705). UBERON:0001705 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8784,6 +8911,7 @@ This pathophysiological event occurs in nail (UBERON:0001705). UBERON:0001705 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-candida-associated-epithelial-injury-and-squamous-dysplasia" data-dismech-node="Chronic Candida-Associated Epithelial Injury and Squamous Dysplasia" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic Candida-Associated Epithelial Injury and Squamous Dysplasia</div>
+
 
                 <div class="item-desc">The complication that overturned the historical view of CMC as a benign nuisance disease. Decades of unresolved Candida infection of the oral and oesophageal squamous epithelium produce chronic inflammation, hyperplasia and scarring, culminating in fibrotic oesophageal stricture and in squamous cell carcinoma of the mouth and oesophagus. In STAT1 GOF, cancers occurred in 6% of a 274-patient cohort and were among the strongest predictors of poor outcome; a single reported CMC kindred lost two members to oesophageal squamous cell cancer. This is the mechanistic rationale for endoscopic surveillance in long-standing disease.</div>
 
@@ -8881,6 +9009,7 @@ This pathophysiological event occurs in mouth mucosa (UBERON:0003729). UBERON:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8902,6 +9031,7 @@ This pathophysiological event occurs in mouth mucosa (UBERON:0003729). UBERON:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8929,6 +9059,7 @@ This pathophysiological event occurs in mouth mucosa (UBERON:0003729). UBERON:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8951,6 +9082,7 @@ This pathophysiological event occurs in mouth mucosa (UBERON:0003729). UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-invasive-and-central-nervous-system-fungal-disease" data-dismech-node="Invasive and Central Nervous System Fungal Disease" data-dismech-type="pathophysiology">
                 <div class="item-name">Invasive and Central Nervous System Fungal Disease</div>
+
 
                 <div class="item-desc">Deliberately modelled as a separate outcome node so that it is never conflated with the mucocutaneous phenotype. In the classical CMC etiologies (IL17RA, IL17RC, IL17F, ACT1, and the APECED autoantibody phenocopy) fungal disease stops at the barrier. Two etiologies breach it. CARD9 deficiency does so characteristically and by a distinct mechanism - failed myeloid antifungal effector function rather than failed IL-17 signalling - producing deep dermatophytosis and invasive, sometimes fatal, central nervous system candidiasis. STAT1 gain-of-function does so at lower frequency (invasive fungal infection in 10% of a 274-patient cohort), as one component of its broader immune dysregulation. Invasive infection of any kind was among the strongest predictors of poor outcome.</div>
 
@@ -9016,6 +9148,7 @@ This pathophysiological event occurs in mouth mucosa (UBERON:0003729). UBERON:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9037,6 +9170,7 @@ This pathophysiological event occurs in mouth mucosa (UBERON:0003729). UBERON:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9062,6 +9196,7 @@ This pathophysiological event occurs in mouth mucosa (UBERON:0003729). UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-broad-stat1-driven-immune-dysregulation" data-dismech-node="Broad STAT1-Driven Immune Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Broad STAT1-Driven Immune Dysregulation</div>
+
 
                 <div class="item-desc">The non-Candida arm of STAT1 gain-of-function, kept as a separate node because it is subtype-specific and must not be attributed to CMC as a class. The same enhanced STAT1-dependent responsiveness that suppresses Th17 development also produces bacterial infection (74%, mostly Staphylococcus aureus), viral infection (38%, mostly Herpesviridae), mycobacterial disease, autoimmunity (37%, dominated by hypothyroidism at 22%), cerebral aneurysms (6%) and carcinoma (6%). Invasive infection, cerebral aneurysm and cancer were the strongest predictors of poor outcome in the largest cohort. Patients with pure CMC disease from IL-17-circuit lesions do not develop this spectrum.</div>
 
@@ -9220,6 +9355,7 @@ This pathophysiological event involves increased cell surface receptor signaling
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9241,6 +9377,7 @@ This pathophysiological event involves increased cell surface receptor signaling
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9308,21 +9445,108 @@ This pathophysiological event involves increased cell surface receptor signaling
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Endocrine<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Immune<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Endocrine<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Integument<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Head and Neck<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(12)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Immune<span class="pill-count">(11)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Integument<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
 
 
             <details class="phenotype-category-group" id="pheno-cat-1">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Cardiovascular
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dilatation-of-the-cerebral-artery" data-dismech-node="Dilatation of the cerebral artery" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Dilatation of the cerebral artery
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004944" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-59">HP:0004944</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cerebral aneurysm, annotated with Dilatation of the cerebral artery (HP:0004944). HP:0004944 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27114460" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27114460" target="_blank">PMID:27114460</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Invasive infections (25%), cerebral aneurysms (6%), and cancers (6%) were the strongest predictors of poor outcome."</div>
+
+
+                <div class="evidence-explanation">Direct quantitative support for the OCCASIONAL band (6%) and the prognostic significance.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Digestive
@@ -9343,15 +9567,18 @@ This pathophysiological event involves increased cell surface receptor signaling
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-59">HP:0002015</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-60">HP:0002015</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9371,6 +9598,7 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9411,10 +9639,10 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002043" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-60">HP:0002043</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002043" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-61">HP:0002043</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Esophageal stricture (HP:0002043), qualified as course progressive. HP:0002043 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9440,6 +9668,9 @@ This clinical feature is Esophageal stricture (HP:0002043), qualified as course 
                     </div>
 
 
+
+
+
                     <div class="item-desc">The cited abstract documents severe oesophageal candidiasis with obstructive swallowing symptoms but does not use the word &#34;stricture&#34;; the stricture attribution rests on the wider clinical literature, hence supports PARTIAL.</div>
 
 
@@ -9459,6 +9690,7 @@ This clinical feature is Esophageal stricture (HP:0002043), qualified as course 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9487,7 +9719,7 @@ This clinical feature is Esophageal stricture (HP:0002043), qualified as course 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-2">
+            <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Endocrine
@@ -9510,15 +9742,18 @@ This clinical feature is Esophageal stricture (HP:0002043), qualified as course 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000821" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-61">HP:0000821</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000821" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-62">HP:0000821</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9538,6 +9773,7 @@ This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9566,84 +9802,16 @@ This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-3">
+            <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Immune
-                    <span class="cat-count">2</span>
+                    Head and Neck
+                    <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-fungal-meningitis" data-dismech-node="Fungal meningitis" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-aphthous-stomatitis" data-dismech-node="Recurrent aphthous stomatitis" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Fungal meningitis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0032159" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-62">HP:0032159</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-62">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Central nervous system candidiasis, annotated with Fungal meningitis (HP:0032159). HP:0032159 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:19864672" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19864672" target="_blank">PMID:19864672</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"3 members died during adolescence, 2 after invasive infection of the brain with candida species"</div>
-
-
-                <div class="evidence-explanation">Documents fatal CNS candidiasis in the index CARD9-deficient kindred.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-autoimmunity" data-dismech-node="Autoimmunity" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Autoimmunity
+                        Recurrent aphthous stomatitis
 
                         <span class="phenotype-freq">FREQUENT</span>
 
@@ -9657,95 +9825,37 @@ This clinical feature is Central nervous system candidiasis, annotated with Fung
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002960" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-63">HP:0002960</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011107" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-63">HP:0011107</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-63">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Autoimmunity (HP:0002960). HP:0002960 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Recurrent aphthous stomatitis (HP:0011107), qualified as temporality recurrent. HP:0011107 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Temporal: RECURRENT</span>
+
+
+
+
+
 
                     </div>
 
 
 
 
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:27114460" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27114460" target="_blank">PMID:27114460</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Many patients had autoimmune manifestations (37%), including hypothyroidism (22%), type 1 diabetes (4%), blood cytopenia (4%), and systemic lupus erythematosus (2%)."</div>
-
-
-                <div class="evidence-explanation">Direct quantitative support for the FREQUENT band (37%).</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Integument
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-oral-and-esophageal-squamous-cell-carcinoma" data-dismech-node="Oral and esophageal squamous cell carcinoma" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Oral and esophageal squamous cell carcinoma
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002860" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-64">HP:0002860</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-64">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Squamous cell carcinoma of the oesophagus and oral cavity, annotated with Squamous cell carcinoma (HP:0002860). HP:0002860 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">No frequency band is asserted. The only quantitative figure available in the cached sources is the 6% all-cancer rate in the Toubiana STAT1 GOF cohort; oral and oesophageal squamous cell carcinoma is a subset of that 6%, and the site-specific fraction is not reported in the abstract. Rather than promote an all-cancer number to a site-specific band that could sit either side of the OCCASIONAL 5% floor, frequency is omitted per the project frequency-evidence SOP.</div>
 
 
 
@@ -9756,10 +9866,10 @@ This clinical feature is Squamous cell carcinoma of the oesophagus and oral cavi
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:27114460" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:26604104" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27114460" target="_blank">PMID:27114460</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26604104" target="_blank">PMID:26604104</a>
                     </span>
 
 
@@ -9767,23 +9877,24 @@ This clinical feature is Squamous cell carcinoma of the oesophagus and oral cavi
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"Invasive infections (25%), cerebral aneurysms (6%), and cancers (6%) were the strongest predictors of poor outcome."</div>
+                <div class="evidence-snippet">"Aphthous stomatitis 18/26 69 %"</div>
 
 
-                <div class="evidence-explanation">Establishes malignancy as one of the three strongest predictors of poor outcome in STAT1 GOF CMC. The 6% figure is for all cancers, of which oral/oesophageal SCC is a subset, so it is not used to set a site-specific frequency band.</div>
+                <div class="evidence-explanation">Cohort table row giving direct quantitative support for the FREQUENT band (69%, 18 of 26 patients).</div>
 
 
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:28815025" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:26604104" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28815025" target="_blank">PMID:28815025</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26604104" target="_blank">PMID:26604104</a>
                     </span>
 
 
@@ -9791,14 +9902,15 @@ This clinical feature is Squamous cell carcinoma of the oesophagus and oral cavi
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"This case series describes six patients in three generations of the same family, two of whom developed and died of SCC."</div>
+                <div class="evidence-snippet">"Aphthous stomatitis was frequent in CMC patients."</div>
 
 
-                <div class="evidence-explanation">Documents oral/oesophageal SCC mortality in a CMC kindred.</div>
+                <div class="evidence-explanation">Confirms aphthous stomatitis as a common feature of the CMC phenotype.</div>
 
 
 
@@ -9819,8 +9931,8 @@ This clinical feature is Squamous cell carcinoma of the oesophagus and oral cavi
             <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">12</span>
+                    Immune
+                    <span class="cat-count">11</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-chronic-mucocutaneous-candidiasis" data-dismech-node="Chronic mucocutaneous candidiasis" data-dismech-type="phenotype">
@@ -9839,10 +9951,10 @@ This clinical feature is Squamous cell carcinoma of the oesophagus and oral cavi
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002728" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-65">HP:0002728</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002728" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-64">HP:0002728</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-65">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-64">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Chronic mucocutaneous candidiasis (HP:0002728), qualified as temporality chronic. HP:0002728 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9871,6 +9983,9 @@ This clinical feature is Chronic mucocutaneous candidiasis (HP:0002728), qualifi
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9885,6 +10000,7 @@ This clinical feature is Chronic mucocutaneous candidiasis (HP:0002728), qualifi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9927,10 +10043,10 @@ This clinical feature is Chronic mucocutaneous candidiasis (HP:0002728), qualifi
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009098" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-66">HP:0009098</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0009098" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-65">HP:0009098</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-66">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-65">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Chronic oral candidiasis (HP:0009098), qualified as temporality chronic. HP:0009098 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9959,6 +10075,9 @@ This clinical feature is Chronic oral candidiasis (HP:0009098), qualified as tem
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9976,6 +10095,7 @@ This clinical feature is Chronic oral candidiasis (HP:0009098), qualified as tem
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9984,103 +10104,6 @@ This clinical feature is Chronic oral candidiasis (HP:0009098), qualified as tem
 
 
                 <div class="evidence-explanation">Cohort table row giving direct quantitative support for the FREQUENT band (73%, 19 of 26 patients).</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-esophageal-candidiasis" data-dismech-node="Esophageal candidiasis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Esophageal candidiasis
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Temporal: RECURRENT</span>
-
-
-
-
-
-
-                    </div>
-
-
-                    <div class="item-desc">Deliberately left without an HPO binding. HPO has no term for oesophageal candidiasis: the available options are HP:0009098 (Chronic oral candidiasis, wrong site), HP:0005411 (Chronic intestinal candidiasis, wrong site) and HP:0002728 (Chronic mucocutaneous candidiasis, which is the disease-level term already used for this entry). Per the project convention of preferring no binding over a misleading one, the descriptor carries a preferred_term only. This is the same family of gap as issue #7328 (no course-neutral Oral candidiasis term) and is a candidate HPO new-term request. MONDO:0001648 (esophageal candidiasis) exists, so the gap is HPO-specific.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:26604104" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26604104" target="_blank">PMID:26604104</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Esophageal candidiasis 15/23 65 %"</div>
-
-
-                <div class="evidence-explanation">Cohort table row giving direct quantitative support for the FREQUENT band (65%, 15 of 23 patients).</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:26604104" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26604104" target="_blank">PMID:26604104</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"but relapses were frequent after treatment was stopped (87 %, 13/15)."</div>
-
-
-                <div class="evidence-explanation">Documents the relapsing course of oesophageal disease once antifungal treatment is withdrawn.</div>
 
 
 
@@ -10112,10 +10135,10 @@ This clinical feature is Chronic oral candidiasis (HP:0009098), qualified as tem
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011370" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-67">HP:0011370</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011370" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-66">HP:0011370</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-67">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-66">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Recurrent cutaneous fungal infections (HP:0011370), qualified as temporality chronic. HP:0011370 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -10144,6 +10167,9 @@ This clinical feature is Recurrent cutaneous fungal infections (HP:0011370), qua
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -10158,6 +10184,7 @@ This clinical feature is Recurrent cutaneous fungal infections (HP:0011370), qua
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10182,6 +10209,7 @@ This clinical feature is Recurrent cutaneous fungal infections (HP:0011370), qua
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10224,10 +10252,10 @@ This clinical feature is Recurrent cutaneous fungal infections (HP:0011370), qua
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012203" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-68">HP:0012203</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012203" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-67">HP:0012203</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-68">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-67">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Onychomycosis (HP:0012203), qualified as temporality chronic. HP:0012203 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -10256,6 +10284,9 @@ This clinical feature is Onychomycosis (HP:0012203), qualified as temporality ch
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -10270,6 +10301,7 @@ This clinical feature is Onychomycosis (HP:0012203), qualified as temporality ch
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10297,6 +10329,7 @@ This clinical feature is Onychomycosis (HP:0012203), qualified as temporality ch
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10305,118 +10338,6 @@ This clinical feature is Onychomycosis (HP:0012203), qualified as temporality ch
 
 
                 <div class="evidence-explanation">Nail involvement is part of the defining CMC site distribution.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-aphthous-stomatitis" data-dismech-node="Recurrent aphthous stomatitis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Recurrent aphthous stomatitis
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011107" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-69">HP:0011107</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-69">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Recurrent aphthous stomatitis (HP:0011107), qualified as temporality recurrent. HP:0011107 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Temporal: RECURRENT</span>
-
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:26604104" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26604104" target="_blank">PMID:26604104</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Aphthous stomatitis 18/26 69 %"</div>
-
-
-                <div class="evidence-explanation">Cohort table row giving direct quantitative support for the FREQUENT band (69%, 18 of 26 patients).</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:26604104" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26604104" target="_blank">PMID:26604104</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Aphthous stomatitis was frequent in CMC patients."</div>
-
-
-                <div class="evidence-explanation">Confirms aphthous stomatitis as a common feature of the CMC phenotype.</div>
 
 
 
@@ -10446,10 +10367,10 @@ This clinical feature is Recurrent aphthous stomatitis (HP:0011107), qualified a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012204" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-70">HP:0012204</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012204" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-68">HP:0012204</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-70">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-68">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Recurrent vulvovaginal candidiasis (HP:0012204), qualified as temporality recurrent. HP:0012204 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -10478,6 +10399,9 @@ This clinical feature is Recurrent vulvovaginal candidiasis (HP:0012204), qualif
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10492,6 +10416,7 @@ This clinical feature is Recurrent vulvovaginal candidiasis (HP:0012204), qualif
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10534,15 +10459,18 @@ This clinical feature is Recurrent vulvovaginal candidiasis (HP:0012204), qualif
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0020101" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-71">HP:0020101</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0020101" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-69">HP:0020101</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-71">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-69">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Invasive fungal infection (HP:0020101). HP:0020101 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10565,6 +10493,7 @@ This clinical feature is Invasive fungal infection (HP:0020101). HP:0020101 is a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10573,6 +10502,78 @@ This clinical feature is Invasive fungal infection (HP:0020101). HP:0020101 is a
 
 
                 <div class="evidence-explanation">Supports the OCCASIONAL band (10%) in STAT1 gain-of-function.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-fungal-meningitis" data-dismech-node="Fungal meningitis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Fungal meningitis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0032159" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-70">HP:0032159</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-70">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Central nervous system candidiasis, annotated with Fungal meningitis (HP:0032159). HP:0032159 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19864672" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19864672" target="_blank">PMID:19864672</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"3 members died during adolescence, 2 after invasive infection of the brain with candida species"</div>
+
+
+                <div class="evidence-explanation">Documents fatal CNS candidiasis in the index CARD9-deficient kindred.</div>
 
 
 
@@ -10602,15 +10603,18 @@ This clinical feature is Invasive fungal infection (HP:0020101). HP:0020101 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0032515" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-72">HP:0032515</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0032515" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-71">HP:0032515</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-72">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-71">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Deep dermatophytosis (HP:0032515). HP:0032515 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10630,6 +10634,7 @@ This clinical feature is Deep dermatophytosis (HP:0032515). HP:0032515 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10654,6 +10659,7 @@ This clinical feature is Deep dermatophytosis (HP:0032515). HP:0032515 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10696,10 +10702,10 @@ This clinical feature is Deep dermatophytosis (HP:0032515). HP:0032515 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002718" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-73">HP:0002718</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002718" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-72">HP:0002718</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-73">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-72">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Recurrent bacterial infections (HP:0002718), qualified as temporality recurrent. HP:0002718 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -10728,6 +10734,9 @@ This clinical feature is Recurrent bacterial infections (HP:0002718), qualified 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10742,6 +10751,7 @@ This clinical feature is Recurrent bacterial infections (HP:0002718), qualified 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10784,10 +10794,10 @@ This clinical feature is Recurrent bacterial infections (HP:0002718), qualified 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004429" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-74">HP:0004429</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004429" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-73">HP:0004429</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-74">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-73">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Recurrent viral infections (HP:0004429), qualified as temporality recurrent. HP:0004429 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -10816,6 +10826,9 @@ This clinical feature is Recurrent viral infections (HP:0004429), qualified as t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10830,6 +10843,7 @@ This clinical feature is Recurrent viral infections (HP:0004429), qualified as t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10856,11 +10870,11 @@ This clinical feature is Recurrent viral infections (HP:0004429), qualified as t
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-dilatation-of-the-cerebral-artery" data-dismech-node="Dilatation of the cerebral artery" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-autoimmunity" data-dismech-node="Autoimmunity" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Dilatation of the cerebral artery
+                        Autoimmunity
 
-                        <span class="phenotype-freq">OCCASIONAL</span>
+                        <span class="phenotype-freq">FREQUENT</span>
 
 
 
@@ -10872,15 +10886,18 @@ This clinical feature is Recurrent viral infections (HP:0004429), qualified as t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004944" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-75">HP:0004944</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002960" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-74">HP:0002960</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-75">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-74">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cerebral aneurysm, annotated with Dilatation of the cerebral artery (HP:0004944). HP:0004944 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Autoimmunity (HP:0002960). HP:0002960 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10903,6 +10920,90 @@ This clinical feature is Cerebral aneurysm, annotated with Dilatation of the cer
 
 
 
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Many patients had autoimmune manifestations (37%), including hypothyroidism (22%), type 1 diabetes (4%), blood cytopenia (4%), and systemic lupus erythematosus (2%)."</div>
+
+
+                <div class="evidence-explanation">Direct quantitative support for the FREQUENT band (37%).</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-6">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Integument
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-oral-and-esophageal-squamous-cell-carcinoma" data-dismech-node="Oral and esophageal squamous cell carcinoma" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Oral and esophageal squamous cell carcinoma
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002860" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-75">HP:0002860</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-75">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Squamous cell carcinoma of the oesophagus and oral cavity, annotated with Squamous cell carcinoma (HP:0002860). HP:0002860 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">No frequency band is asserted. The only quantitative figure available in the cached sources is the 6% all-cancer rate in the Toubiana STAT1 GOF cohort; oral and oesophageal squamous cell carcinoma is a subset of that 6%, and the site-specific fraction is not reported in the abstract. Rather than promote an all-cancer number to a site-specific band that could sit either side of the OCCASIONAL 5% floor, frequency is omitted per the project frequency-evidence SOP.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27114460" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27114460" target="_blank">PMID:27114460</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10910,7 +11011,143 @@ This clinical feature is Cerebral aneurysm, annotated with Dilatation of the cer
                 <div class="evidence-snippet">"Invasive infections (25%), cerebral aneurysms (6%), and cancers (6%) were the strongest predictors of poor outcome."</div>
 
 
-                <div class="evidence-explanation">Direct quantitative support for the OCCASIONAL band (6%) and the prognostic significance.</div>
+                <div class="evidence-explanation">Establishes malignancy as one of the three strongest predictors of poor outcome in STAT1 GOF CMC. The 6% figure is for all cancers, of which oral/oesophageal SCC is a subset, so it is not used to set a site-specific frequency band.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28815025" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28815025" target="_blank">PMID:28815025</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This case series describes six patients in three generations of the same family, two of whom developed and died of SCC."</div>
+
+
+                <div class="evidence-explanation">Documents oral/oesophageal SCC mortality in a CMC kindred.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-7">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Other
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-esophageal-candidiasis" data-dismech-node="Esophageal candidiasis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Esophageal candidiasis
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Temporal: RECURRENT</span>
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Deliberately left without an HPO binding. HPO has no term for oesophageal candidiasis: the available options are HP:0009098 (Chronic oral candidiasis, wrong site), HP:0005411 (Chronic intestinal candidiasis, wrong site) and HP:0002728 (Chronic mucocutaneous candidiasis, which is the disease-level term already used for this entry). Per the project convention of preferring no binding over a misleading one, the descriptor carries a preferred_term only. This is the same family of gap as issue #7328 (no course-neutral Oral candidiasis term) and is a candidate HPO new-term request. MONDO:0001648 (esophageal candidiasis) exists, so the gap is HPO-specific.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26604104" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26604104" target="_blank">PMID:26604104</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Esophageal candidiasis 15/23 65 %"</div>
+
+
+                <div class="evidence-explanation">Cohort table row giving direct quantitative support for the FREQUENT band (65%, 15 of 23 patients).</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26604104" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26604104" target="_blank">PMID:26604104</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"but relapses were frequent after treatment was stopped (87 %, 13/15)."</div>
+
+
+                <div class="evidence-explanation">Documents the relapsing course of oesophageal disease once antifungal treatment is withdrawn.</div>
 
 
 
@@ -11000,6 +11237,9 @@ This disease-associated gene is STAT1 (hgnc:11362). hgnc:11362 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -11014,6 +11254,7 @@ This disease-associated gene is STAT1 (hgnc:11362). hgnc:11362 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11073,6 +11314,9 @@ This disease-associated gene is IL17RA (hgnc:5985). hgnc:5985 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -11087,6 +11331,7 @@ This disease-associated gene is IL17RA (hgnc:5985). hgnc:5985 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11146,6 +11391,9 @@ This disease-associated gene is IL17RC (hgnc:18358). hgnc:18358 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -11160,6 +11408,7 @@ This disease-associated gene is IL17RC (hgnc:18358). hgnc:18358 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11219,6 +11468,9 @@ This disease-associated gene is IL17F (hgnc:16404). hgnc:16404 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -11233,6 +11485,7 @@ This disease-associated gene is IL17F (hgnc:16404). hgnc:16404 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11292,6 +11545,9 @@ This disease-associated gene is TRAF3IP2 (hgnc:1343). hgnc:1343 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -11306,6 +11562,7 @@ This disease-associated gene is TRAF3IP2 (hgnc:1343). hgnc:1343 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11365,6 +11622,9 @@ This disease-associated gene is CARD9 (hgnc:16391). hgnc:16391 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -11379,6 +11639,7 @@ This disease-associated gene is CARD9 (hgnc:16391). hgnc:16391 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11438,6 +11699,9 @@ This disease-associated gene is RORC (hgnc:10260). hgnc:10260 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -11452,6 +11716,7 @@ This disease-associated gene is RORC (hgnc:10260). hgnc:10260 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11511,6 +11776,9 @@ This disease-associated gene is AIRE (hgnc:360). hgnc:360 is a gene from the HUG
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -11525,6 +11793,7 @@ This disease-associated gene is AIRE (hgnc:360). hgnc:360 is a gene from the HUG
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11584,6 +11853,9 @@ This disease-associated gene is STAT3 (hgnc:11364). hgnc:11364 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -11598,6 +11870,7 @@ This disease-associated gene is STAT3 (hgnc:11364). hgnc:11364 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11657,6 +11930,9 @@ This disease-associated gene is DOCK8 (hgnc:19191). hgnc:19191 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -11671,6 +11947,7 @@ This disease-associated gene is DOCK8 (hgnc:19191). hgnc:19191 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11730,6 +12007,9 @@ This disease-associated gene is CLEC7A (hgnc:14558). hgnc:14558 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -11744,6 +12024,7 @@ This disease-associated gene is CLEC7A (hgnc:14558). hgnc:14558 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11768,6 +12049,7 @@ This disease-associated gene is CLEC7A (hgnc:14558). hgnc:14558 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11872,6 +12154,31 @@ This treatment uses fluconazole (NCIT:C500). NCIT:C500 is a therapeutic agent fr
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Fluconazole is the mainstay for extensive oral, oesophageal, nail or recurrent disease, with topical agents for limited mucosal or cutaneous involvement. Treatment controls rather than cures: in a STAT1 GOF cohort azoles achieved complete response in 38% and partial remission in 62% of treated oral disease, 58% required continuing prophylaxis, and in the larger international cohort CMC persisted in 39% of patients on prolonged antifungal therapy. Chronic azole exposure selects resistant Candida, which is the principal long-term limitation.</div>
 
 
@@ -11914,6 +12221,7 @@ This treatment uses fluconazole (NCIT:C500). NCIT:C500 is a therapeutic agent fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11935,6 +12243,7 @@ This treatment uses fluconazole (NCIT:C500). NCIT:C500 is a therapeutic agent fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12037,6 +12346,31 @@ This treatment uses baricitinib (NCIT:C127012). NCIT:C127012 is a therapeutic ag
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">The mechanism-directed therapy for STAT1 gain-of-function CMC and the clinical vindication of the inversion model: because the IL-17 deficit is a downstream consequence of excessive JAK-STAT1 signalling, pharmacologically reducing that signal should restore Th17 immunity - and it does. Ruxolitinib suppressed IFN-induced STAT1/3/5 phosphorylation and raised Th17-related gene expression ex vivo alongside major clinical improvement. In the largest series, JAK inhibitors produced partial or complete remission in 87% of 45 STAT1 GOF patients. Important caveats: this is off-label, adverse events (infection, weight gain) occurred in 38% of patients, the effect is not sustained after withdrawal so long-term administration is required, and it does not apply to the IL-17 receptor, adaptor, ligand or autoantibody etiologies.</div>
 
 
@@ -12079,6 +12413,7 @@ This treatment uses baricitinib (NCIT:C127012). NCIT:C127012 is a therapeutic ag
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12103,6 +12438,7 @@ This treatment uses baricitinib (NCIT:C127012). NCIT:C127012 is a therapeutic ag
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12124,6 +12460,7 @@ This treatment uses baricitinib (NCIT:C127012). NCIT:C127012 is a therapeutic ag
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12187,6 +12524,31 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Cell therapy</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Potentially curative for severe, refractory STAT1 gain-of-function disease, but with substantial risk that restricts it to life-threatening immune dysregulation after multidisciplinary assessment. In an international series of 15 transplanted patients, primary engraftment was 74% but overall survival only 40%, with 50% secondary graft failure. Outcomes appear better when JAK inhibition is used as a bridge to transplant.</div>
 
 
@@ -12229,6 +12591,7 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12250,6 +12613,7 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12313,6 +12677,31 @@ This treatment is Esophageal Dilation (NCIT:C70908). NCIT:C70908 is a clinical i
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Device</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Mechanical relief of the fibrotic oesophageal narrowing that follows repeated candidal ulceration and repair, restoring swallowing in patients with obstructive dysphagia. It treats the structural consequence of the disease and does nothing to the underlying immune defect or the fungal burden, so it is palliative and often needs repeating. The surveillance endoscopy that detects early oesophageal neoplasia in the same patients is a diagnostic action and is modelled under diagnosis, not here.</div>
 
 
@@ -12352,6 +12741,7 @@ This treatment is Esophageal Dilation (NCIT:C70908). NCIT:C70908 is a clinical i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12419,6 +12809,7 @@ This treatment is Esophageal Dilation (NCIT:C70908). NCIT:C70908 is a clinical i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12468,6 +12859,7 @@ This treatment is Esophageal Dilation (NCIT:C70908). NCIT:C70908 is a clinical i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12489,6 +12881,7 @@ This treatment is Esophageal Dilation (NCIT:C70908). NCIT:C70908 is a clinical i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12538,6 +12931,7 @@ This treatment is Esophageal Dilation (NCIT:C70908). NCIT:C70908 is a clinical i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12607,6 +13001,7 @@ This treatment is Esophageal Dilation (NCIT:C70908). NCIT:C70908 is a clinical i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12665,6 +13060,7 @@ This treatment is Esophageal Dilation (NCIT:C70908). NCIT:C70908 is a clinical i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12720,6 +13116,7 @@ This treatment is Esophageal Dilation (NCIT:C70908). NCIT:C70908 is a clinical i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12790,6 +13187,7 @@ This treatment is Esophageal Dilation (NCIT:C70908). NCIT:C70908 is a clinical i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12811,6 +13209,7 @@ This treatment is Esophageal Dilation (NCIT:C70908). NCIT:C70908 is a clinical i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12884,6 +13283,7 @@ This treatment is Esophageal Dilation (NCIT:C70908). NCIT:C70908 is a clinical i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12981,6 +13381,7 @@ This treatment is Esophageal Dilation (NCIT:C70908). NCIT:C70908 is a clinical i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13083,6 +13484,7 @@ This treatment is Esophageal Dilation (NCIT:C70908). NCIT:C70908 is a clinical i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13156,6 +13558,7 @@ This treatment is Esophageal Dilation (NCIT:C70908). NCIT:C70908 is a clinical i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13233,6 +13636,7 @@ This treatment is Esophageal Dilation (NCIT:C70908). NCIT:C70908 is a clinical i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13314,6 +13718,7 @@ This treatment is Esophageal Dilation (NCIT:C70908). NCIT:C70908 is a clinical i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13335,6 +13740,7 @@ This treatment is Esophageal Dilation (NCIT:C70908). NCIT:C70908 is a clinical i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13418,6 +13824,7 @@ This treatment is Esophageal Dilation (NCIT:C70908). NCIT:C70908 is a clinical i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13492,6 +13899,7 @@ This treatment is Esophageal Dilation (NCIT:C70908). NCIT:C70908 is a clinical i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13574,6 +13982,7 @@ This treatment is Esophageal Dilation (NCIT:C70908). NCIT:C70908 is a clinical i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13647,6 +14056,7 @@ This treatment is Esophageal Dilation (NCIT:C70908). NCIT:C70908 is a clinical i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13727,6 +14137,7 @@ This treatment is Esophageal Dilation (NCIT:C70908). NCIT:C70908 is a clinical i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13748,6 +14159,7 @@ This treatment is Esophageal Dilation (NCIT:C70908). NCIT:C70908 is a clinical i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13818,6 +14230,7 @@ This treatment is Esophageal Dilation (NCIT:C70908). NCIT:C70908 is a clinical i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13911,6 +14324,7 @@ This clinical trial targets Chronic mucocutaneous candidiasis (HP:0002728). HP:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13981,6 +14395,7 @@ This clinical trial targets Chronic mucocutaneous candidiasis (HP:0002728). HP:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -17007,6 +17422,19 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Chronic Mucocutaneous Candidiasis (MONDO:0015279)</strong> · 2026-08-01T09:09:44Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Chronic_Mucocutaneous_Candidiasis/2026-08-01T090944Z-claude-code-b7e055.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of chronic mucocutaneous candidiasis (CMC). Deep research via Edison/Falcon (research/Chronic_Mucocutaneous_Candidiasis-deep-research-falcon.md, 27 citations resolving to ~7 unique sources, STAT1-GOF-heavy); Falcon output used only as leads and its HPO ID suggestions were largely wrong (HP:0002923 offered as Autoimmune thyroiditis is actually Rheumatoid factor positive; HP:0001597 offered for two different phenotypes; HP:0004944 mislabelled Cerebral aneurysm). The evidence base was therefore rebuilt from PubMed E-utilities against the landmark IL-17-axis literature (Puel 2011 Science PMID:21350122; Liu 2011 JEM PMID:21727188; van de Veerdonk 2011 NEJM PMID:21714643; Toubiana 2016 Blood PMID:27114460; Glocker 2009 NEJM PMID:19864672; Puel 2010 and Kisand 2010 JEM PMID:20123958/20123959; Boisson 2013 Immunity PMID:24120361; Ling 2015 JEM PMID:25918342; Okada 2015 Science PMID:26160376; Milner 2008 Nature PMID:18337720; Depner 2016 PMID:26604104; Koo 2017 PMID:28815025; Leiding 2018 HSCT PMID:28601685; Deya-Martinez 2024 JAKi PMID:37935260). Modelled the IL-17-axis convergence as an explicit CANONICAL mechanistic hypothesis (il17_axis_convergence) carried on causal edges, and the STAT1 gain-of-function to Th17-loss inversion as a second hypothesis (stat1_gof_inversion) with JAK inhibition as its therapeutic corollary. CARD9 invasive/CNS fungal disease kept as a separate pathophysiology node and outcome so it is not flattened into the mucocutaneous phenotype; APECED anti-IL-17 autoantibody route modelled as an acquired phenocopy entering the shared pathway at the receptor, cross-referencing kb/disorders/Autoimmune_Polyendocrine_Syndrome_Type_1.yaml rather than duplicating it. Validated: just validate (schema + terms + references) passed, 109/109 snippets verified; just validate-terms passed; just validate-references passed; just compliance 85.7 percent global / 85.8 percent weighted; just compliance-connectivity reports no gaps (100 percent phenotype causal connectivity, 100 percent gene-to-mechanism wiring). Note: the entry was rewritten from context after an API crash destroyed the first full write; the Falcon deep-research artefacts survived and were not regenerated.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

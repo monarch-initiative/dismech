@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -467,6 +468,18 @@
         .tag-component {
             background: #f0fdf4;
             color: #166534;
+        }
+
+        /* Same values as disorder.html.j2 so a treatment chip looks identical
+           whether it is read on a disorder page or on a module page. */
+        .tag-treatment {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .tag-gene {
+            background: #dbeafe;
+            color: #1e40af;
         }
 
         .tag-role {
@@ -1044,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1059,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1113,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1126,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1284,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1294,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1335,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1537,6 +1586,9 @@
 
     
 
+    
+
+    
     
 
     
@@ -1901,11 +1953,13 @@ This mechanism module involves abnormal blood vessel remodeling (GO:0001974). GO
             
             <div class="item-box anchor-target" id="module-pathophysiology-chronic-hyperglycemia" data-dismech-node="Chronic Hyperglycemia" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic Hyperglycemia</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The shared, disorder-agnostic trigger. Sustained elevation of blood glucose — however it arises (absolute insulin deficiency, insulin resistance with beta-cell secretory failure, undernutrition-associated beta-cell impairment, or a monogenic beta-cell defect) — establishes the biochemical driver of long-term diabetic tissue injury. Because glucose enters insulin-independent vascular cells (endothelium, mesangium, Schwann cells, retinal pericytes) without downregulation, these cells experience the full intracellular glucose load and become the site of complication-initiating stress.</div>
                 
@@ -2002,11 +2056,13 @@ This pathophysiological event involves abnormal glucose homeostasis (GO:0042593)
             
             <div class="item-box anchor-target" id="module-pathophysiology-hyperglycemia-induced-oxidative-stress-and-age-rage-activation" data-dismech-node="Hyperglycemia-Induced Oxidative Stress and AGE-RAGE Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Hyperglycemia-Induced Oxidative Stress and AGE-RAGE Activation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The amplifying step. Hyperglycemia raises mitochondrial superoxide production, which activates the five interlocking pathways of diabetic complications: the polyol pathway, advanced glycation end-product (AGE) formation, increased AGE-receptor (RAGE) expression and ligand signaling, protein kinase C (PKC) isoform activation, and hexosamine-pathway overload. AGE-RAGE engagement propagates a self-amplifying pro-inflammatory, pro-oxidant signal. This oxidative and glycative stress is the biochemical amplifier that converts elevated glucose into vascular-wall injury.</div>
                 
@@ -2098,11 +2154,13 @@ This pathophysiological event involves increased AGE-RAGE inflammatory signaling
             
             <div class="item-box anchor-target" id="module-pathophysiology-endothelial-dysfunction-and-vascular-inflammation" data-dismech-node="Endothelial Dysfunction and Vascular Inflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Endothelial Dysfunction and Vascular Inflammation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The rate-limiting central effector and key conformance target. Oxidative and AGE-RAGE stress disrupt the endothelium&#39;s balanced release of vasodilator (e.g., nitric oxide) and vasoconstrictor mediators, altering the physicochemical properties of the vascular wall. The endothelium shifts to a vasoconstricted, prothrombotic, pro-inflammatory phenotype with platelet hyperreactivity and leukocyte recruitment. This endothelial dysfunction with vascular inflammation is the pivotal, disorder-agnostic convergence point: every cause of chronic hyperglycemia funnels through it to reach both micro- and macrovascular injury. This is the key conformance target of the module.</div>
                 
@@ -2224,11 +2282,13 @@ This pathophysiological event involves increased vascular inflammatory response,
             
             <div class="item-box anchor-target" id="module-pathophysiology-diabetic-microvascular-and-macrovascular-injury" data-dismech-node="Diabetic Microvascular and Macrovascular Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Diabetic Microvascular and Macrovascular Injury</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The effector step where endothelial dysfunction becomes structural vascular disease. In the microvasculature, injury of the small vessels of the kidney (glomerular and peritubular capillaries), retina, and peripheral nerve produces the classic diabetic microvascular triad. In the macrovasculature, endothelial dysfunction and inflammation accelerate atherosclerotic plaque formation in the coronary, cerebral, and peripheral arteries. A disease entry may elaborate this collapsed node into organ-specific sub-cascades (e.g., renal hemodynamic dysregulation -&gt; glomerular injury -&gt; tubular injury -&gt; renal fibrosis) beneath this shared effector.</div>
                 
@@ -2292,11 +2352,13 @@ This pathophysiological event involves abnormal blood vessel remodeling (GO:0001
             
             <div class="item-box anchor-target" id="module-pathophysiology-diabetic-end-organ-complications" data-dismech-node="Diabetic End-Organ Complications" data-dismech-type="pathophysiology">
                 <div class="item-name">Diabetic End-Organ Complications</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The clinical end state of the module. Chronic micro- and macrovascular injury manifests as diabetic kidney disease (albuminuria progressing to chronic kidney disease and end-stage renal failure), diabetic retinopathy (a leading cause of acquired blindness), diabetic neuropathy (peripheral and autonomic), and atherosclerotic cardiovascular disease (coronary artery disease, stroke, and peripheral artery disease). These complications are the principal source of diabetes-related morbidity and premature mortality and are the shared consequence of the conserved chronic-hyperglycemia -&gt; oxidative/AGE-RAGE stress -&gt; endothelial dysfunction -&gt; vascular injury chain.</div>
                 
@@ -2323,6 +2385,161 @@ This pathophysiological event involves abnormal blood vessel remodeling (GO:0001
                 </div>
                 
 
+                
+            </div>
+            
+        </div>
+        
+
+        
+        
+        <div class="card" id="treatments">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
+                <h2 class="card-title">Treatments</h2>
+                <span class="card-count">1</span>
+            </div>
+            
+            <div class="item-box" data-dismech-node="SGLT2 Inhibitor Cardiorenal Protection" data-dismech-type="treatment">
+                <div class="item-name">SGLT2 Inhibitor Cardiorenal Protection</div>
+                
+                <div class="item-meta">
+                    
+                    
+                    
+                    
+                    <span class="tag tag-treatment">
+                        Pharmacotherapy
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-13">NCIT:C15986</a>
+    
+    
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    
+                    
+                    
+                    <span class="tag tag-treatment">
+                        empagliflozin
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/CHEBI_82720" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-14">CHEBI:82720</a>
+    
+    
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses empagliflozin (CHEBI:82720). CHEBI:82720 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+                    
+                    
+                    
+                    
+                    <span class="tag tag-treatment">
+                        dapagliflozin
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/CHEBI_85078" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-15">CHEBI:85078</a>
+    
+    
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses dapagliflozin (CHEBI:85078). CHEBI:85078 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+                    
+                    
+                    
+                    
+                    <span class="tag tag-treatment">
+                        canagliflozin
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/CHEBI_73274" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-16">CHEBI:73274</a>
+    
+    
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses canagliflozin (CHEBI:73274). CHEBI:73274 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+                    
+                </div>
+                
+                
+    
+    
+    
+    
+    
+    
+    
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+        
+        <span class="tag tag-treatment">Small molecule</span>
+        
+        
+        
+        
+        
+    </div>
+    
+    
+    
+    
+    
+    
+    
+                
+                <div class="item-desc">Sodium-glucose cotransporter-2 (SGLT2) inhibitors (empagliflozin, dapagliflozin, canagliflozin) lower plasma glucose by increasing urinary glucose excretion, acting on the upstream Chronic Hyperglycemia trigger of this module. In large cardiovascular and renal outcome trials they reduce diabetic cardiovascular and kidney complications, illustrating the module&#39;s drug-target design pattern: acting on the upstream hyperglycemic driver (and, for this class, additional glucose-independent renal-hemodynamic effects) reduces the entire downstream vascular-complication cascade rather than treating an established end-organ phenotype.</div>
+                
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism target:</strong>
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">INHIBITS</span>
+                        
+                        
+                        <a href="#module-pathophysiology-chronic-hyperglycemia"><strong>Chronic Hyperglycemia</strong></a>
+                        
+                        <span> — Lowering chronic hyperglycemia (with additional glucose-independent renal-hemodynamic effects) attenuates the downstream oxidative/AGE-RAGE stress and vascular injury cascade, reducing cardiovascular and renal complications.</span>
+                        
+                    </div>
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <span class="tag" style="background:#ecfeff;color:#155e75;">Evidence: 1</span>
+                </div>
+                
                 
             </div>
             

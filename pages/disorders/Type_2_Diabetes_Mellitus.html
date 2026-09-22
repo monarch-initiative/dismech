@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,18 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4197,6 +4274,7 @@
 
 
 
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -4218,6 +4296,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5480,6 +5559,7 @@ This readout is measured by spatial transcriptomic profiling.</span>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5501,6 +5581,7 @@ This readout is measured by spatial transcriptomic profiling.</span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6055,6 +6136,7 @@ This readout reports on Insulin Receptor Signaling, annotated with insulin recep
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6079,6 +6161,7 @@ This readout reports on Insulin Receptor Signaling, annotated with insulin recep
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6100,6 +6183,7 @@ This readout reports on Insulin Receptor Signaling, annotated with insulin recep
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6139,6 +6223,7 @@ This readout reports on Insulin Receptor Signaling, annotated with insulin recep
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-white-adipose-tissue-inflammation" data-dismech-node="White Adipose Tissue Inflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">White Adipose Tissue Inflammation</div>
+
 
                 <div class="item-desc">With expanding adiposity, bone-marrow-derived macrophages accumulate in white adipose tissue, shift toward classical (M1) proinflammatory activation, and surround damaged adipocytes as crown-like structures. The resulting local and systemic tumor necrosis factor alpha, together with other proinflammatory cytokines, impairs adipocyte insulin signalling and releases lipolysis from insulin restraint, so non-esterified fatty acids and cytokines are exported to liver and muscle. This node is the adipose-tissue origin of the insulin resistance the entry otherwise begins with: the Insulin Resistance node names adipose as a resistant tissue but does not say what makes it resistant. The causal direction is anchored by an intervention rather than an association: neutralizing tumor necrosis factor alpha in obese rats restores insulin-stimulated peripheral glucose uptake.
 </div>
@@ -6462,6 +6547,7 @@ This pathophysiological event occurs in White Adipose Tissue (UBERON:0001347). U
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6483,6 +6569,7 @@ This pathophysiological event occurs in White Adipose Tissue (UBERON:0001347). U
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6510,6 +6597,7 @@ This pathophysiological event occurs in White Adipose Tissue (UBERON:0001347). U
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6534,6 +6622,7 @@ This pathophysiological event occurs in White Adipose Tissue (UBERON:0001347). U
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-glut4-mediated-glucose-uptake" data-dismech-node="Impaired GLUT4-Mediated Glucose Uptake" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired GLUT4-Mediated Glucose Uptake</div>
+
 
                 <div class="item-desc">Dysregulation of GLUT4 trafficking in adipocytes and skeletal muscle reduces insulin-stimulated glucose uptake. GULP1 facilitates GLUT4 translocation to the plasma membrane by counteracting ACAP1 inhibition of ARF6 activity. Reduced GULP1 activity therefore decreases peripheral glucose disposal and contributes to systemic insulin resistance.
 </div>
@@ -6837,6 +6926,7 @@ This pathophysiological event involves Protein Transport (GO:0015031). GO:001503
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6858,6 +6948,7 @@ This pathophysiological event involves Protein Transport (GO:0015031). GO:001503
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6883,6 +6974,7 @@ This pathophysiological event involves Protein Transport (GO:0015031). GO:001503
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-insulin-stimulated-adipocyte-fatty-acid-uptake-via-fatp1" data-dismech-node="Insulin-Stimulated Adipocyte Fatty Acid Uptake via FATP1" data-dismech-type="pathophysiology">
                 <div class="item-name">Insulin-Stimulated Adipocyte Fatty Acid Uptake via FATP1</div>
+
 
                 <div class="item-desc">Insulin acts on the adipocyte through two transporter arms, not one. Alongside GLUT4, insulin drives translocation of fatty acid transport proteins — FATP1 (SLC27A1) and FATP4 (SLC27A4) — from an intracellular perinuclear compartment to the plasma membrane within minutes, and long-chain fatty acid uptake rises in parallel. In FATP1-null adipocytes the insulin-stimulated component of fatty acid uptake is entirely absent while basal uptake is unaffected, so FATP1 specifically carries the hormone-responsive arm. Tumor necrosis factor alpha from inflamed adipose tissue suppresses this arm and lowers FATP1 and FATP4 protein. This node is deliberately terminal. Whether losing the arm drives systemic insulin resistance is genuinely unsettled — FATP1-null mice, which lack it from birth, are completely protected from diet-induced insulin desensitization — so no edge is drawn into Insulin Resistance and the tension is carried by the kgap_t2d_fatp1_insulin_stimulated_fatty_acid_uptake discussion instead. The node is curated because it is a real, measurable arm of adipocyte insulin action that the entry otherwise omits, and because it is one of the three functional assays the human adipose microphysiological systems use to score insulin sensitivity.
 </div>
@@ -7228,6 +7320,7 @@ This pathophysiological event occurs in White Adipose Tissue (UBERON:0001347). U
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7249,6 +7342,7 @@ This pathophysiological event occurs in White Adipose Tissue (UBERON:0001347). U
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7274,6 +7368,7 @@ This pathophysiological event occurs in White Adipose Tissue (UBERON:0001347). U
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-insulin-resistance" data-dismech-node="Insulin Resistance" data-dismech-type="pathophysiology">
                 <div class="item-name">Insulin Resistance</div>
+
 
                 <div class="item-desc">Peripheral tissues (muscle, liver, adipose) become resistant to insulin action, requiring higher insulin levels to maintain glucose homeostasis. This leads to compensatory hyperinsulinemia and eventually beta cell exhaustion.
 </div>
@@ -7554,6 +7649,7 @@ This pathophysiological event involves Insulin Signaling, annotated with insulin
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Insulin resistance is caused by the decreased ability of peripheral target tissues (especially muscle) to respond properly to normal circulating concentrations of insulin."</div>
@@ -7573,6 +7669,7 @@ This pathophysiological event involves Insulin Signaling, annotated with insulin
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7598,6 +7695,7 @@ This pathophysiological event involves Insulin Signaling, annotated with insulin
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Insulin resistance impairs glucose disposal, resulting in a compensatory increase in beta-cell insulin production and hyperinsulinemia."</div>
@@ -7620,6 +7718,7 @@ This pathophysiological event involves Insulin Signaling, annotated with insulin
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-beta-cell-dysfunction" data-dismech-node="Beta Cell Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Beta Cell Dysfunction</div>
+
 
                 <div class="item-desc">Progressive loss of pancreatic beta cell function and mass leads to inadequate insulin secretion relative to insulin demand. Beta cell failure is the key determinant of disease progression.
 </div>
@@ -7844,6 +7943,7 @@ This pathophysiological event involves Insulin Secretion (GO:0030073). GO:003007
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Insulin resistance and pancreatic β-cell dysfunction are major pathological mechanisms implicated in the development and progression of type 2 diabetes (T2D)."</div>
@@ -7863,6 +7963,7 @@ This pathophysiological event involves Insulin Secretion (GO:0030073). GO:003007
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7888,6 +7989,7 @@ This pathophysiological event involves Insulin Secretion (GO:0030073). GO:003007
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Similarly, important markers of oxidative stress, such as increased reactive oxygen species and depleted intracellular antioxidants, are consistent with pancreatic β-cell damage in conditions of T2D."</div>
@@ -7910,6 +8012,7 @@ This pathophysiological event involves Insulin Secretion (GO:0030073). GO:003007
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatic-glucose-overproduction" data-dismech-node="Hepatic Glucose Overproduction" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatic Glucose Overproduction</div>
+
 
                 <div class="item-desc">Impaired suppression of hepatic gluconeogenesis leads to elevated fasting glucose levels. The liver fails to respond appropriately to insulin signals.
 </div>
@@ -8069,6 +8172,7 @@ This pathophysiological event involves Gluconeogenesis (GO:0006094). GO:0006094 
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Diabetes is characterized by impaired glucose homeostasis partly due to abnormally elevated hepatic glucose production (HGP)."</div>
@@ -8088,6 +8192,7 @@ This pathophysiological event involves Gluconeogenesis (GO:0006094). GO:0006094 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8113,6 +8218,7 @@ This pathophysiological event involves Gluconeogenesis (GO:0006094). GO:0006094 
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"FBP1 catalyzes the irreversible hydrolysis of fructose-1,6-bisphosphate (F-1,6-P2) to fructose-6-phosphate (F6P) and inorganic phosphate (Pi) in the presence of divalent cations. FBP1 is a key rate-controlling enzyme in the gluconeogenic pathway."</div>
@@ -8133,6 +8239,7 @@ This pathophysiological event involves Gluconeogenesis (GO:0006094). GO:0006094 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitochondrial-dysfunction-and-oxidative-stress" data-dismech-node="Mitochondrial Dysfunction and Oxidative Stress" data-dismech-type="pathophysiology">
                 <div class="item-name">Mitochondrial Dysfunction and Oxidative Stress</div>
+
 
                 <div class="item-desc">Early-onset mitochondrial dysfunction and pathological reactive oxygen species (ROS) generation occur across multiple metabolic tissues including pancreatic beta cells, skeletal muscle, and adipose tissue. Impaired mitophagy and mitochondrial dynamics contribute to disease progression. Extracellular vesicle-mediated inter-organ miscommunication propagates oxidative damage.
 </div>
@@ -8300,6 +8407,7 @@ This pathophysiological event involves Mitophagy, annotated with autophagy of mi
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"New evidence suggests that T2D-lean individuals experience early β-cell dysfunction without significant IR. Regardless of the primary event (i.e., IR vs. β-cell dysfunction) that contributes to dysglycemia, significant early-onset oxidative damage and mitochondrial dysfunction in multiple..."</div>
@@ -8319,6 +8427,7 @@ This pathophysiological event involves Mitophagy, annotated with autophagy of mi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8344,6 +8453,7 @@ This pathophysiological event involves Mitophagy, annotated with autophagy of mi
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Similarly, important markers of oxidative stress, such as increased reactive oxygen species and depleted intracellular antioxidants, are consistent with pancreatic β-cell damage in conditions of T2D."</div>
@@ -8364,6 +8474,7 @@ This pathophysiological event involves Mitophagy, annotated with autophagy of mi
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-incretin-axis-dysfunction" data-dismech-node="Incretin Axis Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Incretin Axis Dysfunction</div>
+
 
                 <div class="item-desc">Impaired incretin hormone signaling, particularly blunted glucose-dependent insulinotropic peptide (GIP) action in beta cells. GLP-1 action is relatively preserved. The incretin effect amplifies insulin secretion in response to oral glucose via cAMP-PKA signaling pathways.
 </div>
@@ -8589,6 +8700,7 @@ This pathophysiological event involves Insulin Secretion Regulation, annotated w
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Dual glucagon like peptide 1 (GLP1) and glucose-dependent insulinotropic peptide (GIP) receptor agonists are among the new pharmacological strategies recently developed to address this challenge."</div>
@@ -8608,6 +8720,7 @@ This pathophysiological event involves Insulin Secretion Regulation, annotated w
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8633,6 +8746,7 @@ This pathophysiological event involves Insulin Secretion Regulation, annotated w
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8655,6 +8769,7 @@ This pathophysiological event involves Insulin Secretion Regulation, annotated w
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-hyperglycemia" data-dismech-node="Chronic Hyperglycemia" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic Hyperglycemia</div>
+
 
                 <div class="item-desc">Sustained hyperglycemia arising from the combined insulin resistance, beta-cell secretory failure, and hepatic glucose overproduction is the shared driver of long-term diabetic tissue injury and the entry point to the conserved diabetic vascular-complication cascade captured by the diabetic_vascular_complications module (chronic hyperglycemia -&gt; oxidative and AGE-RAGE stress -&gt; endothelial dysfunction and vascular inflammation -&gt; micro- and macrovascular injury -&gt; end-organ complications). In type 2 diabetes this cascade manifests clinically as diabetic retinopathy, neuropathy, nephropathy, and atherosclerotic cardiovascular disease.</div>
 
@@ -8751,6 +8866,7 @@ This pathophysiological event involves abnormal glucose homeostasis (GO:0042593)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8870,6 +8986,9 @@ This clinical feature is Hyperinsulinemia (HP:0000842). HP:0000842 is a phenotyp
                     </div>
 
 
+
+
+
                     <div class="item-desc">Compensatory response to insulin resistance</div>
 
 
@@ -8889,6 +9008,7 @@ This clinical feature is Hyperinsulinemia (HP:0000842). HP:0000842 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8949,6 +9069,9 @@ This clinical feature is Retinopathy (HP:0000488). HP:0000488 is a phenotype fro
                     </div>
 
 
+
+
+
                     <div class="item-desc">Long-term microvascular complication</div>
 
 
@@ -8999,6 +9122,9 @@ This clinical feature is Polyuria (HP:0000103). HP:0000103 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9013,6 +9139,7 @@ This clinical feature is Polyuria (HP:0000103). HP:0000103 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9076,6 +9203,9 @@ This clinical feature is Hyperglycemia (HP:0003074). HP:0003074 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9090,6 +9220,7 @@ This clinical feature is Hyperglycemia (HP:0003074). HP:0003074 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9112,6 +9243,7 @@ This clinical feature is Hyperglycemia (HP:0003074). HP:0003074 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9166,6 +9298,9 @@ This clinical feature is Insulin Resistance (HP:0000855). HP:0000855 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9180,6 +9315,7 @@ This clinical feature is Insulin Resistance (HP:0000855). HP:0000855 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9240,6 +9376,9 @@ This clinical feature is Impaired Glucose Tolerance, annotated with Glucose into
 
 
 
+
+
+
                 </div>
 
             </details>
@@ -9281,6 +9420,9 @@ This clinical feature is Polydipsia (HP:0001959). HP:0001959 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9295,6 +9437,7 @@ This clinical feature is Polydipsia (HP:0001959). HP:0001959 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9344,6 +9487,9 @@ This clinical feature is Peripheral Neuropathy (HP:0009830). HP:0009830 is a phe
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Long-term microvascular complication</div>
@@ -9400,6 +9546,9 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
 
+
+
+
                 </div>
 
             </details>
@@ -9436,6 +9585,9 @@ This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9521,6 +9673,9 @@ This disease-associated gene is TCF7L2 (hgnc:11641). hgnc:11641 is a gene from t
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-pparg" data-dismech-node="PPARG" data-dismech-type="genetic">
@@ -9552,6 +9707,9 @@ This disease-associated gene is PPARG (hgnc:9236). hgnc:9236 is a gene from the 
 
 
                 </div>
+
+
+
 
 
 
@@ -9595,6 +9753,9 @@ This disease-associated gene is KCNJ11 (hgnc:6257). hgnc:6257 is a gene from the
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-slc30a8" data-dismech-node="SLC30A8" data-dismech-type="genetic">
@@ -9626,6 +9787,9 @@ This disease-associated gene is SLC30A8 (hgnc:20303). hgnc:20303 is a gene from 
 
 
                 </div>
+
+
+
 
 
 
@@ -9715,6 +9879,20 @@ This treatment uses metformin (CHEBI:6801). CHEBI:6801 is a therapeutic agent fr
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">First-line oral medication that reduces hepatic glucose production and improves insulin sensitivity.</div>
 
 
@@ -9748,6 +9926,7 @@ This treatment uses metformin (CHEBI:6801). CHEBI:6801 is a therapeutic agent fr
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -9814,6 +9993,20 @@ This treatment is Lifestyle Therapy (NCIT:C15900). NCIT:C15900 is a clinical int
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -9888,6 +10081,20 @@ This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical inte
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Injectable medications that enhance insulin secretion and promote weight loss.</div>
 
 
@@ -9936,6 +10143,7 @@ This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical inte
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -9960,6 +10168,7 @@ This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical inte
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -10002,6 +10211,7 @@ This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10058,6 +10268,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -10132,6 +10356,20 @@ This treatment is insulin therapy, annotated with Injected Insulin Diabetes Ther
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Required when beta cell function declines significantly.</div>
 
 
@@ -10201,6 +10439,20 @@ This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical inte
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Tirzepatide and similar agents that activate both GLP-1 and GIP receptors for enhanced glycemic control and weight loss.</div>
 
 
@@ -10240,6 +10492,7 @@ This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10326,6 +10579,7 @@ This environmental factor is sedentary lifestyle, annotated with exposure to sed
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10400,6 +10654,7 @@ This environmental factor is increased high-calorie dietary pattern, annotated w
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10448,6 +10703,7 @@ This environmental factor is increased high-calorie dietary pattern, annotated w
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10537,6 +10793,7 @@ This environmental factor is increased high-calorie dietary pattern, annotated w
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10579,6 +10836,7 @@ This environmental factor is increased high-calorie dietary pattern, annotated w
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10600,6 +10858,7 @@ This environmental factor is increased high-calorie dietary pattern, annotated w
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10684,6 +10943,7 @@ This environmental factor is increased high-calorie dietary pattern, annotated w
 
 
 
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -10709,6 +10969,7 @@ This environmental factor is increased high-calorie dietary pattern, annotated w
 
 
 
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -10731,6 +10992,7 @@ This environmental factor is increased high-calorie dietary pattern, annotated w
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11321,6 +11583,7 @@ This readout reports on Insulin Receptor Signaling, annotated with insulin recep
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -11360,6 +11623,7 @@ This readout reports on Insulin Receptor Signaling, annotated with insulin recep
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11482,6 +11746,7 @@ This readout reports on Insulin-Stimulated Long-Chain Fatty Acid Import, annotat
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -11521,6 +11786,7 @@ This readout reports on Insulin-Stimulated Long-Chain Fatty Acid Import, annotat
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11758,6 +12024,7 @@ This experimental model uses white adipose tissue (UBERON:0001347). UBERON:00013
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -11860,6 +12127,7 @@ This readout reports on Dysregulated Adipocyte Lipolysis, annotated with triglyc
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -11899,6 +12167,7 @@ This readout reports on Dysregulated Adipocyte Lipolysis, annotated with triglyc
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12195,6 +12464,7 @@ This readout reports on Insulin Receptor Signaling, annotated with insulin recep
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -12234,6 +12504,7 @@ This readout reports on Insulin Receptor Signaling, annotated with insulin recep
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12356,6 +12627,7 @@ This readout reports on Tumor Necrosis Factor Production (GO:0032640). GO:003264
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -12395,6 +12667,7 @@ This readout reports on Tumor Necrosis Factor Production (GO:0032640). GO:003264
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12517,6 +12790,7 @@ This readout reports on Insulin Receptor Signaling, annotated with insulin recep
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -12556,6 +12830,7 @@ This readout reports on Insulin Receptor Signaling, annotated with insulin recep
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12809,6 +13084,7 @@ This readout reports on Insulin-Stimulated Long-Chain Fatty Acid Import, annotat
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -12868,6 +13144,7 @@ This readout reports on Insulin-Stimulated Long-Chain Fatty Acid Import, annotat
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -12907,6 +13184,7 @@ This readout reports on Insulin-Stimulated Long-Chain Fatty Acid Import, annotat
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14010,6 +14288,7 @@ This readout reports on Insulin-Stimulated Long-Chain Fatty Acid Import, annotat
 
 
 
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -14051,6 +14330,7 @@ This readout reports on Insulin-Stimulated Long-Chain Fatty Acid Import, annotat
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14096,6 +14376,7 @@ This readout reports on Insulin-Stimulated Long-Chain Fatty Acid Import, annotat
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -17155,6 +17436,8 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,18 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4198,6 +4275,7 @@ Clinically the defining fact is prognosis. BSS carries a substantially higher ra
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4222,6 +4300,7 @@ Clinically the defining fact is prognosis. BSS carries a substantially higher ra
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4243,6 +4322,7 @@ Clinically the defining fact is prognosis. BSS carries a substantially higher ra
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4435,6 +4515,7 @@ Clinically the defining fact is prognosis. BSS carries a substantially higher ra
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4459,6 +4540,7 @@ Clinically the defining fact is prognosis. BSS carries a substantially higher ra
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4480,6 +4562,7 @@ Clinically the defining fact is prognosis. BSS carries a substantially higher ra
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4644,6 +4727,7 @@ Clinically the defining fact is prognosis. BSS carries a substantially higher ra
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4665,6 +4749,7 @@ Clinically the defining fact is prognosis. BSS carries a substantially higher ra
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4789,6 +4874,7 @@ Clinically the defining fact is prognosis. BSS carries a substantially higher ra
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4813,6 +4899,7 @@ Clinically the defining fact is prognosis. BSS carries a substantially higher ra
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4834,6 +4921,7 @@ Clinically the defining fact is prognosis. BSS carries a substantially higher ra
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4871,6 +4959,7 @@ Clinically the defining fact is prognosis. BSS carries a substantially higher ra
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fgfr2-cysteine-creating-activating-variant" data-dismech-node="FGFR2 Cysteine-Creating Activating Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">FGFR2 Cysteine-Creating Activating Variant</div>
+
 
                 <div class="item-desc">A de novo heterozygous missense variant in FGFR2 that substitutes a cysteine for the wild-type residue. Two recurrent alleles account for nearly all molecularly confirmed cases: p.Tyr375Cys in the transmembrane domain and p.Ser372Cys at the carboxyl-terminal end of the linker between the third immunoglobulin-like (Ig-III) domain and the transmembrane segment. A p.Ser372Tyr variant and, in a 2026 prenatal case, a p.Phe276Cys variant have also been reported, and the original series noted two clinically typical patients in whom neither recurrent allele was found — so genetic heterogeneity within the clinical syndrome is documented rather than excluded.
 </div>
@@ -5009,6 +5098,7 @@ This pathophysiological event involves increased transmembrane receptor protein 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5030,6 +5120,7 @@ This pathophysiological event involves increased transmembrane receptor protein 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5057,6 +5148,7 @@ This pathophysiological event involves increased transmembrane receptor protein 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5079,6 +5171,7 @@ This pathophysiological event involves increased transmembrane receptor protein 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ligand-independent-disulfide-mediated-receptor-dimerization" data-dismech-node="Ligand-Independent Disulfide-Mediated Receptor Dimerization" data-dismech-type="pathophysiology">
                 <div class="item-name">Ligand-Independent Disulfide-Mediated Receptor Dimerization</div>
+
 
                 <div class="item-desc">The mechanistic step that makes BSS a cysteine-allele disorder rather than simply another FGFR2 craniosynostosis. A free, unpaired cysteine residue introduced by the variant forms an intermolecular disulfide bond between two receptor monomers, locking them into a covalent dimer and activating the kinase without any FGF ligand present. This is the same activation route used by the extracellular-cysteine alleles of thanatophoric dysplasia type 1 on FGFR3, and it is mechanistically distinct from the Ig-II/III linker alleles of Apert and Muenke syndrome, which instead increase FGF-ligand affinity and alter specificity while leaving the receptor ligand-dependent.
 </div>
@@ -5172,6 +5265,7 @@ This pathophysiological event involves increased protein homodimerization activi
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5193,6 +5287,7 @@ This pathophysiological event involves increased protein homodimerization activi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5218,6 +5313,7 @@ This pathophysiological event involves increased protein homodimerization activi
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sustained-fgfr2-signaling-with-p38-mapk-activation" data-dismech-node="Sustained FGFR2 Signaling with p38 MAPK Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Sustained FGFR2 Signaling with p38 MAPK Activation</div>
+
 
                 <div class="item-desc">Constitutively dimerized FGFR2 sustains downstream signaling in both skin and calvarial tissue. In the Fgfr2 p.Tyr394Cys mouse — the murine equivalent of the human p.Tyr375Cys allele — ligand-independent receptor phosphorylation is accompanied by activation of the p38 MAPK branch specifically, in both mutant skin and mutant calvaria. p38 is the branch this module&#39;s shared MAPK/STAT effector axis is realized through in BSS, and it is the node at which pharmacological rescue has been demonstrated in the model.
 </div>
@@ -5320,6 +5416,7 @@ This pathophysiological event involves increased p38MAPK cascade (GO:0038066). G
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5341,6 +5438,7 @@ This pathophysiological event involves increased p38MAPK cascade (GO:0038066). G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5366,6 +5464,7 @@ This pathophysiological event involves increased p38MAPK cascade (GO:0038066). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cranial-suture-osteogenic-acceleration" data-dismech-node="Cranial Suture Osteogenic Acceleration" data-dismech-type="pathophysiology">
                 <div class="item-name">Cranial Suture Osteogenic Acceleration</div>
+
 
                 <div class="item-desc">Premature osteogenic differentiation at the suture margins, driven by abnormal proliferation and differentiation of suture cells rather than by a mechanical or secondary cause.
 </div>
@@ -5490,6 +5589,7 @@ This pathophysiological event involves increased osteoblast differentiation (GO:
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5512,6 +5612,7 @@ This pathophysiological event involves increased osteoblast differentiation (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-premature-cranial-suture-fusion-and-cloverleaf-skull" data-dismech-node="Premature Cranial Suture Fusion and Cloverleaf Skull" data-dismech-type="pathophysiology">
                 <div class="item-name">Premature Cranial Suture Fusion and Cloverleaf Skull</div>
+
 
                 <div class="item-desc">Multisuture craniosynostosis, in a large fraction of cases severe enough to produce the cloverleaf (Kleeblattschädel) skull. The original clinical series recorded cloverleaf skull in three of four patients with craniosynostosis and noted that outcome tracked with its presence — the earliest statement of what remains the main prognostic split within BSS. Restricted cranial volume drives the associated hydrocephalus, Chiari malformation and proptosis.
 </div>
@@ -5638,6 +5739,7 @@ This pathophysiological event involves decreased cranial suture morphogenesis (G
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5659,6 +5761,7 @@ This pathophysiological event involves decreased cranial suture morphogenesis (G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5686,6 +5789,7 @@ This pathophysiological event involves decreased cranial suture morphogenesis (G
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5708,6 +5812,7 @@ This pathophysiological event involves decreased cranial suture morphogenesis (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-epidermal-hyperplasia-and-cutis-gyrata" data-dismech-node="Epidermal Hyperplasia and Cutis Gyrata" data-dismech-type="pathophysiology">
                 <div class="item-name">Epidermal Hyperplasia and Cutis Gyrata</div>
+
 
                 <div class="item-desc">The skin arm, and the feature that names the syndrome. Sustained FGFR2-p38 signaling in the epidermis produces keratinocyte hyperplasia, expressed clinically as cutis gyrata — thickened skin thrown into convoluted, cerebriform folds and furrows — along with acanthosis nigricans and skin tags. The distribution is characteristically wide, involving scalp, forehead, face, preauricular area, neck, trunk, palms and soles. This node is deliberately not given a module `conforms_to` anchor: the FGFR module&#39;s consequence nodes cover growth plate and cranial suture, and an epidermal hyperproliferation arm is not among them. Curating it as conforming would assert membership in a node that does not describe it.
 </div>
@@ -5850,6 +5955,7 @@ This pathophysiological event involves increased keratinocyte proliferation (GO:
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5871,6 +5977,7 @@ This pathophysiological event involves increased keratinocyte proliferation (GO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5896,6 +6003,7 @@ This pathophysiological event involves increased keratinocyte proliferation (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tracheal-cartilaginous-sleeve-and-airway-compromise" data-dismech-node="Tracheal Cartilaginous Sleeve and Airway Compromise" data-dismech-type="pathophysiology">
                 <div class="item-name">Tracheal Cartilaginous Sleeve and Airway Compromise</div>
+
 
                 <div class="item-desc">A continuous cartilaginous tube replacing the normal segmented tracheal rings. It is reported in BSS and in other FGFR2-related craniosynostosis syndromes, and it is the leading candidate explanation for the syndrome&#39;s excess sudden unexplained death. It is almost impossible to diagnose without direct visualization of the airway, so it is frequently discovered only at autopsy — which means its true frequency in BSS is unknown and is likely underestimated. This node records an association with an identified structural lesion and a management consequence, not a demonstrated causal chain from the FGFR2 allele: no experiment cited here shows that the variant produces the sleeve.
 </div>
@@ -5948,6 +6056,7 @@ This pathophysiological event involves increased keratinocyte proliferation (GO:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5972,6 +6081,7 @@ This pathophysiological event involves increased keratinocyte proliferation (GO:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5993,6 +6103,7 @@ This pathophysiological event involves increased keratinocyte proliferation (GO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6060,23 +6171,108 @@ This pathophysiological event involves increased keratinocyte proliferation (GO:
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Eye<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Head and Neck<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Integument<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Genitourinary<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Head and Neck<span class="pill-count">(7)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Integument<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(9)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Nervous System<span class="pill-count">(3)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Respiratory<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Growth<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
 
 
             <details class="phenotype-category-group" id="pheno-cat-1">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Digestive
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-umbilicus-morphology" data-dismech-node="Abnormal umbilicus morphology" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Abnormal umbilicus morphology
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001551" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0001551</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal umbilicus morphology (HP:0001551). HP:0001551 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12900900" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12900900" target="_blank">PMID:12900900</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Both female newborn patients presented at birth with craniofacial anomalies, variable cutis gyrata in forehead and preauricular regions, prominent umbilical stump and anogenital anomalies."</div>
+
+
+                <div class="evidence-explanation">Prominent umbilical stump documented in two molecularly confirmed patients.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
@@ -6097,15 +6293,18 @@ This pathophysiological event involves increased keratinocyte proliferation (GO:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000520" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0000520</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000520" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0000520</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Proptosis (HP:0000520). HP:0000520 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6125,6 +6324,7 @@ This clinical feature is Proptosis (HP:0000520). HP:0000520 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6153,11 +6353,164 @@ This clinical feature is Proptosis (HP:0000520). HP:0000520 is a phenotype from 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-2">
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Genitourinary
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-bifid-scrotum" data-dismech-node="Bifid scrotum" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Bifid scrotum
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000048" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000048</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Bifid scrotum (HP:0000048). HP:0000048 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16531735" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16531735" target="_blank">PMID:16531735</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We present a case of Beare-Stevenson syndrome with a broad range of phenotypic features including craniosynostosis, cutis gyrata, choanal stenosis, bifid scrotum with perineal hypospadias and a caudal appendage."</div>
+
+
+                <div class="evidence-explanation">Documents bifid scrotum in a molecularly confirmed patient.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-perineal-hypospadias" data-dismech-node="Perineal hypospadias" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Perineal hypospadias
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000051" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000051</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Perineal hypospadias (HP:0000051). HP:0000051 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16531735" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16531735" target="_blank">PMID:16531735</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We present a case of Beare-Stevenson syndrome with a broad range of phenotypic features including craniosynostosis, cutis gyrata, choanal stenosis, bifid scrotum with perineal hypospadias and a caudal appendage."</div>
+
+
+                <div class="evidence-explanation">Documents perineal hypospadias in a molecularly confirmed patient.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
-                    <span class="cat-count">4</span>
+                    <span class="cat-count">7</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-craniosynostosis" data-dismech-node="Craniosynostosis" data-dismech-type="phenotype">
@@ -6174,15 +6527,18 @@ This clinical feature is Proptosis (HP:0000520). HP:0000520 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001363" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001363</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001363" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001363</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Craniosynostosis (HP:0001363). HP:0001363 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6202,6 +6558,7 @@ This clinical feature is Craniosynostosis (HP:0001363). HP:0001363 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6242,15 +6599,18 @@ This clinical feature is Craniosynostosis (HP:0001363). HP:0001363 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002676" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0002676</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002676" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002676</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cloverleaf skull (HP:0002676). HP:0002676 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6273,6 +6633,7 @@ This clinical feature is Cloverleaf skull (HP:0002676). HP:0002676 is a phenotyp
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6281,6 +6642,103 @@ This clinical feature is Cloverleaf skull (HP:0002676). HP:0002676 is a phenotyp
 
 
                 <div class="evidence-explanation">Documents cloverleaf skull in most craniosynostotic patients in the delineating series.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cutis-gyrata-of-scalp" data-dismech-node="Cutis gyrata of scalp" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Cutis gyrata of scalp
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010541" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0010541</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cutis gyrata of scalp (HP:0010541). HP:0010541 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:1519658" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/1519658" target="_blank">PMID:1519658</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Beare-Stevenson cutis gyrata syndrome consists of skin furrows of corrugated appearance, acanthosis nigricans, craniofacial anomalies, particularly craniosynostosis and ear defects, anogenital anomalies, skin tags, and prominent umbilical stump."</div>
+
+
+                <div class="evidence-explanation">The syndrome definition, leading with the corrugated skin furrows.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:1519658" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/1519658" target="_blank">PMID:1519658</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Cutis gyrata variably affects the scalp, forehead, face, preauricular area, neck, trunk, hands, and feet."</div>
+
+
+                <div class="evidence-explanation">Confirms scalp involvement within the characteristic distribution.</div>
 
 
 
@@ -6310,15 +6768,18 @@ This clinical feature is Cloverleaf skull (HP:0002676). HP:0002676 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011800" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0011800</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011800" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0011800</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Midface retrusion (HP:0011800). HP:0011800 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6341,6 +6802,7 @@ This clinical feature is Midface retrusion (HP:0011800). HP:0011800 is a phenoty
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6349,6 +6811,78 @@ This clinical feature is Midface retrusion (HP:0011800). HP:0011800 is a phenoty
 
 
                 <div class="evidence-explanation">Documents the severity of midface hypoplasia in a surgically managed patient.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-choanal-stenosis" data-dismech-node="Choanal stenosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Choanal stenosis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000452" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000452</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Choanal stenosis (HP:0000452). HP:0000452 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16531735" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16531735" target="_blank">PMID:16531735</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We present a case of Beare-Stevenson syndrome with a broad range of phenotypic features including craniosynostosis, cutis gyrata, choanal stenosis, bifid scrotum with perineal hypospadias and a caudal appendage."</div>
+
+
+                <div class="evidence-explanation">Choanal stenosis documented in a molecularly confirmed p.Tyr375Cys patient.</div>
 
 
 
@@ -6378,15 +6912,18 @@ This clinical feature is Midface retrusion (HP:0011800). HP:0011800 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000668" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000668</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000668" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000668</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypodontia (HP:0000668). HP:0000668 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6406,6 +6943,7 @@ This clinical feature is Hypodontia (HP:0000668). HP:0000668 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6432,14 +6970,158 @@ This clinical feature is Hypodontia (HP:0000668). HP:0000668 is a phenotype from
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-natal-tooth" data-dismech-node="Natal tooth" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Natal tooth
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000695" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000695</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Natal tooth (HP:0000695). HP:0000695 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19860525" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19860525" target="_blank">PMID:19860525</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The patient had dental findings of natal teeth and hypodontia of the primary and permanent teeth."</div>
+
+
+                <div class="evidence-explanation">Direct documentation of natal teeth in a BSS patient.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-3">
+            <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Integument
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-palmoplantar-cutis-gyrata" data-dismech-node="Palmoplantar cutis gyrata" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Palmoplantar cutis gyrata
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007469" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0007469</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Palmoplantar cutis gyrata (HP:0007469). HP:0007469 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12900900" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12900900" target="_blank">PMID:12900900</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Furrowed palms and soles were also observed."</div>
+
+
+                <div class="evidence-explanation">Direct observation in two molecularly confirmed patients.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-acanthosis-nigricans" data-dismech-node="Acanthosis nigricans" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6455,15 +7137,18 @@ This clinical feature is Hypodontia (HP:0000668). HP:0000668 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000956" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000956</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000956" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000956</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Acanthosis nigricans (HP:0000956). HP:0000956 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6483,6 +7168,7 @@ This clinical feature is Acanthosis nigricans (HP:0000956). HP:0000956 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6523,15 +7209,18 @@ This clinical feature is Acanthosis nigricans (HP:0000956). HP:0000956 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010609" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0010609</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010609" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0010609</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Skin tags (HP:0010609). HP:0010609 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6551,6 +7240,7 @@ This clinical feature is Skin tags (HP:0010609). HP:0010609 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6579,11 +7269,11 @@ This clinical feature is Skin tags (HP:0010609). HP:0010609 is a phenotype from 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-hydrocephalus" data-dismech-node="Hydrocephalus" data-dismech-type="phenotype">
@@ -6600,15 +7290,18 @@ This clinical feature is Skin tags (HP:0010609). HP:0010609 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000238</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000238</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6631,6 +7324,7 @@ This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6639,572 +7333,6 @@ This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype f
 
 
                 <div class="evidence-explanation">Shunt placement in infancy evidences clinically significant hydrocephalus in a documented BSS patient.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-global-developmental-delay" data-dismech-node="Global developmental delay" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Global developmental delay
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001263</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:25706251" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25706251" target="_blank">PMID:25706251</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"BSS presents with craniosynostosis, cutis gyrata, and significant developmental delay in most patients who survive infancy."</div>
-
-
-                <div class="evidence-explanation">States the developmental outcome among survivors.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:21397175" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21397175" target="_blank">PMID:21397175</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The patients exhibited a simplified gyral pattern, an abnormal posterior fossa, and an abnormal hippocampus on cranial magnetic resonance imaging."</div>
-
-
-                <div class="evidence-explanation">Supplies the structural brain findings in two p.Tyr375Cys patients, indicating the delay is not attributable to raised intracranial pressure alone.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Growth
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-failure-to-thrive" data-dismech-node="Failure to thrive" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Failure to thrive
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001508</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:41882888" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41882888" target="_blank">PMID:41882888</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"We herein present an autopsy case of BSS characterized by a disproportionate organ size and severe failure to thrive."</div>
-
-
-                <div class="evidence-explanation">Documents severe failure to thrive in an autopsied BSS patient.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:41882888" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41882888" target="_blank">PMID:41882888</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Notably, the small intestine was much shorter in our patient than in infants with a similar body size, which could explain the poor weight gain."</div>
-
-
-                <div class="evidence-explanation">Offers a structural explanation for the failure to thrive, phrased by the authors as a possibility and based on one autopsy.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">9</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-cutis-gyrata-of-scalp" data-dismech-node="Cutis gyrata of scalp" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Cutis gyrata of scalp
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010541" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0010541</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Cutis gyrata of scalp (HP:0010541). HP:0010541 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:1519658" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/1519658" target="_blank">PMID:1519658</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Beare-Stevenson cutis gyrata syndrome consists of skin furrows of corrugated appearance, acanthosis nigricans, craniofacial anomalies, particularly craniosynostosis and ear defects, anogenital anomalies, skin tags, and prominent umbilical stump."</div>
-
-
-                <div class="evidence-explanation">The syndrome definition, leading with the corrugated skin furrows.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:1519658" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/1519658" target="_blank">PMID:1519658</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Cutis gyrata variably affects the scalp, forehead, face, preauricular area, neck, trunk, hands, and feet."</div>
-
-
-                <div class="evidence-explanation">Confirms scalp involvement within the characteristic distribution.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-palmoplantar-cutis-gyrata" data-dismech-node="Palmoplantar cutis gyrata" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Palmoplantar cutis gyrata
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007469" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0007469</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Palmoplantar cutis gyrata (HP:0007469). HP:0007469 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:12900900" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12900900" target="_blank">PMID:12900900</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Furrowed palms and soles were also observed."</div>
-
-
-                <div class="evidence-explanation">Direct observation in two molecularly confirmed patients.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-umbilicus-morphology" data-dismech-node="Abnormal umbilicus morphology" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Abnormal umbilicus morphology
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001551" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001551</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal umbilicus morphology (HP:0001551). HP:0001551 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:12900900" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12900900" target="_blank">PMID:12900900</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Both female newborn patients presented at birth with craniofacial anomalies, variable cutis gyrata in forehead and preauricular regions, prominent umbilical stump and anogenital anomalies."</div>
-
-
-                <div class="evidence-explanation">Prominent umbilical stump documented in two molecularly confirmed patients.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-choanal-stenosis" data-dismech-node="Choanal stenosis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Choanal stenosis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000452" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000452</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Choanal stenosis (HP:0000452). HP:0000452 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:16531735" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16531735" target="_blank">PMID:16531735</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"We present a case of Beare-Stevenson syndrome with a broad range of phenotypic features including craniosynostosis, cutis gyrata, choanal stenosis, bifid scrotum with perineal hypospadias and a caudal appendage."</div>
-
-
-                <div class="evidence-explanation">Choanal stenosis documented in a molecularly confirmed p.Tyr375Cys patient.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-tracheal-cartilaginous-sleeve" data-dismech-node="Tracheal cartilaginous sleeve" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Tracheal cartilaginous sleeve
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0005347" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0005347</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Tracheal cartilaginous sleeve (HP:0005347). HP:0005347 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:25706251" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25706251" target="_blank">PMID:25706251</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"One of our patients was noted to have a tracheal cartilaginous sleeve, which if present could explain sudden death."</div>
-
-
-                <div class="evidence-explanation">The index report of this finding in BSS.</div>
 
 
 
@@ -7248,6 +7376,9 @@ This clinical feature is Chiari malformation (HP:0002308). HP:0002308 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7262,6 +7393,7 @@ This clinical feature is Chiari malformation (HP:0002308). HP:0002308 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7288,9 +7420,9 @@ This clinical feature is Chiari malformation (HP:0002308). HP:0002308 is a pheno
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-natal-tooth" data-dismech-node="Natal tooth" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-global-developmental-delay" data-dismech-node="Global developmental delay" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Natal tooth
+                        Global developmental delay
 
 
 
@@ -7302,12 +7434,12 @@ This clinical feature is Chiari malformation (HP:0002308). HP:0002308 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000695" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000695</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001263</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Natal tooth (HP:0000695). HP:0000695 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7316,16 +7448,19 @@ This clinical feature is Natal tooth (HP:0000695). HP:0000695 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:19860525" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:25706251" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19860525" target="_blank">PMID:19860525</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25706251" target="_blank">PMID:25706251</a>
                     </span>
 
 
@@ -7333,14 +7468,40 @@ This clinical feature is Natal tooth (HP:0000695). HP:0000695 is a phenotype fro
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"The patient had dental findings of natal teeth and hypodontia of the primary and permanent teeth."</div>
+                <div class="evidence-snippet">"BSS presents with craniosynostosis, cutis gyrata, and significant developmental delay in most patients who survive infancy."</div>
 
 
-                <div class="evidence-explanation">Direct documentation of natal teeth in a BSS patient.</div>
+                <div class="evidence-explanation">States the developmental outcome among survivors.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21397175" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21397175" target="_blank">PMID:21397175</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The patients exhibited a simplified gyral pattern, an abnormal posterior fossa, and an abnormal hippocampus on cranial magnetic resonance imaging."</div>
+
+
+                <div class="evidence-explanation">Supplies the structural brain findings in two p.Tyr375Cys patients, indicating the delay is not attributable to raised intracranial pressure alone.</div>
 
 
 
@@ -7356,9 +7517,18 @@ This clinical feature is Natal tooth (HP:0000695). HP:0000695 is a phenotype fro
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-bifid-scrotum" data-dismech-node="Bifid scrotum" data-dismech-type="phenotype">
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-7">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Respiratory
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-tracheal-cartilaginous-sleeve" data-dismech-node="Tracheal cartilaginous sleeve" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Bifid scrotum
+                        Tracheal cartilaginous sleeve
 
 
 
@@ -7370,15 +7540,18 @@ This clinical feature is Natal tooth (HP:0000695). HP:0000695 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000048" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000048</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005347" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0005347</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Bifid scrotum (HP:0000048). HP:0000048 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Tracheal cartilaginous sleeve (HP:0005347). HP:0005347 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7390,10 +7563,10 @@ This clinical feature is Bifid scrotum (HP:0000048). HP:0000048 is a phenotype f
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:16531735" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:25706251" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16531735" target="_blank">PMID:16531735</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25706251" target="_blank">PMID:25706251</a>
                     </span>
 
 
@@ -7401,14 +7574,15 @@ This clinical feature is Bifid scrotum (HP:0000048). HP:0000048 is a phenotype f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"We present a case of Beare-Stevenson syndrome with a broad range of phenotypic features including craniosynostosis, cutis gyrata, choanal stenosis, bifid scrotum with perineal hypospadias and a caudal appendage."</div>
+                <div class="evidence-snippet">"One of our patients was noted to have a tracheal cartilaginous sleeve, which if present could explain sudden death."</div>
 
 
-                <div class="evidence-explanation">Documents bifid scrotum in a molecularly confirmed patient.</div>
+                <div class="evidence-explanation">The index report of this finding in BSS.</div>
 
 
 
@@ -7424,9 +7598,18 @@ This clinical feature is Bifid scrotum (HP:0000048). HP:0000048 is a phenotype f
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-perineal-hypospadias" data-dismech-node="Perineal hypospadias" data-dismech-type="phenotype">
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-8">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Growth
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-failure-to-thrive" data-dismech-node="Failure to thrive" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Perineal hypospadias
+                        Failure to thrive
 
 
 
@@ -7438,12 +7621,12 @@ This clinical feature is Bifid scrotum (HP:0000048). HP:0000048 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000051" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000051</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001508</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Perineal hypospadias (HP:0000051). HP:0000051 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7452,16 +7635,19 @@ This clinical feature is Perineal hypospadias (HP:0000051). HP:0000051 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:16531735" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:41882888" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16531735" target="_blank">PMID:16531735</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41882888" target="_blank">PMID:41882888</a>
                     </span>
 
 
@@ -7469,14 +7655,40 @@ This clinical feature is Perineal hypospadias (HP:0000051). HP:0000051 is a phen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"We present a case of Beare-Stevenson syndrome with a broad range of phenotypic features including craniosynostosis, cutis gyrata, choanal stenosis, bifid scrotum with perineal hypospadias and a caudal appendage."</div>
+                <div class="evidence-snippet">"We herein present an autopsy case of BSS characterized by a disproportionate organ size and severe failure to thrive."</div>
 
 
-                <div class="evidence-explanation">Documents perineal hypospadias in a molecularly confirmed patient.</div>
+                <div class="evidence-explanation">Documents severe failure to thrive in an autopsied BSS patient.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41882888" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41882888" target="_blank">PMID:41882888</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Notably, the small intestine was much shorter in our patient than in infants with a similar body size, which could explain the poor weight gain."</div>
+
+
+                <div class="evidence-explanation">Offers a structural explanation for the failure to thrive, phrased by the authors as a possibility and based on one autopsy.</div>
 
 
 
@@ -7568,6 +7780,9 @@ This disease-associated gene is FGFR2 (hgnc:3689). hgnc:3689 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7582,6 +7797,7 @@ This disease-associated gene is FGFR2 (hgnc:3689). hgnc:3689 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7606,6 +7822,7 @@ This disease-associated gene is FGFR2 (hgnc:3689). hgnc:3689 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7640,6 +7857,12 @@ This disease-associated gene is FGFR2 (hgnc:3689). hgnc:3689 is a gene from the 
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">The commonest allele, in the transmembrane domain. Reported repeatedly across independent series and populations, and the allele modeled in the Fgfr2 Y394C mouse.</div>
 
 
@@ -7664,6 +7887,7 @@ This disease-associated gene is FGFR2 (hgnc:3689). hgnc:3689 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7698,6 +7922,12 @@ This disease-associated gene is FGFR2 (hgnc:3689). hgnc:3689 is a gene from the 
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">The second recurrent allele, at the carboxyl-terminal end of the Ig-III to transmembrane linker.</div>
 
 
@@ -7722,6 +7952,7 @@ This disease-associated gene is FGFR2 (hgnc:3689). hgnc:3689 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7812,6 +8043,31 @@ This treatment is Tracheostomy, annotated with Tracheotomy (NCIT:C15341). NCIT:C
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">The intervention with the clearest survival rationale in this syndrome. An unmanaged tracheal cartilaginous sleeve carries about a 90% risk of death by two years of age without tracheostomy, and because the lesion is difficult to detect without direct visualization of the trachea, the recommendation is to evaluate for it actively rather than await symptoms. Tracheostomy in infancy is reported as routine in surgically managed BSS patients.
 </div>
 
@@ -7844,6 +8100,7 @@ This treatment is Tracheostomy, annotated with Tracheotomy (NCIT:C15341). NCIT:C
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7887,6 +8144,7 @@ This treatment is Tracheostomy, annotated with Tracheotomy (NCIT:C15341). NCIT:C
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7953,6 +8211,31 @@ This treatment is Cranial vault expansion, annotated with Craniotomy (NCIT:C1521
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Staged neurosurgical management of the restricted cranial vault: ventriculoperitoneal shunting for hydrocephalus, then posterior or occipital cranial expansion, then fronto-orbital advancement. In the reported course these precede any midface procedure by years.
 </div>
 
@@ -7997,6 +8280,7 @@ This treatment targets Hydrocephalus (HP:0000238). HP:0000238 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8058,6 +8342,31 @@ This treatment is Midface advancement, annotated with Surgical Procedure (NCIT:C
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -8127,6 +8436,7 @@ This treatment targets Proptosis (HP:0000520). HP:0000520 is a phenotype from th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8148,6 +8458,7 @@ This treatment targets Proptosis (HP:0000520). HP:0000520 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8227,6 +8538,7 @@ This treatment targets Proptosis (HP:0000520). HP:0000520 is a phenotype from th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8251,6 +8563,7 @@ This treatment targets Proptosis (HP:0000520). HP:0000520 is a phenotype from th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8272,6 +8585,7 @@ This treatment targets Proptosis (HP:0000520). HP:0000520 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8327,6 +8641,7 @@ This treatment targets Proptosis (HP:0000520). HP:0000520 is a phenotype from th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8348,6 +8663,7 @@ This treatment targets Proptosis (HP:0000520). HP:0000520 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8419,6 +8735,7 @@ This treatment targets Proptosis (HP:0000520). HP:0000520 is a phenotype from th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8440,6 +8757,7 @@ This treatment targets Proptosis (HP:0000520). HP:0000520 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 

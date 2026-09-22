@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3756,6 +3821,18 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3798,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 16</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 22</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Congenital%20Adrenal%20Hyperplasia"
@@ -3947,7 +4024,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">6</div>
+                <div class="stat-value">9</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -3968,7 +4045,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">16</div>
+                <div class="stat-value">22</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3977,7 +4054,7 @@
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
-                <div class="stat-value">5</div>
+                <div class="stat-value">6</div>
                 <div class="stat-label">Genes</div>
             </div>
             </a>
@@ -3996,7 +4073,7 @@
             <a class="stat-link" href="#subtypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">◆</div>
-                <div class="stat-value">8</div>
+                <div class="stat-value">9</div>
                 <div class="stat-label">Subtypes</div>
             </div>
             </a>
@@ -4022,6 +4099,14 @@
 
 
 
+
+            <a class="stat-link" href="#references">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📚</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">References</div>
+            </div>
+            </a>
 
 
             <a class="stat-link" href="#literature-summaries">
@@ -4103,6 +4188,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4132,8 +4218,12 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">◆</div>
                 <h2 class="card-title">Subtypes</h2>
-                <span class="card-count">8</span>
+                <span class="card-count">9</span>
             </div>
+
+
+
+
 
 
 
@@ -4193,6 +4283,25 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                CYP21A2
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:2600" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:2600</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in CYP21A2 (hgnc:2600). hgnc:2600 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">Classic CYP21A2-related CAH with severe 21-hydroxylase deficiency; includes salt-wasting and simple-virilizing clinical forms.</div>
@@ -4223,6 +4332,25 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                CYP21A2
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:2600" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:2600</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in CYP21A2 (hgnc:2600). hgnc:2600 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">Severe classic 21-hydroxylase deficiency with cortisol and aldosterone deficiency, neonatal salt-wasting risk, and adrenal androgen excess.</div>
@@ -4230,6 +4358,41 @@
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301350" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301350" target="_blank">PMID:20301350</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The classic form is further divided into the simple virilizing form (~25% of affected individuals) and the salt-wasting form, in which aldosterone production is inadequate (≥75% of individuals)."</div>
+
+
+                <div class="evidence-explanation">GeneReviews gives the split of classic 21-hydroxylase deficiency between the two clinical forms. Note the denominator: these are fractions of classic 21-OHD, not of all congenital adrenal hyperplasia.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
                 </div>
@@ -4253,6 +4416,25 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                CYP21A2
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:2600" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:2600</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in CYP21A2 (hgnc:2600). hgnc:2600 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">Classic 21-hydroxylase deficiency with cortisol deficiency and adrenal androgen excess but less prominent mineralocorticoid deficiency.</div>
@@ -4260,6 +4442,41 @@
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301350" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301350" target="_blank">PMID:20301350</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The classic form is further divided into the simple virilizing form (~25% of affected individuals) and the salt-wasting form, in which aldosterone production is inadequate (≥75% of individuals)."</div>
+
+
+                <div class="evidence-explanation">GeneReviews gives the split of classic 21-hydroxylase deficiency between the two clinical forms. Note the denominator: these are fractions of classic 21-OHD, not of all congenital adrenal hyperplasia.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
                 </div>
@@ -4278,6 +4495,25 @@
 
                     </div>
                     <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                CYP21A2
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:2600" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:2600</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in CYP21A2 (hgnc:2600). hgnc:2600 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
 
 
 
@@ -4313,6 +4549,25 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                CYP11B1
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:2591" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:2591</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in CYP11B1 (hgnc:2591). hgnc:2591 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">CAH caused by CYP11B1 deficiency, with cortisol deficiency, adrenal androgen excess, and accumulation of mineralocorticoid precursors.</div>
@@ -4338,6 +4593,25 @@
 
                     </div>
                     <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                CYP17A1
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:2593" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:2593</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in CYP17A1 (hgnc:2593). hgnc:2593 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
 
 
 
@@ -4373,6 +4647,25 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                HSD3B2
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:5218" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:5218</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in HSD3B2 (hgnc:5218). hgnc:5218 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">CAH caused by HSD3B2 deficiency, disrupting glucocorticoid, mineralocorticoid, and sex-steroid synthesis.</div>
@@ -4403,6 +4696,25 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                STAR
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:11359" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:11359</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in STAR (hgnc:11359). hgnc:11359 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">Severe STAR-related steroidogenesis disorder impairing cholesterol delivery for adrenal and gonadal steroid hormone synthesis.</div>
@@ -4410,6 +4722,115 @@
 
 
 
+
+
+                </div>
+
+
+
+
+                <div class="item-box subtype-box anchor-target" id="subtype-por-d">
+
+                    <div class="item-name">
+                        P450 oxidoreductase deficiency
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0013310" target="_blank">MONDO:0013310</a>
+
+
+
+                    </div>
+                    <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                POR
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:9208" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:9208</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in POR (hgnc:9208). hgnc:9208 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
+                    </div>
+
+                    <div class="item-desc">CAH caused by POR deficiency. Mechanistically it is the odd one out of this family: POR is not a steroidogenic enzyme but the NADPH-dependent electron donor that every endoplasmic-reticulum cytochrome P450 requires, so a single lesion partially disables CYP17A1 and CYP21A2 together and produces a combined rather than a single-step block. The same dependency explains the features no other CAH subtype has: impaired aromatase (CYP19A1) activity can virilize the mother during pregnancy, skeletal malformation overlapping Antley-Bixler syndrome occurs, and hepatic drug metabolism is affected.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33415088" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33415088" target="_blank">PMID:33415088</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Less frequent types of CAH are 11β-hydroxylase deficiency (CYP11B1-D, up to 8% cases), 17α-hydroxylase/17–20 lyase deficiency (CYP17A1-D), 3β-hydroxysteroid dehydrogenase deficiency (HDS3B2-D), P450 oxidoreductase deficiency (POR-D), P450 cytochrome side-chain cleavage deficiency (CYP11A1-D),..."</div>
+
+
+                <div class="evidence-explanation">Names POR deficiency in this review&#39;s enumeration of the less frequent types of congenital adrenal hyperplasia. The source&#39;s typo in the 3-beta symbol (HDS3B2-D) is preserved because the snippet must be exact.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33415088" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33415088" target="_blank">PMID:33415088</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Maternal virilization during pregnancy, due to a defect in aromatase (CYP19A1) activity, is described in 21% of mothers"</div>
+
+
+                <div class="evidence-explanation">Supports the maternal-virilization feature this row gives as one of the consequences of POR&#39;s role as a shared P450 electron donor.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
                 </div>
@@ -4433,13 +4854,14 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">6</span>
+                <span class="card-count">9</span>
             </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cyp21a2-21-hydroxylase-deficiency" data-dismech-node="CYP21A2 21-Hydroxylase Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">CYP21A2 21-Hydroxylase Deficiency</div>
 
-                <div class="item-desc">Loss of CYP21A2 21-hydroxylase activity impairs adrenal steroidogenesis, reducing cortisol and, in severe classic disease, aldosterone production.</div>
+
+                <div class="item-desc">Loss of CYP21A2 21-hydroxylase activity impairs adrenal steroidogenesis, reducing cortisol and, in severe classic disease, aldosterone production. The node is the enzymatic block, not the gene lesion, and it has two inbound routes: a biallelic CYP21A2 variant, which is the usual one and the reason the node is named after the gene, and loss of electron supply from POR, which reduces the same enzyme&#39;s catalysis without any CYP21A2 variant. The node name is kept because `kb/node_classes/pathograph_node_classes.txt` cites it as a worked example.</div>
 
 
 
@@ -4453,11 +4875,11 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002097" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0002097</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002097" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0002097</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves adrenal cortical cell, annotated with cortical cell of adrenal gland (CL:0002097). CL:0002097 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4495,11 +4917,11 @@ This pathophysiological event involves adrenal cortical cell, annotated with cor
         CYP21A2
 
 
-    <a href="https://bioregistry.io/hgnc:2600" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:2600</a>
+    <a href="https://bioregistry.io/hgnc:2600" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-11">hgnc:2600</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-11">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves CYP21A2 (hgnc:2600). hgnc:2600 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -4537,11 +4959,11 @@ This pathophysiological event involves CYP21A2 (hgnc:2600). hgnc:2600 is a gene 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006694" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0006694</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006694" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0006694</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased steroid biosynthetic process (GO:0006694). GO:0006694 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4571,11 +4993,11 @@ This pathophysiological event involves decreased steroid biosynthetic process (G
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006700" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0006700</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006700" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0006700</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased C21-steroid hormone biosynthetic process (GO:0006700). GO:0006700 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4640,6 +5062,7 @@ This pathophysiological event involves decreased C21-steroid hormone biosyntheti
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4663,6 +5086,7 @@ This pathophysiological event involves decreased C21-steroid hormone biosyntheti
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cyp11b1-11-beta-hydroxylase-deficiency" data-dismech-node="CYP11B1 11-Beta-Hydroxylase Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">CYP11B1 11-Beta-Hydroxylase Deficiency</div>
 
+
                 <div class="item-desc">CYP11B1 pathogenic variants reduce steroid 11 beta-hydroxylase function, producing a rare CAH subtype with aberrant sex-steroid production, virilization, and mineralocorticoid precursor-mediated hypertension.</div>
 
 
@@ -4677,11 +5101,11 @@ This pathophysiological event involves decreased C21-steroid hormone biosyntheti
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002097" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0002097</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002097" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0002097</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves adrenal cortical cell, annotated with cortical cell of adrenal gland (CL:0002097). CL:0002097 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4719,11 +5143,11 @@ This pathophysiological event involves adrenal cortical cell, annotated with cor
         CYP11B1
 
 
-    <a href="https://bioregistry.io/hgnc:2591" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:2591</a>
+    <a href="https://bioregistry.io/hgnc:2591" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-15">hgnc:2591</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-15">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves CYP11B1 (hgnc:2591). hgnc:2591 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -4761,11 +5185,11 @@ This pathophysiological event involves CYP11B1 (hgnc:2591). hgnc:2591 is a gene 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006694" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0006694</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006694" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0006694</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal steroid biosynthetic process (GO:0006694). GO:0006694 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4800,11 +5224,11 @@ This pathophysiological event involves abnormal steroid biosynthetic process (GO
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0004507" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0004507</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0004507" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0004507</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
 Relation: this pathophysiological event involves this molecular function
 This pathophysiological event involves decreased steroid 11-beta-monooxygenase activity (GO:0004507). GO:0004507 is a molecular function from the Gene Ontology.</span>
                     </span>
@@ -4876,6 +5300,7 @@ This pathophysiological event involves decreased steroid 11-beta-monooxygenase a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4897,6 +5322,7 @@ This pathophysiological event involves decreased steroid 11-beta-monooxygenase a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4923,7 +5349,8 @@ This pathophysiological event involves decreased steroid 11-beta-monooxygenase a
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cyp17a1-17-hydroxylase-17-20-lyase-deficiency" data-dismech-node="CYP17A1 17-Hydroxylase/17,20-Lyase Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">CYP17A1 17-Hydroxylase/17,20-Lyase Deficiency</div>
 
-                <div class="item-desc">CYP17A1 pathogenic variants reduce steroid 17 alpha-hydroxylase/17,20-lyase activity, causing a rare CAH subtype characterized by cortisol deficiency, sex-steroid deficiency, and mineralocorticoid excess.</div>
+
+                <div class="item-desc">CYP17A1 pathogenic variants reduce steroid 17 alpha-hydroxylase/17,20-lyase activity, causing a rare CAH subtype characterized by cortisol deficiency, sex-steroid deficiency, and mineralocorticoid excess. As with the CYP21A2 node, this is the enzymatic block rather than the gene lesion, and POR deficiency reaches it by removing the enzyme&#39;s electron supply rather than by altering CYP17A1 itself.</div>
 
 
 
@@ -4937,11 +5364,11 @@ This pathophysiological event involves decreased steroid 11-beta-monooxygenase a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002097" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0002097</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002097" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-18">CL:0002097</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves adrenal cortical cell, annotated with cortical cell of adrenal gland (CL:0002097). CL:0002097 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4979,11 +5406,11 @@ This pathophysiological event involves adrenal cortical cell, annotated with cor
         CYP17A1
 
 
-    <a href="https://bioregistry.io/hgnc:2593" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:2593</a>
+    <a href="https://bioregistry.io/hgnc:2593" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-19">hgnc:2593</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-19">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves CYP17A1 (hgnc:2593). hgnc:2593 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -5021,11 +5448,11 @@ This pathophysiological event involves CYP17A1 (hgnc:2593). hgnc:2593 is a gene 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006694" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0006694</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006694" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0006694</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal steroid biosynthetic process (GO:0006694). GO:0006694 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5060,11 +5487,11 @@ This pathophysiological event involves abnormal steroid biosynthetic process (GO
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0004508" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0004508</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0004508" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-21">GO:0004508</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Gene Ontology (GO)
 Relation: this pathophysiological event involves this molecular function
 This pathophysiological event involves decreased steroid 17-alpha-monooxygenase activity (GO:0004508). GO:0004508 is a molecular function from the Gene Ontology.</span>
                     </span>
@@ -5136,6 +5563,7 @@ This pathophysiological event involves decreased steroid 17-alpha-monooxygenase 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5156,8 +5584,832 @@ This pathophysiological event involves decreased steroid 17-alpha-monooxygenase 
 
 	            </div>
 
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-hsd3b2-3-beta-hydroxysteroid-dehydrogenase-deficiency" data-dismech-node="HSD3B2 3-Beta-Hydroxysteroid Dehydrogenase Deficiency" data-dismech-type="pathophysiology">
+                <div class="item-name">HSD3B2 3-Beta-Hydroxysteroid Dehydrogenase Deficiency</div>
+
+
+                <div class="item-desc">HSD3B2 pathogenic variants reduce the adrenal and gonadal 3-beta-hydroxy-delta5-steroid dehydrogenase that converts delta-5 precursors to their delta-4 counterparts. The step is shared by the glucocorticoid, mineralocorticoid and sex-steroid branches, so unlike the 21- and 11-beta-hydroxylase blocks this one impairs gonadal as well as adrenal steroidogenesis. The placental isozyme HSD3B1 is a different gene and is not implicated.</div>
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        adrenal cortical cell
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0002097" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-22">CL:0002097</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves adrenal cortical cell, annotated with cortical cell of adrenal gland (CL:0002097). CL:0002097 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        HSD3B2
+
+
+    <a href="https://bioregistry.io/hgnc:5218" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-23">hgnc:5218</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-23">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves HSD3B2 (hgnc:5218). hgnc:5218 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        steroid hormone biosynthetic process
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0120178" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-24">GO:0120178</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased steroid hormone biosynthetic process (GO:0120178). GO:0120178 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        3-beta-hydroxy-delta5-steroid dehydrogenase activity
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0003854" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-25">GO:0003854</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased 3-beta-hydroxy-delta5-steroid dehydrogenase activity, annotated with 3-beta-hydroxy-Delta5-steroid dehydrogenase (NAD+) activity (GO:0003854). GO:0003854 is a molecular function from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Cortisol and Aldosterone Deficiency</span>
+
+	                            <span class="crosslink-desc">Blocking the shared delta-5 to delta-4 conversion reduces flux into both the glucocorticoid and mineralocorticoid branches.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39713884" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39713884" target="_blank">PMID:39713884</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"3β-HSD deficiency, with an incidence of less than 1/1,000,000 live births, is characterized by impairment of both adrenal and gonadal steroid biosynthesis very early in life"</div>
+
+
+                <div class="evidence-explanation">Supports the combined adrenal and gonadal scope that distinguishes this node from the later single-branch enzymatic blocks.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39713884" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39713884" target="_blank">PMID:39713884</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Mutations in HSD3B2 cause a rare form of CAH."</div>
+
+
+                <div class="evidence-explanation">Establishes HSD3B2 as the gene whose loss produces this node.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39713884" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39713884" target="_blank">PMID:39713884</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In this enzyme deficiency, the production of cortisol, aldosterone, progesterone, androgens and estrogens is affected"</div>
+
+
+                <div class="evidence-explanation">Substantiates this node&#39;s claim that the blocked step is shared by the glucocorticoid, mineralocorticoid and sex-steroid branches.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-star-dependent-mitochondrial-cholesterol-import-failure" data-dismech-node="STAR-Dependent Mitochondrial Cholesterol Import Failure" data-dismech-type="pathophysiology">
+                <div class="item-name">STAR-Dependent Mitochondrial Cholesterol Import Failure</div>
+
+
+                <div class="item-desc">Loss of the steroidogenic acute regulatory protein removes the delivery of cholesterol to the inner mitochondrial membrane, where side-chain cleavage begins. This node sits above every enzymatic block in this entry: the substrate never reaches the first committed step, so adrenal and gonadal steroid output fails near-completely and unesterified cholesterol accumulates as esters in the adrenal cortex, giving the lipoid form its name.</div>
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        adrenal cortical cell
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0002097" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-26">CL:0002097</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves adrenal cortical cell, annotated with cortical cell of adrenal gland (CL:0002097). CL:0002097 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        STAR
+
+
+    <a href="https://bioregistry.io/hgnc:11359" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-27">hgnc:11359</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-27">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves STAR (hgnc:11359). hgnc:11359 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        intracellular cholesterol transport
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0032367" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-28">GO:0032367</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased intracellular cholesterol transport (GO:0032367). GO:0032367 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-bio">
+                        steroid hormone biosynthetic process
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0120178" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-29">GO:0120178</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased steroid hormone biosynthetic process (GO:0120178). GO:0120178 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        cholesterol transfer activity
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0120020" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-30">GO:0120020</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased cholesterol transfer activity (GO:0120020). GO:0120020 is a molecular function from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Cortisol and Aldosterone Deficiency</span>
+
+	                            <span class="crosslink-desc">With cholesterol not reaching the side-chain cleavage step, neither glucocorticoid nor mineralocorticoid synthesis can proceed.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39713884" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39713884" target="_blank">PMID:39713884</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Patients with LCAH, which develops due to steroidogenic acute regulatory protein deficiency, typically present with salt wasting in the first year of life. It is characterized by complete or near-complete deficiency of adrenal and gonadal steroid hormones and progressive accumulation of..."</div>
+
+
+                <div class="evidence-explanation">Supports both consequences this node asserts: near-complete steroid-output failure and cholesterol ester accumulation in the adrenal gland.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39713884" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39713884" target="_blank">PMID:39713884</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The classical form usually occurs with loss-of-function in the StAR gene"</div>
+
+
+                <div class="evidence-explanation">Establishes STAR loss of function as the lesion behind this node.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39713884" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39713884" target="_blank">PMID:39713884</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"StAR-mediated transport of cholesterol to the inner mitochondrial membrane is essential for steroidogenesis."</div>
+
+
+                <div class="evidence-explanation">Substantiates the cholesterol-delivery step this node&#39;s description places above every enzymatic block in the entry.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-por-electron-transfer-failure-to-microsomal-p450-enzymes" data-dismech-node="POR Electron-Transfer Failure to Microsomal P450 Enzymes" data-dismech-type="pathophysiology">
+                <div class="item-name">POR Electron-Transfer Failure to Microsomal P450 Enzymes</div>
+
+
+                <div class="item-desc">POR pathogenic variants reduce the NADPH-dependent electron donor that every endoplasmic-reticulum cytochrome P450 requires for catalysis. This is the only lesion in this entry that reaches more than one enzymatic node: the same defect partially disables CYP17A1 and CYP21A2 together, which is why POR deficiency presents as a combined rather than a single-step block, and why it also affects aromatase and hepatic drug-metabolising P450s that lie outside adrenal steroidogenesis altogether.</div>
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        adrenal cortical cell
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0002097" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-31">CL:0002097</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves adrenal cortical cell, annotated with cortical cell of adrenal gland (CL:0002097). CL:0002097 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        POR
+
+
+    <a href="https://bioregistry.io/hgnc:9208" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-32">hgnc:9208</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-32">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves POR (hgnc:9208). hgnc:9208 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        steroid hormone biosynthetic process
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0120178" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-33">GO:0120178</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased steroid hormone biosynthetic process (GO:0120178). GO:0120178 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">CYP21A2 21-Hydroxylase Deficiency</span>
+
+	                            <span class="crosslink-desc">Loss of electron supply reduces CYP21A2 catalysis, producing a partial 21-hydroxylase block without a CYP21A2 variant.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">CYP17A1 17-Hydroxylase/17,20-Lyase Deficiency</span>
+
+	                            <span class="crosslink-desc">The same electron-supply failure reduces CYP17A1 catalysis, which is why the steroid profile in POR deficiency is combined rather than isolated.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33415088" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33415088" target="_blank">PMID:33415088</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"all cytochrome P450 enzymes located in the endoplasmic reticulum get electrons for their catalytic activities from the co-factor"</div>
+
+
+                <div class="evidence-explanation">States the shared-electron-donor role that makes a single POR lesion reach several steroidogenic steps.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33415088" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33415088" target="_blank">PMID:33415088</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The main microsomal POR-dependent enzymes are involved in the biosynthesis of steroid hormones in both the adrenal cortex and gonads (CYP17A1, CYP19A1, CYP21A2, and CYP15A1)"</div>
+
+
+                <div class="evidence-explanation">Names CYP17A1 and CYP21A2 as POR-dependent, which is the evidence for the two downstream edges drawn from this node.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cortisol-and-aldosterone-deficiency" data-dismech-node="Cortisol and Aldosterone Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Cortisol and Aldosterone Deficiency</div>
+
 
                 <div class="item-desc">Deficient cortisol removes negative feedback on ACTH secretion; aldosterone deficiency in salt-wasting disease causes electrolyte and volume instability.</div>
 
@@ -5173,11 +6425,11 @@ This pathophysiological event involves decreased steroid 17-alpha-monooxygenase 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002097" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0002097</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002097" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-34">CL:0002097</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves adrenal cortical cell, annotated with cortical cell of adrenal gland (CL:0002097). CL:0002097 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5214,11 +6466,11 @@ This pathophysiological event involves adrenal cortical cell, annotated with cor
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006694" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0006694</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006694" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-35">GO:0006694</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased steroid biosynthetic process (GO:0006694). GO:0006694 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5283,6 +6535,7 @@ This pathophysiological event involves decreased steroid biosynthetic process (G
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5306,6 +6559,7 @@ This pathophysiological event involves decreased steroid biosynthetic process (G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-acth-driven-adrenal-hyperplasia-and-androgen-excess" data-dismech-node="ACTH-Driven Adrenal Hyperplasia and Androgen Excess" data-dismech-type="pathophysiology">
                 <div class="item-name">ACTH-Driven Adrenal Hyperplasia and Androgen Excess</div>
 
+
                 <div class="item-desc">Persistent adrenal stimulation and blocked steroidogenic flux promote adrenal cortical hyperplasia and excess androgen production.</div>
 
 
@@ -5320,11 +6574,11 @@ This pathophysiological event involves decreased steroid biosynthetic process (G
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002097" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0002097</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002097" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-36">CL:0002097</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves adrenal cortical cell, annotated with cortical cell of adrenal gland (CL:0002097). CL:0002097 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5361,11 +6615,11 @@ This pathophysiological event involves adrenal cortical cell, annotated with cor
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006694" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0006694</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006694" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-37">GO:0006694</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal steroid biosynthetic process (GO:0006694). GO:0006694 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5430,6 +6684,7 @@ This pathophysiological event involves abnormal steroid biosynthetic process (GO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5451,6 +6706,7 @@ This pathophysiological event involves abnormal steroid biosynthetic process (GO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5477,6 +6733,7 @@ This pathophysiological event involves abnormal steroid biosynthetic process (GO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-prenatal-and-postnatal-hyperandrogenism" data-dismech-node="Prenatal and Postnatal Hyperandrogenism" data-dismech-type="pathophysiology">
                 <div class="item-name">Prenatal and Postnatal Hyperandrogenism</div>
 
+
                 <div class="item-desc">Excess adrenal androgen exposure causes prenatal genital virilization and later hyperandrogenic features such as hirsutism, acne, menstrual irregularity, and infertility.</div>
 
 
@@ -5491,11 +6748,11 @@ This pathophysiological event involves abnormal steroid biosynthetic process (GO
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002097" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-17">CL:0002097</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002097" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-38">CL:0002097</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves adrenal cortical cell, annotated with cortical cell of adrenal gland (CL:0002097). CL:0002097 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5532,11 +6789,11 @@ This pathophysiological event involves adrenal cortical cell, annotated with cor
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006694" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0006694</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006694" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-39">GO:0006694</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased steroid biosynthetic process (GO:0006694). GO:0006694 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5586,6 +6843,7 @@ This pathophysiological event involves increased steroid biosynthetic process (G
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5631,7 +6889,7 @@ This pathophysiological event involves increased steroid biosynthetic process (G
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ACTH-Driven Adrenal Hyperplasia and Androgen Excess\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persistent adrenal stimulation and blocked steroidogenic flux promote adrenal cortical hyperplasia and excess androgen production.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"adrenal cortical cell\"], \"biological_processes\": [\"steroid biosynthetic process\"]}}, {\"id\": \"Adrenal Insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cortisol deficiency is a core feature of classic CAH and can present in neonates or early infancy in severe forms; rare enzyme defects such as CYP17A1 deficiency can also produce cortisol deficiency.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Classic 21-OHD\", \"Salt-Wasting 21-OHD\", \"Simple-Virilizing 21-OHD\", \"17A-OHD\"], \"term_id\": \"HP:0000846\"}}, {\"id\": \"CYP11B1 11-Beta-Hydroxylase Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CYP11B1 pathogenic variants reduce steroid 11 beta-hydroxylase function, producing a rare CAH subtype with aberrant sex-steroid production, virilization, and mineralocorticoid precursor-mediated hypertension.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"adrenal cortical cell\"], \"biological_processes\": [\"steroid biosynthetic process\"], \"molecular_functions\": [\"steroid 11-beta-monooxygenase activity\"], \"genes\": [\"CYP11B1\"], \"gene_terms\": [{\"label\": \"CYP11B1\", \"id\": \"hgnc:2591\"}]}}, {\"id\": \"CYP11B1 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CYP11B1\"], \"gene_terms\": [{\"label\": \"CYP11B1\", \"id\": \"hgnc:2591\"}], \"subtypes\": [\"11B-OHD\"], \"association\": \"Causative\"}}, {\"id\": \"CYP17A1 17-Hydroxylase/17,20-Lyase Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CYP17A1 pathogenic variants reduce steroid 17 alpha-hydroxylase/17,20-lyase activity, causing a rare CAH subtype characterized by cortisol deficiency, sex-steroid deficiency, and mineralocorticoid excess.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"adrenal cortical cell\"], \"biological_processes\": [\"steroid biosynthetic process\"], \"molecular_functions\": [\"steroid 17-alpha-monooxygenase activity\"], \"genes\": [\"CYP17A1\"], \"gene_terms\": [{\"label\": \"CYP17A1\", \"id\": \"hgnc:2593\"}]}}, {\"id\": \"CYP17A1 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CYP17A1\"], \"gene_terms\": [{\"label\": \"CYP17A1\", \"id\": \"hgnc:2593\"}], \"subtypes\": [\"17A-OHD\"], \"association\": \"Causative\"}}, {\"id\": \"CYP21A2 21-Hydroxylase Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of CYP21A2 21-hydroxylase activity impairs adrenal steroidogenesis, reducing cortisol and, in severe classic disease, aldosterone production.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"adrenal cortical cell\"], \"biological_processes\": [\"steroid biosynthetic process\", \"C21-steroid hormone biosynthetic process\"], \"genes\": [\"CYP21A2\"], \"gene_terms\": [{\"label\": \"CYP21A2\", \"id\": \"hgnc:2600\"}]}}, {\"id\": \"CYP21A2 gene therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"AAV-mediated CYP21A2 gene therapy is investigational and is designed to restore adrenal steroidogenesis upstream of hormone deficiency and androgen shunting.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"CYP21A2 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CYP21A2\"], \"gene_terms\": [{\"label\": \"CYP21A2\", \"id\": \"hgnc:2600\"}], \"subtypes\": [\"Classic 21-OHD\"], \"association\": \"Causative\"}}, {\"id\": \"Cortisol and Aldosterone Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deficient cortisol removes negative feedback on ACTH secretion; aldosterone deficiency in salt-wasting disease causes electrolyte and volume instability.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"adrenal cortical cell\"], \"biological_processes\": [\"steroid biosynthetic process\"]}}, {\"id\": \"Crinecerfont adjunct therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Crinecerfont is an oral corticotropin-releasing factor type 1 receptor antagonist that reduces ACTH-driven androgen excess and enables lower glucocorticoid doses in classic CAH.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"crinecerfont\"]}}, {\"id\": \"Glucocorticoid replacement\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Glucocorticoid therapy replaces deficient cortisol and suppresses excess ACTH-driven adrenal androgen production; treatment must balance androgen control against glucocorticoid-related complications.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"therapeutic hydrocortisone\"]}}, {\"id\": \"Hypertension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Adults with classic 21-hydroxylase deficiency require surveillance for cardiometabolic morbidity, including hypertension; hypertension also occurs in mineralocorticoid-excess CAH mechanisms such as 11 beta-hydroxylase deficiency and 17 alpha-hydroxylase/17,20-lyase deficiency.\", \"meta\": {\"evidence_count\": 3, \"subtypes\": [\"Classic 21-OHD\", \"11B-OHD\", \"17A-OHD\"], \"term_id\": \"HP:0000822\"}}, {\"id\": \"Mineralocorticoid replacement\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Fludrocortisone replaces mineralocorticoid activity in salt-wasting CAH and is used with glucocorticoids in many adults with classic disease.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"fludrocortisone\"]}}, {\"id\": \"Prenatal and Postnatal Hyperandrogenism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Excess adrenal androgen exposure causes prenatal genital virilization and later hyperandrogenic features such as hirsutism, acne, menstrual irregularity, and infertility.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"adrenal cortical cell\"], \"biological_processes\": [\"steroid biosynthetic process\"]}}, {\"id\": \"Salt-Wasting Electrolyte Crisis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe mineralocorticoid deficiency can cause neonatal salt-wasting with hyponatremia, hyperkalemia, hypovolemia, and risk of shock.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Salt-Wasting 21-OHD\", \"3B-HSD\", \"Lipoid CAH\"], \"term_id\": \"HP:0002902\"}}], \"edges\": [{\"source\": \"CYP21A2 21-Hydroxylase Deficiency\", \"target\": \"Cortisol and Aldosterone Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired 21-hydroxylation reduces normal glucocorticoid and, in severe classic disease, mineralocorticoid production.\"}, {\"source\": \"CYP11B1 11-Beta-Hydroxylase Deficiency\", \"target\": \"ACTH-Driven Adrenal Hyperplasia and Androgen Excess\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Blocked 11 beta-hydroxylase disrupts cortisol synthesis and steroid flux, promoting adrenal stimulation and androgen excess.\"}, {\"source\": \"CYP11B1 11-Beta-Hydroxylase Deficiency\", \"target\": \"Hypertension\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mineralocorticoid precursor accumulation in 11 beta-hydroxylase deficiency promotes hypertension.\"}, {\"source\": \"CYP17A1 17-Hydroxylase/17,20-Lyase Deficiency\", \"target\": \"Adrenal Insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cortisol deficiency from impaired CYP17A1 steroidogenesis contributes to adrenal insufficiency.\"}, {\"source\": \"CYP17A1 17-Hydroxylase/17,20-Lyase Deficiency\", \"target\": \"Hypertension\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mineralocorticoid excess from impaired CYP17A1 steroidogenesis promotes hypertension.\"}, {\"source\": \"Cortisol and Aldosterone Deficiency\", \"target\": \"ACTH-Driven Adrenal Hyperplasia and Androgen Excess\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced cortisol feedback increases adrenal stimulation and contributes to androgen precursor shunting.\"}, {\"source\": \"ACTH-Driven Adrenal Hyperplasia and Androgen Excess\", \"target\": \"Prenatal and Postnatal Hyperandrogenism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excess adrenal androgens produce virilization at birth in some 46,XX infants and later hyperandrogenic manifestations.\"}, {\"source\": \"Glucocorticoid replacement\", \"target\": \"Cortisol and Aldosterone Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Glucocorticoid replacement\", \"target\": \"ACTH-Driven Adrenal Hyperplasia and Androgen Excess\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Mineralocorticoid replacement\", \"target\": \"Cortisol and Aldosterone Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Mineralocorticoid replacement\", \"target\": \"Salt-Wasting Electrolyte Crisis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Crinecerfont adjunct therapy\", \"target\": \"ACTH-Driven Adrenal Hyperplasia and Androgen Excess\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"CYP21A2 gene therapy\", \"target\": \"CYP21A2 21-Hydroxylase Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"CYP21A2 pathogenic variants\", \"target\": \"CYP21A2 21-Hydroxylase Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CYP11B1 pathogenic variants\", \"target\": \"CYP11B1 11-Beta-Hydroxylase Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CYP17A1 pathogenic variants\", \"target\": \"CYP17A1 17-Hydroxylase/17,20-Lyase Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ACTH-Driven Adrenal Hyperplasia and Androgen Excess\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persistent adrenal stimulation and blocked steroidogenic flux promote adrenal cortical hyperplasia and excess androgen production.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"adrenal cortical cell\"], \"biological_processes\": [\"steroid biosynthetic process\"]}}, {\"id\": \"Adrenal Insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cortisol deficiency is a core feature of classic CAH and can present in neonates or early infancy in severe forms; rare enzyme defects such as CYP17A1 deficiency can also produce cortisol deficiency.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Classic 21-OHD\", \"Salt-Wasting 21-OHD\", \"Simple-Virilizing 21-OHD\", \"17A-OHD\"], \"term_id\": \"HP:0000846\"}}, {\"id\": \"CYP11B1 11-Beta-Hydroxylase Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CYP11B1 pathogenic variants reduce steroid 11 beta-hydroxylase function, producing a rare CAH subtype with aberrant sex-steroid production, virilization, and mineralocorticoid precursor-mediated hypertension.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"adrenal cortical cell\"], \"biological_processes\": [\"steroid biosynthetic process\"], \"molecular_functions\": [\"steroid 11-beta-monooxygenase activity\"], \"genes\": [\"CYP11B1\"], \"gene_terms\": [{\"label\": \"CYP11B1\", \"id\": \"hgnc:2591\"}]}}, {\"id\": \"CYP11B1 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CYP11B1\"], \"gene_terms\": [{\"label\": \"CYP11B1\", \"id\": \"hgnc:2591\"}], \"subtypes\": [\"11B-OHD\"], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"CYP17A1 17-Hydroxylase/17,20-Lyase Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CYP17A1 pathogenic variants reduce steroid 17 alpha-hydroxylase/17,20-lyase activity, causing a rare CAH subtype characterized by cortisol deficiency, sex-steroid deficiency, and mineralocorticoid excess. As with the CYP21A2 node, this is the enzymatic block rather than the gene lesion, and POR deficiency reaches it by removing the enzyme\u0027s electron supply rather than by altering CYP17A1 itself.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"adrenal cortical cell\"], \"biological_processes\": [\"steroid biosynthetic process\"], \"molecular_functions\": [\"steroid 17-alpha-monooxygenase activity\"], \"genes\": [\"CYP17A1\"], \"gene_terms\": [{\"label\": \"CYP17A1\", \"id\": \"hgnc:2593\"}]}}, {\"id\": \"CYP17A1 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CYP17A1\"], \"gene_terms\": [{\"label\": \"CYP17A1\", \"id\": \"hgnc:2593\"}], \"subtypes\": [\"17A-OHD\"], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"CYP21A2 21-Hydroxylase Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of CYP21A2 21-hydroxylase activity impairs adrenal steroidogenesis, reducing cortisol and, in severe classic disease, aldosterone production. The node is the enzymatic block, not the gene lesion, and it has two inbound routes: a biallelic CYP21A2 variant, which is the usual one and the reason the node is named after the gene, and loss of electron supply from POR, which reduces the same enzyme\u0027s catalysis without any CYP21A2 variant. The node name is kept because `kb/node_classes/pathograph_node_classes.txt` cites it as a worked example.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"adrenal cortical cell\"], \"biological_processes\": [\"steroid biosynthetic process\", \"C21-steroid hormone biosynthetic process\"], \"genes\": [\"CYP21A2\"], \"gene_terms\": [{\"label\": \"CYP21A2\", \"id\": \"hgnc:2600\"}]}}, {\"id\": \"CYP21A2 gene therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"AAV-mediated CYP21A2 gene therapy is investigational and is designed to restore adrenal steroidogenesis upstream of hormone deficiency and androgen shunting.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"CYP21A2 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 9, \"genes\": [\"CYP21A2\"], \"gene_terms\": [{\"label\": \"CYP21A2\", \"id\": \"hgnc:2600\"}], \"subtypes\": [\"Classic 21-OHD\"], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Cortisol and Aldosterone Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deficient cortisol removes negative feedback on ACTH secretion; aldosterone deficiency in salt-wasting disease causes electrolyte and volume instability.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"adrenal cortical cell\"], \"biological_processes\": [\"steroid biosynthetic process\"]}}, {\"id\": \"Crinecerfont adjunct therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Crinecerfont is an oral corticotropin-releasing factor type 1 receptor antagonist that reduces ACTH-driven androgen excess and enables lower glucocorticoid doses in classic CAH.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"crinecerfont\"]}}, {\"id\": \"Glucocorticoid replacement\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Glucocorticoid therapy replaces deficient cortisol and suppresses excess ACTH-driven adrenal androgen production; treatment must balance androgen control against glucocorticoid-related complications.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"therapeutic hydrocortisone\"]}}, {\"id\": \"HSD3B2 3-Beta-Hydroxysteroid Dehydrogenase Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HSD3B2 pathogenic variants reduce the adrenal and gonadal 3-beta-hydroxy-delta5-steroid dehydrogenase that converts delta-5 precursors to their delta-4 counterparts. The step is shared by the glucocorticoid, mineralocorticoid and sex-steroid branches, so unlike the 21- and 11-beta-hydroxylase blocks this one impairs gonadal as well as adrenal steroidogenesis. The placental isozyme HSD3B1 is a different gene and is not implicated.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"adrenal cortical cell\"], \"biological_processes\": [\"steroid hormone biosynthetic process\"], \"molecular_functions\": [\"3-beta-hydroxy-delta5-steroid dehydrogenase activity\"], \"genes\": [\"HSD3B2\"], \"gene_terms\": [{\"label\": \"HSD3B2\", \"id\": \"hgnc:5218\"}]}}, {\"id\": \"HSD3B2 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"HSD3B2\"], \"gene_terms\": [{\"label\": \"HSD3B2\", \"id\": \"hgnc:5218\"}], \"subtypes\": [\"3B-HSD\"], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Hypertension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Adults with classic 21-hydroxylase deficiency require surveillance for cardiometabolic morbidity, including hypertension; hypertension also occurs in mineralocorticoid-excess CAH mechanisms such as 11 beta-hydroxylase deficiency and 17 alpha-hydroxylase/17,20-lyase deficiency.\", \"meta\": {\"evidence_count\": 3, \"subtypes\": [\"Classic 21-OHD\", \"11B-OHD\", \"17A-OHD\"], \"term_id\": \"HP:0000822\"}}, {\"id\": \"Mineralocorticoid replacement\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Fludrocortisone replaces mineralocorticoid activity in salt-wasting CAH and is used with glucocorticoids in many adults with classic disease.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"fludrocortisone\"]}}, {\"id\": \"POR Electron-Transfer Failure to Microsomal P450 Enzymes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"POR pathogenic variants reduce the NADPH-dependent electron donor that every endoplasmic-reticulum cytochrome P450 requires for catalysis. This is the only lesion in this entry that reaches more than one enzymatic node: the same defect partially disables CYP17A1 and CYP21A2 together, which is why POR deficiency presents as a combined rather than a single-step block, and why it also affects aromatase and hepatic drug-metabolising P450s that lie outside adrenal steroidogenesis altogether.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"adrenal cortical cell\"], \"biological_processes\": [\"steroid hormone biosynthetic process\"], \"genes\": [\"POR\"], \"gene_terms\": [{\"label\": \"POR\", \"id\": \"hgnc:9208\"}]}}, {\"id\": \"POR pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"POR\"], \"gene_terms\": [{\"label\": \"POR\", \"id\": \"hgnc:9208\"}], \"subtypes\": [\"POR-D\"], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Prenatal and Postnatal Hyperandrogenism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Excess adrenal androgen exposure causes prenatal genital virilization and later hyperandrogenic features such as hirsutism, acne, menstrual irregularity, and infertility.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"adrenal cortical cell\"], \"biological_processes\": [\"steroid biosynthetic process\"]}}, {\"id\": \"STAR pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"STAR\"], \"gene_terms\": [{\"label\": \"STAR\", \"id\": \"hgnc:11359\"}], \"subtypes\": [\"Lipoid CAH\"], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"STAR-Dependent Mitochondrial Cholesterol Import Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of the steroidogenic acute regulatory protein removes the delivery of cholesterol to the inner mitochondrial membrane, where side-chain cleavage begins. This node sits above every enzymatic block in this entry: the substrate never reaches the first committed step, so adrenal and gonadal steroid output fails near-completely and unesterified cholesterol accumulates as esters in the adrenal cortex, giving the lipoid form its name.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"adrenal cortical cell\"], \"biological_processes\": [\"intracellular cholesterol transport\", \"steroid hormone biosynthetic process\"], \"molecular_functions\": [\"cholesterol transfer activity\"], \"genes\": [\"STAR\"], \"gene_terms\": [{\"label\": \"STAR\", \"id\": \"hgnc:11359\"}]}}, {\"id\": \"Salt-Wasting Electrolyte Crisis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe mineralocorticoid deficiency can cause neonatal salt-wasting with hyponatremia, hyperkalemia, hypovolemia, and risk of shock.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Salt-Wasting 21-OHD\", \"3B-HSD\", \"Lipoid CAH\"], \"term_id\": \"HP:0002902\"}}], \"edges\": [{\"source\": \"CYP21A2 21-Hydroxylase Deficiency\", \"target\": \"Cortisol and Aldosterone Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired 21-hydroxylation reduces normal glucocorticoid and, in severe classic disease, mineralocorticoid production.\"}, {\"source\": \"CYP11B1 11-Beta-Hydroxylase Deficiency\", \"target\": \"ACTH-Driven Adrenal Hyperplasia and Androgen Excess\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Blocked 11 beta-hydroxylase disrupts cortisol synthesis and steroid flux, promoting adrenal stimulation and androgen excess.\"}, {\"source\": \"CYP11B1 11-Beta-Hydroxylase Deficiency\", \"target\": \"Hypertension\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mineralocorticoid precursor accumulation in 11 beta-hydroxylase deficiency promotes hypertension.\"}, {\"source\": \"CYP17A1 17-Hydroxylase/17,20-Lyase Deficiency\", \"target\": \"Adrenal Insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cortisol deficiency from impaired CYP17A1 steroidogenesis contributes to adrenal insufficiency.\"}, {\"source\": \"CYP17A1 17-Hydroxylase/17,20-Lyase Deficiency\", \"target\": \"Hypertension\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mineralocorticoid excess from impaired CYP17A1 steroidogenesis promotes hypertension.\"}, {\"source\": \"HSD3B2 3-Beta-Hydroxysteroid Dehydrogenase Deficiency\", \"target\": \"Cortisol and Aldosterone Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Blocking the shared delta-5 to delta-4 conversion reduces flux into both the glucocorticoid and mineralocorticoid branches.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"STAR-Dependent Mitochondrial Cholesterol Import Failure\", \"target\": \"Cortisol and Aldosterone Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"With cholesterol not reaching the side-chain cleavage step, neither glucocorticoid nor mineralocorticoid synthesis can proceed.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"POR Electron-Transfer Failure to Microsomal P450 Enzymes\", \"target\": \"CYP21A2 21-Hydroxylase Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of electron supply reduces CYP21A2 catalysis, producing a partial 21-hydroxylase block without a CYP21A2 variant.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"POR Electron-Transfer Failure to Microsomal P450 Enzymes\", \"target\": \"CYP17A1 17-Hydroxylase/17,20-Lyase Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same electron-supply failure reduces CYP17A1 catalysis, which is why the steroid profile in POR deficiency is combined rather than isolated.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cortisol and Aldosterone Deficiency\", \"target\": \"ACTH-Driven Adrenal Hyperplasia and Androgen Excess\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced cortisol feedback increases adrenal stimulation and contributes to androgen precursor shunting.\"}, {\"source\": \"ACTH-Driven Adrenal Hyperplasia and Androgen Excess\", \"target\": \"Prenatal and Postnatal Hyperandrogenism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excess adrenal androgens produce virilization at birth in some 46,XX infants and later hyperandrogenic manifestations.\"}, {\"source\": \"Glucocorticoid replacement\", \"target\": \"Cortisol and Aldosterone Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Glucocorticoid replacement\", \"target\": \"ACTH-Driven Adrenal Hyperplasia and Androgen Excess\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Mineralocorticoid replacement\", \"target\": \"Cortisol and Aldosterone Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Mineralocorticoid replacement\", \"target\": \"Salt-Wasting Electrolyte Crisis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Crinecerfont adjunct therapy\", \"target\": \"ACTH-Driven Adrenal Hyperplasia and Androgen Excess\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"CYP21A2 gene therapy\", \"target\": \"CYP21A2 21-Hydroxylase Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"CYP21A2 pathogenic variants\", \"target\": \"CYP21A2 21-Hydroxylase Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CYP11B1 pathogenic variants\", \"target\": \"CYP11B1 11-Beta-Hydroxylase Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CYP17A1 pathogenic variants\", \"target\": \"CYP17A1 17-Hydroxylase/17,20-Lyase Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"HSD3B2 pathogenic variants\", \"target\": \"HSD3B2 3-Beta-Hydroxysteroid Dehydrogenase Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"STAR pathogenic variants\", \"target\": \"STAR-Dependent Mitochondrial Cholesterol Import Failure\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"POR pathogenic variants\", \"target\": \"POR Electron-Transfer Failure to Microsomal P450 Enzymes\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5654,7 +6912,7 @@ This pathophysiological event involves increased steroid biosynthetic process (G
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Endocrine<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Genitourinary<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Genitourinary<span class="pill-count">(3)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Integument<span class="pill-count">(1)</span></button>
 
@@ -5664,7 +6922,7 @@ This pathophysiological event involves increased steroid biosynthetic process (G
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Growth<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Other<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5691,15 +6949,18 @@ This pathophysiological event involves increased steroid biosynthetic process (G
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000822</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0000822</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5719,6 +6980,7 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5746,6 +7008,7 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5767,6 +7030,7 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5816,15 +7080,18 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000846" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000846</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000846" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0000846</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Adrenal insufficiency (HP:0000846). HP:0000846 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5844,6 +7111,7 @@ This clinical feature is Adrenal insufficiency (HP:0000846). HP:0000846 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5868,6 +7136,7 @@ This clinical feature is Adrenal insufficiency (HP:0000846). HP:0000846 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5910,15 +7179,18 @@ This clinical feature is Adrenal insufficiency (HP:0000846). HP:0000846 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005978" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0005978</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005978" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0005978</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Type II diabetes mellitus (HP:0005978). HP:0005978 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5938,6 +7210,7 @@ This clinical feature is Type II diabetes mellitus (HP:0005978). HP:0005978 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5970,12 +7243,12 @@ This clinical feature is Type II diabetes mellitus (HP:0005978). HP:0005978 is a
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Genitourinary
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-irregular-menstruation" data-dismech-node="Irregular Menstruation" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-ambiguous-genitalia-and-46-xx-virilization" data-dismech-node="Ambiguous Genitalia and 46,XX Virilization" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Irregular Menstruation
+                        Ambiguous Genitalia and 46,XX Virilization
 
 
 
@@ -5987,15 +7260,47 @@ This clinical feature is Type II diabetes mellitus (HP:0005978). HP:0005978 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000858" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000858</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000062" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0000062</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Irregular menstruation (HP:0000858). HP:0000858 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Ambiguous genitalia (HP:0000062), qualified as congenital onset. HP:0000062 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">
+        Onset: CONGENITAL</span>
+
+
+
+
+
+
+                    </div>
+
+
+
 
 
 
@@ -6015,6 +7320,79 @@ This clinical feature is Irregular menstruation (HP:0000858). HP:0000858 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The age at diagnosis can provide some information about underlying mutations, with those diagnosed at birth/early infancy more likely to have severe enzymatic defects, which may include adrenal insufficiency, sexual development disorders, short stature in adulthood, hirsutism, and a higher risk..."</div>
+
+
+                <div class="evidence-explanation">The quoted text lists &#34;sexual development disorders&#34; generically in severe early-diagnosed CAH; it does not document 46,XX virilization, clitoral hypertrophy, or ambiguous genitalia specifically. PARTIAL rather than SUPPORT.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-irregular-menstruation" data-dismech-node="Irregular Menstruation" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Irregular Menstruation
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000858" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0000858</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Irregular menstruation (HP:0000858). HP:0000858 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37176569" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37176569" target="_blank">PMID:37176569</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6055,15 +7433,18 @@ This clinical feature is Irregular menstruation (HP:0000858). HP:0000858 is a ph
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000789" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000789</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000789" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0000789</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Infertility (HP:0000789). HP:0000789 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6083,6 +7464,7 @@ This clinical feature is Infertility (HP:0000789). HP:0000789 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6132,15 +7514,18 @@ This clinical feature is Infertility (HP:0000789). HP:0000789 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001007" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001007</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001007" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0001007</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hirsutism (HP:0001007). HP:0001007 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6160,6 +7545,7 @@ This clinical feature is Hirsutism (HP:0001007). HP:0001007 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6211,10 +7597,10 @@ This clinical feature is Hirsutism (HP:0001007). HP:0001007 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002902" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002902</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002902" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0002902</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is hyponatremia (HP:0002902), qualified as neonatal onset. HP:0002902 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6254,6 +7640,9 @@ This clinical feature is hyponatremia (HP:0002902), qualified as neonatal onset.
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6268,6 +7657,7 @@ This clinical feature is hyponatremia (HP:0002902), qualified as neonatal onset.
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6317,15 +7707,18 @@ This clinical feature is hyponatremia (HP:0002902), qualified as neonatal onset.
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000939" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000939</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000939" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0000939</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Osteoporosis (HP:0000939). HP:0000939 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6345,6 +7738,7 @@ This clinical feature is Osteoporosis (HP:0000939). HP:0000939 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6394,15 +7788,18 @@ This clinical feature is Osteoporosis (HP:0000939). HP:0000939 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0004322</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0004322</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6422,6 +7819,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6454,105 +7852,8 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">1</span>
                 </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-ambiguous-genitalia-and-46-xx-virilization" data-dismech-node="Ambiguous Genitalia and 46,XX Virilization" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Ambiguous Genitalia and 46,XX Virilization
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000062" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000062</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Ambiguous genitalia (HP:0000062), qualified as congenital onset. HP:0000062 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">
-        Onset: CONGENITAL</span>
-
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:37176569" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37176569" target="_blank">PMID:37176569</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The age at diagnosis can provide some information about underlying mutations, with those diagnosed at birth/early infancy more likely to have severe enzymatic defects, which may include adrenal insufficiency, sexual development disorders, short stature in adulthood, hirsutism, and a higher risk..."</div>
-
-
-                <div class="evidence-explanation">The quoted text lists &#34;sexual development disorders&#34; generically in severe early-diagnosed CAH; it does not document 46,XX virilization, clitoral hypertrophy, or ambiguous genitalia specifically. PARTIAL rather than SUPPORT.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-testicular-adrenal-rest-tumors" data-dismech-node="Testicular Adrenal Rest Tumors" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6560,6 +7861,9 @@ This clinical feature is Ambiguous genitalia (HP:0000062), qualified as congenit
 
 
                     </div>
+
+
+
 
 
 
@@ -6579,6 +7883,7 @@ This clinical feature is Ambiguous genitalia (HP:0000062), qualified as congenit
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6641,7 +7946,7 @@ This clinical feature is Ambiguous genitalia (HP:0000062), qualified as congenit
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
-                <span class="card-count">5</span>
+                <span class="card-count">6</span>
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-cyp21a2-pathogenic-variants" data-dismech-node="CYP21A2 pathogenic variants" data-dismech-type="genetic">
@@ -6662,24 +7967,31 @@ This clinical feature is Ambiguous genitalia (HP:0000062), qualified as congenit
                         Gene: CYP21A2
 
 
-    <a href="https://bioregistry.io/hgnc:2600" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-29">hgnc:2600</a>
+    <a href="https://bioregistry.io/hgnc:2600" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-50">hgnc:2600</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is CYP21A2 (hgnc:2600). hgnc:2600 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
+
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (9 references)
         </summary>
         <div class="evidence-list">
 
@@ -6691,6 +8003,7 @@ This disease-associated gene is CYP21A2 (hgnc:2600). hgnc:2600 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6707,6 +8020,58 @@ This disease-associated gene is CYP21A2 (hgnc:2600). hgnc:2600 is a gene from th
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="PMID:39911519" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39911519" target="_blank">PMID:39911519</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Over 95% of deleterious variants leading to 21OHD are attributable to intergenic recombination events where microconversions, consisting in the transfer to CYP21A2 of deleterious variants usually present in the CYP21A1P pseudogene, represent 70% to 75%"</div>
+
+
+                <div class="evidence-explanation">The quantitative basis for this record&#39;s claim that the CYP21A2 lesion is predominantly gene conversion from the CYP21A1P pseudogene rather than independent mutation.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39911519" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39911519" target="_blank">PMID:39911519</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A consequence of this phenomenon is that a small group of pathogenic variants with recognized phenotypic effects is detected in all populations"</div>
+
+
+                <div class="evidence-explanation">Supports the first practical consequence recorded in this record&#39;s notes.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 6 more references</div>
 
         </div>
     </details>
@@ -6733,17 +8098,24 @@ This disease-associated gene is CYP21A2 (hgnc:2600). hgnc:2600 is a gene from th
                         Gene: CYP11B1
 
 
-    <a href="https://bioregistry.io/hgnc:2591" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-30">hgnc:2591</a>
+    <a href="https://bioregistry.io/hgnc:2591" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-51">hgnc:2591</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is CYP11B1 (hgnc:2591). hgnc:2591 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
+
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -6762,6 +8134,7 @@ This disease-associated gene is CYP11B1 (hgnc:2591). hgnc:2591 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6804,17 +8177,24 @@ This disease-associated gene is CYP11B1 (hgnc:2591). hgnc:2591 is a gene from th
                         Gene: CYP17A1
 
 
-    <a href="https://bioregistry.io/hgnc:2593" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-31">hgnc:2593</a>
+    <a href="https://bioregistry.io/hgnc:2593" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-52">hgnc:2593</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is CYP17A1 (hgnc:2593). hgnc:2593 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
+
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -6833,6 +8213,7 @@ This disease-associated gene is CYP17A1 (hgnc:2593). hgnc:2593 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6875,20 +8256,116 @@ This disease-associated gene is CYP17A1 (hgnc:2593). hgnc:2593 is a gene from th
                         Gene: HSD3B2
 
 
-    <a href="https://bioregistry.io/hgnc:5218" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-32">hgnc:5218</a>
+    <a href="https://bioregistry.io/hgnc:5218" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-53">hgnc:5218</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is HSD3B2 (hgnc:5218). hgnc:5218 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
+
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
 
 
 
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (4 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39713884" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39713884" target="_blank">PMID:39713884</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Mutations in HSD3B2 cause a rare form of CAH."</div>
+
+
+                <div class="evidence-explanation">Directly states that HSD3B2 variants cause a form of congenital adrenal hyperplasia.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39713884" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39713884" target="_blank">PMID:39713884</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HSD3B2 is expressed in the adrenal gland, ovary, and testis"</div>
+
+
+                <div class="evidence-explanation">Supports the isozyme distinction recorded in this record&#39;s notes and the combined adrenal-gonadal scope of the defect.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39713884" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39713884" target="_blank">PMID:39713884</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Mutations in HSD3B1 have never been reported in humans."</div>
+
+
+                <div class="evidence-explanation">Substantiates this record&#39;s statement that the placental isozyme HSD3B1 is not implicated in CAH.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
 
 
 
@@ -6912,20 +8389,243 @@ This disease-associated gene is HSD3B2 (hgnc:5218). hgnc:5218 is a gene from the
                         Gene: STAR
 
 
-    <a href="https://bioregistry.io/hgnc:11359" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-33">hgnc:11359</a>
+    <a href="https://bioregistry.io/hgnc:11359" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-54">hgnc:11359</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is STAR (hgnc:11359). hgnc:11359 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
+
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
 
 
 
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39713884" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39713884" target="_blank">PMID:39713884</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The classical form usually occurs with loss-of-function in the StAR gene"</div>
+
+
+                <div class="evidence-explanation">Establishes loss of STAR function as the cause of classic lipoid congenital adrenal hyperplasia.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39713884" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39713884" target="_blank">PMID:39713884</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Patients with LCAH, which develops due to steroidogenic acute regulatory protein deficiency, typically present with salt wasting in the first year of life. It is characterized by complete or near-complete deficiency of adrenal and gonadal steroid hormones and progressive accumulation of..."</div>
+
+
+                <div class="evidence-explanation">Supports both the near-complete steroid-output failure and the cholesterol ester accumulation this record attributes to loss of cholesterol delivery.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39713884" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39713884" target="_blank">PMID:39713884</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Hovever in most patients with LCAH, the defect is found in StAR not the CYP11A1 gene for P450scc"</div>
+
+
+                <div class="evidence-explanation">Supports this record&#39;s statement that STAR accounts for most, but not all, of clinically lipoid CAH. The source&#39;s typographic error in the first word is preserved as the snippet must be an exact quotation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+            <div class="item-box genetic-box anchor-target" id="genetic-por-pathogenic-variants" data-dismech-node="POR pathogenic variants" data-dismech-type="genetic">
+                <div class="item-name">
+                    POR pathogenic variants
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Causative)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: POR
+
+
+    <a href="https://bioregistry.io/hgnc:9208" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-55">hgnc:9208</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is POR (hgnc:9208). hgnc:9208 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
+
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (4 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33415088" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33415088" target="_blank">PMID:33415088</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"POR-D was first described in 2004 (59) as a rare form of CAH."</div>
+
+
+                <div class="evidence-explanation">Establishes POR deficiency as a recognised form of congenital adrenal hyperplasia.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33415088" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33415088" target="_blank">PMID:33415088</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The main microsomal POR-dependent enzymes are involved in the biosynthesis of steroid hormones in both the adrenal cortex and gonads (CYP17A1, CYP19A1, CYP21A2, and CYP15A1)"</div>
+
+
+                <div class="evidence-explanation">Names CYP17A1 and CYP21A2 among the POR-dependent enzymes, which is the basis for the two downstream edges drawn from the POR node in the pathograph.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33415088" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33415088" target="_blank">PMID:33415088</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The homozygous null mutations appear to be lethal"</div>
+
+
+                <div class="evidence-explanation">Supports this record&#39;s statement about complete null alleles.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
 
 
 
@@ -6957,7 +8657,7 @@ This disease-associated gene is STAR (hgnc:11359). hgnc:11359 is a gene from the
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-56">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-56">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6998,16 +8698,30 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C555" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-35">NCIT:C555</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C555" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-57">NCIT:C555</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses therapeutic hydrocortisone (NCIT:C555). NCIT:C555 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -7066,6 +8780,7 @@ This treatment uses therapeutic hydrocortisone (NCIT:C555). NCIT:C555 is a thera
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7094,7 +8809,7 @@ This treatment uses therapeutic hydrocortisone (NCIT:C555). NCIT:C555 is a thera
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-58">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-58">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7135,16 +8850,30 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C71629" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-37">NCIT:C71629</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C71629" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-59">NCIT:C71629</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses fludrocortisone (NCIT:C71629). NCIT:C71629 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -7181,11 +8910,11 @@ This treatment uses fludrocortisone (NCIT:C71629). NCIT:C71629 is a therapeutic 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002902" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0002902</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002902" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-60">HP:0002902</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets hyponatremia (HP:0002902). HP:0002902 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7209,6 +8938,7 @@ This treatment targets hyponatremia (HP:0002902). HP:0002902 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7240,7 +8970,7 @@ This treatment targets hyponatremia (HP:0002902). HP:0002902 is a phenotype from
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-61">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-61">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7281,16 +9011,30 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C174708" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-40">NCIT:C174708</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C174708" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-62">NCIT:C174708</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses crinecerfont (NCIT:C174708). NCIT:C174708 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -7336,6 +9080,7 @@ This treatment uses crinecerfont (NCIT:C174708). NCIT:C174708 is a therapeutic a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7357,6 +9102,7 @@ This treatment uses crinecerfont (NCIT:C174708). NCIT:C174708 is a therapeutic a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7388,7 +9134,7 @@ This treatment uses crinecerfont (NCIT:C174708). NCIT:C174708 is a therapeutic a
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">gene therapy<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-63">gene therapy<span class="pill-tip" role="tooltip" id="pill-tip-63">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7416,6 +9162,31 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Gene therapy</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -7460,6 +9231,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7525,6 +9297,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7546,6 +9319,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7596,6 +9370,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7617,6 +9392,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7686,6 +9462,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7728,11 +9505,11 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
         genetic testing
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-42">NCIT:C15709</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-64">NCIT:C15709</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-64">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -7770,6 +9547,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7910,6 +9688,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7960,6 +9739,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8028,6 +9808,13 @@ notes: &gt;-
   The curated scope emphasizes 21-hydroxylase deficiency, the overwhelmingly
   predominant form, while preserving subtype framing for the major rarer CAH
   enzyme defects.
+
+  GeneReviews baseline: the 21-hydroxylase chapter (PMID:20301350) is the
+  chapter for the dominant form and is cited on the salt-wasting and
+  simple-virilizing subtype rows. There is no GeneReviews chapter for
+  congenital adrenal hyperplasia as a whole; the offline Bookshelf index this
+  repository commits returns only the 21-hydroxylase chapter for this entry&#39;s
+  name, so the rarer enzyme defects are curated from the review literature.
 disease_term:
   preferred_term: congenital adrenal hyperplasia
   term:
@@ -8047,6 +9834,11 @@ has_subtypes:
     term:
       id: MONDO:0008728
       label: classic congenital adrenal hyperplasia due to 21-hydroxylase deficiency
+  genes:
+  - preferred_term: CYP21A2
+    term:
+      id: hgnc:2600
+      label: CYP21A2
 - name: Salt-Wasting 21-OHD
   display_name: Classic salt-wasting 21-hydroxylase deficiency
   description: &gt;-
@@ -8057,6 +9849,21 @@ has_subtypes:
     term:
       id: MONDO:0017839
       label: classic congenital adrenal hyperplasia due to 21-hydroxylase deficiency, salt wasting form
+  genes:
+  - preferred_term: CYP21A2
+    term:
+      id: hgnc:2600
+      label: CYP21A2
+  evidence:
+  - reference: PMID:20301350
+    reference_title: 21-Hydroxylase-Deficient Congenital Adrenal Hyperplasia.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The classic form is further divided into the simple virilizing form (~25% of affected individuals) and the salt-wasting form, in which aldosterone production is inadequate (\u226575% of individuals).&#34;
+    explanation: &gt;-
+      GeneReviews gives the split of classic 21-hydroxylase deficiency between
+      the two clinical forms. Note the denominator: these are fractions of
+      classic 21-OHD, not of all congenital adrenal hyperplasia.
 - name: Simple-Virilizing 21-OHD
   display_name: Classic simple-virilizing 21-hydroxylase deficiency
   description: &gt;-
@@ -8067,6 +9874,21 @@ has_subtypes:
     term:
       id: MONDO:0017840
       label: classic congenital adrenal hyperplasia due to 21-hydroxylase deficiency, simple virilizing form
+  genes:
+  - preferred_term: CYP21A2
+    term:
+      id: hgnc:2600
+      label: CYP21A2
+  evidence:
+  - reference: PMID:20301350
+    reference_title: 21-Hydroxylase-Deficient Congenital Adrenal Hyperplasia.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The classic form is further divided into the simple virilizing form (~25% of affected individuals) and the salt-wasting form, in which aldosterone production is inadequate (\u226575% of individuals).&#34;
+    explanation: &gt;-
+      GeneReviews gives the split of classic 21-hydroxylase deficiency between
+      the two clinical forms. Note the denominator: these are fractions of
+      classic 21-OHD, not of all congenital adrenal hyperplasia.
 - name: Nonclassic 21-OHD
   display_name: Nonclassic congenital adrenal hyperplasia
   description: &gt;-
@@ -8077,6 +9899,11 @@ has_subtypes:
     term:
       id: MONDO:0023601
       label: non-classic congenital adrenal hyperplasia
+  genes:
+  - preferred_term: CYP21A2
+    term:
+      id: hgnc:2600
+      label: CYP21A2
 - name: 11B-OHD
   display_name: 11 beta-hydroxylase deficiency
   description: &gt;-
@@ -8087,6 +9914,11 @@ has_subtypes:
     term:
       id: MONDO:0008729
       label: congenital adrenal hyperplasia due to 11-beta-hydroxylase deficiency
+  genes:
+  - preferred_term: CYP11B1
+    term:
+      id: hgnc:2591
+      label: CYP11B1
 - name: 17A-OHD
   display_name: 17 alpha-hydroxylase/17,20-lyase deficiency
   description: &gt;-
@@ -8097,6 +9929,11 @@ has_subtypes:
     term:
       id: MONDO:0008730
       label: congenital adrenal hyperplasia due to 17-alpha-hydroxylase deficiency
+  genes:
+  - preferred_term: CYP17A1
+    term:
+      id: hgnc:2593
+      label: CYP17A1
 - name: 3B-HSD
   display_name: 3 beta-hydroxysteroid dehydrogenase deficiency
   description: &gt;-
@@ -8107,6 +9944,11 @@ has_subtypes:
     term:
       id: MONDO:0008727
       label: congenital adrenal hyperplasia due to 3-beta-hydroxysteroid dehydrogenase deficiency
+  genes:
+  - preferred_term: HSD3B2
+    term:
+      id: hgnc:5218
+      label: HSD3B2
 - name: Lipoid CAH
   display_name: Lipoid congenital adrenal hyperplasia
   description: &gt;-
@@ -8117,6 +9959,50 @@ has_subtypes:
     term:
       id: MONDO:0008725
       label: congenital lipoid adrenal hyperplasia due to STAR deficency
+  genes:
+  - preferred_term: STAR
+    term:
+      id: hgnc:11359
+      label: STAR
+- name: POR-D
+  display_name: P450 oxidoreductase deficiency
+  description: &gt;-
+    CAH caused by POR deficiency. Mechanistically it is the odd one out of this
+    family: POR is not a steroidogenic enzyme but the NADPH-dependent electron
+    donor that every endoplasmic-reticulum cytochrome P450 requires, so a single
+    lesion partially disables CYP17A1 and CYP21A2 together and produces a
+    combined rather than a single-step block. The same dependency explains the
+    features no other CAH subtype has: impaired aromatase (CYP19A1) activity can
+    virilize the mother during pregnancy, skeletal malformation overlapping
+    Antley-Bixler syndrome occurs, and hepatic drug metabolism is affected.
+  subtype_term:
+    preferred_term: congenital adrenal hyperplasia due to cytochrome P450 oxidoreductase deficiency
+    term:
+      id: MONDO:0013310
+      label: congenital adrenal hyperplasia due to cytochrome P450 oxidoreductase deficiency
+  genes:
+  - preferred_term: POR
+    term:
+      id: hgnc:9208
+      label: POR
+  evidence:
+  - reference: PMID:33415088
+    reference_title: Congenital Adrenal Hyperplasias Presenting in the Newborn and Young Infant.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Less frequent types of CAH are 11\u03b2-hydroxylase deficiency (CYP11B1-D, up to 8% cases), 17\u03b1-hydroxylase/17\u201320 lyase deficiency (CYP17A1-D), 3\u03b2-hydroxysteroid dehydrogenase deficiency (HDS3B2-D), P450 oxidoreductase deficiency (POR-D), P450 cytochrome side-chain cleavage deficiency (CYP11A1-D), and StAR deficiency (StAR-D).&#34;
+    explanation: &gt;-
+      Names POR deficiency in this review&#39;s enumeration of the less frequent
+      types of congenital adrenal hyperplasia. The source&#39;s typo in the 3-beta
+      symbol (HDS3B2-D) is preserved because the snippet must be exact.
+  - reference: PMID:33415088
+    reference_title: Congenital Adrenal Hyperplasias Presenting in the Newborn and Young Infant.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Maternal virilization during pregnancy, due to a defect in aromatase (CYP19A1) activity, is described in 21% of mothers&#34;
+    explanation: &gt;-
+      Supports the maternal-virilization feature this row gives as one of the
+      consequences of POR&#39;s role as a shared P450 electron donor.
 inheritance:
 - name: Autosomal Recessive
   inheritance_term:
@@ -8138,6 +10024,11 @@ inheritance:
     explanation: &gt;-
       This review explicitly identifies the predominant 21-OHD form as
       autosomal recessive and frames its contribution to all CAH.
+references:
+- reference: PMID:20301350
+  title: &#34;21-Hydroxylase-Deficient Congenital Adrenal Hyperplasia.&#34;
+  tags:
+  - GeneReviews
 genetic:
 - name: CYP21A2 pathogenic variants
   gene_term:
@@ -8146,11 +10037,33 @@ genetic:
       id: hgnc:2600
       label: CYP21A2
   association: Causative
+  relationship_type: CAUSATIVE
+  variant_origin: GERMLINE
   subtype: Classic 21-OHD
   features: &gt;-
     CYP21A2 variants cause 21-hydroxylase deficiency, producing the dominant
     CAH subtype and a phenotype spectrum from classic salt-wasting disease to
     nonclassic hyperandrogenism.
+  notes: &gt;-
+    The lesion type here is unlike the rest of this entry&#39;s genes. CYP21A2 sits
+    in the RCCX copy-number-variable module of the MHC class III region beside
+    an inactive, highly homologous pseudogene, CYP21A1P. Most disease alleles
+    are therefore not independent new mutations but transfers of the
+    pseudogene&#39;s own deleterious variants into the functional gene: the cited
+    review attributes over 95% of deleterious 21OHD alleles to intergenic
+    recombination, of which microconversions from the pseudogene are 70% to 75%
+    and non-uniform meiotic crossing-over - which produces CYP21A1P/CYP21A2
+    chimeric genes and a 30-kb deletion - is 20% to 25%. Only 5% to 10% of small
+    pathogenic variants arise outside these recombination events.
+
+    Two practical consequences follow and are the reason this is recorded rather
+    than left implicit. First, a small recurrent set of pathogenic variants is
+    seen in every population, because they are the pseudogene&#39;s variants rather
+    than population-specific founder alleles. Second, the homology defeats
+    ordinary sequencing: the review states that next-generation sequencing is
+    not yet recommended for CYP21A2 genotyping because it can call pseudogene
+    variants as gene variants, and that MLPA plus selective long-range
+    amplification is the recommended approach.
   evidence:
   - reference: PMID:39911519
     reference_title: &#34;Genetics in Congenital Adrenal Hyperplasia Due to 21-Hydroxylase Deficiency and Clinical Implications.&#34;
@@ -8161,6 +10074,63 @@ genetic:
       encoded by the CYP21A2 gene and involved in cortisol and aldosterone
       production.
     explanation: Directly links CYP21A2 to 21-hydroxylase deficiency.
+  - reference: PMID:39911519
+    reference_title: &#34;Genetics in Congenital Adrenal Hyperplasia Due to 21-Hydroxylase Deficiency and Clinical Implications.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Over 95% of deleterious variants leading to 21OHD are attributable to intergenic recombination events where microconversions, consisting in the transfer to CYP21A2 of deleterious variants usually present in the CYP21A1P pseudogene, represent 70% to 75%&#34;
+    explanation: &gt;-
+      The quantitative basis for this record&#39;s claim that the CYP21A2 lesion is
+      predominantly gene conversion from the CYP21A1P pseudogene rather than
+      independent mutation.
+  - reference: PMID:39911519
+    reference_title: &#34;Genetics in Congenital Adrenal Hyperplasia Due to 21-Hydroxylase Deficiency and Clinical Implications.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;A consequence of this phenomenon is that a small group of pathogenic variants with recognized phenotypic effects is detected in all populations&#34;
+    explanation: Supports the first practical consequence recorded in this record&#39;s notes.
+  - reference: PMID:39911519
+    reference_title: &#34;Genetics in Congenital Adrenal Hyperplasia Due to 21-Hydroxylase Deficiency and Clinical Implications.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Only 5% to 10% of small pathogenic variants affecting the CYP21A2 gene are not the result of genetic conversions&#34;
+    explanation: &gt;-
+      Substantiates the residual fraction of CYP21A2 alleles that arise outside
+      the gene-conversion and crossing-over mechanisms.
+  - reference: PMID:39911519
+    reference_title: &#34;Genetics in Congenital Adrenal Hyperplasia Due to 21-Hydroxylase Deficiency and Clinical Implications.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;A nonuniform meiotic crossing-over event is responsible for 20% to 25% of the remaining intergenic recombinations.&#34;
+    explanation: &gt;-
+      Substantiates the crossing-over share, and with the microconversion figure
+      above accounts for the recombination total this record states.
+  - reference: PMID:39911519
+    reference_title: &#34;Genetics in Congenital Adrenal Hyperplasia Due to 21-Hydroxylase Deficiency and Clinical Implications.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;a 30-kb deletion within RCCX region, encompassing the 3\u2032 end of CYP21A1P, all the C4B gene, and the 5\u2032 end of the CYP21A2 gene, leaves the TNXB gene intact&#34;
+    explanation: Substantiates the chimeric-gene and 30-kb deletion product of the crossing-over mechanism.
+  - reference: PMID:39911519
+    reference_title: &#34;Genetics in Congenital Adrenal Hyperplasia Due to 21-Hydroxylase Deficiency and Clinical Implications.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;next-generation sequencing (NGS) is not yet recommended for CYP21A2 genotyping&#34;
+    explanation: &gt;-
+      Supports the second practical consequence: the gene-pseudogene homology
+      makes routine short-read sequencing unsafe for this locus.
+  - reference: PMID:39911519
+    reference_title: &#34;Genetics in Congenital Adrenal Hyperplasia Due to 21-Hydroxylase Deficiency and Clinical Implications.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;NGS, in the current state of the art, can identify pathogenic variants of the pseudogene and contribute to an inadequate molecular diagnosis&#34;
+    explanation: States the specific failure mode - pseudogene variants miscalled as gene variants.
+  - reference: PMID:39911519
+    reference_title: &#34;Genetics in Congenital Adrenal Hyperplasia Due to 21-Hydroxylase Deficiency and Clinical Implications.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;MLPA is recommended as the first step in 21OHD molecular diagnosis to determine the exact copy number of genes and pseudogenes within the RCCX region&#34;
+    explanation: Substantiates the recommended genotyping approach named in this record&#39;s notes.
 - name: CYP11B1 pathogenic variants
   gene_term:
     preferred_term: CYP11B1
@@ -8168,6 +10138,8 @@ genetic:
       id: hgnc:2591
       label: CYP11B1
   association: Causative
+  relationship_type: CAUSATIVE
+  variant_origin: GERMLINE
   subtype: 11B-OHD
   features: &gt;-
     CYP11B1 variants cause 11 beta-hydroxylase deficiency CAH.
@@ -8190,6 +10162,8 @@ genetic:
       id: hgnc:2593
       label: CYP17A1
   association: Causative
+  relationship_type: CAUSATIVE
+  variant_origin: GERMLINE
   subtype: 17A-OHD
   features: &gt;-
     CYP17A1 variants cause 17 alpha-hydroxylase/17,20-lyase deficiency CAH.
@@ -8213,9 +10187,48 @@ genetic:
       id: hgnc:5218
       label: HSD3B2
   association: Causative
+  relationship_type: CAUSATIVE
+  variant_origin: GERMLINE
   subtype: 3B-HSD
   features: &gt;-
     HSD3B2 variants cause 3 beta-hydroxysteroid dehydrogenase deficiency CAH.
+  notes: &gt;-
+    HSD3B2 is the adrenal and gonadal isozyme of 3-beta-hydroxysteroid
+    dehydrogenase; the placental isozyme HSD3B1 is a separate gene and is not
+    implicated in CAH. Because the enzyme acts at the delta-5 to delta-4
+    conversion shared by all three steroid classes, the block is earlier in the
+    pathway than the 21- and 11-beta-hydroxylase blocks and impairs gonadal as
+    well as adrenal steroidogenesis.
+  evidence:
+  - reference: PMID:39713884
+    reference_title: Rare Types of Congenital Adrenal Hyperplasias Other Than 21-hydroxylase Deficiency.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Mutations in HSD3B2 cause a rare form of CAH.&#34;
+    explanation: Directly states that HSD3B2 variants cause a form of congenital adrenal hyperplasia.
+  - reference: PMID:39713884
+    reference_title: Rare Types of Congenital Adrenal Hyperplasias Other Than 21-hydroxylase Deficiency.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;HSD3B2 is expressed in the adrenal gland, ovary, and testis&#34;
+    explanation: &gt;-
+      Supports the isozyme distinction recorded in this record&#39;s notes and the
+      combined adrenal-gonadal scope of the defect.
+  - reference: PMID:39713884
+    reference_title: Rare Types of Congenital Adrenal Hyperplasias Other Than 21-hydroxylase Deficiency.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &#34;Mutations in HSD3B1 have never been reported in humans.&#34;
+    explanation: &gt;-
+      Substantiates this record&#39;s statement that the placental isozyme HSD3B1 is
+      not implicated in CAH.
+  - reference: PMID:39713884
+    reference_title: Rare Types of Congenital Adrenal Hyperplasias Other Than 21-hydroxylase Deficiency.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;3β-HSD deficiency, with an incidence of less than 1/1,000,000 live births, is characterized by impairment of both adrenal and gonadal steroid biosynthesis very early in life&#34;
+    explanation: Supports the early-pathway, adrenal-and-gonadal character of the 3-beta-HSD block.
 - name: STAR pathogenic variants
   gene_term:
     preferred_term: STAR
@@ -8223,15 +10236,110 @@ genetic:
       id: hgnc:11359
       label: STAR
   association: Causative
+  relationship_type: CAUSATIVE
+  variant_origin: GERMLINE
   subtype: Lipoid CAH
   features: &gt;-
     STAR variants cause lipoid congenital adrenal hyperplasia by impairing
     cholesterol delivery for steroidogenesis.
+  notes: &gt;-
+    STAR is the one gene in this entry that encodes neither an enzyme nor an
+    enzyme&#39;s electron donor: the steroidogenic acute regulatory protein delivers
+    cholesterol to the inner mitochondrial membrane, so its loss starves the
+    first committed step rather than blocking a later one. That places the
+    defect above every enzymatic block modelled here and explains the
+    near-complete loss of adrenal and gonadal steroid output and the cholesterol
+    ester accumulation that gives the lipoid form its name. A minority of
+    clinically lipoid CAH is due to CYP11A1 rather than STAR; MONDO has no
+    congenital-adrenal-hyperplasia child term for the CYP11A1 form (its only
+    CYP11A1 CAH classes are non-human-animal ones), so no subtype row is
+    recorded for it here.
+  evidence:
+  - reference: PMID:39713884
+    reference_title: Rare Types of Congenital Adrenal Hyperplasias Other Than 21-hydroxylase Deficiency.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The classical form usually occurs with loss-of-function in the StAR gene&#34;
+    explanation: Establishes loss of STAR function as the cause of classic lipoid congenital adrenal hyperplasia.
+  - reference: PMID:39713884
+    reference_title: Rare Types of Congenital Adrenal Hyperplasias Other Than 21-hydroxylase Deficiency.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Patients with LCAH, which develops due to steroidogenic acute regulatory protein deficiency, typically present with salt wasting in the first year of life. It is characterized by complete or near-complete deficiency of adrenal and gonadal steroid hormones and progressive accumulation of cholesterol esters in the adrenal gland.&#34;
+    explanation: &gt;-
+      Supports both the near-complete steroid-output failure and the cholesterol
+      ester accumulation this record attributes to loss of cholesterol delivery.
+  - reference: PMID:39713884
+    reference_title: Rare Types of Congenital Adrenal Hyperplasias Other Than 21-hydroxylase Deficiency.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Hovever in most patients with LCAH, the defect is found in StAR not the CYP11A1 gene for P450scc&#34;
+    explanation: &gt;-
+      Supports this record&#39;s statement that STAR accounts for most, but not all,
+      of clinically lipoid CAH. The source&#39;s typographic error in the first word
+      is preserved as the snippet must be an exact quotation.
+- name: POR pathogenic variants
+  gene_term:
+    preferred_term: POR
+    term:
+      id: hgnc:9208
+      label: POR
+  association: Causative
+  relationship_type: CAUSATIVE
+  variant_origin: GERMLINE
+  subtype: POR-D
+  features: &gt;-
+    POR variants cause P450 oxidoreductase deficiency, a combined form of CAH.
+  notes: &gt;-
+    POR encodes the NADPH-dependent electron donor shared by the
+    endoplasmic-reticulum cytochrome P450 enzymes, so its loss partially
+    disables several steroidogenic steps at once rather than one. Within this
+    entry that makes POR the only gene whose lesion reaches more than one
+    enzymatic node, which is how it is wired in the pathograph. Complete null
+    alleles appear not to be compatible with life.
+  evidence:
+  - reference: PMID:33415088
+    reference_title: Congenital Adrenal Hyperplasias Presenting in the Newborn and Young Infant.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;POR-D was first described in 2004 (59) as a rare form of CAH.&#34;
+    explanation: Establishes POR deficiency as a recognised form of congenital adrenal hyperplasia.
+  - reference: PMID:33415088
+    reference_title: Congenital Adrenal Hyperplasias Presenting in the Newborn and Young Infant.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The main microsomal POR-dependent enzymes are involved in the biosynthesis of steroid hormones in both the adrenal cortex and gonads (CYP17A1, CYP19A1, CYP21A2, and CYP15A1)&#34;
+    explanation: &gt;-
+      Names CYP17A1 and CYP21A2 among the POR-dependent enzymes, which is the
+      basis for the two downstream edges drawn from the POR node in the
+      pathograph.
+  - reference: PMID:33415088
+    reference_title: Congenital Adrenal Hyperplasias Presenting in the Newborn and Young Infant.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The homozygous null mutations appear to be lethal&#34;
+    explanation: Supports this record&#39;s statement about complete null alleles.
+  - reference: CGGV:assertion_6275d46a-f005-45f8-b3ec-e9722f8dd39e-2022-03-23T193729.312Z
+    reference_title: &#34;POR / Antley-Bixler syndrome with genital anomalies and disordered steroidogenesis (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;POR | HGNC:9208 | Antley-Bixler syndrome with genital anomalies and disordered steroidogenesis | MONDO:0008726 | AR | Definitive&#34;
+    explanation: &gt;-
+      ClinGen classifies POR as definitive with autosomal recessive inheritance.
+      The assertion is scoped to the Antley-Bixler-with-disordered-steroidogenesis
+      label rather than to the CAH label, which reflects the skeletal-plus-steroid
+      phenotype this record describes rather than a different gene-disease claim.
 pathophysiology:
 - name: CYP21A2 21-Hydroxylase Deficiency
   description: &gt;-
     Loss of CYP21A2 21-hydroxylase activity impairs adrenal steroidogenesis,
     reducing cortisol and, in severe classic disease, aldosterone production.
+    The node is the enzymatic block, not the gene lesion, and it has two inbound
+    routes: a biallelic CYP21A2 variant, which is the usual one and the reason
+    the node is named after the gene, and loss of electron supply from POR,
+    which reduces the same enzyme&#39;s catalysis without any CYP21A2 variant. The
+    node name is kept because `kb/node_classes/pathograph_node_classes.txt`
+    cites it as a worked example.
   genes:
   - preferred_term: CYP21A2
     term:
@@ -8333,7 +10441,10 @@ pathophysiology:
   description: &gt;-
     CYP17A1 pathogenic variants reduce steroid 17 alpha-hydroxylase/17,20-lyase
     activity, causing a rare CAH subtype characterized by cortisol deficiency,
-    sex-steroid deficiency, and mineralocorticoid excess.
+    sex-steroid deficiency, and mineralocorticoid excess. As with the CYP21A2
+    node, this is the enzymatic block rather than the gene lesion, and POR
+    deficiency reaches it by removing the enzyme&#39;s electron supply rather than
+    by altering CYP17A1 itself.
   genes:
   - preferred_term: CYP17A1
     term:
@@ -8378,6 +10489,191 @@ pathophysiology:
     description: &gt;-
       Mineralocorticoid excess from impaired CYP17A1 steroidogenesis promotes
       hypertension.
+- name: HSD3B2 3-Beta-Hydroxysteroid Dehydrogenase Deficiency
+  description: &gt;-
+    HSD3B2 pathogenic variants reduce the adrenal and gonadal
+    3-beta-hydroxy-delta5-steroid dehydrogenase that converts delta-5 precursors
+    to their delta-4 counterparts. The step is shared by the glucocorticoid,
+    mineralocorticoid and sex-steroid branches, so unlike the 21- and
+    11-beta-hydroxylase blocks this one impairs gonadal as well as adrenal
+    steroidogenesis. The placental isozyme HSD3B1 is a different gene and is not
+    implicated.
+  genes:
+  - preferred_term: HSD3B2
+    term:
+      id: hgnc:5218
+      label: HSD3B2
+  cell_types:
+  - preferred_term: adrenal cortical cell
+    term:
+      id: CL:0002097
+      label: cortical cell of adrenal gland
+  molecular_functions:
+  - preferred_term: 3-beta-hydroxy-delta5-steroid dehydrogenase activity
+    term:
+      id: GO:0003854
+      label: 3-beta-hydroxy-Delta5-steroid dehydrogenase (NAD+) activity
+    modifier: DECREASED
+  biological_processes:
+  - preferred_term: steroid hormone biosynthetic process
+    term:
+      id: GO:0120178
+      label: steroid hormone biosynthetic process
+    modifier: DECREASED
+  evidence:
+  - reference: PMID:39713884
+    reference_title: Rare Types of Congenital Adrenal Hyperplasias Other Than 21-hydroxylase Deficiency.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;3β-HSD deficiency, with an incidence of less than 1/1,000,000 live births, is characterized by impairment of both adrenal and gonadal steroid biosynthesis very early in life&#34;
+    explanation: &gt;-
+      Supports the combined adrenal and gonadal scope that distinguishes this
+      node from the later single-branch enzymatic blocks.
+  - reference: PMID:39713884
+    reference_title: Rare Types of Congenital Adrenal Hyperplasias Other Than 21-hydroxylase Deficiency.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Mutations in HSD3B2 cause a rare form of CAH.&#34;
+    explanation: Establishes HSD3B2 as the gene whose loss produces this node.
+  - reference: PMID:39713884
+    reference_title: Rare Types of Congenital Adrenal Hyperplasias Other Than 21-hydroxylase Deficiency.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &#34;In this enzyme deficiency, the production of cortisol, aldosterone, progesterone, androgens and estrogens is affected&#34;
+    explanation: &gt;-
+      Substantiates this node&#39;s claim that the blocked step is shared by the
+      glucocorticoid, mineralocorticoid and sex-steroid branches.
+  downstream:
+  - target: Cortisol and Aldosterone Deficiency
+    description: &gt;-
+      Blocking the shared delta-5 to delta-4 conversion reduces flux into both
+      the glucocorticoid and mineralocorticoid branches.
+    causal_link_type: DIRECT
+- name: STAR-Dependent Mitochondrial Cholesterol Import Failure
+  description: &gt;-
+    Loss of the steroidogenic acute regulatory protein removes the delivery of
+    cholesterol to the inner mitochondrial membrane, where side-chain cleavage
+    begins. This node sits above every enzymatic block in this entry: the
+    substrate never reaches the first committed step, so adrenal and gonadal
+    steroid output fails near-completely and unesterified cholesterol
+    accumulates as esters in the adrenal cortex, giving the lipoid form its
+    name.
+  genes:
+  - preferred_term: STAR
+    term:
+      id: hgnc:11359
+      label: STAR
+  cell_types:
+  - preferred_term: adrenal cortical cell
+    term:
+      id: CL:0002097
+      label: cortical cell of adrenal gland
+  molecular_functions:
+  - preferred_term: cholesterol transfer activity
+    term:
+      id: GO:0120020
+      label: cholesterol transfer activity
+    modifier: DECREASED
+  biological_processes:
+  - preferred_term: intracellular cholesterol transport
+    term:
+      id: GO:0032367
+      label: intracellular cholesterol transport
+    modifier: DECREASED
+  - preferred_term: steroid hormone biosynthetic process
+    term:
+      id: GO:0120178
+      label: steroid hormone biosynthetic process
+    modifier: DECREASED
+  chemical_entities:
+  - preferred_term: cholesterol
+    term:
+      id: CHEBI:16113
+      label: cholesterol
+  evidence:
+  - reference: PMID:39713884
+    reference_title: Rare Types of Congenital Adrenal Hyperplasias Other Than 21-hydroxylase Deficiency.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Patients with LCAH, which develops due to steroidogenic acute regulatory protein deficiency, typically present with salt wasting in the first year of life. It is characterized by complete or near-complete deficiency of adrenal and gonadal steroid hormones and progressive accumulation of cholesterol esters in the adrenal gland.&#34;
+    explanation: &gt;-
+      Supports both consequences this node asserts: near-complete steroid-output
+      failure and cholesterol ester accumulation in the adrenal gland.
+  - reference: PMID:39713884
+    reference_title: Rare Types of Congenital Adrenal Hyperplasias Other Than 21-hydroxylase Deficiency.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The classical form usually occurs with loss-of-function in the StAR gene&#34;
+    explanation: Establishes STAR loss of function as the lesion behind this node.
+  - reference: PMID:39713884
+    reference_title: Rare Types of Congenital Adrenal Hyperplasias Other Than 21-hydroxylase Deficiency.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &#34;StAR-mediated transport of cholesterol to the inner mitochondrial membrane is essential for steroidogenesis.&#34;
+    explanation: &gt;-
+      Substantiates the cholesterol-delivery step this node&#39;s description places
+      above every enzymatic block in the entry.
+  downstream:
+  - target: Cortisol and Aldosterone Deficiency
+    description: &gt;-
+      With cholesterol not reaching the side-chain cleavage step, neither
+      glucocorticoid nor mineralocorticoid synthesis can proceed.
+    causal_link_type: DIRECT
+- name: POR Electron-Transfer Failure to Microsomal P450 Enzymes
+  description: &gt;-
+    POR pathogenic variants reduce the NADPH-dependent electron donor that every
+    endoplasmic-reticulum cytochrome P450 requires for catalysis. This is the
+    only lesion in this entry that reaches more than one enzymatic node: the
+    same defect partially disables CYP17A1 and CYP21A2 together, which is why
+    POR deficiency presents as a combined rather than a single-step block, and
+    why it also affects aromatase and hepatic drug-metabolising P450s that lie
+    outside adrenal steroidogenesis altogether.
+  genes:
+  - preferred_term: POR
+    term:
+      id: hgnc:9208
+      label: POR
+  cell_types:
+  - preferred_term: adrenal cortical cell
+    term:
+      id: CL:0002097
+      label: cortical cell of adrenal gland
+  biological_processes:
+  - preferred_term: steroid hormone biosynthetic process
+    term:
+      id: GO:0120178
+      label: steroid hormone biosynthetic process
+    modifier: DECREASED
+  evidence:
+  - reference: PMID:33415088
+    reference_title: Congenital Adrenal Hyperplasias Presenting in the Newborn and Young Infant.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;all cytochrome P450 enzymes located in the endoplasmic reticulum get electrons for their catalytic activities from the co-factor&#34;
+    explanation: &gt;-
+      States the shared-electron-donor role that makes a single POR lesion reach
+      several steroidogenic steps.
+  - reference: PMID:33415088
+    reference_title: Congenital Adrenal Hyperplasias Presenting in the Newborn and Young Infant.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The main microsomal POR-dependent enzymes are involved in the biosynthesis of steroid hormones in both the adrenal cortex and gonads (CYP17A1, CYP19A1, CYP21A2, and CYP15A1)&#34;
+    explanation: &gt;-
+      Names CYP17A1 and CYP21A2 as POR-dependent, which is the evidence for the
+      two downstream edges drawn from this node.
+  downstream:
+  - target: CYP21A2 21-Hydroxylase Deficiency
+    description: &gt;-
+      Loss of electron supply reduces CYP21A2 catalysis, producing a partial
+      21-hydroxylase block without a CYP21A2 variant.
+    causal_link_type: DIRECT
+  - target: CYP17A1 17-Hydroxylase/17,20-Lyase Deficiency
+    description: &gt;-
+      The same electron-supply failure reduces CYP17A1 catalysis, which is why
+      the steroid profile in POR deficiency is combined rather than isolated.
+    causal_link_type: DIRECT
 - name: Cortisol and Aldosterone Deficiency
   description: &gt;-
     Deficient cortisol removes negative feedback on ACTH secretion; aldosterone
@@ -9117,12 +11413,103 @@ datasets:
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
 
+            <div class="grouped-section anchor-target" id="references">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">References</h3>
+                    <span class="card-count">1</span>
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301350" target="_blank">PMID:20301350</a>
+                            </div>
+
+                            <div class="reference-title">21-Hydroxylase-Deficient Congenital Adrenal Hyperplasia.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+            </div>
+
 
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Prune empty Falcon bibliography from references: block</strong> · 2026-08-23T16:25:02Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Congenital_Adrenal_Hyperplasia/2026-08-23T162502Z-claude-code-27fe0c.yaml">View source</a></p>
+                        <p class="research-review-text">Removed the top-level references: block (18 entries), all carrying findings: [] with no extracted claims, snippets, or supporting_text -- pure deep-research (Falcon) bibliography noise per issue #6980 section 3&#39;s own description that CAH has the same pattern as MEN2 (18 DOIs, findings: [] throughout). Verified none of the 18 DOIs are cited elsewhere in the file (each appeared exactly once, only inside this now-removed block), so no evidence item lost its reference. Did not touch Multiple_Endocrine_Neoplasia_Type_2.yaml&#39;s parallel references: block, which mixes empty and populated findings and needs a content-by-content judgment call (title-vs-finding per CLAUDE.md section 6) rather than a mechanical delete; left for a follow-up. Validated with just validate, count-verified-snippets (39/39), check-duplicate-keys, check-folded-hyphens, check-snippet-length, check-title-snippets, check-environmental-evidence, and the CAH-scoped pytest suite (16/16).
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Review: Congenital Adrenal Hyperplasia (Changes required)</strong> · 2026-05-31T03:02:20Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Congenital_Adrenal_Hyperplasia/2026-05-31T030220Z-github-review-3615.yaml">View source</a></p>
+                        <p class="research-review-text">GitHub review issue: https://github.com/monarch-initiative/dismech/issues/3615
+Issue state: OPEN
+Issue created: 2026-05-31T03:02:20Z
+Issue updated: 2026-05-31T03:02:20Z
+Issue closed: not closed
+Review decision: Changes required
+Labels: review
+
+## Completed curation review
+
+- Disease: **Congenital Adrenal Hyperplasia**
+- Entry: `kb/disorders/Congenital_Adrenal_Hyperplasia.yaml`
+- Selection basis: #146 of the least-recently edited Mendelian entries
+- Review decision: **Changes required**
+- Validation stance: assumes schema, ontology-term, and reference validation pass; this is a biological/clinical/content review.
+
+## Findings
+
+1. Actionable baseline check: a `diagnosis` section exists, but no top-level GeneReviews tag was detected in the YAML. For this Mendelian entry, confirm whether a GeneReviews article exists and either add/tag it or record why no GeneReviews baseline applies.
+2. Research-artifact consumption: matching deep-research artifact(s) exist and should be treated as first-class review inputs. Compare the YAML against the artifact(s), especially for central mechanisms, subtype-specific features, treatments/trials, and diagnostic/surveillance details rather than only schema-valid content.
+3. Subtype completeness: `has_subtypes` is present (Classic 21-OHD, Salt-Wasting 21-OHD, Simple-Virilizing 21-OHD, Nonclassic 21-OHD). Verify that subtype-specific phenotypes, mechanisms, treatments, diagnosis, and genetic contexts are attached to the correct subtype rather than left as broad disease-level claims.
+4. Pathophysiology review: the main modeled mechanisms include CYP21A2 21-Hydroxylase Deficiency, CYP11B1 11-Beta-Hydroxylase Deficiency, CYP17A1 17-Hydroxylase/17,20-Lyase Deficiency, Cortisol and Aldosterone Deficiency. Check that each is an atomic event with direct evidence and that downstream edges do not encode multi-step chains or unsupported causal leaps from gene/product defect to organ-level phenotype.
+5. Treatment/trial alignment: both `treatments` and `clinical_trials` are present. Verify that trial interventions, phases/statuses, target phenotypes, and treatment entries agree, and distinguish approved/standard care from investigational or case-report therapy.
+6. Evidence/reference check: top references include PMID:39911519, PMID:28228528, PMID:34524979, PMID:37176569. Spot-check that snippets directly support the specific claim, frequency, and evidence_source classification, especially where the same PMID is reused across phenotype, mechanism, and treatment assertions.
+
+## Content-Completeness Checklist
+
+- Phenotype coverage: phenotype list needs manual review for disease-defining features.
+- Subtype completeness: subtypes present; verify subtype-specific anchoring.
+- Pathophysiology depth: mechanisms present but require atomicity/evidence review.
+- Treatments and trials: present; verify standard-vs-investigational scope.
+- Genetics: genetic section present; verify inheritance, variant classes, and genotype-phenotype claims.
+- Biomarkers/diagnostics: diagnosis present but should be checked against baseline sources.
+- References/research consumption: compare the YAML against listed sources and local research artifacts; do not treat retrieval-heavy papers as issues unless they are disease-specific and directly modelable.
+
+## Suggested Remediation
+
+Resolve the blocking diagnostic/baseline gaps first, then tighten subtype-specific claims, pathophysiology atomicity, treatment/trial scope, and evidence-to-claim alignment. Keep deterministic schema/term/reference validation separate from this biological review.
+
+## Sources Used
+
+- Local research artifact: `research/Congenital_Adrenal_Hyperplasia-deep-research-falcon.md`
+- PMID:39911519: https://pubmed.ncbi.nlm.nih.gov/39911519/
+- PMID:28228528: https://pubmed.ncbi.nlm.nih.gov/28228528/
+- PMID:34524979: https://pubmed.ncbi.nlm.nih.gov/34524979/
+- PMID:37176569: https://pubmed.ncbi.nlm.nih.gov/37176569/
+
+No YAML files or `references_cache/*.md` files were edited for this review.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -10423,7 +12810,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Congenital Adrenal Hyperplasia", "mondoId": "MONDO:0018479", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Congenital_Adrenal_Hyperplasia", "yamlRevision": "ce53e1816fbd"};
+        const OS_CONFIG = {"diseaseName": "Congenital Adrenal Hyperplasia", "mondoId": "MONDO:0018479", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Congenital_Adrenal_Hyperplasia", "yamlRevision": "b42e1825c2fe"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
