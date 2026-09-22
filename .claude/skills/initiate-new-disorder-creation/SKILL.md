@@ -835,7 +835,7 @@ pathophysiology:
     term:
       id: GO:XXXXXXX
       label: <exact GO label>
-```      
+```  
 
 Consult the LinkML schema to see what terms are appropriate for any given object type. These will be validated.
 
@@ -915,7 +915,10 @@ IF THE USER asks, then go ahead and make a PR on behalf of the user
 
 ### Step 9: Check reviews on the PR
 
-Some time (~5 mins) after making the PR, a review will appear. You should prioritize in order:
+Follow [CLAUDE.md → Reviews](../../../CLAUDE.md#reviews) for the shared
+push–review cycle, expected delays, and when to wait or investigate. Usage-limit
+failures are expected and recovered automatically; a delayed review alone is not
+a reason to escalate. Once a review arrives, prioritize in order:
 
 1. reviews from a human/curator -- always take precedence
 2. reviews from claude -- high quality but sometimes focuses on wrong thing

@@ -3926,16 +3926,42 @@ After pushing fixes, comment on the PR summarizing:
 
 ### Reviews
 
-Your PR will always be removed by an automated Claude reviewer. This usually happens within a few minutes.
-The reviewer will mark your PR as being ready to merge or requiring changes. Be sure to address all changes.
-Try and address even "optional" changes if they improve overall quality and completion.
+Opening a PR or pushing changes triggers automated Claude review. The normal
+cycle is: push validated changes → wait for review → address the findings in one
+push → wait for re-review. The reviewer marks the PR ready to merge or requests
+changes. Address all blocking findings, and take optional suggestions when they
+improve quality and completeness.
 
-If you disagree you can say so, but provide clearly articulated arguments in the PR comments. Never get
+**Review Actions sometimes fail because the reviewer account has reached its
+usage limit. This is expected.** A review may arrive within minutes when capacity
+is available; after a usage-limit failure, a retry should usually start within a
+few hours, but it can take roughly half a day, and repeated failures can take
+longer. These are expectations, not deadlines: scheduled jobs can be delayed,
+and the retry controller has a backoff and a per-sweep budget.
+
+When checking a PR's status, distinguish what needs action:
+
+- **Review findings:** address the feedback, validate, and push one bundled round.
+- **Build/test failures or branch conflicts:** inspect the failure and fix what
+  your change caused; resolve conflicts carefully.
+- **Reviewer usage-limit failure:** leave the PR waiting for automatic recovery.
+  The shepherd retries failed review Actions independently of its agent job,
+  including on human-authored or human-assigned PRs. See
+  [review recovery](docs/explanation/automation-and-agents.md#recovering-failed-review-actions)
+  for the retry rules and `just review-retry-preview` for a read-only preview.
+
+For a usage-limit failure, check back later or work on another task. Do not push
+empty commits, repeatedly request reruns, or escalate merely because a few hours
+have passed, a scheduled sweep has not appeared, or your token cannot rerun
+Actions. Report the PR as awaiting automatic review; the review is still required.
+If the delay persists beyond the expected window, inspect the review and retry
+run summaries before escalating with the PR/run links and the specific blocker.
+A confirmed configuration or authentication failure warrants investigation
+without waiting for a quota reset.
+
+If you disagree with a review finding, provide clearly articulated arguments in the PR comments. Never get
 into back and forth. If something cannot be resolved, stop, and assign a human like @cmungall to the PR, and ask
 them to facilitate.
-
-Note that sometimes it will appear that a review has stalled, but in fact this is usually because
-the PR is in conflict. Actively try and manage this, resolve conflicts carefully.
 
 #### Answer a review in one push
 
