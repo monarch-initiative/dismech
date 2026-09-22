@@ -14,10 +14,10 @@ Term validation resolves ontology labels through two layers:
    pinned snapshot of `curie → label`. If a term is here, no ontology is
    touched at all. This is the deterministic, hermetic layer described in
    [Ontology Term Caches](ontology-caches.md).
-2. **OAK SQLite database** (this page). Consulted **only on a cache miss** —
-   i.e. when a KB entry introduces a term that is not yet in the committed CSV.
-   OAK then lazily builds a `sqlite:obo:<name>` adapter, which downloads the
-   whole compressed ontology database and unpacks it locally.
+2. **Configured OAK source**, consulted on a cache miss. Most large prefixes
+   use OLS. For a configured `sqlite:obo:<name>` source, OAK may download
+   the compressed database and unpack it locally; this page covers that
+   local-build path.
 
 So in steady state — validating entries whose terms are already cached — CI
 downloads nothing. A download happens only when genuinely new terms appear. The
@@ -59,42 +59,13 @@ enum-cache tooling). Along that path, no multi-GB build remains local: what is
 still fetched is small (`hgnc`, `geno`, `icd10cm`, `icd11f`, `ecto`, `xco`,
 `opl`).
 
-Several modules bypass the config entirely and construct an adapter directly.
-**Page generation is where this costs real egress**, because
-`.github/workflows/generate-pages.yaml` has **no** OAK cache step (its only
-`cache` line is `setup-uv`'s Python-dependency cache). It runs on a **daily
-`0 6 * * *` full-rebuild cron**, plus every push to `main` matching a path
-filter much broader than the KB itself — 13 patterns covering not just
-`kb/disorders/*.yaml` and `kb/comorbidities/*.yaml` but also `research/*.md`,
-several `src/dismech/**` paths, `conf/qc_config.yaml`, `project.justfile`,
-`mkdocs.yml`, and `docs/**`; see `on.push.paths` for the current set. (A
-docs-only change to this very file matches it.) Two paths in that workflow pull
-cold builds:
-
-| Path | Build | Trigger |
-|---|---|---|
-| `render.py` `STRICT_HIERARCHIES` → `_augment_mapping_hierarchies`, called per disorder from `render_disorder` | `sqlite:obo:ncit` (~2.7 GB), `sqlite:obo:icd10cm` | `just gen-pages`; fires for the 54 entries carrying `ncit_mappings`/`icd10cm_mappings` |
-| `HPOCategoryResolver` (`src/dismech/export/browser_export.py`), called per HP id | `sqlite:obo:hp` (~1.1 GB) | `just gen-browser-data` |
-
-`render.py` also builds `sqlite:obo:mondo` in `_cached_mondo_descendants` /
-`_cached_mondo_label`. Every one of these is lazy — the adapter is constructed
-only when an entry actually has a matching mapping or term — so none of it fires
-on an empty corpus. The corpus is not empty.
-
-None of this is a regression; it all predates the OLS migration and became
-visible only because the config-driven downloads were removed around it. It is
-tracked in issue #8173. Other modules bypass the config the same way but are not
-on a CI hot path: `scripts/ncit_p302_audit.py` (also `sqlite:obo:ncit`, reached
-from `just ncit-p302-audit`), `scripts/validate_terms.py`,
-`src/dismech/compare/d2p.py`, and `src/phenoagent/matching.py`. That list is
-"the ones known as of writing", not a guarantee — `grep -rn 'sqlite:obo:' src/
-scripts/` is the way to re-derive it.
-
-Note the rendering path is **not** a candidate for a straight `ols:` swap: both
-`_build_hierarchy_path` and `_cached_mondo_descendants` do bulk hierarchy
-traversal, which is exactly the access pattern OLS is worst at. Fixing this
-likely means caching the build in the workflow, or precomputing the derived
-paths — not changing the adapter string.
+Rendering and some analysis modules construct local adapters directly. Their
+current build-presence guards, hierarchy caches, fallback behavior, and
+explicit page-generation downloads are documented in
+[cache and validation maintenance](cache-and-validation-maintenance.md).
+Read that guide before changing these callers: opening an adapter is not a
+build-presence test, and replacing a bulk hierarchy walk with OLS is not
+equivalent to moving a validator lookup.
 
 Moving a prefix to `ols:` is only safe when OLS agrees with the local build on
 both the canonical label *and* whether its `rdfs:subClassOf` ancestor closure

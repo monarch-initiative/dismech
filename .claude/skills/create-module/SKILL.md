@@ -1,9 +1,9 @@
 ---
 name: create-module
 description: >
-  Skill for creating a new mechanism module in kb/modules/ (a conserved
+  Create, apply, or review a mechanism module in kb/modules/ (a conserved
   pathological process that recurs across disorders). Use when the user asks to
-  create/curate a module, add an Xogenesis (pathological-structure-formation)
+  create/curate a module, choose or review conforms_to, add an Xogenesis (pathological-structure-formation)
   module, or factor a recurrent mechanism out of several disorders. Covers the
   module schema shape, the trigger→consequence node chain, the treatment
   target_mechanisms drug pattern, the Xogenesis open-ontology anchor convention,
@@ -25,6 +25,17 @@ description: >
 Read `docs/primers/modules-and-conformance.md` first for the conformance mental
 model (conformance is a **consistency check, not DRY inheritance**).
 
+## Apply or review conformance
+
+Read [conformance and categories](references/conformance.md) when selecting
+a module, checking a disease-specific substitution, tagging a module, or
+organizing a module collection. Run `just list-modules <filter>` and read
+candidate descriptions and notes before asserting `conforms_to`. The target
+must exist, and the disease-specific process must fit its stated scope.
+Keep the full disease content; conformance is not inheritance.
+
+The creation steps below apply only when a new module is needed.
+
 ## Does it clear the module bar?
 
 Only create a module when there is **one conserved mechanism** reducible to a
@@ -44,8 +55,7 @@ module — consider a `Grouping` (`SHARED_PHENOTYPE`) instead.
   INFECTIOUS_DISEASE, IMMUNOLOGY, NEUROSCIENCE, DEVELOPMENTAL_BIOLOGY,
   METABOLISM, AGING) and renders as coloured pills on the module pages. It is a
   browsing aid, so tag every area that genuinely applies and leave it off when
-  none fits — a wrong pill is worse than no pill. See the *Module categories*
-  section of `CLAUDE.md`.
+  none fits — a wrong pill is worse than no pill. See [module categories](references/conformance.md).
 - Nodes bind **GO and CL terms only** (plus UBERON `locations`, GO
   `cellular_components`). **No** CHEBI/MONDO term bindings in nodes — describe
   chemistry/disease in prose. (Exception: a `treatments` block's

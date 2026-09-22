@@ -324,7 +324,11 @@ Biomni execution is disabled by default and requires the explicit opt-in
 points also exclude Biomni from automatic provider fallback; dry-run command
 inspection remains available. After opt-in, the hypothesis runner passes the
 persistent path to Biomni and explicitly enables lake use
-(`skip_data_lake=false`) unless the caller overrides it.
+(`skip_data_lake=false`) unless the caller overrides it. The path defaults to
+`$BIOMNI_DATA_PATH`, otherwise `~/.biomni-lake`; an explicit `--param path=...`
+wins. Check disk headroom before first use (the full academic lake was about
+14 GiB when measured). A local lake does not establish that an arbitrary
+required dataset is available; preflight the specific accession.
 
 Review files selectively before staging. The repository does not blanket-ignore
 OpenScientist artifact bundles, because that would also hide manifests, code,

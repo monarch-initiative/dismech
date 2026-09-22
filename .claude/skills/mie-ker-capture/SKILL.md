@@ -211,8 +211,8 @@ effort. Record it in Step 8 so the next sweep does not re-nominate it.
 **The edge you add takes a bare name, not an entity reference.** A `downstream`
 target is matched verbatim against another item's `name` — writing
 `pathophysiology#Mucus Plugging` there is not an error anyone will catch for you.
-It draws a phantom node and silently detaches the real one (see `CLAUDE.md`,
-"Pathograph Targets Are Bare Names"). Run `just check-causal-targets <file>` after
+It draws a phantom node and silently detaches the real one (see the pathograph
+skill's [target grammar](../pathograph/references/targets.md)). Run `just check-causal-targets <file>` after
 adding it.
 
 ## Step 7 — Verify every edge against primary literature

@@ -43,7 +43,9 @@ Use `supports: SUPPORT`, `REFUTE`, or the value allowed by the schema. Make the
 `explanation` connect the quote to the claim without adding conclusions the
 quote does not establish.
 
-Classify `evidence_source` by the cited study, not by the curator or the claim:
+Classify `evidence_source` by the evidence the quoted text describes, not by
+the curator. When that evidence differs from the citing paper's own study,
+record its provenance with `quote_role`:
 
 - `HUMAN_CLINICAL`: patients, cohorts, clinical observations, or trials
 - `MODEL_ORGANISM`: in vivo non-human animal or organism work
@@ -51,7 +53,14 @@ Classify `evidence_source` by the cited study, not by the curator or the claim:
 - `COMPUTATIONAL`: modeling, simulation, or in-silico analysis
 - `OTHER`: evidence that does not fit the categories above
 
-Inspect the schema and nearby current entries if a field or enum is uncertain.
+Read [evidence semantics](references/evidence-semantics.md) when assigning or
+reviewing `supports`, `directness`, `quote_role`, or `evidence_source`. These
+axes describe different claims; optional assessments stay absent until assessed.
+
+Read [structured sources](references/structured-sources.md) for ORPHA, ClinGen,
+ICEES, NCIT, and other generated database records, including refresh/repin
+procedures. For dataset accessions use [dataset curation](../../../docs/dataset-curation.md);
+for trial registries use `medical-action`.
 
 ## Workflow
 
@@ -130,6 +139,9 @@ All three commands accept the files supported by their recipes; batch files
 where practical. `count-verified-snippets` is fast and offline, but advisory.
 It reports missing cache entries and skipped prefixes rather than resolving
 them.
+
+After a tranche, run the applicable [offline gates](references/validation-gates.md).
+That guide includes evidence waivers and gate-specific recovery.
 
 ### 4. Run the authoritative pre-PR sweep
 
@@ -374,3 +386,9 @@ just check-reference-cache-frontmatter
 
 If an entry is malformed or incorrect, regenerate it with
 `just fetch-reference <ID>`; never patch its filename, frontmatter, or content.
+
+Before pruning uncited reference caches, re-derive the cited identifiers from
+the final entry; an earlier list becomes stale as soon as evidence changes.
+Re-run `just count-verified-snippets` on the pushed tree and re-read any notes
+calling a removed source cached. Full validation can silently fetch a missing
+cache, so a passing network-enabled run does not prove the cache was committed.
