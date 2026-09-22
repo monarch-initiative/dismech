@@ -20,17 +20,33 @@ curated, opened as its own pull request, and driven through review to approval.
 
 | PR | Disease | Gene | Snippets | Phenotypes wired | Review rounds |
 |---|---|---|---|---|---|
-| [#12402](https://github.com/monarch-initiative/dismech/pull/12402) | Chassaing–Lacombe chondrodysplasia | `HDAC6` | 38 | — | 2 |
-| [#12400](https://github.com/monarch-initiative/dismech/pull/12400) | Isolated TSH deficiency | `TSHB` | 53 → 66 | 3/7 → 11/11 | 2 |
+| [#12402](https://github.com/monarch-initiative/dismech/pull/12402) | Chassaing–Lacombe chondrodysplasia | `HDAC6` | 38 → 43 | 1/9 → 1/9 | 3 |
+| [#12400](https://github.com/monarch-initiative/dismech/pull/12400) | Isolated TSH deficiency | `TSHB` | 50 → 66 | 3/7 → 11/11 | 2 |
 | [#12409](https://github.com/monarch-initiative/dismech/pull/12409) | EBS7 with nephropathy and deafness | `CD151` | 61 → 76 | 4/13 → 7/13 | 2 |
 | [#12430](https://github.com/monarch-initiative/dismech/pull/12430) | Neuromuscular oculoauditory syndrome | `DHX16` | 42 → 46 | 4/11 → 8/11 | 1 |
 | [#12433](https://github.com/monarch-initiative/dismech/pull/12433) | Kariminejad neurodevelopmental syndrome | `RBSN` | 19 → 43 | 2/4 → 14/14 | 2 |
 
-Every snippet counted above is an exact quote verified against a cached reference. The
-phenotype column is the fraction of clinical features that a causal edge actually
-explains (`just list-disconnected-phenotypes`). That was the single most repeated review
-finding in the batch — raised as *blocking* on both of the first two PRs reviewed — which
-is why the last two were wired before they were opened.
+Both numeric columns are measured at the PR's first commit and again at the merged entry
+on `main`. Every snippet counted is an exact quote verified against a cached reference.
+The phenotype column is the fraction of clinical features that a causal edge actually
+explains (`just list-disconnected-phenotypes`).
+
+Phenotype connectivity was the single most repeated review finding in the batch, raised as
+*blocking* on #12400 and #12409, which is why the last two entries were wired before they
+were opened. It was **not** raised on #12402, and that row is the one worth reading: the
+`HDAC6` entry went through review at 1/9 and merged at 1/9, because the bridge from the
+molecular lesion to the skeletal phenotypes is unevidenced. The reviewer said so
+explicitly — *"I am explicitly not asking for that edge"* — and the gap is recorded as a
+`KNOWLEDGE_GAP` with two proposed experiments rather than invented. An edge added to clear
+a report is worse than no edge, and this is what that looks like when the tooling and the
+reviewer both agree to leave a number low.
+
+The review-rounds column carries its own lesson. #12402 took three rounds because the
+first review **approved** it and I then pushed two more commits — fixing real defects I
+had found myself, but at the cost of dismissing the approval and buying two further
+reviews. `main` dismisses stale approvals on every push, so a two-line fix and a rewritten
+section cost the same. Everything I intend to change has to go in one push, including the
+things I find on my own after the verdict lands.
 
 ## The ledger
 
