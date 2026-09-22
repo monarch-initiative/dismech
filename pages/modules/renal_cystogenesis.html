@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -467,6 +468,18 @@
         .tag-component {
             background: #f0fdf4;
             color: #166534;
+        }
+
+        /* Same values as disorder.html.j2 so a treatment chip looks identical
+           whether it is read on a disorder page or on a module page. */
+        .tag-treatment {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .tag-gene {
+            background: #dbeafe;
+            color: #1e40af;
         }
 
         .tag-role {
@@ -1044,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1059,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1113,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1126,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1284,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1294,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1335,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1537,6 +1586,9 @@
 
     
 
+    
+
+    
     
 
     
@@ -1945,11 +1997,13 @@ This mechanism module involves increased Transepithelial Water Movement into the
             
             <div class="item-box anchor-target" id="module-pathophysiology-polycystin-and-primary-cilium-signaling-loss" data-dismech-node="Polycystin and Primary Cilium Signaling Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Polycystin and Primary Cilium Signaling Loss</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The shared upstream lesion of the inherited cystic kidney diseases. The polycystin-1/polycystin-2 complex and other ciliary and basal-body proteins localize to the primary cilium of renal tubular epithelial cells, where they act as a flow sensor that governs intracellular calcium. Loss-of-function mutations (or, in ADPKD, a germline mutation plus a somatic second hit) abolish this mechanosensitive calcium signal, leaving the cell unable to read the mechanical cues that normally maintain tubular architecture and restrain proliferation. The specific ciliary or polycystin lesion differs by disorder but the loss of the cilium-dependent calcium restraint is shared.</div>
                 
@@ -2062,11 +2116,13 @@ This pathophysiological event involves decreased Cilium-Dependent Calcium Signal
             
             <div class="item-box anchor-target" id="module-pathophysiology-camp-and-vasopressin-v2r-signaling-activation" data-dismech-node="cAMP and Vasopressin-V2R Signaling Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">cAMP and Vasopressin-V2R Signaling Activation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The amplifying step and the principal therapeutic target. The fall in intracellular calcium that follows polycystin/ciliary loss disinhibits calcium-inhibitable adenylate cyclase and reduces cAMP degradation, raising intracellular cAMP in tubular epithelial cells. This elevation is further driven by abnormal stimulation of the Gs-coupled vasopressin V2 receptor (V2R) in the collecting duct, which activates adenylate cyclase. cAMP therefore accumulates in the mutant epithelium and becomes the central second messenger that converts the upstream signaling defect into the two cystogenic outputs (proliferation and fluid secretion). Because the V2R sits upstream of this node, pharmacological V2R blockade lowers cystic-tissue cAMP and is the basis of tolvaptan therapy.</div>
                 
@@ -2186,11 +2242,13 @@ This pathophysiological event involves increased Vasopressin V2 Receptor-Adenyla
             
             <div class="item-box anchor-target" id="module-pathophysiology-cyst-lining-epithelial-proliferation-and-transepithelial-fluid-secretion" data-dismech-node="Cyst-Lining Epithelial Proliferation and Transepithelial Fluid Secretion" data-dismech-type="pathophysiology">
                 <div class="item-name">Cyst-Lining Epithelial Proliferation and Transepithelial Fluid Secretion</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The rate-limiting central effector where the conserved cystogenic engine runs. Elevated cAMP acts on the calcium-depleted mutant epithelium in two complementary ways. First, it becomes mitogenic: through cross-talk to the B-Raf/MEK/ERK pathway that is normally repressed in healthy tubular cells, cAMP stimulates proliferation of the mural cyst-lining epithelium. Second, it drives cAMP-dependent transepithelial chloride secretion through the apical CFTR chloride channel, and the secreted chloride osmotically pulls fluid into the tubular lumen. Proliferation expands the cyst wall while fluid secretion fills the cavity; together they are the pivotal, disorder-agnostic step that converts a normal tubule segment into a growing cyst. This is the key conformance target of the module.</div>
                 
@@ -2338,11 +2396,13 @@ This pathophysiological event involves increased CFTR-Mediated Transepithelial C
             
             <div class="item-box anchor-target" id="module-pathophysiology-progressive-cyst-expansion-and-kidney-enlargement" data-dismech-node="Progressive Cyst Expansion and Kidney Enlargement" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Cyst Expansion and Kidney Enlargement</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Sustained proliferation and continued cAMP-driven fluid secretion enlarge individual cysts, which progressively detach from the parent nephron and behave as isolated fluid-filled sacs that keep secreting into a closed lumen. As hundreds to thousands of cysts expand, total kidney volume rises relentlessly, producing the massively enlarged polycystic kidneys that are the radiological hallmark and the best early biomarker of disease progression. This is the effector step that converts the microscopic cystogenic process into the gross organ phenotype.</div>
                 
@@ -2448,11 +2508,13 @@ This pathophysiological event involves increased Transepithelial Water Movement 
             
             <div class="item-box anchor-target" id="module-pathophysiology-nephron-loss-and-progressive-kidney-failure" data-dismech-node="Nephron Loss and Progressive Kidney Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Nephron Loss and Progressive Kidney Failure</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The clinical end state of the module. Expanding cysts compress adjacent functioning nephrons and the renal vasculature, and the cystic microenvironment provokes interstitial inflammation and progressive fibrosis of the intervening parenchyma. The cumulative loss of functioning nephrons erodes glomerular filtration over decades, so that despite compensatory hyperfiltration the kidney function declines and a substantial fraction of patients reach end-stage kidney disease. This is the consequence of the conserved polycystin/cilia-loss to cAMP to proliferation-and-secretion to cyst-expansion chain.</div>
                 
@@ -2516,6 +2578,129 @@ This pathophysiological event involves Renal tubular epithelial cell, annotated 
                 </div>
                 
 
+                
+            </div>
+            
+        </div>
+        
+
+        
+        
+        <div class="card" id="treatments">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
+                <h2 class="card-title">Treatments</h2>
+                <span class="card-count">1</span>
+            </div>
+            
+            <div class="item-box" data-dismech-node="Vasopressin V2 Receptor Antagonist (Tolvaptan)" data-dismech-type="treatment">
+                <div class="item-name">Vasopressin V2 Receptor Antagonist (Tolvaptan)</div>
+                
+                <div class="item-meta">
+                    
+                    
+                    
+                    
+                    <span class="tag tag-treatment">
+                        Pharmacotherapy
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-17">NCIT:C15986</a>
+    
+    
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    
+                    
+                    
+                    <span class="tag tag-treatment">
+                        tolvaptan
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/CHEBI_32246" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-18">CHEBI:32246</a>
+    
+    
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses tolvaptan (CHEBI:32246). CHEBI:32246 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+                    
+                </div>
+                
+                
+    
+    
+    
+    
+    
+    
+    
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+        
+        <span class="tag tag-treatment">Small molecule</span>
+        
+        
+        
+        
+        
+    </div>
+    
+    
+    
+    
+    
+    
+    
+                
+                <div class="item-desc">Tolvaptan is a selective vasopressin V2 receptor (V2R) antagonist. By blocking the V2R on collecting-duct epithelium it lowers intracellular cAMP in cystic tissue, thereby dampening both the cAMP-driven proliferation and the cAMP-dependent CFTR chloride/fluid secretion that expand cysts. It is the first disease-modifying therapy for ADPKD and represents the cystogenesis drug-target design pattern for conforming disorders: a treatment that acts upstream on the cAMP/V2R amplifier node rather than on the downstream structural phenotype.</div>
+                
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism target:</strong>
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">INHIBITS</span>
+                        
+                        
+                        <a href="#module-pathophysiology-camp-and-vasopressin-v2r-signaling-activation"><strong>cAMP and Vasopressin-V2R Signaling Activation</strong></a>
+                        
+                        <span> — V2R blockade lowers cAMP in cystic tissue, suppressing the amplifier node that drives cyst-lining proliferation and transepithelial fluid secretion, and thereby slowing cyst growth and kidney-function decline.</span>
+                        
+                    </div>
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <span class="tag" style="background:#ecfeff;color:#155e75;">Evidence: 2</span>
+                </div>
+                
                 
             </div>
             

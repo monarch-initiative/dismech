@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -467,6 +468,18 @@
         .tag-component {
             background: #f0fdf4;
             color: #166534;
+        }
+
+        /* Same values as disorder.html.j2 so a treatment chip looks identical
+           whether it is read on a disorder page or on a module page. */
+        .tag-treatment {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .tag-gene {
+            background: #dbeafe;
+            color: #1e40af;
         }
 
         .tag-role {
@@ -1044,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1059,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1113,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1126,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1284,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1294,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1335,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1541,6 +1590,9 @@
 
     
     
+
+    
+    
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -1585,7 +1637,7 @@
                 
                 <span class="badge badge-category">Module</span>
                 <span class="badge badge-module">epigenetic_machinery_neurodevelopmental_dysregulation</span>
-                <span class="badge badge-count">20 disorders</span>
+                <span class="badge badge-count">23 disorders</span>
                 
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 6</a>
                 
@@ -2020,7 +2072,7 @@ Key-target coverage, stated honestly. Of the 20 conforming entries, 14 declare t
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
                 <h2 class="card-title">Used By Disorder Entries</h2>
-                <span class="card-count">20</span>
+                <span class="card-count">23</span>
             </div>
             
             <div class="crosslink-list">
@@ -2281,6 +2333,31 @@ Key-target coverage, stated honestly. Of the 20 conforming entries, 14 declare t
                 </div>
                 
                 <div class="crosslink-item">
+                    <a href="../disorders/Intellectual_Disability_Autosomal_Recessive_65.html">Intellectual Disability Autosomal Recessive 65</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Elevated H3K4 Trimethylation at Developmental Gene Promoters → Permissive-Repressive Chromatin State Imbalance
+                        
+                        
+                        , 
+                        
+                        Dysregulated Neurodevelopmental Transcriptional Program
+                        
+                        
+                        , 
+                        
+                        Impaired Activity-Dependent Gene Expression and Synaptic Plasticity → Impaired Neuronal Maturation, Plasticity, and Postnatal Neurogenesis
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
                     <a href="../disorders/Kabuki_Syndrome.html">Kabuki Syndrome</a>
                     
                     <span class="crosslink-desc">
@@ -2363,7 +2440,37 @@ Key-target coverage, stated honestly. Of the 20 conforming entries, 14 declare t
                         
                         , 
                         
+                        KMT2C haploinsufficiency and reduced H3K4 methylation → Epigenetic Machinery Component Haploinsufficiency
+                        
+                        
+                        , 
+                        
                         REST/NRSF dysregulation via miRNA derepression → Dysregulated Neurodevelopmental Transcriptional Program
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/KMT2B-Related_Dystonia.html">KMT2B-Related Dystonia</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        KMT2B Haploinsufficiency → Epigenetic Machinery Component Haploinsufficiency
+                        
+                        
+                        , 
+                        
+                        Reduced H3K4 Methylation at Target Promoters → Permissive-Repressive Chromatin State Imbalance
+                        
+                        
+                        , 
+                        
+                        Transcriptional Dysregulation at KMT2B Target Loci → Dysregulated Neurodevelopmental Transcriptional Program
                         
                         
                     </span>
@@ -2471,6 +2578,36 @@ Key-target coverage, stated honestly. Of the 20 conforming entries, 14 declare t
                 </div>
                 
                 <div class="crosslink-item">
+                    <a href="../disorders/Sotos_Syndrome.html">Sotos Syndrome</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        NSD1 Haploinsufficiency → Epigenetic Machinery Component Haploinsufficiency
+                        
+                        
+                        , 
+                        
+                        Genome-Wide H3K36me2 Depletion → Permissive-Repressive Chromatin State Imbalance
+                        
+                        
+                        , 
+                        
+                        Dysregulated Developmental Transcriptional Program → Dysregulated Neurodevelopmental Transcriptional Program
+                        
+                        
+                        , 
+                        
+                        Impaired Cortical Neuronal Migration and Laminar Positioning → Impaired Neuronal Maturation, Plasticity, and Postnatal Neurogenesis
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
                     <a href="../disorders/Weaver_Syndrome.html">Weaver Syndrome</a>
                     
                     <span class="crosslink-desc">
@@ -2554,11 +2691,13 @@ Key-target coverage, stated honestly. Of the 20 conforming entries, 14 declare t
             
             <div class="item-box anchor-target" id="module-pathophysiology-epigenetic-machinery-component-haploinsufficiency" data-dismech-node="Epigenetic Machinery Component Haploinsufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Epigenetic Machinery Component Haploinsufficiency</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">A dosage-sensitive component of the epigenetic apparatus - a writer, eraser, reader, or chromatin remodeler - is functionally lost. Haploinsufficiency is the predominant disease mechanism for this gene group: a single functional allele is insufficient, so most MDEMs are dominant and caused by truncating or loss-of-function missense variants rather than gain of a new activity. Conforming disorder nodes substitute the specific component and its enzymatic or reader class.
 The node name says haploinsufficiency because that is the predominant route, but the claim it makes is reduced functional dosage of the component. A hypomorphic or hemizygous reduced-function allele therefore conforms here too - ATRX_Syndrome is the worked case, where X-linked alleles are typically hypomorphic rather than null. What does NOT conform at this node is a dominant-negative or gain-of-function lesion, where the mutant product actively poisons or redirects the complex rather than simply being absent: those entries should attach further downstream, at the chromatin-state or transcriptional node. Nicolaides-Baraitser_Syndrome (non-truncating SMARCA2 variants acting dominant-negatively on BAF ATPase activity) is curated that way for exactly this reason.</div>
@@ -2692,6 +2831,20 @@ This pathophysiological event involves decreased chromatin remodeling (remodeler
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Kleefstra_Syndrome.html">Kleefstra Syndrome</a>
+                            
+                            <span class="crosslink-desc">as KMT2C haploinsufficiency and reduced H3K4 methylation</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/KMT2B-Related_Dystonia.html">KMT2B-Related Dystonia</a>
+                            
+                            <span class="crosslink-desc">as KMT2B Haploinsufficiency</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Luscan-Lumish_Syndrome.html">Luscan-Lumish Syndrome</a>
                             
                             <span class="crosslink-desc">as SETD2 Haploinsufficiency</span>
@@ -2709,6 +2862,13 @@ This pathophysiological event involves decreased chromatin remodeling (remodeler
                             <a href="../disorders/SETD5_Haploinsufficiency_Syndrome.html">SETD5 Haploinsufficiency Syndrome</a>
                             
                             <span class="crosslink-desc">as SETD5 Haploinsufficiency</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Sotos_Syndrome.html">Sotos Syndrome</a>
+                            
+                            <span class="crosslink-desc">as NSD1 Haploinsufficiency</span>
                             
                         </div>
                         
@@ -2747,11 +2907,13 @@ This pathophysiological event involves decreased chromatin remodeling (remodeler
             
             <div class="item-box anchor-target" id="module-pathophysiology-permissive-repressive-chromatin-state-imbalance" data-dismech-node="Permissive-Repressive Chromatin State Imbalance" data-dismech-type="pathophysiology">
                 <div class="item-name">Permissive-Repressive Chromatin State Imbalance</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Loss of the component shifts the balance between permissive (open, transcriptionally competent) and repressive (closed) chromatin at the loci that component normally acts on. Because writers and erasers of opposing marks act antagonistically on the same nucleosomes, losing one arm is equivalent to unopposed activity of the other: KMT2D haploinsufficiency reduces H3K4 trimethylation and histone acetylation, leaving chromatin inappropriately closed. This imbalance - not the absence of any single mark - is the pathogenic state, and it is what chromatin-directed therapy targets.</div>
                 
@@ -2870,9 +3032,23 @@ This pathophysiological event involves chromatin (GO:0000785). GO:0000785 is a c
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Intellectual_Disability_Autosomal_Recessive_65.html">Intellectual Disability Autosomal Recessive 65</a>
+                            
+                            <span class="crosslink-desc">as Elevated H3K4 Trimethylation at Developmental Gene Promoters</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/KDM6B-Related_Neurodevelopmental_Disorder.html">KDM6B-Related Neurodevelopmental Disorder</a>
                             
                             <span class="crosslink-desc">as Unopposed PRC2-Mediated Polycomb Repression</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/KMT2B-Related_Dystonia.html">KMT2B-Related Dystonia</a>
+                            
+                            <span class="crosslink-desc">as Reduced H3K4 Methylation at Target Promoters</span>
                             
                         </div>
                         
@@ -2887,6 +3063,13 @@ This pathophysiological event involves chromatin (GO:0000785). GO:0000785 is a c
                             <a href="../disorders/SETD5_Haploinsufficiency_Syndrome.html">SETD5 Haploinsufficiency Syndrome</a>
                             
                             <span class="crosslink-desc">as Impaired H3K36 Methylation and Chromatin Regulation</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Sotos_Syndrome.html">Sotos Syndrome</a>
+                            
+                            <span class="crosslink-desc">as Genome-Wide H3K36me2 Depletion</span>
                             
                         </div>
                         
@@ -2918,11 +3101,13 @@ This pathophysiological event involves chromatin (GO:0000785). GO:0000785 is a c
             
             <div class="item-box anchor-target" id="module-pathophysiology-dysregulated-neurodevelopmental-transcriptional-program" data-dismech-node="Dysregulated Neurodevelopmental Transcriptional Program" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysregulated Neurodevelopmental Transcriptional Program</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The rate-limiting, disorder-agnostic step. Altered chromatin state at the component&#39;s target loci dysregulates expression of the developmental gene programs those loci encode. This is where the four functional classes converge: whichever component is lost, and whichever mark is perturbed, the shared consequence is that neurodevelopmental transcription is no longer correctly patterned. It is the level at which the chromatinopathies are recognised as one class, and the level at which their clinical overlap - developmental delay, intellectual disability, facial dysmorphism, behavioural disturbance - is explained.</div>
                 
@@ -3055,6 +3240,11 @@ This pathophysiological event involves decreased nervous system development (GO:
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Intellectual_Disability_Autosomal_Recessive_65.html">Intellectual Disability Autosomal Recessive 65</a>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/KDM1A-Related_Neurodevelopmental_Disorder.html">KDM1A-Related Neurodevelopmental Disorder</a>
                             
                             <span class="crosslink-desc">as Dysregulated Neurodevelopmental and Craniofacial Gene Programs</span>
@@ -3076,6 +3266,13 @@ This pathophysiological event involves decreased nervous system development (GO:
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/KMT2B-Related_Dystonia.html">KMT2B-Related Dystonia</a>
+                            
+                            <span class="crosslink-desc">as Transcriptional Dysregulation at KMT2B Target Loci</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Luscan-Lumish_Syndrome.html">Luscan-Lumish Syndrome</a>
                             
                             <span class="crosslink-desc">as Dysregulated Developmental Gene Expression</span>
@@ -3086,6 +3283,13 @@ This pathophysiological event involves decreased nervous system development (GO:
                             <a href="../disorders/Nicolaides-Baraitser_Syndrome.html">Nicolaides-Baraitser Syndrome</a>
                             
                             <span class="crosslink-desc">as Disrupted Chromatin Remodelling and Transcriptional Programs</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Sotos_Syndrome.html">Sotos Syndrome</a>
+                            
+                            <span class="crosslink-desc">as Dysregulated Developmental Transcriptional Program</span>
                             
                         </div>
                         
@@ -3117,11 +3321,13 @@ This pathophysiological event involves decreased nervous system development (GO:
             
             <div class="item-box anchor-target" id="module-pathophysiology-impaired-neuronal-maturation-plasticity-and-postnatal-neurogenesis" data-dismech-node="Impaired Neuronal Maturation, Plasticity, and Postnatal Neurogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Neuronal Maturation, Plasticity, and Postnatal Neurogenesis</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The dysregulated transcriptional program is read out in neurons as failure of the activity-dependent processes that build and tune circuits: dendritic spine formation and actin dynamics, synapse number, long-term synaptic plasticity, and - importantly for this module&#39;s therapeutic logic - ongoing neurogenesis in the postnatal dentate gyrus. Because several of these processes continue after birth, the deficit at this node is not purely a fixed developmental endpoint, which is the mechanistic basis for postnatal malleability.</div>
                 
@@ -3310,6 +3516,13 @@ This pathophysiological event involves decreased dentate gyrus development (GO:0
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Intellectual_Disability_Autosomal_Recessive_65.html">Intellectual Disability Autosomal Recessive 65</a>
+                            
+                            <span class="crosslink-desc">as Impaired Activity-Dependent Gene Expression and Synaptic Plasticity</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Kabuki_Syndrome.html">Kabuki Syndrome</a>
                             
                             <span class="crosslink-desc">as Postnatal neurogenesis deficit</span>
@@ -3334,6 +3547,13 @@ This pathophysiological event involves decreased dentate gyrus development (GO:0
                             <a href="../disorders/SETD5_Haploinsufficiency_Syndrome.html">SETD5 Haploinsufficiency Syndrome</a>
                             
                             <span class="crosslink-desc">as Impaired Neural Progenitor Proliferation and Cortical Neurogenesis</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Sotos_Syndrome.html">Sotos Syndrome</a>
+                            
+                            <span class="crosslink-desc">as Impaired Cortical Neuronal Migration and Laminar Positioning</span>
                             
                         </div>
                         
@@ -3365,11 +3585,13 @@ This pathophysiological event involves decreased dentate gyrus development (GO:0
             
             <div class="item-box anchor-target" id="module-pathophysiology-intellectual-disability-with-growth-and-craniofacial-dysmorphism" data-dismech-node="Intellectual Disability with Growth and Craniofacial Dysmorphism" data-dismech-type="pathophysiology">
                 <div class="item-name">Intellectual Disability with Growth and Craniofacial Dysmorphism</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The clinical output of the chain, and the reason this group is curated as one class: intellectual disability and developmental delay, accompanied by growth disruption (short stature in Kabuki and Cornelia de Lange, overgrowth in Sotos and Weaver - the direction differs but the dysregulation does not) and a recognisable facial gestalt, often with behavioural disturbance. MDEMs are individually rare but collectively a common aetiology for intellectual disability, which is what makes the shared mechanism worth modelling.</div>
                 
@@ -3470,6 +3692,131 @@ This pathophysiological event involves decreased learning or memory (GO:0007611)
                 </div>
                 
 
+                
+            </div>
+            
+        </div>
+        
+
+        
+        
+        <div class="card" id="treatments">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
+                <h2 class="card-title">Treatments</h2>
+                <span class="card-count">1</span>
+            </div>
+            
+            <div class="item-box" data-dismech-node="Histone Deacetylase Inhibitor (Chromatin-Directed Therapy)" data-dismech-type="treatment">
+                <div class="item-name">Histone Deacetylase Inhibitor (Chromatin-Directed Therapy)</div>
+                
+                <div class="item-meta">
+                    
+                    
+                    
+                    
+                    <span class="tag tag-treatment">
+                        Pharmacotherapy
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-22">NCIT:C15986</a>
+    
+    
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    
+                    
+                    
+                    <span class="tag tag-treatment">
+                        vorinostat (ontology-bound exemplar of the HDAC-inhibitor class)
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/NCIT_C1796" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-23">NCIT:C1796</a>
+    
+    
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses vorinostat (ontology-bound exemplar of the HDAC-inhibitor class), annotated with Vorinostat (NCIT:C1796). NCIT:C1796 is a therapeutic agent from the NCI Thesaurus.</span>
+                    </span>
+                    
+                </div>
+                
+                
+    
+    
+    
+    
+    
+    
+    
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+        
+        <span class="tag tag-treatment">Small molecule</span>
+        
+        
+        
+        
+        
+    </div>
+    
+    
+    
+    
+    
+    
+    
+                
+                <div class="item-desc">The chromatin-directed drug-target pattern for this module. If the pathogenic state is an imbalance favouring closed chromatin, an agent that promotes chromatin opening should counteract it downstream of the untreatable genetic lesion. Histone deacetylase inhibitors do exactly this: in the Kmt2d(+/betaGeo) Kabuki mouse the HDAC inhibitor AR-42 normalised the reduced H4 acetylation and H3K4me3 activity in vitro, and postnatal treatment improved dentate-gyrus neurogenesis and hippocampal memory in vivo. Vorinostat is given as the ontology-bound exemplar of the class; AR-42 (the agent actually used) has no CHEBI or NCIT identifier. IMPORTANT: this is an investigational, mouse-derived pattern, not a treatment recommendation, and conforming disorders do NOT inherit it - see the HUMAN_MODEL_MISMATCH discussion on this module.</div>
+                
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism target:</strong>
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">INHIBITS</span>
+                        
+                        
+                        <a href="#module-pathophysiology-permissive-repressive-chromatin-state-imbalance"><strong>Permissive-Repressive Chromatin State Imbalance</strong></a>
+                        
+                        <span> — HDAC inhibition raises histone acetylation and so counteracts the shift toward closed chromatin produced by loss of a permissive-mark writer, acting on the amplifier node rather than on the genetic lesion or the downstream phenotype.</span>
+                        
+                        <span class="tag" style="background:#ecfeff;color:#155e75;font-size:0.75rem;">Evidence: 1</span>
+                        
+                    </div>
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <span class="tag" style="background:#ecfeff;color:#155e75;">Evidence: 1</span>
+                </div>
+                
                 
             </div>
             

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -467,6 +468,18 @@
         .tag-component {
             background: #f0fdf4;
             color: #166534;
+        }
+
+        /* Same values as disorder.html.j2 so a treatment chip looks identical
+           whether it is read on a disorder page or on a module page. */
+        .tag-treatment {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .tag-gene {
+            background: #dbeafe;
+            color: #1e40af;
         }
 
         .tag-role {
@@ -1044,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1059,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1113,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1126,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1284,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1294,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1335,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1537,6 +1586,9 @@
 
     
 
+    
+
+    
     
 
     
@@ -2097,11 +2149,13 @@ This mechanism module involves increased viral process (GO:0016032). GO:0016032 
             
             <div class="item-box anchor-target" id="module-pathophysiology-rna-virus-induced-interferon-and-parp-activation" data-dismech-node="RNA Virus-Induced Interferon and PARP Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">RNA Virus-Induced Interferon and PARP Activation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">RNA virus infection and interferon signaling induce noncanonical PARP enzymes, including PARP7/TIPARP, PARP10, PARP12, and PARP14 in coronavirus contexts. This creates an NAD-consuming antiviral enzyme state upstream of ADP-ribosylation-dependent host restriction.</div>
                 
@@ -2205,11 +2259,13 @@ This pathophysiological event involves increased innate immune response (GO:0045
             
             <div class="item-box anchor-target" id="module-pathophysiology-nad-dependent-antiviral-adp-ribosylation" data-dismech-node="NAD-Dependent Antiviral ADP-Ribosylation" data-dismech-type="pathophysiology">
                 <div class="item-name">NAD-Dependent Antiviral ADP-Ribosylation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">PARP enzymes transfer ADP-ribose from NAD onto target proteins as mono- or poly-ADP-ribose marks. In infected cells, noncanonical PARP activity can restrict viral replication, promote interferon output, and alter stress granule biology.</div>
                 
@@ -2322,11 +2378,13 @@ This pathophysiological event involves increased negative regulation of viral ge
             
             <div class="item-box anchor-target" id="module-pathophysiology-parg-and-host-de-adp-ribosylation-reset" data-dismech-node="PARG and Host De-ADP-Ribosylation Reset" data-dismech-type="pathophysiology">
                 <div class="item-name">PARG and Host De-ADP-Ribosylation Reset</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">PARG removes poly-ADP-ribose polymers, while host macrodomains remove selected mono-ADP-ribose marks. This host erasure layer controls the duration and amplitude of ADP-ribosylation signals and is a natural comparison point for viral macrodomain activity.</div>
                 
@@ -2390,11 +2448,13 @@ This pathophysiological event involves decreased protein poly-ADP-ribosylation (
             
             <div class="item-box anchor-target" id="module-pathophysiology-viral-macrodomain-de-adp-ribosylation-countermeasure" data-dismech-node="Viral Macrodomain De-ADP-Ribosylation Countermeasure" data-dismech-type="pathophysiology">
                 <div class="item-name">Viral Macrodomain De-ADP-Ribosylation Countermeasure</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">adaptive escape</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Viral macrodomains bind and hydrolyze ADP-ribose modifications on host or viral proteins. By erasing PARP-written marks, they can blunt interferon production, disrupt antiviral stress granules, and remove restrictions on viral RNA synthesis or pathogenesis.</div>
                 
@@ -2500,11 +2560,13 @@ This pathophysiological event involves decreased negative regulation of viral ge
             
             <div class="item-box anchor-target" id="module-pathophysiology-enhanced-viral-replication-and-pathogenesis" data-dismech-node="Enhanced Viral Replication and Pathogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Enhanced Viral Replication and Pathogenesis</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">When viral macrodomains successfully counter antiviral ADP-ribosylation, viruses can improve RNA synthesis, productive infection, tissue replication, or pathogenesis. Conversely, catalytic macrodomain defects attenuate replication or virulence and nominate macrodomains as antiviral targets.</div>
                 
@@ -2595,6 +2657,9 @@ This pathophysiological event involves increased viral process (GO:0016032). GO:
             </div>
             
         </div>
+        
+
+        
         
 
         <footer class="page-footer">

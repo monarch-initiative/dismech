@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -467,6 +468,18 @@
         .tag-component {
             background: #f0fdf4;
             color: #166534;
+        }
+
+        /* Same values as disorder.html.j2 so a treatment chip looks identical
+           whether it is read on a disorder page or on a module page. */
+        .tag-treatment {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .tag-gene {
+            background: #dbeafe;
+            color: #1e40af;
         }
 
         .tag-role {
@@ -1044,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1059,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1113,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1126,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1284,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1294,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1335,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1537,6 +1586,9 @@
 
     
 
+    
+
+    
     
 
     
@@ -2028,11 +2080,13 @@ This mechanism module involves symbiont-mediated suppression of host type I inte
             
             <div class="item-box anchor-target" id="module-pathophysiology-viral-pamp-sensing-by-pattern-recognition-receptors" data-dismech-node="Viral PAMP Sensing by Pattern-Recognition Receptors" data-dismech-type="pathophysiology">
                 <div class="item-name">Viral PAMP Sensing by Pattern-Recognition Receptors</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The innate antiviral response begins when an infected cell detects viral pathogen-associated molecular patterns — principally viral nucleic acid — through germline-encoded pattern-recognition receptors (PRRs). The cytosolic RIG-I-like receptors RIG-I and MDA5 sense viral RNA, the cGAS-STING axis senses cytosolic DNA, and endosomal Toll-like receptors sense nucleic-acid ligands. This sensing step is the committed trigger of the entire pathway: it converts the physical presence of a virus into a signal-transduction event that initiates the antiviral program.</div>
                 
@@ -2134,11 +2188,13 @@ This pathophysiological event involves cytoplasmic pattern recognition receptor 
             
             <div class="item-box anchor-target" id="module-pathophysiology-type-i-and-iii-interferon-induction-and-jak-stat-signaling" data-dismech-node="Type I and III Interferon Induction and JAK-STAT Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Type I and III Interferon Induction and JAK-STAT Signaling</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">PAMP sensing activates transcription factors (IRF3/IRF7 and NF-kB) that induce type I (IFN-alpha/beta) and type III (IFN-lambda) interferons. Secreted interferons act back on the producing cell and on neighbouring cells through their receptors, triggering canonical JAK-STAT signaling: receptor-associated Janus kinases phosphorylate STAT transcription factors, which drive transcription of interferon-stimulated genes. This induction-and-signaling step is the amplifier of the pathway — it converts a localized sensing event into a tissue-wide antiviral transcriptional program, and it is the level at which recombinant or pegylated interferons act when given therapeutically.</div>
                 
@@ -2252,11 +2308,13 @@ This pathophysiological event involves cell surface receptor signaling pathway v
             
             <div class="item-box anchor-target" id="module-pathophysiology-interferon-stimulated-gene-antiviral-state" data-dismech-node="Interferon-Stimulated Gene Antiviral State" data-dismech-type="pathophysiology">
                 <div class="item-name">Interferon-Stimulated Gene Antiviral State</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">therapeutic vulnerability</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The products of interferon-stimulated genes (ISGs) collectively establish a cell-intrinsic antiviral state that is highly effective at resisting and controlling pathogens. Individual ISGs directly inhibit viral infection at early and late stages of the life cycle — blocking entry, degrading viral RNA, restricting translation, and impeding assembly and egress. Because this effector state is broad-spectrum (active against many unrelated viruses) and host-encoded, it is the canonical conformance/treatment target of the module: innate-immunity modulators reinforce it pharmacologically — recombinant or pegylated interferons (peginterferon lambda) supply the upstream cytokine, and RIG-I/STING agonists drive the sensing-to-interferon axis that feeds it. A treatment of that class points its target_mechanisms edge at this node.</div>
                 
@@ -2393,11 +2451,13 @@ This pathophysiological event involves defense response to virus (GO:0051607). G
             
             <div class="item-box anchor-target" id="module-pathophysiology-restriction-of-viral-replication" data-dismech-node="Restriction of Viral Replication" data-dismech-type="pathophysiology">
                 <div class="item-name">Restriction of Viral Replication</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The protective output of the pathway is restriction of viral replication and a measurable clinical benefit when the response is intact or therapeutically augmented. Clinically, supplying the pathway&#39;s upstream cytokine reproduces this output: in a randomized trial a single dose of pegylated interferon lambda significantly reduced COVID-19 hospitalization/emergency events, lowered viral load, and — reflecting the broad-spectrum, host-directed nature of the interferon response — worked consistently across dominant SARS-CoV-2 variants. This consequence node is the antiviral effect the innate interferon response is deployed (or pharmacologically reinforced) to achieve.</div>
                 
@@ -2445,11 +2505,13 @@ This pathophysiological event involves negative regulation of viral genome repli
             
             <div class="item-box anchor-target" id="module-pathophysiology-viral-interferon-antagonism-and-innate-immune-evasion" data-dismech-node="Viral Interferon Antagonism and Innate Immune Evasion" data-dismech-type="pathophysiology">
                 <div class="item-name">Viral Interferon Antagonism and Innate Immune Evasion</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">adaptive escape</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Every virus that succeeds in a host must blunt the interferon response, so dedicated viral antagonists that suppress interferon induction or signaling are near-universal. The prototype is the influenza A virus NS1 protein, a multifunctional immune modulator whose functions include inhibition of the type I interferon system in infected cells and sequestration of double-stranded RNA so it escapes sensing; together these let the virus evade immune surveillance and establish infection. This evasion branch off the antiviral-state node is the conceptual mirror of therapeutic interferon augmentation — where a drug reinforces the pathway, the virus tears it down — and explains why an otherwise competent innate response can still fail to contain a well-adapted virus. Conforming entries can attach a virus-specific interferon antagonist (NS1, and the SARS-CoV-2 ORF and nsp antagonists) to this node.</div>
                 
@@ -2496,6 +2558,9 @@ This pathophysiological event involves symbiont-mediated suppression of host typ
             </div>
             
         </div>
+        
+
+        
         
 
         <footer class="page-footer">

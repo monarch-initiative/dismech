@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,18 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4113,6 +4190,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4134,6 +4212,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5115,6 +5194,7 @@ This readout is measured by live-cell imaging assay.</span>
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5139,6 +5219,7 @@ This readout is measured by live-cell imaging assay.</span>
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5160,6 +5241,7 @@ This readout is measured by live-cell imaging assay.</span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5197,6 +5279,7 @@ This readout is measured by live-cell imaging assay.</span>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-gpr56-adhesion-gpcr-function" data-dismech-node="Loss of GPR56 Adhesion GPCR Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of GPR56 Adhesion GPCR Function</div>
+
 
                 <div class="item-desc">Recessive loss-of-function mutations in ADGRG1/GPR56, an adhesion-family G protein-coupled receptor expressed in cortical radial glial progenitors and their basal endfeet, impair receptor function. Missense variants analyzed in PMID:21349848 were located in the extracellular region (ectodomain, GPS autoproteolysis site and extracellular loops) and affected different combinations of surface expression, proteolysis, shedding, ligand interaction and membrane distribution. These heterogeneous defects converge on reduced GPR56 function as the initiating molecular lesion of BFPP.</div>
 
@@ -5371,6 +5454,7 @@ This pathophysiological event involves decreased G protein-coupled receptor sign
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5392,6 +5476,7 @@ This pathophysiological event involves decreased G protein-coupled receptor sign
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5417,6 +5502,7 @@ This pathophysiological event involves decreased G protein-coupled receptor sign
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-gpr56-collagen-iii-signaling" data-dismech-node="Disrupted GPR56-Collagen III Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted GPR56-Collagen III Signaling</div>
+
 
                 <div class="item-desc">Collagen III (COL3A1), a pial extracellular-matrix component produced in the meninges, is a ligand of GPR56 in the developing cortex. Engagement of GPR56 by collagen III couples to the Galpha-12/13 family of G proteins and activates RhoA, which restrains neuronal migration. Loss of receptor or ligand removes this brake and destabilizes cortical lamination.</div>
 
@@ -5730,6 +5816,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5751,6 +5838,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5776,6 +5864,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pial-basement-membrane-breach" data-dismech-node="Pial Basement Membrane Breach" data-dismech-type="pathophysiology">
                 <div class="item-name">Pial Basement Membrane Breach</div>
+
 
                 <div class="item-desc">GPR56 signaling at cortical radial-glial basal endfeet maintains the pial basement membrane in the developing forebrain. Loss of GPR56 (or its collagen III ligand) breaches the cortical glia limitans and creates gaps through which neurons can escape the cortical plate; the rostral cerebellar context is represented in its separate disease-specific branch.</div>
 
@@ -5947,6 +6036,7 @@ This pathophysiological event occurs in cerebral cortex marginal layer (UBERON:0
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5968,6 +6058,7 @@ This pathophysiological event occurs in cerebral cortex marginal layer (UBERON:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5993,6 +6084,7 @@ This pathophysiological event occurs in cerebral cortex marginal layer (UBERON:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-radial-glial-basal-endfoot-detachment" data-dismech-node="Radial-Glial Basal Endfoot Detachment" data-dismech-type="pathophysiology">
                 <div class="item-name">Radial-Glial Basal Endfoot Detachment</div>
+
 
                 <div class="item-desc">GPR56 is enriched in radial glial endfeet, where the GPR56-COL3A1 axis helps maintain the pial basement membrane and radial-glial scaffold. Loss of this endfoot anchoring function removes the boundary constraint that normally prevents overmigration beyond the pial surface.</div>
 
@@ -6118,6 +6210,7 @@ This pathophysiological event involves decreased formation of radial glial scaff
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6139,6 +6232,7 @@ This pathophysiological event involves decreased formation of radial glial scaff
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6164,6 +6258,7 @@ This pathophysiological event involves decreased formation of radial glial scaff
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cajal-retzius-cell-mislocalization" data-dismech-node="Cajal-Retzius Cell Mislocalization" data-dismech-type="pathophysiology">
                 <div class="item-name">Cajal-Retzius Cell Mislocalization</div>
+
 
                 <div class="item-desc">Gpr56-null cortical boundary failure mislocalizes Cajal-Retzius cells within the marginal-zone lesion sequence. This can amplify cortical disorganization, although its independent contribution to neuronal overmigration has not been isolated in ADGRG1 disease.</div>
 
@@ -6272,6 +6367,7 @@ This pathophysiological event occurs in cerebral cortex marginal layer (UBERON:0
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6294,6 +6390,7 @@ This pathophysiological event occurs in cerebral cortex marginal layer (UBERON:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuronal-overmigration-and-cortical-dyslamination" data-dismech-node="Neuronal Overmigration and Cortical Dyslamination" data-dismech-type="pathophysiology">
                 <div class="item-name">Neuronal Overmigration and Cortical Dyslamination</div>
+
 
                 <div class="item-desc">With the pial basement membrane breached and the GPR56-RhoA migratory brake lost, postmitotic neurons overmigrate beyond their normal pial stopping point, producing a disorganized, abnormally laminated cortex. The result is a frontoparietally predominant polymicrogyria that, at its severe end, forms a cobblestone-like cortex with ectopic neuronal overmigration, forming a phenotypic continuum from BFPP to cobblestone-like lissencephaly.</div>
 
@@ -6527,6 +6624,7 @@ This pathophysiological event involves abnormal layer formation in cerebral cort
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6534,7 +6632,7 @@ This pathophysiological event involves abnormal layer formation in cerebral cort
                 <div class="evidence-snippet">"showed a cobblestone-like lissencephaly with a succession of normal, polymicrogyric and &#39;cobblestone-like&#39; cortex with ectopic neuronal overmigration"</div>
 
 
-                <div class="evidence-explanation">Documents ectopic neuronal overmigration and the polymicrogyria-to- cobblestone cortical continuum in a fetopathological BFPP case.</div>
+                <div class="evidence-explanation">Documents ectopic neuronal overmigration and the polymicrogyria-to-cobblestone cortical continuum in a fetopathological BFPP case.</div>
 
 
 
@@ -6548,6 +6646,7 @@ This pathophysiological event involves abnormal layer formation in cerebral cort
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6573,6 +6672,7 @@ This pathophysiological event involves abnormal layer formation in cerebral cort
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-oligodendrocyte-precursor-proliferation-and-maturation" data-dismech-node="Impaired Oligodendrocyte Precursor Proliferation and Maturation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Oligodendrocyte Precursor Proliferation and Maturation</div>
+
 
                 <div class="item-desc">GPR56 is highly expressed in oligodendrocyte precursor cells and signals through RhoA to maintain their proliferation. Constitutive or OPC-conditional Gpr56 loss reduces active RhoA, causes premature cell-cycle exit, lowers the numbers of mature oligodendrocytes and myelinated axons, and produces early CNS hypomyelination. This is a cell-autonomous white-matter branch rather than a consequence assigned solely to cortical dyslamination.</div>
 
@@ -6868,6 +6968,7 @@ This pathophysiological event occurs in brain white matter (UBERON:0003544). UBE
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6889,6 +6990,7 @@ This pathophysiological event occurs in brain white matter (UBERON:0003544). UBE
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6914,6 +7016,7 @@ This pathophysiological event occurs in brain white matter (UBERON:0003544). UBE
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-rostral-cerebellar-granule-cell-adhesion-failure" data-dismech-node="Rostral Cerebellar Granule Cell Adhesion Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Rostral Cerebellar Granule Cell Adhesion Failure</div>
+
 
                 <div class="item-desc">In the rostral cerebellum, GPR56 is expressed in developing granule cells and supports their adhesion to pial basement-membrane extracellular matrix. Gpr56-null mice show loss of this adhesion, pial fragmentation, fusion of adjacent lobules and disrupted neuronal and glial layering. Rescue by GPR56 re-expression supports a direct, region-specific cerebellar mechanism.</div>
 
@@ -7111,6 +7214,7 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7132,6 +7236,7 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7157,6 +7262,7 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-regional-cortical-patterning-dependence-on-gpr56-expression" data-dismech-node="Regional Cortical Patterning Dependence on GPR56 Expression" data-dismech-type="pathophysiology">
                 <div class="item-name">Regional Cortical Patterning Dependence on GPR56 Expression</div>
+
 
                 <div class="item-desc">GPR56 is expressed in cortical progenitor cells in a regionally restricted, promoter-controlled pattern, and its expression levels regulate progenitor proliferation. A 15-base-pair deletion in a region-specific regulatory element selectively disrupts lateral/perisylvian cortex and represents a related ADGRG1 allelic phenotype, whereas classic BFPP is usually frontoparietal or follows an anterior-posterior severity gradient. Regional control is important but not absolute: rare coding-variant cases with diffuse polymicrogyria without a clear gradient have been reported.</div>
 
@@ -7325,6 +7431,7 @@ This pathophysiological event involves abnormal cerebral cortex regionalization 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7349,6 +7456,7 @@ This pathophysiological event involves abnormal cerebral cortex regionalization 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7370,6 +7478,7 @@ This pathophysiological event involves abnormal cerebral cortex regionalization 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7441,9 +7550,7 @@ This pathophysiological event involves abnormal cerebral cortex regionalization 
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Musculoskeletal<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(7)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(11)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -7486,6 +7593,9 @@ This clinical feature is Abnormality of eye movement (HP:0000496). HP:0000496 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7500,6 +7610,7 @@ This clinical feature is Abnormality of eye movement (HP:0000496). HP:0000496 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7524,6 +7635,7 @@ This clinical feature is Abnormality of eye movement (HP:0000496). HP:0000496 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7587,6 +7699,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7601,6 +7716,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7633,7 +7749,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">7</span>
+                    <span class="cat-count">11</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-bilateral-frontoparietal-polymicrogyria" data-dismech-node="Bilateral Frontoparietal Polymicrogyria" data-dismech-type="phenotype">
@@ -7666,6 +7782,9 @@ This clinical feature is Bilateral frontoparietal polymicrogyria, annotated with
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7683,6 +7802,7 @@ This clinical feature is Bilateral frontoparietal polymicrogyria, annotated with
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7691,6 +7811,80 @@ This clinical feature is Bilateral frontoparietal polymicrogyria, annotated with
 
 
                 <div class="evidence-explanation">Bilateral frontoparietally predominant polymicrogyria occurred in 13/13 = 100% of this selected imaged cohort. VERY_FREQUENT is retained rather than inferring obligate penetrance across atypical ADGRG1 disease.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cerebellar-dysplasia" data-dismech-node="Cerebellar Dysplasia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Cerebellar Dysplasia
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007033" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0007033</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cerebellar dysplasia with cysts, annotated with Cerebellar dysplasia (HP:0007033). HP:0007033 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20929962" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20929962" target="_blank">PMID:20929962</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"cerebellar dysplasia with cysts mainly affecting the superior vermis (11/13)"</div>
+
+
+                <div class="evidence-explanation">Cerebellar dysplasia with cysts occurred in 11/13 = 84.6%, which falls in the VERY_FREQUENT band (80-99%).</div>
 
 
 
@@ -7724,15 +7918,18 @@ This clinical feature is Bilateral frontoparietal polymicrogyria, annotated with
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002500" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0002500</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002500" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0002500</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal cerebral white matter morphology (HP:0002500). HP:0002500 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7755,6 +7952,7 @@ This clinical feature is Abnormal cerebral white matter morphology (HP:0002500).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7763,6 +7961,152 @@ This clinical feature is Abnormal cerebral white matter morphology (HP:0002500).
 
 
                 <div class="evidence-explanation">White-matter/myelination abnormalities occurred in 13/13 = 100% of this selected imaged cohort. VERY_FREQUENT is retained because this subset does not establish an obligate finding across all ADGRG1 disease.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-central-nervous-system-hypomyelination" data-dismech-node="Central Nervous System Hypomyelination" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Central Nervous System Hypomyelination
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">CNS hypomyelination</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003429" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0003429</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is CNS hypomyelination (HP:0003429). HP:0003429 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20929962" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20929962" target="_blank">PMID:20929962</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the white matter abnormalities showed a peculiar evolution from severe hypomyelination at 4 months to patchy lesions later in childhood"</div>
+
+
+                <div class="evidence-explanation">Directly documents severe CNS hypomyelination rather than inferring delayed myelination from a single time point.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypoplasia-of-the-pons" data-dismech-node="Hypoplasia of the Pons" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hypoplasia of the Pons
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-56">HP:0012110</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypoplasia of the pons (HP:0012110). HP:0012110 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34513772" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34513772" target="_blank">PMID:34513772</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Pathogenic variants of the ADGRG1 gene are associated with bilateral frontoparietal polymicrogyria, defined radiologically by polymicrogyria with an anterior-posterior gradient, pontine and cerebellar hypoplasia and patchy white matter abnormalities."</div>
+
+
+                <div class="evidence-explanation">The clinicoradiologic review identifies pontine hypoplasia as part of the ADGRG1-associated imaging pattern.</div>
 
 
 
@@ -7794,15 +8138,18 @@ This clinical feature is Abnormal cerebral white matter morphology (HP:0002500).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-57">HP:0001249</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7822,6 +8169,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7846,6 +8194,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7888,15 +8237,18 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0001270</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-58">HP:0001270</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7916,6 +8268,7 @@ This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7940,6 +8293,7 @@ This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7982,15 +8336,18 @@ This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-56">HP:0001251</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-59">HP:0001251</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8010,6 +8367,7 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8037,6 +8395,7 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8045,6 +8404,82 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
                 <div class="evidence-explanation">The independent series explicitly includes ataxia in the clinical profile.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-spasticity-and-pyramidal-signs" data-dismech-node="Spasticity and Pyramidal Signs" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Spasticity and Pyramidal Signs
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal pyramidal sign</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007256" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-60">HP:0007256</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal pyramidal sign (HP:0007256). HP:0007256 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34513772" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34513772" target="_blank">PMID:34513772</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Pyramidal signs Present 44 (75.9) Absent 14 (24.1)"</div>
+
+
+                <div class="evidence-explanation">Pyramidal signs occurred in 44/58 = 75.9%, which falls in the FREQUENT band (30-79%).</div>
 
 
 
@@ -8076,15 +8511,18 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-57">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-61">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8104,6 +8542,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8131,6 +8570,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8152,6 +8592,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8194,15 +8635,18 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002353" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-58">HP:0002353</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002353" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-62">HP:0002353</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is EEG abnormality (HP:0002353). HP:0002353 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8222,6 +8666,7 @@ This clinical feature is EEG abnormality (HP:0002353). HP:0002353 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8233,295 +8678,6 @@ This clinical feature is EEG abnormality (HP:0002353). HP:0002353 is a phenotype
 
 
                 <div class="evidence-explanation">The cohort directly reports the characteristic EEG pattern; ictal and recording state were not specified, so those sidecar axes remain unset.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">4</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-cerebellar-dysplasia" data-dismech-node="Cerebellar Dysplasia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Cerebellar Dysplasia
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007033" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-59">HP:0007033</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Cerebellar dysplasia with cysts, annotated with Cerebellar dysplasia (HP:0007033). HP:0007033 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20929962" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20929962" target="_blank">PMID:20929962</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"cerebellar dysplasia with cysts mainly affecting the superior vermis (11/13)"</div>
-
-
-                <div class="evidence-explanation">Cerebellar dysplasia with cysts occurred in 11/13 = 84.6%, which falls in the VERY_FREQUENT band (80-99%).</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-central-nervous-system-hypomyelination" data-dismech-node="Central Nervous System Hypomyelination" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Central Nervous System Hypomyelination
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">CNS hypomyelination</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003429" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-60">HP:0003429</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is CNS hypomyelination (HP:0003429). HP:0003429 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20929962" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20929962" target="_blank">PMID:20929962</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"the white matter abnormalities showed a peculiar evolution from severe hypomyelination at 4 months to patchy lesions later in childhood"</div>
-
-
-                <div class="evidence-explanation">Directly documents severe CNS hypomyelination rather than inferring delayed myelination from a single time point.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hypoplasia-of-the-pons" data-dismech-node="Hypoplasia of the Pons" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hypoplasia of the Pons
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-61">HP:0012110</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hypoplasia of the pons (HP:0012110). HP:0012110 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:34513772" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34513772" target="_blank">PMID:34513772</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Pathogenic variants of the ADGRG1 gene are associated with bilateral frontoparietal polymicrogyria, defined radiologically by polymicrogyria with an anterior-posterior gradient, pontine and cerebellar hypoplasia and patchy white matter abnormalities."</div>
-
-
-                <div class="evidence-explanation">The clinicoradiologic review identifies pontine hypoplasia as part of the ADGRG1-associated imaging pattern.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-spasticity-and-pyramidal-signs" data-dismech-node="Spasticity and Pyramidal Signs" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Spasticity and Pyramidal Signs
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Abnormal pyramidal sign</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007256" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-62">HP:0007256</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-62">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal pyramidal sign (HP:0007256). HP:0007256 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:34513772" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34513772" target="_blank">PMID:34513772</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Pyramidal signs Present 44 (75.9) Absent 14 (24.1)"</div>
-
-
-                <div class="evidence-explanation">Pyramidal signs occurred in 44/58 = 75.9%, which falls in the FREQUENT band (30-79%).</div>
 
 
 
@@ -8611,6 +8767,9 @@ This disease-associated gene is ADGRG1 (GPR56), annotated with ADGRG1 (hgnc:4512
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive inheritance</span>
@@ -8633,6 +8792,7 @@ This disease-associated gene is ADGRG1 (GPR56), annotated with ADGRG1 (hgnc:4512
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8660,6 +8820,7 @@ This disease-associated gene is ADGRG1 (GPR56), annotated with ADGRG1 (hgnc:4512
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8681,6 +8842,7 @@ This disease-associated gene is ADGRG1 (GPR56), annotated with ADGRG1 (hgnc:4512
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8768,6 +8930,31 @@ This treatment is anticonvulsant agent therapy, annotated with Anticonvulsant Th
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Individualized antiseizure pharmacotherapy is used for symptomatic seizure control. Published BFPP reports document multiple seizure types and frequent refractoriness but do not establish a disease-specific preferred drug or comparative regimen.</div>
 
 
@@ -8814,6 +9001,7 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8835,6 +9023,7 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8945,6 +9134,7 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8966,6 +9156,7 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9058,6 +9249,7 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9079,6 +9271,7 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9266,6 +9459,7 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9287,6 +9481,7 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9458,6 +9653,7 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9623,6 +9819,7 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9792,6 +9989,7 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9958,6 +10156,7 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10022,6 +10221,7 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10043,6 +10243,7 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10098,6 +10299,7 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10119,6 +10321,7 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10171,6 +10374,7 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10283,6 +10487,7 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10351,6 +10556,7 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10375,6 +10581,7 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10396,6 +10603,7 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10467,6 +10675,7 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10488,6 +10697,7 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10652,6 +10862,7 @@ This experimental model concerns Gpr56 (Adgrg1), annotated with ADGRG1 (hgnc:451
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10676,6 +10887,7 @@ This experimental model concerns Gpr56 (Adgrg1), annotated with ADGRG1 (hgnc:451
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10697,6 +10909,7 @@ This experimental model concerns Gpr56 (Adgrg1), annotated with ADGRG1 (hgnc:451
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10833,6 +11046,7 @@ This experimental model concerns Col3a1 (hgnc:2201). hgnc:2201 is a gene from th
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10963,6 +11177,7 @@ This experimental model concerns Gpr56 (Adgrg1), annotated with ADGRG1 (hgnc:451
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11673,8 +11888,8 @@ pathophysiology:
       polymicrogyric and &#39;cobblestone-like&#39; cortex with ectopic neuronal
       overmigration
     explanation: &gt;-
-      Documents ectopic neuronal overmigration and the polymicrogyria-to-
-      cobblestone cortical continuum in a fetopathological BFPP case.
+      Documents ectopic neuronal overmigration and the polymicrogyria-to-cobblestone
+      cortical continuum in a fetopathological BFPP case.
   - reference: PMID:15044805
     reference_title: &#34;G protein-coupled receptor-dependent development of human frontal cortex.&#34;
     supports: SUPPORT
@@ -13482,6 +13697,8 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -14341,7 +14558,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "ADGRG1-related Bilateral Frontoparietal Polymicrogyria", "mondoId": "MONDO:0011738", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "ADGRG1-related_Bilateral_Frontoparietal_Polymicrogyria", "yamlRevision": "61846432e84d"};
+        const OS_CONFIG = {"diseaseName": "ADGRG1-related Bilateral Frontoparietal Polymicrogyria", "mondoId": "MONDO:0011738", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "ADGRG1-related_Bilateral_Frontoparietal_Polymicrogyria", "yamlRevision": "e8800000e94a"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3756,6 +3821,18 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3832,7 +3909,7 @@
 
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
                 A skeletal dysplasia caused by heterozygous missense variants in WNT5A, the prototypic ligand of non-canonical Wnt signalling. What is curated here is deliberately narrower than &#34;Robinow syndrome&#34;: the autosomal dominant form has three genes, and this entry is the WNT5A one.
-That distinction is mechanistic, not bookkeeping. WNT5A variants act on the **ligand**, reducing its activity - the founding variants substitute highly conserved cysteines and measurably decrease WNT5A function in developmental assays. The other two dominant genes, DVL1 and DVL3, act through truncated intracellular adaptors downstream of the same pathway with an apparent gain of function, and they carry phenotypic differences to match (osteosclerosis and preserved stature with DVL1). Same pathway, opposite direction of effect, different clinical picture - so they are curated as differential diagnoses rather than merged in.
+That distinction is mechanistic, not bookkeeping. WNT5A variants act on the **ligand**, reducing its activity - the founding variants substitute highly conserved cysteines and measurably decrease WNT5A function in developmental assays. The other two dominant genes, DVL1 and DVL3, act on the intracellular adaptor rather than the ligand: a frameshift replaces the DVL1 C terminus with a novel, highly basic sequence, the mutant transcript is present in patient fibroblasts and the protein is stable, and the novel C-terminus interferes with the protein made from the normal allele rather than simply removing one copy. What that does to each branch is not settled. In facial mesenchyme luciferase assays both the frameshift and a stop-codon construct signal significantly below wild type on the canonical *and* the JNK-PCP branch; earlier work from the same group, expressing the same variants in chick limb and *Drosophila* wing, reports the opposite on the non-canonical branch - loss of canonical signalling with a *gain* of JNK/PCP. The disagreement is between two readouts of one experimental programme, not between species or between independent groups. Against that, co-expressing mutant and wild-type DVL1 raises canonical activity two-fold over wild type alone, and it is that allele interaction the primary report ties to the osteosclerosis - though that interaction is itself unsettled, since a different group&#39;s equimolar co-expression assay of the DVL1-1519ΔT frameshift, recounted in PMID:42424595, found dominant-negative inhibition instead (see the ``coexpression_canonical_wnt_gain_model`` hypothesis in ``Autosomal_Dominant_Robinow_Syndrome_2``). Same pathway, contested direction of effect, different clinical picture - so they are curated as differential diagnoses rather than merged in.
 The pathway is the non-canonical, beta-catenin-independent branch: WNT5A signals through ROR2 and Disheveled to Rho-family GTPases and JNK, governing planar cell polarity rather than proliferation or fate. The disease is therefore a disorder of polarised cell behaviour. In growth-plate cartilage the readout is direct - chondrocytes that should form ordered columns are randomly oriented - and mesomelic limb shortening is what that disorganisation produces at the level of a limb.
 The pathology is developmental rather than degenerative. It is established prenatally and is largely static afterwards, which is why management is corrective and supportive rather than disease-modifying.
             </p>
@@ -4000,7 +4077,7 @@ The pathology is developmental rather than degenerative. It is established prena
             <a class="stat-link" href="#differentials">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔀</div>
-                <div class="stat-value">2</div>
+                <div class="stat-value">3</div>
                 <div class="stat-label">Differentials</div>
             </div>
             </a>
@@ -4013,7 +4090,7 @@ The pathology is developmental rather than degenerative. It is established prena
             <a class="stat-link" href="#references">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📚</div>
-                <div class="stat-value">4</div>
+                <div class="stat-value">8</div>
                 <div class="stat-label">References</div>
             </div>
             </a>
@@ -4098,6 +4175,7 @@ The pathology is developmental rather than degenerative. It is established prena
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4144,6 +4222,7 @@ The pathology is developmental rather than degenerative. It is established prena
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-heterozygous-wnt5a-missense-variant" data-dismech-node="Heterozygous WNT5A Missense Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">Heterozygous WNT5A Missense Variant</div>
+
 
                 <div class="item-desc">A missense substitution in WNT5A, in the founding families replacing highly conserved cysteine residues. Cysteines matter disproportionately in a Wnt ligand because the fold depends on disulfide bonding, and the disease variants cluster on a surface implicated in receptor engagement rather than being scattered through the protein.</div>
 
@@ -4240,6 +4319,8 @@ This genetic context concerns WNT5A (hgnc:12784). hgnc:12784 is a gene from the 
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4252,6 +4333,9 @@ This genetic context concerns WNT5A (hgnc:12784). hgnc:12784 is a gene from the 
         <span class="tag tag-classification">functional_impact_category: PARTIAL_LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Partial loss of function rather than null: the functional assays show decreased activity, not abolished activity, and heterozygotes are affected while the corresponding mouse null is perinatally lethal with a more severe phenotype than any human patient.</div>
 
@@ -4301,6 +4385,7 @@ This genetic context concerns WNT5A (hgnc:12784). hgnc:12784 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4322,6 +4407,7 @@ This genetic context concerns WNT5A (hgnc:12784). hgnc:12784 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4347,6 +4433,7 @@ This genetic context concerns WNT5A (hgnc:12784). hgnc:12784 is a gene from the 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-non-canonical-wnt5a-signalling-through-ror2" data-dismech-node="Reduced Non-Canonical WNT5A Signalling Through ROR2" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Non-Canonical WNT5A Signalling Through ROR2</div>
+
 
                 <div class="item-desc">The WNT5A/ROR2 axis transmits a beta-catenin-independent signal through Disheveled to Rho-family GTPases and JNK. This is the planar-cell-polarity branch of Wnt signalling - it tells cells which way to face and which way to move, rather than whether to divide or what to become.
 The functional evidence for reduced signalling is developmental-assay based: the patient variants decreased WNT5A activity in zebrafish and Xenopus systems. That is the measurement available, and it is made in embryos of other species rather than in human tissue.</div>
@@ -4473,6 +4560,7 @@ This pathophysiological event involves decreased Wnt signaling pathway, planar c
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4494,6 +4582,7 @@ This pathophysiological event involves decreased Wnt signaling pathway, planar c
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4519,6 +4608,13 @@ This pathophysiological event involves decreased Wnt signaling pathway, planar c
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-planar-cell-polarity-in-developing-tissues" data-dismech-node="Loss of Planar Cell Polarity in Developing Tissues" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Planar Cell Polarity in Developing Tissues</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Cells that should adopt a coordinated orientation within the plane of a tissue fail to do so. In growth-plate cartilage this is directly observable - chondrocytes that should stack into ordered columns are randomly oriented - and it is the most concrete cellular readout available for this disease.
 PROVISIONAL because the chondrocyte polarity evidence comes from experimental systems expressing a disease variant rather than from patient growth plates, and because the step from disordered chondrocyte columns to the specifically mesomelic pattern of limb shortening is inferred rather than demonstrated.</div>
@@ -4636,6 +4732,7 @@ This pathophysiological event occurs in cartilage tissue (UBERON:0002418). UBERO
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4658,6 +4755,7 @@ This pathophysiological event occurs in cartilage tissue (UBERON:0002418). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disordered-growth-plate-and-skeletal-patterning" data-dismech-node="Disordered Growth Plate and Skeletal Patterning" data-dismech-type="pathophysiology">
                 <div class="item-name">Disordered Growth Plate and Skeletal Patterning</div>
+
 
                 <div class="item-desc">Shortened, disorganised endochondral growth with a mesomelic pattern - the middle segments of the limbs are affected more than the proximal or distal ones, and the upper limbs more than the lower. Brachydactyly, vertebral anomalies and radial head dislocation belong to the same developmental failure.</div>
 
@@ -4780,6 +4878,7 @@ This pathophysiological event occurs in cartilage tissue (UBERON:0002418). UBERO
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4802,6 +4901,7 @@ This pathophysiological event occurs in cartilage tissue (UBERON:0002418). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-craniofacial-and-genital-morphogenetic-disruption" data-dismech-node="Craniofacial and Genital Morphogenetic Disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">Craniofacial and Genital Morphogenetic Disruption</div>
+
 
                 <div class="item-desc">The non-skeletal half of the phenotype: the distinctive facial configuration that gave the condition its old name of fetal face syndrome, and hypoplastic external genitalia. Both are morphogenetic failures established in utero rather than progressive processes.</div>
 
@@ -4911,6 +5011,7 @@ This pathophysiological event occurs in cartilage tissue (UBERON:0002418). UBERO
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4932,6 +5033,7 @@ This pathophysiological event occurs in cartilage tissue (UBERON:0002418). UBERO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4980,7 +5082,7 @@ This pathophysiological event occurs in cartilage tissue (UBERON:0002418). UBERO
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Bifid Tongue\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A bilobed tongue - an unusual and clinically distinctive oral finding that helps separate Robinow syndrome from other mesomelic dysplasias.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0010297\"}}, {\"id\": \"Brachydactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Short digits - the third of the three core skeletal findings, alongside short stature and mesomelic shortening. All three are consequences of the same disordered endochondral growth, expressed at different skeletal scales.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001156\"}}, {\"id\": \"Clitoral Hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypoplasia of the clitoris, named with the labial hypoplasia as the female genital presentation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000060\"}}, {\"id\": \"Congenital Heart Defect\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiac defects are uncommon but disproportionately important, being identified as a major cause of morbidity and mortality when present - which is why cardiac assessment features in surveillance despite the low frequency.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001627\"}}, {\"id\": \"Corrective Surgery for Genital and Orofacial Anomalies\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical correction of cryptorchidism, abnormal penile insertion or penoscrotal position, and cleft lip or palate where present. This is management of established morphogenetic defects - the developmental window in which the pathway acted has long closed by the time of surgery.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Craniofacial and Genital Morphogenetic Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The non-skeletal half of the phenotype: the distinctive facial configuration that gave the condition its old name of fetal face syndrome, and hypoplastic external genitalia. Both are morphogenetic failures established in utero rather than progressive processes.\", \"meta\": {\"evidence_count\": 2, \"role\": \"effector\"}}, {\"id\": \"Cryptorchidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Undescended testes, curated alongside micropenis because the source names them in the same list of male genital findings and the entry\u0027s surgical treatment covers both.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000028\"}}, {\"id\": \"Dislocated Radial Head\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dislocation of the radial head, named by GeneReviews among the less common findings and already described in prose by the growth-plate pathophysiology node.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0003083\"}}, {\"id\": \"Disordered Growth Plate and Skeletal Patterning\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Shortened, disorganised endochondral growth with a mesomelic pattern - the middle segments of the limbs are affected more than the proximal or distal ones, and the upper limbs more than the lower. Brachydactyly, vertebral anomalies and radial head dislocation belong to the same developmental failure.\", \"meta\": {\"evidence_count\": 1, \"role\": \"effector\", \"locations\": [\"cartilage tissue\"]}}, {\"id\": \"Growth Hormone Therapy (selected patients)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Growth hormone for the subset of patients in whom GH deficiency is demonstrated. The reported series found GH deficiency on testing in four of five Robinow patients and a significant increase in growth rate on recombinant GH - but the authors present the association as a proposal, and five patients is not a trial.\\nIt treats a coexisting endocrine deficiency, not the WNT5A defect: nothing about supplying growth hormone restores planar cell polarity, and the mesomelic proportions are set prenatally. Curated as a selected-patient option contingent on documented deficiency, not as management of the skeletal phenotype.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"somatropin\"]}}, {\"id\": \"Hemivertebrae\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Segmentation defects of the vertebral bodies. The same failure of ordered axial patterning that the growth plate shows in the limbs.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002937\"}}, {\"id\": \"Heterozygous WNT5A Missense Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A missense substitution in WNT5A, in the founding families replacing highly conserved cysteine residues. Cysteines matter disproportionately in a Wnt ligand because the fold depends on disulfide bonding, and the disease variants cluster on a surface implicated in receptor engagement rather than being scattered through the protein.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"WNT5A\"], \"gene_terms\": [{\"label\": \"WNT5A\", \"id\": \"hgnc:12784\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"PARTIAL_LOSS_OF_FUNCTION\", \"description\": \"Partial loss of function rather than null: the functional assays show decreased activity, not abolished activity, and heterozygotes are affected while the corresponding mouse null is perinatally lethal with a more severe phenotype than any human patient.\", \"gene_terms\": [{\"label\": \"WNT5A\", \"id\": \"hgnc:12784\"}]}, \"role\": \"trigger\"}}, {\"id\": \"Hormone Therapy for Micropenis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Hormone therapy in affected males with micropenis, listed by GeneReviews among the treatments of manifestations. Like the surgical entries, it addresses an established morphogenetic outcome rather than the pathway that produced it.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hypertelorism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Widely spaced, prominent eyes - the most recognisable single element of the facial configuration historically called fetal facies.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000316\"}}, {\"id\": \"Hypodontia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Missing teeth, with crowding, malocclusion and delayed eruption of the permanent dentition. This is the phenotype the orthodontic treatment in this entry actually addresses.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000668\"}}, {\"id\": \"Hypoplastic Labia Majora\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The female counterpart of the male genital hypoplasia. Curated because the entry otherwise recorded only the male findings, which would make the genital phenotype look sex-limited when the source describes it in both.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000059\"}}, {\"id\": \"Loss of Planar Cell Polarity in Developing Tissues\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cells that should adopt a coordinated orientation within the plane of a tissue fail to do so. In growth-plate cartilage this is directly observable - chondrocytes that should stack into ordered columns are randomly oriented - and it is the most concrete cellular readout available for this disease.\\nPROVISIONAL because the chondrocyte polarity evidence comes from experimental systems expressing a disease variant rather than from patient growth plates, and because the step from disordered chondrocyte columns to the specifically mesomelic pattern of limb shortening is inferred rather than demonstrated.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"chondrocyte\"], \"role\": \"central_effector\", \"locations\": [\"cartilage tissue\"]}}, {\"id\": \"Macrocephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Prenatal macrocephaly persisting after birth. Occasional in the WNT5A form; persistent macrocephaly is a defining feature of the DVL1 form, which is one of the discriminators in the differential.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000256\"}}, {\"id\": \"Mesomelic Limb Shortening\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Shortening of the middle limb segments - forearm and lower leg - with upper-limb predominance. The mesomelic pattern is the skeletal signature of this condition and what distinguishes it from proportionate short stature.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003027\"}}, {\"id\": \"Micropenis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Genital hypoplasia in affected males. Hormone therapy is sometimes used, and corrective surgery is required for the associated anomalies.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000054\"}}, {\"id\": \"Orthodontic Treatment\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Orthodontic management is typically required, reflecting the dental crowding, malocclusion, hypodontia and delayed eruption that accompany the craniofacial phenotype.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Reduced Non-Canonical WNT5A Signalling Through ROR2\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The WNT5A/ROR2 axis transmits a beta-catenin-independent signal through Disheveled to Rho-family GTPases and JNK. This is the planar-cell-polarity branch of Wnt signalling - it tells cells which way to face and which way to move, rather than whether to divide or what to become.\\nThe functional evidence for reduced signalling is developmental-assay based: the patient variants decreased WNT5A activity in zebrafish and Xenopus systems. That is the measurement available, and it is made in embryos of other species rather than in human tissue.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"non-canonical Wnt signaling pathway\", \"Wnt signaling pathway, planar cell polarity pathway\"], \"role\": \"central_effector\"}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Curvature of the spine, named alongside hemivertebrae as the vertebral presentation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002650\"}}, {\"id\": \"Short Stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Short stature, largely a consequence of the limb shortening. Notably preserved in the DVL1 form, which is one of the features separating that gene\u0027s phenotype from this one.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0004322\"}}, {\"id\": \"Structured Multisystem Surveillance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A defined surveillance schedule rather than symptomatic follow-up: head circumference through infancy and childhood, developmental assessment every three months in infancy and six-monthly to yearly thereafter, dental review every six to twelve months, periodic hearing assessment in childhood, and cardiac and renal assessment where abnormalities have been found.\\nThe cardiac element is the one with mortality attached, which is why it is curated as surveillance rather than folded into general follow-up.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"WNT5A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"WNT5A\"], \"gene_terms\": [{\"label\": \"WNT5A\", \"id\": \"hgnc:12784\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}], \"edges\": [{\"source\": \"Heterozygous WNT5A Missense Variant\", \"target\": \"Reduced Non-Canonical WNT5A Signalling Through ROR2\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The variant protein is the ligand; reduced ligand activity is reduced pathway input.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Non-Canonical WNT5A Signalling Through ROR2\", \"target\": \"Loss of Planar Cell Polarity in Developing Tissues\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Planar cell polarity is the output this pathway produces, so reducing the signal degrades the polarity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Planar Cell Polarity in Developing Tissues\", \"target\": \"Disordered Growth Plate and Skeletal Patterning\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Growth-plate elongation depends on ordered chondrocyte columns, so losing the order degrades the elongation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Planar Cell Polarity in Developing Tissues\", \"target\": \"Craniofacial and Genital Morphogenetic Disruption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same polarity defect is presumed to act in neural-crest-derived craniofacial precursors and in genital development, but the intermediate steps in those tissues are not established for WNT5A patient variants.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disordered Growth Plate and Skeletal Patterning\", \"target\": \"Mesomelic Limb Shortening\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disordered growth plate chondrocyte columns shorten the middle limb segment.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disordered Growth Plate and Skeletal Patterning\", \"target\": \"Short Stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same growth plate lesion summed over the long bones.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disordered Growth Plate and Skeletal Patterning\", \"target\": \"Brachydactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Digital shortening is the acral expression of the same patterning defect.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disordered Growth Plate and Skeletal Patterning\", \"target\": \"Dislocated Radial Head\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disproportionate growth of the paired forearm bones, not a primary joint defect.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Disordered Growth Plate and Skeletal Patterning\", \"target\": \"Hemivertebrae\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Segmentation of the paraxial mesoderm requires the same polarity signal.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disordered Growth Plate and Skeletal Patterning\", \"target\": \"Scoliosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Asymmetric vertebral segments impose a curve on the growing spine.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Disordered Growth Plate and Skeletal Patterning\", \"target\": \"Macrocephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Macrocephaly accompanies the syndrome; no route from the growth plate lesion to calvarial growth has been established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Craniofacial and Genital Morphogenetic Disruption\", \"target\": \"Hypertelorism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failed midline outgrowth of the frontonasal region widens the interorbital distance.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial and Genital Morphogenetic Disruption\", \"target\": \"Bifid Tongue\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The tongue forms from paired swellings that must meet at the midline.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial and Genital Morphogenetic Disruption\", \"target\": \"Hypodontia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced midfacial and jaw growth constrains tooth-germ development.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Craniofacial and Genital Morphogenetic Disruption\", \"target\": \"Micropenis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The male expression of reduced genital tubercle outgrowth.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial and Genital Morphogenetic Disruption\", \"target\": \"Cryptorchidism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Testicular descent is itself WNT-dependent.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Craniofacial and Genital Morphogenetic Disruption\", \"target\": \"Clitoral Hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The female expression of the same tubercle defect.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial and Genital Morphogenetic Disruption\", \"target\": \"Hypoplastic Labia Majora\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Part of the same female genital hypoplasia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial and Genital Morphogenetic Disruption\", \"target\": \"Congenital Heart Defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Wnt5a-null mice develop cardiac defects, so the phenotype belongs to pathway loss, but which PCP-dependent step of cardiac morphogenesis fails has not been established in this disease.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Corrective Surgery for Genital and Orofacial Anomalies\", \"target\": \"Craniofacial and Genital Morphogenetic Disruption\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Structured Multisystem Surveillance\", \"target\": \"Disordered Growth Plate and Skeletal Patterning\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Orthodontic Treatment\", \"target\": \"Craniofacial and Genital Morphogenetic Disruption\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Growth Hormone Therapy (selected patients)\", \"target\": \"Disordered Growth Plate and Skeletal Patterning\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Hormone Therapy for Micropenis\", \"target\": \"Craniofacial and Genital Morphogenetic Disruption\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"WNT5A\", \"target\": \"Heterozygous WNT5A Missense Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Bifid Tongue\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A bilobed tongue - an unusual and clinically distinctive oral finding that helps separate Robinow syndrome from other mesomelic dysplasias.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0010297\"}}, {\"id\": \"Brachydactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Short digits - the third of the three core skeletal findings, alongside short stature and mesomelic shortening. All three are consequences of the same disordered endochondral growth, expressed at different skeletal scales.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001156\"}}, {\"id\": \"Clitoral Hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypoplasia of the clitoris, named with the labial hypoplasia as the female genital presentation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000060\"}}, {\"id\": \"Congenital Heart Defect\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiac defects are uncommon but disproportionately important, being identified as a major cause of morbidity and mortality when present - which is why cardiac assessment features in surveillance despite the low frequency.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001627\"}}, {\"id\": \"Corrective Surgery for Genital and Orofacial Anomalies\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical correction of cryptorchidism, abnormal penile insertion or penoscrotal position, and cleft lip or palate where present. This is management of established morphogenetic defects - the developmental window in which the pathway acted has long closed by the time of surgery.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Craniofacial and Genital Morphogenetic Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The non-skeletal half of the phenotype: the distinctive facial configuration that gave the condition its old name of fetal face syndrome, and hypoplastic external genitalia. Both are morphogenetic failures established in utero rather than progressive processes.\", \"meta\": {\"evidence_count\": 2, \"role\": \"effector\"}}, {\"id\": \"Cryptorchidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Undescended testes, curated alongside micropenis because the source names them in the same list of male genital findings and the entry\u0027s surgical treatment covers both.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000028\"}}, {\"id\": \"Dislocated Radial Head\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dislocation of the radial head, named by GeneReviews among the less common findings and already described in prose by the growth-plate pathophysiology node.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0003083\"}}, {\"id\": \"Disordered Growth Plate and Skeletal Patterning\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Shortened, disorganised endochondral growth with a mesomelic pattern - the middle segments of the limbs are affected more than the proximal or distal ones, and the upper limbs more than the lower. Brachydactyly, vertebral anomalies and radial head dislocation belong to the same developmental failure.\", \"meta\": {\"evidence_count\": 1, \"role\": \"effector\", \"locations\": [\"cartilage tissue\"]}}, {\"id\": \"Growth Hormone Therapy (selected patients)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Growth hormone for the subset of patients in whom GH deficiency is demonstrated. The reported series found GH deficiency on testing in four of five Robinow patients and a significant increase in growth rate on recombinant GH - but the authors present the association as a proposal, and five patients is not a trial.\\nIt treats a coexisting endocrine deficiency, not the WNT5A defect: nothing about supplying growth hormone restores planar cell polarity, and the mesomelic proportions are set prenatally. Curated as a selected-patient option contingent on documented deficiency, not as management of the skeletal phenotype.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"somatropin\"]}}, {\"id\": \"Hemivertebrae\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Segmentation defects of the vertebral bodies. The same failure of ordered axial patterning that the growth plate shows in the limbs.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002937\"}}, {\"id\": \"Heterozygous WNT5A Missense Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A missense substitution in WNT5A, in the founding families replacing highly conserved cysteine residues. Cysteines matter disproportionately in a Wnt ligand because the fold depends on disulfide bonding, and the disease variants cluster on a surface implicated in receptor engagement rather than being scattered through the protein.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"WNT5A\"], \"gene_terms\": [{\"label\": \"WNT5A\", \"id\": \"hgnc:12784\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"PARTIAL_LOSS_OF_FUNCTION\", \"description\": \"Partial loss of function rather than null: the functional assays show decreased activity, not abolished activity, and heterozygotes are affected while the corresponding mouse null is perinatally lethal with a more severe phenotype than any human patient.\", \"gene_terms\": [{\"label\": \"WNT5A\", \"id\": \"hgnc:12784\"}]}, \"role\": \"trigger\"}}, {\"id\": \"Hormone Therapy for Micropenis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Hormone therapy in affected males with micropenis, listed by GeneReviews among the treatments of manifestations. Like the surgical entries, it addresses an established morphogenetic outcome rather than the pathway that produced it.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hypertelorism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Widely spaced, prominent eyes - the most recognisable single element of the facial configuration historically called fetal facies.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000316\"}}, {\"id\": \"Hypodontia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Missing teeth, with crowding, malocclusion and delayed eruption of the permanent dentition. This is the phenotype the orthodontic treatment in this entry actually addresses.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000668\"}}, {\"id\": \"Hypoplastic Labia Majora\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The female counterpart of the male genital hypoplasia. Curated because the entry otherwise recorded only the male findings, which would make the genital phenotype look sex-limited when the source describes it in both.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000059\"}}, {\"id\": \"Loss of Planar Cell Polarity in Developing Tissues\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cells that should adopt a coordinated orientation within the plane of a tissue fail to do so. In growth-plate cartilage this is directly observable - chondrocytes that should stack into ordered columns are randomly oriented - and it is the most concrete cellular readout available for this disease.\\nPROVISIONAL because the chondrocyte polarity evidence comes from experimental systems expressing a disease variant rather than from patient growth plates, and because the step from disordered chondrocyte columns to the specifically mesomelic pattern of limb shortening is inferred rather than demonstrated.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"chondrocyte\"], \"role\": \"central_effector\", \"locations\": [\"cartilage tissue\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Macrocephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Prenatal macrocephaly persisting after birth. Occasional in the WNT5A form; persistent macrocephaly is a defining feature of the DVL1 form, which is one of the discriminators in the differential.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000256\"}}, {\"id\": \"Mesomelic Limb Shortening\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Shortening of the middle limb segments - forearm and lower leg - with upper-limb predominance. The mesomelic pattern is the skeletal signature of this condition and what distinguishes it from proportionate short stature.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003027\"}}, {\"id\": \"Micropenis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Genital hypoplasia in affected males. Hormone therapy is sometimes used, and corrective surgery is required for the associated anomalies.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000054\"}}, {\"id\": \"Orthodontic Treatment\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Orthodontic management is typically required, reflecting the dental crowding, malocclusion, hypodontia and delayed eruption that accompany the craniofacial phenotype.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Reduced Non-Canonical WNT5A Signalling Through ROR2\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The WNT5A/ROR2 axis transmits a beta-catenin-independent signal through Disheveled to Rho-family GTPases and JNK. This is the planar-cell-polarity branch of Wnt signalling - it tells cells which way to face and which way to move, rather than whether to divide or what to become.\\nThe functional evidence for reduced signalling is developmental-assay based: the patient variants decreased WNT5A activity in zebrafish and Xenopus systems. That is the measurement available, and it is made in embryos of other species rather than in human tissue.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"non-canonical Wnt signaling pathway\", \"Wnt signaling pathway, planar cell polarity pathway\"], \"role\": \"central_effector\"}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Curvature of the spine, named alongside hemivertebrae as the vertebral presentation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002650\"}}, {\"id\": \"Short Stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Short stature, largely a consequence of the limb shortening. Notably preserved in the DVL1 form, which is one of the features separating that gene\u0027s phenotype from this one.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0004322\"}}, {\"id\": \"Structured Multisystem Surveillance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A defined surveillance schedule rather than symptomatic follow-up: head circumference through infancy and childhood, developmental assessment every three months in infancy and six-monthly to yearly thereafter, dental review every six to twelve months, periodic hearing assessment in childhood, and cardiac and renal assessment where abnormalities have been found.\\nThe cardiac element is the one with mortality attached, which is why it is curated as surveillance rather than folded into general follow-up.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"WNT5A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"WNT5A\"], \"gene_terms\": [{\"label\": \"WNT5A\", \"id\": \"hgnc:12784\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}], \"edges\": [{\"source\": \"Heterozygous WNT5A Missense Variant\", \"target\": \"Reduced Non-Canonical WNT5A Signalling Through ROR2\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The variant protein is the ligand; reduced ligand activity is reduced pathway input.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Non-Canonical WNT5A Signalling Through ROR2\", \"target\": \"Loss of Planar Cell Polarity in Developing Tissues\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Planar cell polarity is the output this pathway produces, so reducing the signal degrades the polarity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Planar Cell Polarity in Developing Tissues\", \"target\": \"Disordered Growth Plate and Skeletal Patterning\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Growth-plate elongation depends on ordered chondrocyte columns, so losing the order degrades the elongation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Planar Cell Polarity in Developing Tissues\", \"target\": \"Craniofacial and Genital Morphogenetic Disruption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same polarity defect is presumed to act in neural-crest-derived craniofacial precursors and in genital development, but the intermediate steps in those tissues are not established for WNT5A patient variants.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disordered Growth Plate and Skeletal Patterning\", \"target\": \"Mesomelic Limb Shortening\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disordered growth plate chondrocyte columns shorten the middle limb segment.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disordered Growth Plate and Skeletal Patterning\", \"target\": \"Short Stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same growth plate lesion summed over the long bones.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disordered Growth Plate and Skeletal Patterning\", \"target\": \"Brachydactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Digital shortening is the acral expression of the same patterning defect.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disordered Growth Plate and Skeletal Patterning\", \"target\": \"Dislocated Radial Head\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disproportionate growth of the paired forearm bones, not a primary joint defect.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Disordered Growth Plate and Skeletal Patterning\", \"target\": \"Hemivertebrae\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Segmentation of the paraxial mesoderm requires the same polarity signal.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disordered Growth Plate and Skeletal Patterning\", \"target\": \"Scoliosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Asymmetric vertebral segments impose a curve on the growing spine.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Disordered Growth Plate and Skeletal Patterning\", \"target\": \"Macrocephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Macrocephaly accompanies the syndrome; no route from the growth plate lesion to calvarial growth has been established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Craniofacial and Genital Morphogenetic Disruption\", \"target\": \"Hypertelorism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failed midline outgrowth of the frontonasal region widens the interorbital distance.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial and Genital Morphogenetic Disruption\", \"target\": \"Bifid Tongue\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The tongue forms from paired swellings that must meet at the midline.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial and Genital Morphogenetic Disruption\", \"target\": \"Hypodontia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced midfacial and jaw growth constrains tooth-germ development.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Craniofacial and Genital Morphogenetic Disruption\", \"target\": \"Micropenis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The male expression of reduced genital tubercle outgrowth.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial and Genital Morphogenetic Disruption\", \"target\": \"Cryptorchidism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Testicular descent is itself WNT-dependent.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Craniofacial and Genital Morphogenetic Disruption\", \"target\": \"Clitoral Hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The female expression of the same tubercle defect.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial and Genital Morphogenetic Disruption\", \"target\": \"Hypoplastic Labia Majora\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Part of the same female genital hypoplasia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial and Genital Morphogenetic Disruption\", \"target\": \"Congenital Heart Defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Wnt5a-null mice develop cardiac defects, so the phenotype belongs to pathway loss, but which PCP-dependent step of cardiac morphogenesis fails has not been established in this disease.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Corrective Surgery for Genital and Orofacial Anomalies\", \"target\": \"Craniofacial and Genital Morphogenetic Disruption\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Structured Multisystem Surveillance\", \"target\": \"Disordered Growth Plate and Skeletal Patterning\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Orthodontic Treatment\", \"target\": \"Craniofacial and Genital Morphogenetic Disruption\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Growth Hormone Therapy (selected patients)\", \"target\": \"Disordered Growth Plate and Skeletal Patterning\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Hormone Therapy for Micropenis\", \"target\": \"Craniofacial and Genital Morphogenetic Disruption\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"WNT5A\", \"target\": \"Heterozygous WNT5A Missense Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5003,17 +5105,15 @@ This pathophysiological event occurs in cartilage tissue (UBERON:0002418). UBERO
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Genitourinary<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Genitourinary<span class="pill-count">(4)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Head and Neck<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Head and Neck<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Limbs<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Limbs<span class="pill-count">(3)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Musculoskeletal<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Growth<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Other<span class="pill-count">(4)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5058,6 +5158,9 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5072,6 +5175,7 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5137,6 +5241,9 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5151,6 +5258,7 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5183,7 +5291,7 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Genitourinary
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">4</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-micropenis" data-dismech-node="Micropenis" data-dismech-type="phenotype">
@@ -5216,6 +5324,9 @@ This clinical feature is Micropenis (HP:0000054). HP:0000054 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5230,6 +5341,7 @@ This clinical feature is Micropenis (HP:0000054). HP:0000054 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5286,6 +5398,9 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5300,6 +5415,7 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5326,18 +5442,9 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
                 </div>
 
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Head and Neck
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hypodontia" data-dismech-node="Hypodontia" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypoplastic-labia-majora" data-dismech-node="Hypoplastic Labia Majora" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Hypodontia
+                        Hypoplastic Labia Majora
 
                         <span class="phenotype-freq">FREQUENT</span>
 
@@ -5351,15 +5458,18 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000668" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000668</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000059" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000059</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypodontia (HP:0000668). HP:0000668 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Hypoplastic labia majora (HP:0000059). HP:0000059 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5379,6 +5489,238 @@ This clinical feature is Hypodontia (HP:0000668). HP:0000668 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"in females: hypoplastic clitoris and labia majora"</div>
+
+
+                <div class="evidence-explanation">Names hypoplastic labia majora among the female genital findings.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-clitoral-hypoplasia" data-dismech-node="Clitoral Hypoplasia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Clitoral Hypoplasia
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000060" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000060</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Clitoral hypoplasia (HP:0000060). HP:0000060 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25577943" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25577943" target="_blank">PMID:25577943</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"in females: hypoplastic clitoris and labia majora"</div>
+
+
+                <div class="evidence-explanation">Names clitoral hypoplasia among the female genital findings.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Head and Neck
+                    <span class="cat-count">3</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-bifid-tongue" data-dismech-node="Bifid Tongue" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Bifid Tongue
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010297" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0010297</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Bifid tongue (HP:0010297). HP:0010297 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25577943" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25577943" target="_blank">PMID:25577943</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"dental abnormalities (including malocclusion, crowding, hypodontia, late eruption of permanent teeth), bilobed tongue, and occasional prenatal macrocephaly that persists postnatally"</div>
+
+
+                <div class="evidence-explanation">Places the bilobed tongue within the oral and dental findings of the GeneReviews clinical description, alongside the dental abnormalities that share a craniofacial developmental origin.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypodontia" data-dismech-node="Hypodontia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hypodontia
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000668" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000668</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypodontia (HP:0000668). HP:0000668 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25577943" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25577943" target="_blank">PMID:25577943</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5421,15 +5763,18 @@ This clinical feature is Hypodontia (HP:0000668). HP:0000668 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000256" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000256</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000256" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000256</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5449,6 +5794,7 @@ This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5481,14 +5827,14 @@ This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype fr
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Limbs
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-dislocated-radial-head" data-dismech-node="Dislocated Radial Head" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-mesomelic-limb-shortening" data-dismech-node="Mesomelic Limb Shortening" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Dislocated Radial Head
+                        Mesomelic Limb Shortening
 
-                        <span class="phenotype-freq">OCCASIONAL</span>
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
 
@@ -5497,18 +5843,23 @@ This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype fr
 
                     <span class="phenotype-id">
 
+                        <span class="phenotype-term-label">Mesomelia</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003083" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0003083</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0003027</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Dislocated radial head (HP:0003083). HP:0003083 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Mesomelia (HP:0003027). HP:0003027 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5528,6 +5879,81 @@ This clinical feature is Dislocated radial head (HP:0003083). HP:0003083 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"mesomelic limb shortening predominantly of the upper limbs"</div>
+
+
+                <div class="evidence-explanation">States both the mesomelic pattern and its upper-limb predominance.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dislocated-radial-head" data-dismech-node="Dislocated Radial Head" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Dislocated Radial Head
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003083" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0003083</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dislocated radial head (HP:0003083). HP:0003083 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25577943" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25577943" target="_blank">PMID:25577943</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5570,15 +5996,18 @@ This clinical feature is Dislocated radial head (HP:0003083). HP:0003083 is a ph
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001156" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001156</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001156" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001156</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5598,6 +6027,7 @@ This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5649,15 +6079,18 @@ This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002937" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002937</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002937" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002937</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hemivertebrae (HP:0002937). HP:0002937 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5677,6 +6110,7 @@ This clinical feature is Hemivertebrae (HP:0002937). HP:0002937 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5719,15 +6153,18 @@ This clinical feature is Hemivertebrae (HP:0002937). HP:0002937 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002650</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002650</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5747,6 +6184,7 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5798,15 +6236,18 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0004322</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0004322</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5826,6 +6267,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5837,297 +6279,6 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                 <div class="evidence-explanation">Lists short stature among the defining skeletal findings.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-8">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">4</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-mesomelic-limb-shortening" data-dismech-node="Mesomelic Limb Shortening" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Mesomelic Limb Shortening
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Mesomelia</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0003027</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Mesomelia (HP:0003027). HP:0003027 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:25577943" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25577943" target="_blank">PMID:25577943</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"mesomelic limb shortening predominantly of the upper limbs"</div>
-
-
-                <div class="evidence-explanation">States both the mesomelic pattern and its upper-limb predominance.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hypoplastic-labia-majora" data-dismech-node="Hypoplastic Labia Majora" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hypoplastic Labia Majora
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000059" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000059</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hypoplastic labia majora (HP:0000059). HP:0000059 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:25577943" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25577943" target="_blank">PMID:25577943</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"in females: hypoplastic clitoris and labia majora"</div>
-
-
-                <div class="evidence-explanation">Names hypoplastic labia majora among the female genital findings.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-clitoral-hypoplasia" data-dismech-node="Clitoral Hypoplasia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Clitoral Hypoplasia
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000060" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000060</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Clitoral hypoplasia (HP:0000060). HP:0000060 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:25577943" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25577943" target="_blank">PMID:25577943</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"in females: hypoplastic clitoris and labia majora"</div>
-
-
-                <div class="evidence-explanation">Names clitoral hypoplasia among the female genital findings.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-bifid-tongue" data-dismech-node="Bifid Tongue" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Bifid Tongue
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010297" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0010297</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Bifid tongue (HP:0010297). HP:0010297 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:25577943" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25577943" target="_blank">PMID:25577943</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"dental abnormalities (including malocclusion, crowding, hypodontia, late eruption of permanent teeth), bilobed tongue, and occasional prenatal macrocephaly that persists postnatally"</div>
-
-
-                <div class="evidence-explanation">Places the bilobed tongue within the oral and dental findings of the GeneReviews clinical description, alongside the dental abnormalities that share a craniofacial developmental origin.</div>
 
 
 
@@ -6217,6 +6368,9 @@ This disease-associated gene is WNT5A (hgnc:12784). hgnc:12784 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6231,6 +6385,7 @@ This disease-associated gene is WNT5A (hgnc:12784). hgnc:12784 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6255,6 +6410,7 @@ This disease-associated gene is WNT5A (hgnc:12784). hgnc:12784 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6338,6 +6494,31 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Surgical correction of cryptorchidism, abnormal penile insertion or penoscrotal position, and cleft lip or palate where present. This is management of established morphogenetic defects - the developmental window in which the pathway acted has long closed by the time of surgery.</div>
 
 
@@ -6377,6 +6558,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6441,6 +6623,31 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">A defined surveillance schedule rather than symptomatic follow-up: head circumference through infancy and childhood, developmental assessment every three months in infancy and six-monthly to yearly thereafter, dental review every six to twelve months, periodic hearing assessment in childhood, and cardiac and renal assessment where abnormalities have been found.
 The cardiac element is the one with mortality attached, which is why it is curated as surveillance rather than folded into general follow-up.</div>
 
@@ -6481,6 +6688,7 @@ The cardiac element is the one with mortality attached, which is why it is curat
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6545,6 +6753,31 @@ This treatment is orthodontic treatment (NCIT:C64248). NCIT:C64248 is a clinical
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Device</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Orthodontic management is typically required, reflecting the dental crowding, malocclusion, hypodontia and delayed eruption that accompany the craniofacial phenotype.</div>
 
 
@@ -6584,6 +6817,7 @@ This treatment is orthodontic treatment (NCIT:C64248). NCIT:C64248 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6669,6 +6903,31 @@ This treatment uses somatropin (NCIT:C837). NCIT:C837 is a therapeutic agent fro
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Protein replacement</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Growth hormone for the subset of patients in whom GH deficiency is demonstrated. The reported series found GH deficiency on testing in four of five Robinow patients and a significant increase in growth rate on recombinant GH - but the authors present the association as a proposal, and five patients is not a trial.
 It treats a coexisting endocrine deficiency, not the WNT5A defect: nothing about supplying growth hormone restores planar cell polarity, and the mesomelic proportions are set prenatally. Curated as a selected-patient option contingent on documented deficiency, not as management of the skeletal phenotype.</div>
 
@@ -6714,6 +6973,7 @@ It treats a coexisting endocrine deficiency, not the WNT5A defect: nothing about
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6735,6 +6995,7 @@ It treats a coexisting endocrine deficiency, not the WNT5A defect: nothing about
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6798,6 +7059,31 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Hormone therapy in affected males with micropenis, listed by GeneReviews among the treatments of manifestations. Like the surgical entries, it addresses an established morphogenetic outcome rather than the pathway that produced it.</div>
 
 
@@ -6837,6 +7123,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6909,6 +7196,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6986,6 +7274,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7027,7 +7316,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
             <div class="card-header">
                 <div class="card-icon" style="background: #fef2f2; color: #dc2626;">🔀</div>
                 <h2 class="card-title">Differential Diagnoses</h2>
-                <span class="card-count">2</span>
+                <span class="card-count">3</span>
             </div>
             <p style="margin-bottom: 16px; font-size: 0.95rem; color: var(--text-muted);">
                 Conditions with similar clinical presentations that must be differentiated from Autosomal Dominant Robinow Syndrome 1:
@@ -7045,7 +7334,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
                 <div class="differential-similarities">
                     <strong>Overlapping Features</strong>
-                    The osteosclerotic form. Same pathway, but the mechanism runs the other way - truncated DVL1 adaptors with an apparent gain of function rather than a hypomorphic ligand - and the phenotype separates on features that are easy to check: normal stature, persistent macrocephaly, increased bone mineral density with skull osteosclerosis, and hearing loss. A patient with Robinow features and normal height is more likely DVL1 than WNT5A.
+                    The osteosclerotic form. Same pathway, different lesion - a DVL1 adaptor whose frameshifted C-terminus interferes with the protein made from the normal allele, rather than a hypomorphic ligand. The direction of effect on each branch is contested: in facial mesenchyme assays the variant signals below wild type on both the canonical and the JNK-PCP branch, while co-expression of mutant and wild-type alleles raises canonical activity two-fold - a result a different group&#39;s comparable assay contradicts, so the allele interaction the primary report ties to the osteosclerosis is not settled (see Autosomal_Dominant_Robinow_Syndrome_2 for the mechanistic detail). Either way the phenotype separates on features that are easy to check: normal stature, persistent macrocephaly, increased bone mineral density with skull osteosclerosis, and hearing loss. A patient with Robinow features and normal height is more likely DVL1 than WNT5A.
                 </div>
 
 
@@ -7070,7 +7359,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (3 references)
+            Show evidence (8 references)
         </summary>
         <div class="evidence-list">
 
@@ -7082,6 +7371,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7109,6 +7399,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7133,6 +7424,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7140,12 +7432,145 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                 <div class="evidence-snippet">"when the mutant and wild-type alleles were co-expressed, canonical Wnt activity was 2-fold higher than that in the wild-type construct alone"</div>
 
 
-                <div class="evidence-explanation">The mechanistic contrast that separates DVL1 disease from WNT5A disease. The mutant allele alone is less active than wild type, but together they raise canonical Wnt signalling - so the osteosclerotic phenotype arises from an allele interaction increasing the canonical branch, where WNT5A disease is a hypomorphic ligand decreasing the non-canonical one.</div>
+                <div class="evidence-explanation">This paper&#39;s proposed mechanistic contrast with WNT5A disease. The mutant allele alone is less active than wild type, but together they raise canonical Wnt signalling in this study&#39;s co-expression assay - a candidate driver of osteosclerosis, contrasting with WNT5A&#39;s hypomorphic ligand decreasing the non-canonical branch. A different group&#39;s co-expression assay of the DVL1-1519ΔT frameshift, recounted in PMID:42424595, found the opposite result (dominant-negative decrease rather than increase; see the `coexpression_canonical_wnt_gain_model` hypothesis in Autosomal_Dominant_Robinow_Syndrome_2), so this specific claim - what the heterozygous combination does to canonical signalling - is not settled. The disagreement is between two laboratories using different constructs and cell systems, not one group reversing its own result.</div>
 
 
 
             </div>
 
+
+            <div class="evidence-more">+ 5 more references</div>
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-omodysplasia">
+                <div class="item-name">
+
+                    <a class="item-name-link" href="Omodysplasia.html">Omodysplasia</a>
+
+
+                    <span class="phenotype-id">
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0017136" target="_blank">
+                            MONDO:0017136
+                        </a>
+                    </span>
+
+                </div>
+
+                <div class="differential-similarities">
+                    <strong>Overlapping Features</strong>
+                    A further gene in the WNT5A-ROR2-FZD2-DVL interactome, curated as its own entry rather than a Robinow subtype. Its dominant (OMOD2) form is caused by heterozygous variants in FZD2, the Wnt receptor that binds WNT5A itself, and produces a Robinow-like phenotype - shortened humeri, short first metacarpal, craniofacial dysmorphism, and genitourinary anomalies. The limb shortening is predominantly humeral rather than generalized mesomelic, which is the contrast against the WNT5A form; stature is not preserved in absolute terms - the molecularly confirmed FZD2 proband had rhizomelic short stature with elbow restriction - so this separates on the pattern of shortening rather than on height. FZD2 surfaced only from genomic studies of families left molecularly unsolved for ROR2, WNT5A, DVL1 and DVL3, since about 70% of autosomal-dominant Robinow syndrome cases are not explained by those four genes alone.
+                </div>
+
+
+                <div class="differential-distinctions">
+                    <strong>Distinguishing Features</strong>
+
+                    <ul>
+
+                        <li>Predominantly humeral shortening rather than generalized mesomelic shortening</li>
+
+                        <li>Short first metacarpal</li>
+
+                        <li>Elbow restriction from hypoplastic, dislocated proximal radii</li>
+
+                        <li>Caused by heterozygous FZD2 variants, curated as a separate entry rather than a Robinow subtype</li>
+
+                    </ul>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (5 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29383834" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29383834" target="_blank">PMID:29383834</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"skeletal dysplasia characterized by shortened humeri, short first metacarpal, craniofacial dysmorphism (frontal bossing, depressed nasal bridge, bifid nasal tip, and long philtrum), and variable degrees of genitourinary anomalies"</div>
+
+
+                <div class="evidence-explanation">Sources the OMOD2 clinical features listed in this differential, including the predominantly humeral shortening that separates it from the mesomelic WNT5A pattern.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29383834" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29383834" target="_blank">PMID:29383834</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"He presented with rhizomelic short stature with elbow restriction, mild facial dysmorphism"</div>
+
+
+                <div class="evidence-explanation">The molecularly confirmed FZD2 proband had short stature, not preserved stature. This is why the description states the distinction as a pattern-of-shortening contrast against the WNT5A form rather than as a height difference.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29383834" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29383834" target="_blank">PMID:29383834</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"thick proximal ulnae with hypoplastic, dislocated proximal radii, and short first metacarpals"</div>
+
+
+                <div class="evidence-explanation">Sources the elbow-restriction and short-first-metacarpal distinguishing features.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 2 more references</div>
 
         </div>
     </details>
@@ -7200,6 +7625,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7270,11 +7696,23 @@ description: &#39;A skeletal dysplasia caused by heterozygous missense variants 
 
   That distinction is mechanistic, not bookkeeping. WNT5A variants act on the **ligand**, reducing
   its activity - the founding variants substitute highly conserved cysteines and measurably decrease
-  WNT5A function in developmental assays. The other two dominant genes, DVL1 and DVL3, act through
-  truncated intracellular adaptors downstream of the same pathway with an apparent gain of function,
-  and they carry phenotypic differences to match (osteosclerosis and preserved stature with DVL1).
-  Same pathway, opposite direction of effect, different clinical picture - so they are curated as
-  differential diagnoses rather than merged in.
+  WNT5A function in developmental assays. The other two dominant genes, DVL1 and DVL3, act on the
+  intracellular adaptor rather than the ligand: a frameshift replaces the DVL1 C terminus with a
+  novel, highly basic sequence, the mutant transcript is present in patient fibroblasts and the
+  protein is stable, and the novel C-terminus interferes with the protein made from the normal
+  allele rather than simply removing one copy. What that does to each branch is not settled. In
+  facial mesenchyme luciferase assays both the frameshift and a stop-codon construct signal
+  significantly below wild type on the canonical *and* the JNK-PCP branch; earlier work from the
+  same group, expressing the same variants in chick limb and *Drosophila* wing, reports the opposite
+  on the non-canonical branch - loss of canonical signalling with a *gain* of JNK/PCP. The
+  disagreement is between two readouts of one experimental programme, not between species or
+  between independent groups. Against that, co-expressing mutant and wild-type DVL1 raises canonical
+  activity two-fold over wild type alone, and it is that allele interaction the primary report ties
+  to the osteosclerosis - though that interaction is itself unsettled, since a different group&#39;&#39;s
+  equimolar co-expression assay of the DVL1-1519ΔT frameshift, recounted in PMID:42424595, found
+  dominant-negative inhibition instead (see the ``coexpression_canonical_wnt_gain_model`` hypothesis
+  in ``Autosomal_Dominant_Robinow_Syndrome_2``). Same pathway, contested direction of effect,
+  different clinical picture - so they are curated as differential diagnoses rather than merged in.
 
   The pathway is the non-canonical, beta-catenin-independent branch: WNT5A signals through ROR2 and
   Disheveled to Rho-family GTPases and JNK, governing planar cell polarity rather than proliferation
@@ -8017,11 +8455,17 @@ treatments:
       is why this is recorded without any efficacy claim.
 differential_diagnoses:
 - name: DVL1-related autosomal dominant Robinow syndrome
-  description: &#39;The osteosclerotic form. Same pathway, but the mechanism runs the other way - truncated
-    DVL1 adaptors with an apparent gain of function rather than a hypomorphic ligand - and the phenotype
-    separates on features that are easy to check: normal stature, persistent macrocephaly, increased
-    bone mineral density with skull osteosclerosis, and hearing loss. A patient with Robinow features
-    and normal height is more likely DVL1 than WNT5A.&#39;
+  description: &#39;The osteosclerotic form. Same pathway, different lesion - a DVL1 adaptor whose
+    frameshifted C-terminus interferes with the protein made from the normal allele, rather than a
+    hypomorphic ligand. The direction of effect on each branch is contested: in facial mesenchyme
+    assays the variant signals below wild type on both the canonical and the JNK-PCP branch, while
+    co-expression of mutant and wild-type alleles raises canonical activity two-fold - a result a
+    different group&#39;&#39;s comparable assay contradicts, so the allele interaction the primary report
+    ties to the osteosclerosis is not settled (see Autosomal_Dominant_Robinow_Syndrome_2 for the
+    mechanistic detail). Either way the phenotype separates on features that are easy to check:
+    normal stature, persistent macrocephaly, increased bone mineral density with skull
+    osteosclerosis, and hearing loss. A patient with Robinow features and normal height is more
+    likely DVL1 than WNT5A.&#39;
   distinguishing_features:
   - Normal stature rather than short stature
   - Increased bone mineral density with skull osteosclerosis
@@ -8051,10 +8495,140 @@ differential_diagnoses:
     evidence_source: IN_VITRO
     snippet: when the mutant and wild-type alleles were co-expressed, canonical Wnt activity was
       2-fold higher than that in the wild-type construct alone
-    explanation: The mechanistic contrast that separates DVL1 disease from WNT5A disease. The mutant
-      allele alone is less active than wild type, but together they raise canonical Wnt signalling
-      - so the osteosclerotic phenotype arises from an allele interaction increasing the canonical
-      branch, where WNT5A disease is a hypomorphic ligand decreasing the non-canonical one.
+    explanation: This paper&#39;s proposed mechanistic contrast with WNT5A disease. The mutant allele
+      alone is less active than wild type, but together they raise canonical Wnt signalling in this
+      study&#39;s co-expression assay - a candidate driver of osteosclerosis, contrasting with WNT5A&#39;s
+      hypomorphic ligand decreasing the non-canonical branch. A different group&#39;s co-expression assay
+      of the DVL1-1519ΔT frameshift, recounted in PMID:42424595, found the opposite result
+      (dominant-negative decrease rather than increase; see the `coexpression_canonical_wnt_gain_model`
+      hypothesis in Autosomal_Dominant_Robinow_Syndrome_2), so this specific claim - what the
+      heterozygous combination does to canonical signalling - is not settled. The disagreement is
+      between two laboratories using different constructs and cell systems, not one group reversing
+      its own result.
+  - reference: PMID:25817014
+    reference_title: Mutations in DVL1 cause an osteosclerotic form of Robinow syndrome.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: The mutations all delete the DVL1 C terminus and replace it, in each instance, with a
+      novel, highly basic sequence.
+    explanation: Sources the &#34;novel basic C-terminus&#34; claim in this entry&#39;s description.
+  - reference: PMID:25817014
+    reference_title: Mutations in DVL1 cause an osteosclerotic form of Robinow syndrome.
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: We showed the presence of mutant transcript in fibroblasts from one individual with
+      RS-OS and demonstrated unimpaired protein stability with transfected GFP-tagged constructs
+      bearing a frameshift mutation.
+    explanation: &gt;-
+      Sources the claim that the frameshifted allele is expressed rather than degraded. Note this
+      is the observation of mutant transcript and stable protein; the abstract does not itself
+      name nonsense-mediated decay, so the description states what was measured.
+  - reference: PMID:42424595
+    reference_title: The abnormal C-terminus caused by DVL1 variants impacts Robinow syndrome
+      phenotypes.
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: This is the first study to show that the novel C-terminus of DVL1 is sufficient to
+      interfere with the function of DVL1 protein expressed from the normal allele in heterozygous,
+      autosomal dominant RS.
+    explanation: &gt;-
+      Sources the interference-with-the-normal-allele claim. The bare label &#34;dominant-negative&#34; is
+      deliberately not used in the prose - this is the experimental statement behind it. Graded
+      MODEL_ORGANISM rather than IN_VITRO because this concluding claim rests on the study&#39;s chick
+      limb and *Drosophila* wing readouts as well as its culture work; the luciferase item below is
+      the cell-based measurement and stays IN_VITRO.
+  - reference: PMID:42424595
+    reference_title: The abnormal C-terminus caused by DVL1 variants impacts Robinow syndrome
+      phenotypes.
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: wtDVL1 activated canonical and JNK-PCP WNT signalling whereas the DVL11519* and the
+      DVL11519ΔT variant had significantly lower signaling activity
+    explanation: &gt;-
+      Direct measurement that the DVL1 variant signals below wild type on the non-canonical
+      JNK-PCP branch as well as the canonical one. This is the evidence for the reduced-signalling
+      framing, and it is in tension with the same group&#39;s earlier chick and *Drosophila* work
+      reporting a gain of JNK/PCP signalling (PMID:36916233, cited below); the description records
+      the disagreement rather than picking a side.
+  - reference: PMID:36916233
+    reference_title: Mechanistic studies in Drosophila and chicken give new insights into functions
+      of DVL1 in dominant Robinow syndrome.
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: Moreover, the variants caused a loss of canonical and gain of non-canonical Wnt
+      signaling in several assays.
+    explanation: &gt;-
+      Sources the competing reading recorded in this entry&#39;s description - loss of canonical
+      signalling with a gain of the non-canonical JNK-PCP branch - so the contested direction of
+      effect is cited on both sides rather than asserted. The system is chick limb misexpression
+      plus *Drosophila* wing, not a mouse model, and shares five authors with PMID:42424595 above.
+- name: Omodysplasia
+  description: &#39;A further gene in the WNT5A-ROR2-FZD2-DVL interactome, curated as its own entry
+    rather than a Robinow subtype. Its dominant (OMOD2) form is caused by heterozygous variants in
+    FZD2, the Wnt receptor that binds WNT5A itself, and produces a Robinow-like phenotype -
+    shortened humeri, short first metacarpal, craniofacial dysmorphism, and genitourinary anomalies.
+    The limb shortening is predominantly humeral rather than generalized mesomelic, which is the
+    contrast against the WNT5A form; stature is not preserved in absolute terms - the molecularly
+    confirmed FZD2 proband had rhizomelic short stature with elbow restriction - so this separates
+    on the pattern of shortening rather than on height. FZD2 surfaced only from genomic studies of
+    families left molecularly unsolved for ROR2, WNT5A, DVL1 and DVL3, since about 70% of
+    autosomal-dominant Robinow syndrome cases are not explained by those four genes alone.&#39;
+  disease_term:
+    preferred_term: omodysplasia
+    term:
+      id: MONDO:0017136
+      label: omodysplasia
+  distinguishing_features:
+  - Predominantly humeral shortening rather than generalized mesomelic shortening
+  - Short first metacarpal
+  - Elbow restriction from hypoplastic, dislocated proximal radii
+  - Caused by heterozygous FZD2 variants, curated as a separate entry rather than a Robinow subtype
+  evidence:
+  - reference: PMID:29383834
+    reference_title: &#39;Nonsense mutations in FZD2 cause autosomal-dominant omodysplasia: Robinow
+      syndrome-like phenotypes.&#39;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: skeletal dysplasia characterized by shortened humeri, short first metacarpal,
+      craniofacial dysmorphism (frontal bossing, depressed nasal bridge, bifid nasal tip, and long
+      philtrum), and variable degrees of genitourinary anomalies
+    explanation: Sources the OMOD2 clinical features listed in this differential, including the
+      predominantly humeral shortening that separates it from the mesomelic WNT5A pattern.
+  - reference: PMID:29383834
+    reference_title: &#39;Nonsense mutations in FZD2 cause autosomal-dominant omodysplasia: Robinow
+      syndrome-like phenotypes.&#39;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: He presented with rhizomelic short stature with elbow restriction, mild facial
+      dysmorphism
+    explanation: &gt;-
+      The molecularly confirmed FZD2 proband had short stature, not preserved stature. This is why
+      the description states the distinction as a pattern-of-shortening contrast against the WNT5A
+      form rather than as a height difference.
+  - reference: PMID:29383834
+    reference_title: &#39;Nonsense mutations in FZD2 cause autosomal-dominant omodysplasia: Robinow
+      syndrome-like phenotypes.&#39;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: thick proximal ulnae with hypoplastic, dislocated proximal radii, and short first
+      metacarpals
+    explanation: Sources the elbow-restriction and short-first-metacarpal distinguishing features.
+  - reference: PMID:29276006
+    reference_title: WNT Signaling Perturbations Underlie the Genetic Heterogeneity of Robinow Syndrome.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: four families with variants in FZD2 were identified as well as three individuals from
+      two families with biallelic variants in NXN that co-segregate with the phenotype
+    explanation: Establishes FZD2 as a further Robinow-pathway gene distinct from WNT5A, ROR2, DVL1
+      and DVL3, found by genomic studies of clinically diagnosed families left unsolved for those four.
+  - reference: PMID:29276006
+    reference_title: WNT Signaling Perturbations Underlie the Genetic Heterogeneity of Robinow Syndrome.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;∼70% of autosomal-dominant Robinow syndrome cases remain molecularly unsolved&#34;
+    explanation: Quantifies how much of dominant Robinow syndrome had no known gene before this
+      study, the reason FZD2 needed a dedicated genomic study rather than showing up as a fourth
+      routinely-tested gene alongside ROR2/WNT5A/DVL1/DVL3.
 - name: ROR2-related autosomal recessive Robinow syndrome
   description: The recessive form, caused by loss-of-function variants in ROR2 - the receptor for
     the ligand that is defective here. Phenotypically more severe, with more marked skeletal, vertebral
@@ -8079,8 +8653,9 @@ notes: &#39;Scope. Autosomal dominant Robinow syndrome has three genes - WNT5A, 
   describes the dominant syndrome across all three, so where its clinical descriptions are quoted
   they apply to the syndrome and not exclusively to WNT5A patients; evidence items say so where it
   matters. DVL1 and ROR2 forms are curated as differential diagnoses rather than subtypes, because
-  their mechanisms differ in direction - a hypomorphic ligand here, an allele interaction raising
-  canonical Wnt signalling in DVL1, and receptor loss of function in recessive ROR2 disease.
+  their mechanisms differ in class - a hypomorphic ligand here, a contested co-expression effect on
+  canonical Wnt signalling plus a nuclear mislocalization property in DVL1 (unresolved; see
+  Autosomal_Dominant_Robinow_Syndrome_2), and receptor loss of function in recessive ROR2 disease.
 
   Deep-research handling. The report is committed at
   research/Autosomal_Dominant_Robinow_Syndrome_1-deep-research-claude_code.md. Its reference
@@ -8089,7 +8664,11 @@ notes: &#39;Scope. Autosomal dominant Robinow syndrome has three genes - WNT5A, 
   both signals of the same thing, that the report mixed in the DVL1/DVL3 forms. Those sections were
   used only for the differential-diagnosis entries, never as evidence for WNT5A claims, and every
   reference cited here was fetched and its snippet verified against the cache individually rather
-  than trusted from the report.&#39;
+  than trusted from the report. The report also frames DVL1/DVL3 as gain-of-function throughout,
+  which is one reading of a contested literature rather than a settled result; the DVL1 differential
+  cites both directions (PMID:42424595 and PMID:36916233) instead of adopting the report&#39;&#39;s framing.
+  The report attributes the gain-of-JNK/PCP result to PMC10120075, which it lists in its own model
+  table as a chick and *Drosophila* study; that is PMID:36916233, and it is not a mouse model.&#39;
 references:
 - reference: PMID:25577943
   title: Autosomal Dominant Robinow Syndrome.
@@ -8101,6 +8680,16 @@ references:
   title: Mutations in DVL1 cause an osteosclerotic form of Robinow syndrome.
 - reference: PMID:10417975
   title: &#39;Robinow syndrome with growth hormone deficiency: treatment with growth hormone.&#39;
+- reference: PMID:29276006
+  title: WNT Signaling Perturbations Underlie the Genetic Heterogeneity of Robinow Syndrome.
+- reference: PMID:29383834
+  title: &#39;Nonsense mutations in FZD2 cause autosomal-dominant omodysplasia: Robinow syndrome-like
+    phenotypes.&#39;
+- reference: PMID:42424595
+  title: The abnormal C-terminus caused by DVL1 variants impacts Robinow syndrome phenotypes.
+- reference: PMID:36916233
+  title: Mechanistic studies in Drosophila and chicken give new insights into functions of DVL1 in
+    dominant Robinow syndrome.
 </pre>
             </div>
         </div>
@@ -8116,7 +8705,7 @@ references:
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
-                    <span class="card-count">4</span>
+                    <span class="card-count">8</span>
                 </div>
 
                 <div class="reference-entry">
@@ -8187,6 +8776,74 @@ references:
 
                 </div>
 
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/29276006" target="_blank">PMID:29276006</a>
+                            </div>
+
+                            <div class="reference-title">WNT Signaling Perturbations Underlie the Genetic Heterogeneity of Robinow Syndrome.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/29383834" target="_blank">PMID:29383834</a>
+                            </div>
+
+                            <div class="reference-title">Nonsense mutations in FZD2 cause autosomal-dominant omodysplasia: Robinow syndrome-like phenotypes.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/42424595" target="_blank">PMID:42424595</a>
+                            </div>
+
+                            <div class="reference-title">The abnormal C-terminus caused by DVL1 variants impacts Robinow syndrome phenotypes.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/36916233" target="_blank">PMID:36916233</a>
+                            </div>
+
+                            <div class="reference-title">Mechanistic studies in Drosophila and chicken give new insights into functions of DVL1 in dominant Robinow syndrome.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
             </div>
 
 
@@ -8195,6 +8852,68 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (5)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Scope. Autosomal dominant Robinow syndrome has three genes - WNT5A, DVL1 and DVL3 - and this entry covers only the WNT5A form (MONDO:0024455, DRS1). The GeneReviews chapter cited throughout describes the dominant syndrome across all three, so where its clinical descriptions are quoted they apply to the syndrome and not exclusively to WNT5A patients; evidence items say so where it matters. DVL1 and ROR2 forms are curated as differential diagnoses rather than subtypes, because their mechanisms differ in class - a hypomorphic ligand here, a contested co-expression effect on canonical Wnt signalling plus a nuclear mislocalization property in DVL1 (unresolved; see Autosomal_Dominant_Robinow_Syndrome_2), and receptor loss of function in recessive ROR2 disease.
+Deep-research handling. The report is committed at research/Autosomal_Dominant_Robinow_Syndrome_1-deep-research-claude_code.md. Its reference validation resolved all 13 references with no confabulated citations, but judged only 8 of the 13 on topic, and the preflight entity check warned that DVL1 was mentioned at 52% the rate of WNT5A - both signals of the same thing, that the report mixed in the DVL1/DVL3 forms. Those sections were used only for the differential-diagnosis entries, never as evidence for WNT5A claims, and every reference cited here was fetched and its snippet verified against the cache individually rather than trusted from the report. The report also frames DVL1/DVL3 as gain-of-function throughout, which is one reading of a contested literature rather than a settled result; the DVL1 differential cites both directions (PMID:42424595 and PMID:36916233) instead of adopting the report&#39;s framing. The report attributes the gain-of-JNK/PCP result to PMC10120075, which it lists in its own model table as a chick and *Drosophila* study; that is PMID:36916233, and it is not a mouse model.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Correct DVL1 competing-model attribution from mouse to chick/Drosophila; cite PMID:36916233</strong> · 2026-09-17T16:13:32Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Autosomal_Dominant_Robinow_Syndrome_1/2026-09-17T161332Z-claude-code-27d5b8.yaml">View source</a></p>
+                        <p class="research-review-text">Round-3 review response (PR #9810).
+
+BLOCKING: the entry description and one evidence explanation attributed the competing &#34;loss of canonical, gain of JNK/PCP&#34; reading to &#34;a separate mouse model&#34;. Resolved PMC10120075 via the NCBI ID converter to PMID:36916233 (DOI 10.1242/dmm.049844, Dis Model Mech 2023), titled &#34;Mechanistic studies in Drosophila and chicken give new insights into functions of DVL1 in dominant Robinow syndrome&#34; - chick limb misexpression plus Drosophila wing, not mouse. Fetched it with just fetch-reference and cited it on the DVL1 differential with an exact abstract quote, so the contested direction of effect is sourced on both sides rather than asserted. Confirmed from cache frontmatter that PMID:36916233 and PMID:42424595 share five authors (Akarsu, Gignac, Fu, Verheyen, Richman), so the prose now says the disagreement is between two readouts of one experimental programme, not between species or independent groups.
+
+SUGGESTION 1: moved the repo-provenance sentence about the deep-research artifact framing DVL1/DVL3 as gain-of-function out of the disease-facing description into the existing &#34;Deep-research handling&#34; paragraph in notes, recording there that the report&#39;s own model table lists PMC10120075 as chick/Drosophila.
+
+SUGGESTION 2: regraded the PMID:42424595 conclusion-sentence evidence item from IN_VITRO to MODEL_ORGANISM, since that claim rests on chick and Drosophila readouts as well as culture work. The luciferase item stays IN_VITRO. The snippet appears once in kb/, so this creates no split grading.
+
+Validation: just validate passed; just validate-terms passed; check-duplicate-keys and check-entity-refs clean; check-folded-hyphens clean; count-verified-snippets 48/48 (was 47/47, +1 for the new item).
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Review round 2: source the DVL1 mechanism prose, evidence the Omodysplasia differential</strong> · 2026-09-12T12:46:04Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Autosomal_Dominant_Robinow_Syndrome_1/2026-09-12T124604Z-claude-code-b63b2a.yaml">View source</a></p>
+                        <p class="research-review-text">Second round on PR #9810, responding to the review&#39;s two blocking items plus one of the non-blocking notes.
+
+Item 1 - the replacement prose asserted an unsourced mechanism. Three claims were unsupported by anything in the file: reduced non-canonical/PCP signalling, escape from nonsense-mediated decay, and dominant-negative action.
+
+- Fetched PMID:42424595 [Tophkhane et al., the DVL1 C-terminus study the review pointed at] and cited it twice on the DVL1 differential. Its facial-mesenchyme luciferase result is the direct measurement behind the reduced-signalling claim: wtDVL1 activated both canonical and JNK-PCP signalling while both variant constructs signalled significantly lower. Its concluding sentence is the experimental statement behind &#34;dominant negative&#34;: the novel C-terminus is sufficient to interfere with the protein expressed from the normal allele.
+- Dropped the bare label &#34;dominant-negative&#34; from both prose passages, keeping the sourced description of what was measured instead.
+- Cited PMID:25817014 for the novel basic C-terminus and for the transcript-present/protein-stable observation. Deliberately stopped short of asserting NMD escape: the abstract reports mutant transcript in patient fibroblasts and unimpaired protein stability but does not itself name nonsense-mediated decay, so the prose now states what was measured.
+- Acknowledged the competing model rather than flattening it, as the review asked. The description now says the direction of effect on each branch is contested, naming the mouse model reporting loss of canonical with gain of JNK/PCP and noting that this entry&#39;s deep-research artifact frames DVL1/DVL3 as gain-of-function throughout. The tension is also recorded in the explanation on the PMID:42424595 signalling item.
+
+Item 2 - the Omodysplasia differential&#39;s clinical features had no supporting evidence. Added three evidence items from PMID:29383834, already cached on main and already what kb/disorders/Omodysplasia.yaml cites for these features: the OMOD2 characterization sentence, the proband presentation, and the radiological findings.
+
+The review&#39;s specific catch here was right and changed the content, not just the citations. That paper&#39;s molecularly confirmed FZD2 proband had &#34;rhizomelic short stature with elbow restriction&#34;, so &#34;relatively preserved stature&#34; was not merely unsourced but contradicted. The differential now separates on the pattern of shortening [predominantly humeral rather than generalized mesomelic] instead of on height, and the distinguishing_features list was changed to match: &#34;Genitourinary anomalies more prominent than in the WNT5A form&#34; was dropped as an unsourced comparative claim, replaced with the sourced elbow-restriction feature.
+
+Non-blocking note taken: &#34;A third gene&#34; changed to &#34;A further gene&#34;, since the same sentence names the four genes that precede FZD2.
+
+Non-blocking note not taken: the differential stays bound to MONDO:0017136 [omodysplasia] rather than MONDO:0008123. The intent is to cross-reference the whole Omodysplasia entry, which covers both the dominant and recessive forms, and that entry is itself bound to the parent term.
+
+Validation run: just validate [47/47 snippets verified], just validate-terms [passed], just check-entity-refs, just check-duplicate-keys, just check-folded-hyphens, just check-reference-titles [no findings for this entry].
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Review response: phenotypes, terms, evidence grading, DR artifact</strong> · 2026-08-27T04:43:56Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Autosomal_Dominant_Robinow_Syndrome_1/2026-08-27T044356Z-claude-code-52f9eb.yaml">View source</a></p>
+                        <p class="research-review-text">Response to the first review round. Added brachydactyly (HP:0001156, VERY_FREQUENT), which GeneReviews names as one of the three core skeletal findings and the entry had omitted, plus hypodontia (HP:0000668) and macrocephaly (HP:0000256, OCCASIONAL). Rebound Orthodontic Treatment from the generic NCIT:C15747 Supportive Care to NCIT:C64248 Orthodontic Treatment. Downgraded the 1999 growth-hormone case series from SUPPORT to PARTIAL: it predates the 2010 WNT5A discovery by eleven years, so those patients&#39; genotype is unknown and may be DVL1, DVL3 or recessive ROR2. Regraded a background sentence about non-canonical Wnt signalling in a zebrafish paper from HUMAN_CLINICAL to OTHER. Committed the deep-research report and its citations sidecar; regenerating it showed the CREATE record&#39;s account of the run was wrong in one respect, in that the report does carry a reference_validation block resolving all 13 references with no confabulation, and what it actually flagged was relevance at 8 of 13 on topic. The preflight DVL1-at-52-percent warning did reproduce. Also added somatropin (NCIT:C837) as the growth-hormone therapeutic agent, the micropenis hormone therapy from the GeneReviews Management section, and changed surveillance modality from BEHAVIORAL to OTHER. A second pass then curated the female genital findings the entry had omitted - hypoplastic labia majora (HP:0000059) and clitoral hypoplasia (HP:0000060) - plus cryptorchidism (HP:0000028), all named in the same GeneReviews sentence that already supported the micropenis record. Curating only the male findings would have made the genital phenotype look sex-limited when the source describes it in both. A further round then corrected therapeutic_modality on the micropenis hormone therapy from PROTEIN_REPLACEMENT to OTHER - GeneReviews says only that hormone therapy may help, without naming the hormone, and conventional practice is testosterone, a steroid rather than a protein - and curated the three less-common skeletal findings the growth-plate node already named in prose: dislocated radial head (HP:0003083), hemivertebrae (HP:0002937) and scoliosis (HP:0002650), all OCCASIONAL off the same GeneReviews sentence. 38/38 snippets verified and separately confirmed verbatim by a raw substring audit bypassing validator normalization.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Autosomal Dominant Robinow Syndrome 1 (WNT5A)</strong> · 2026-08-27T04:04:47Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Autosomal_Dominant_Robinow_Syndrome_1/2026-08-27T040447Z-claude-code-66c6ac.yaml">View source</a></p>
+                        <p class="research-review-text">New entry for WNT5A-related autosomal dominant Robinow syndrome (MONDO:0024455). Scoped deliberately to the WNT5A form: DVL1 and DVL3 dominant disease act through truncated adaptors with an apparent gain of function on the canonical branch, opposite in direction to the hypomorphic ligand curated here, so they are differential diagnoses rather than subtypes. The GeneReviews chapter PMID:25577943 is tagged and mined across all four sections its abstract carries. The deep-research report is committed under research/; its reference validation resolved all 13 references with no confabulation but judged only 8 on topic, and preflight warned DVL1 was mentioned at 52% the rate of WNT5A, so those sections were used only for differentials and every reference cited here was fetched and verified individually. Two evidence items initially quoted paper titles; both were replaced with real abstract quotes after checking the caches, which also strengthened the growth-hormone efficacy evidence and added the DVL1 allele-interaction mechanism. 28/28 snippets verified.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -8673,7 +9392,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Autosomal Dominant Robinow Syndrome 1", "mondoId": "MONDO:0024455", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Autosomal_Dominant_Robinow_Syndrome_1", "yamlRevision": "b21327a0054b"};
+        const OS_CONFIG = {"diseaseName": "Autosomal Dominant Robinow Syndrome 1", "mondoId": "MONDO:0024455", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Autosomal_Dominant_Robinow_Syndrome_1", "yamlRevision": "fae1704c4091"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
