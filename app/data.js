@@ -202033,6 +202033,150 @@ window.searchData = [
     "causal_graph_longest_path": "8"
   },
   {
+    "name": "Methotrexate Toxicity",
+    "disease_id": "MONDO:0034212",
+    "category": "Complex",
+    "parents": [
+      "Drug Toxicity"
+    ],
+    "creation_date": "2026-09-22T02:15:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Methotrexate is a counterfeit folate. It is close enough to the real vitamin that the cell's own folate importer carries it inside and the cell's own ligase chains glutamates onto it, which traps it there; then it jams the enzyme that regenerates tetrahydrofolate, and the cell can no longer make thymidine or purines. Every cell the drug enters gets the same lesion, so which tissue is injured is not a question about the lesion. It is a question about which tissues are replacing themselves right now: marrow, gut epithelium, liver.\nWhat makes the poisoning distinctive is that the second half of the mechanism is not pharmacodynamic at all. Over 90% of the drug leaves by the kidney, and it is poorly soluble in acid urine, so at high dose it crystallises in the tubules and injures them. An injured kidney clears less methotrexate, a higher methotrexate concentration crystallises more, and the loop tightens on itself. That is why the two halves of the entry are asymmetric: the folate arm decides what the injury looks like, and the renal arm decides how bad and how long it gets. It is also why the countermeasures split the same way. Hydration and urine alkalinisation act on the renal arm and leucovorin on the folate arm, while glucarpidase and dialysis act upstream of both, on the circulating pool -- which is exactly why neither of those two touches the drug already inside cells.",
+    "pathophysiology": [
+      "Systemic Methotrexate Exposure",
+      "Cellular Methotrexate Uptake by the Reduced Folate Carrier",
+      "Intracellular Methotrexate Polyglutamation",
+      "Dihydrofolate Reductase Inhibition",
+      "Tetrahydrofolate Depletion",
+      "Thymidylate Synthesis Blockade",
+      "Uracil Misincorporation and DNA Strand Breakage",
+      "De Novo Purine Synthesis Blockade",
+      "Adenosine Accumulation",
+      "Replicating Cell Death",
+      "Bone Marrow Hematopoietic Failure",
+      "Gastrointestinal Mucosal Barrier Breakdown",
+      "Hepatocellular Injury",
+      "Cerebral White Matter Injury",
+      "Renal Tubular Methotrexate Crystallisation",
+      "Tubular Obstruction by Methotrexate Crystals",
+      "Direct Tubular Epithelial Toxicity",
+      "Afferent Arteriolar Vasoconstriction",
+      "Impaired Renal Methotrexate Elimination"
+    ],
+    "cell_types": [
+      "hematopoietic precursor cell",
+      "intestinal crypt stem cell",
+      "enterocyte",
+      "hepatocyte",
+      "oligodendrocyte",
+      "renal tubular epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0008001",
+      "CL:0002250",
+      "CL:0000584",
+      "CL:0000182",
+      "CL:0000128",
+      "CL:1000507"
+    ],
+    "biological_processes": [
+      "tetrahydrofolate metabolic process",
+      "dTMP biosynthetic process",
+      "de novo purine nucleotide synthesis",
+      "DNA replication"
+    ],
+    "phenotypes": [
+      "Pancytopenia",
+      "Decreased total neutrophil count",
+      "Thrombocytopenia",
+      "Bone marrow hypocellularity",
+      "Oral ulcer",
+      "Diarrhea",
+      "Nausea",
+      "Acute kidney injury",
+      "Elevated circulating hepatic transaminase concentration",
+      "Hepatic fibrosis",
+      "Leukoencephalopathy",
+      "Encephalopathy",
+      "Seizure",
+      "Sepsis",
+      "Mucocutaneous toxicity",
+      "Interstitial pneumonitis"
+    ],
+    "phenotype_categories": [
+      "Hematologic",
+      "Gastrointestinal",
+      "Renal",
+      "Hepatic",
+      "Neurologic",
+      "Infectious",
+      "Dermatologic",
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Digestive",
+      "Genitourinary",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001876",
+      "HP:0001875",
+      "HP:0001873",
+      "HP:0005528",
+      "HP:0000155",
+      "HP:0002014",
+      "HP:0002017",
+      "HP:0001919",
+      "HP:0002910",
+      "HP:0001395",
+      "HP:0002352",
+      "HP:0001298",
+      "HP:0001250",
+      "HP:0100806",
+      "HP:0000951",
+      "HP:0006515"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "SLCO1B1",
+      "MTHFR"
+    ],
+    "treatments": [
+      "Hyperhydration and Urinary Alkalinisation",
+      "Leucovorin Rescue",
+      "Glucarpidase",
+      "Drainage of Third-Space Fluid Collections",
+      "Haemodialysis"
+    ],
+    "environmental": [
+      "Therapeutic methotrexate administration",
+      "Co-administration of non-steroidal anti-inflammatory drugs",
+      "Volume depletion and acidic urine during high-dose infusion",
+      "Third-space fluid sequestration",
+      "Folic acid supplementation during chronic low-dose therapy"
+    ],
+    "biochemical": [],
+    "source_file": "Methotrexate_Toxicity.yaml",
+    "page_url": "../pages/disorders/Methotrexate_Toxicity.html",
+    "num_phenotypes": 16,
+    "num_pathophysiology": 19,
+    "num_genes": 2,
+    "num_treatments": 5,
+    "causal_graph_edges": "58",
+    "causal_graph_longest_path": "10"
+  },
+  {
     "name": "Methylcobalamin Deficiency Type cblE",
     "disease_id": "MONDO:0009354",
     "category": "Mendelian",
@@ -321914,17 +322058,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3071,
+  "total_disorder_pages": 3072,
   "total_subtypes": 3836,
-  "total_disorders_and_subtypes": 6907,
-  "total_unique_evidence_sources": 44317,
-  "total_unique_publications": 41694,
+  "total_disorders_and_subtypes": 6908,
+  "total_unique_evidence_sources": 44330,
+  "total_unique_publications": 41707,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 283,
-  "total_pathographs": 3066,
-  "total_unique_pathological_events": 19108,
+  "total_pathographs": 3067,
+  "total_unique_pathological_events": 19125,
   "total_modules": 178,
-  "total_research_reports": 3175,
+  "total_research_reports": 3176,
   "total_classifications": 20,
   "total_comorbidities": 46,
   "total_groupings": 103
