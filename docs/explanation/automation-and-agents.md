@@ -460,7 +460,10 @@ it back. Labels, timestamps and memberships are never invented. Reference
 markdown, hierarchy caches, other generated artifacts, competing values,
 deletions, mode changes, renames, and mixed source conflicts remain agent work.
 Root-level cache JSON changes are rejected using tree metadata before merge
-planning, so the frozen dataset cache is never opened or changed.
+planning, so the retired dataset cache is never opened or changed. A deletion
+already on trusted main is carried forward if the PR left the file unchanged
+or also deleted it. PRs that modified it still need their delete/edit conflict
+resolved by keeping the deletion.
 
 The controller does not check out PR files or run their code, generators,
 dependencies, or tests. Git computes the ordinary merge in its object database;

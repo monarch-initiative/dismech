@@ -560,13 +560,15 @@ always *was* a reference slot, and `geo:` is now treated as one end to end:
   `REFERENCE_CACHED_PREFIXES` in `scripts/verify_dataset_accessions.py`,
   backfilling the cache, and fixing what the newly-enabled checks surface.
 
-**`cache/dataset_accessions.json` is frozen. Never read, write, or edit it.**
+**`cache/dataset_accessions.json` is retired and deleted. Never recreate it.**
 It was a single shared JSON blob rewritten in full by every verifier run — so
 every curation PR touching a `datasets:` block churned the same 1.8 MB file, and
 PRs adding neighbouring `geo:` keys collided. Nothing reads or writes it any
-more (`test_no_automation_touches_the_frozen_dataset_cache` enforces this). It
-stays in git only until the open PRs carrying edits to it have drained; do not
-add it to a commit, and do not "helpfully" regenerate it.
+more (`test_no_automation_touches_the_frozen_dataset_cache` enforces this and
+checks that the path stays untracked on every CI run). It was frozen temporarily
+to let old PRs drain; that transition is over. If an old PR still carries it,
+keep its deletion when resolving conflicts without reading or merging its
+contents. Do not restore or regenerate it.
 
 **The check that tooling cannot do for you:** verification proves a dataset
 *exists*, never that it is about the right disease. Searching a causal gene
@@ -3867,7 +3869,7 @@ Use worktrees for parallel feature work. The **primary checkout** (wherever you 
 | `exports/sedml/*.omex` | NO | Derived — a byte-for-byte zip of the committed `exports/sedml/<model_id>/` directory; rebuild with `just sedml-export --omex` |
 | `app/models/data.js` | NO | Derived — the computational-models browser index, rebuilt from every `computational_models` block in `kb/` by `just gen-models-data`. **Never commit it from a curation PR**: it is regenerated wholesale, so two model PRs that both commit it conflict on it and nothing else (#9804) |
 | `app/hpo_category_cache.json` | NO | Derived — the HP-term-to-broad-category map, written by `just gen-browser-data` beside `app/data.js` and committed by the same workflow (#11299). Both `render` and `browser_export` read it |
-| `cache/dataset_accessions.json` | **NEVER** | Frozen. Superseded by `references_cache/GEO_*.md`; nothing reads or writes it. Never stage it, in any change |
+| `cache/dataset_accessions.json` | **NEVER** | Deleted and ignored. Superseded by `references_cache/GEO_*.md`; keep it deleted when resolving old PRs |
 
 **Scope of the "derived" rule:** it governs *hand-authored* PRs — never commit
 these paths alongside a curation or code change. The derived artifacts do live in
