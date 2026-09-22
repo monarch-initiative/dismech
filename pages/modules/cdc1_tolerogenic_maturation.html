@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -467,6 +468,18 @@
         .tag-component {
             background: #f0fdf4;
             color: #166534;
+        }
+
+        /* Same values as disorder.html.j2 so a treatment chip looks identical
+           whether it is read on a disorder page or on a module page. */
+        .tag-treatment {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .tag-gene {
+            background: #dbeafe;
+            color: #1e40af;
         }
 
         .tag-role {
@@ -1044,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1059,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1113,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1126,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1284,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1294,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1335,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1537,6 +1586,9 @@
 
     
 
+    
+
+    
     
 
     
@@ -2065,6 +2117,8 @@ Relationship to neighbouring modules. This is NOT a duplicate of immune_checkpoi
 
         
 
+        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
@@ -2111,11 +2165,13 @@ Relationship to neighbouring modules. This is NOT a duplicate of immune_checkpoi
             
             <div class="item-box anchor-target" id="module-pathophysiology-efferocytic-uptake-of-cell-associated-antigen-by-cdc1s" data-dismech-node="Efferocytic Uptake of Cell-Associated Antigen by cDC1s" data-dismech-type="pathophysiology">
                 <div class="item-name">Efferocytic Uptake of Cell-Associated Antigen by cDC1s</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">cDC1s take up dying cells and their associated antigens by efferocytosis. This is the lineage-defining function that puts cDC1s in a position to determine the fate of responses to cell-associated (as opposed to soluble or microbial) antigen. The dying-cell source is what conforming disorder entries substitute: apoptotic lymphocytes generated by lymphodepleting conditioning, apoptotic tumour cells in the tumour microenvironment, or apoptotic cells cleared at homeostasis in peripheral tissue. Efferocytic load, together with circulating EPO, sets both the fraction of cDC1s expressing EPOR and the intensity of that expression, so this node is the input that scales the whole chain rather than a mere prerequisite.</div>
                 
@@ -2209,11 +2265,13 @@ This pathophysiological event involves increased Apoptotic Cell Clearance (Effer
             
             <div class="item-box anchor-target" id="module-pathophysiology-epo-epor-signalling-in-cdc1s" data-dismech-node="EPO-EPOR Signalling in cDC1s" data-dismech-type="pathophysiology">
                 <div class="item-name">EPO-EPOR Signalling in cDC1s</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Erythropoietin receptor expressed on cDC1s binds erythropoietin and activates the AKT-mTOR, ERK and STAT5 cascades. This is the switch node of the module: EPOR is not a marker of a distinct cDC1 subset but a transcriptional program that cDC1s across the maturational continuum can enter, and its signalling output determines which maturational program follows. Responsiveness is cDC1-restricted — cDC2s in the same tissue show minimal pathway activation — which is why conformance requires cDC1 lineage specifically. Both ligand availability (circulating EPO, which rises with lymphodepleting conditioning and with tumour burden) and receptor abundance (driven by efferocytic load) are rate-setting, so the node is manipulable from either side; this is the basis of the treatment pattern below.</div>
                 
@@ -2284,11 +2342,13 @@ This pathophysiological event involves increased Erythropoietin Receptor Signall
             
             <div class="item-box anchor-target" id="module-pathophysiology-tolerogenic-maturation-to-ccr7-late-mature-cdc1s" data-dismech-node="Tolerogenic Maturation to CCR7+ Late-Mature cDC1s" data-dismech-type="pathophysiology">
                 <div class="item-name">Tolerogenic Maturation to CCR7+ Late-Mature cDC1s</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Under EPOR signalling, efferocytic cDC1s progress along the maturational continuum to a late-mature CCR7+ state carrying a regulatory rather than a stimulatory program: increased integrin beta-8 (Itgb8), TGF-beta1, CCL22 and PD-L1 (Cd274), increased tolerance-associated genes, and reduced cross-presentation capacity. This is the key conformance target — the disorder-agnostic, rate-limiting step that every conforming disease funnels through, whatever the dying-cell source or anatomical compartment. Loss of EPOR both reduces the proportion of cells reaching this state and strips the regulatory program from the cells that do, so the node is defined by the program and not by CCR7 positivity alone. CCR7 upregulation is the shared gateway to the immunogenic route as well; a CCR7+ mregDC-like node without a tolerogenic readout does not conform.</div>
                 
@@ -2410,11 +2470,13 @@ This pathophysiological event involves decreased Cross-Presentation of Cell-Asso
             
             <div class="item-box anchor-target" id="module-pathophysiology-integrin-alpha-v-beta-8-dependent-latent-tgf-beta-activation" data-dismech-node="Integrin alpha-V beta-8-Dependent Latent TGF-beta Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Integrin alpha-V beta-8-Dependent Latent TGF-beta Activation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Integrin alpha-V beta-8 on late-mature CCR7+ cDC1s binds the latency-associated peptide of latent TGF-beta and converts it to active TGF-beta at the cDC1-T cell interface. This makes TGF-beta availability local and contact-dependent rather than a diffuse cytokine signal, which is how an antigen-presenting cell can impose a regulatory fate specifically on the T cells it is engaging. cDC1-restricted deletion of Itgb8 reproduces the Treg-induction defect seen on loss of EPOR, placing integrin beta-8 causally downstream of the switch rather than merely correlated with it — though the resulting impairment of chimerism is less complete than with EPOR deletion, indicating integrin beta-8 carries much but not all of the EPOR effect.</div>
                 
@@ -2478,11 +2540,13 @@ This pathophysiological event involves increased Activation of Latent TGF-beta a
             
             <div class="item-box anchor-target" id="module-pathophysiology-antigen-specific-foxp3-treg-induction-and-restrained-t-cell-priming" data-dismech-node="Antigen-Specific FOXP3+ Treg Induction and Restrained T Cell Priming" data-dismech-type="pathophysiology">
                 <div class="item-name">Antigen-Specific FOXP3+ Treg Induction and Restrained T Cell Priming</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The terminal state of the tolerogenic arm: antigen-specific CD4+FOXP3+ regulatory T cells are induced from naive precursors and preexisting Tregs are expanded, while CD8+ cross-priming and CD4+ priming against the same cell-associated antigen are held below threshold. The tolerance is antigen-specific rather than global immunosuppression, and it operates even at homeostatic EPO levels. Whether this outcome is beneficial or harmful is entirely context-dependent and is the reason the module serves opposite clinical goals: in transplantation and autoimmunity it is durable donor-specific or self-antigen-specific tolerance; in cancer it is tumour-antigen-specific tolerance with intratumoural Treg accumulation and blunted anti-tumour CD8+ T cell immunity. Conforming entries name the antigen and state which of these two readings applies.</div>
                 
@@ -2590,11 +2654,13 @@ This pathophysiological event involves increased Peripheral T Cell Tolerance to 
             
             <div class="item-box anchor-target" id="module-pathophysiology-immunogenic-cdc1-maturation-and-enhanced-t-cell-priming" data-dismech-node="Immunogenic cDC1 Maturation and Enhanced T Cell Priming" data-dismech-type="pathophysiology">
                 <div class="item-name">Immunogenic cDC1 Maturation and Enhanced T Cell Priming</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">adaptive escape</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The reciprocal branch of the switch, and the reason EPOR is described as a switch rather than an amplifier. When EPOR signalling is absent, efferocytic cDC1s do not simply fail to become tolerogenic — they mature along an actively immunogenic route, upregulating MHC class II- and class I-mediated antigen presentation, cross-presentation and costimulation (CD40, CD80, CD86) while downregulating PD-L1. In tumours this branch increases generation of precursor exhausted tumour-antigen-specific CD8+ T cells in tumour-draining lymph nodes, supports their maintenance intratumourally, reduces intratumoural Tregs, restrains tumour growth and improves the efficacy of PD-1 blockade. This node is curated as the mechanistic rationale for the tolerance-breaking treatment pattern below; it is reached experimentally by cDC1-restricted EPOR deletion, so a disorder node should conform to it only where an equivalent loss-of-EPOR state is actually demonstrated, not merely where cDC1s appear immunogenic.</div>
                 
@@ -2697,6 +2763,203 @@ This pathophysiological event involves increased Cross-Presentation of Cell-Asso
 
                 
 
+                
+            </div>
+            
+        </div>
+        
+
+        
+        
+        <div class="card" id="treatments">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
+                <h2 class="card-title">Treatments</h2>
+                <span class="card-count">2</span>
+            </div>
+            
+            <div class="item-box" data-dismech-node="Erythropoietin as a cDC1 Tolerogenic Agonist" data-dismech-type="treatment">
+                <div class="item-name">Erythropoietin as a cDC1 Tolerogenic Agonist</div>
+                
+                <div class="item-meta">
+                    
+                    
+                    
+                    
+                    <span class="tag tag-treatment">
+                        Pharmacotherapy
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-26">NCIT:C15986</a>
+    
+    
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    
+                    
+                    
+                    <span class="tag tag-treatment">
+                        recombinant erythropoietin
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/NCIT_C477" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-27">NCIT:C477</a>
+    
+    
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses recombinant erythropoietin (NCIT:C477). NCIT:C477 is a therapeutic agent from the NCI Thesaurus.</span>
+                    </span>
+                    
+                </div>
+                
+                
+    
+    
+    
+    
+    
+    
+    
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+        
+        <span class="tag tag-treatment">Protein replacement</span>
+        
+        
+        
+        
+        
+    </div>
+    
+    
+    
+    
+    
+    
+    
+                
+                <div class="item-desc">The tolerance-inducing arm of the module&#39;s drug-target pattern. Exogenous erythropoietin acts on the EPOR switch node to amplify cDC1 tolerogenic maturation and increase antigen-specific FOXP3+ Treg induction, including by cDC1s that were EPOR-low at baseline. The effect is strictly cDC1-EPOR-dependent: it is abolished when EPOR is deleted from cDC1s, so it is a mechanism-specific action and not a general consequence of erythropoiesis. This is a preclinical (mouse) drug-target pattern demonstrating the node is pharmacologically addressable — it is NOT a treatment recommendation, and conforming disorders do not inherit it as one. Recombinant erythropoietin is an approved drug for anaemia, but its use as a tolerogenic agent in transplantation or autoimmunity is not established in humans and would carry the known thrombotic and tumour-progression safety concerns of erythropoiesis-stimulating agents.</div>
+                
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism target:</strong>
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">ACTIVATES</span>
+                        
+                        
+                        <a href="#module-pathophysiology-epo-epor-signalling-in-cdc1s"><strong>EPO-EPOR Signalling in cDC1s</strong></a>
+                        
+                        <span> — Ligand supply to the switch node, increasing tolerogenic maturation and antigen-specific Treg induction by cDC1s.</span>
+                        
+                    </div>
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <span class="tag" style="background:#ecfeff;color:#155e75;">Evidence: 1</span>
+                </div>
+                
+                
+            </div>
+            
+            <div class="item-box" data-dismech-node="cDC1 EPOR Blockade as a Tolerance-Breaking Strategy" data-dismech-type="treatment">
+                <div class="item-name">cDC1 EPOR Blockade as a Tolerance-Breaking Strategy</div>
+                
+                
+                
+    
+    
+    
+    
+    
+    
+    
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+        
+        <span class="tag tag-treatment">Other</span>
+        
+        
+        
+        
+        
+    </div>
+    
+    
+    
+    
+    
+    
+    
+                
+                <div class="item-desc">The tolerance-breaking arm of the same drug-target pattern, and the conceptual inverse of the agonist above. Removing EPOR signalling from cDC1s shifts them to the immunogenic branch, restraining tumour growth, increasing tumour-antigen-specific precursor exhausted CD8+ T cells in tumour-draining lymph nodes, reducing intratumoural Tregs and improving the efficacy of PD-1 blockade. This is a genetic proof of concept in mouse — cDC1-restricted Epor deletion — not an agent. No cDC1-selective EPOR antagonist exists, and systemic EPOR blockade would not be equivalent: EPOR is the erythropoiesis receptor, and the therapeutic proposition depends on cDC1 selectivity that has not been demonstrated. Curate this as a target rationale, never as an available treatment.</div>
+                
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism target:</strong>
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">INHIBITS</span>
+                        
+                        
+                        <a href="#module-pathophysiology-epo-epor-signalling-in-cdc1s"><strong>EPO-EPOR Signalling in cDC1s</strong></a>
+                        
+                        <span> — Removing EPOR signalling from cDC1s diverts them from the tolerogenic to the immunogenic maturational branch, lifting the restraint on antigen-specific CD8+ T cell priming.</span>
+                        
+                    </div>
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <span class="tag" style="background:#ecfeff;color:#155e75;">Evidence: 1</span>
+                </div>
+                
                 
             </div>
             

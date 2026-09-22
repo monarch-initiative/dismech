@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,18 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4288,6 +4365,7 @@ RERE lies in the proximal critical region of 1p36, and NEDBEH phenocopies much o
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4309,6 +4387,7 @@ RERE lies in the proximal critical region of 1p36, and NEDBEH phenocopies much o
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4399,6 +4478,7 @@ RERE lies in the proximal critical region of 1p36, and NEDBEH phenocopies much o
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4423,6 +4503,7 @@ RERE lies in the proximal critical region of 1p36, and NEDBEH phenocopies much o
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4444,6 +4525,7 @@ RERE lies in the proximal critical region of 1p36, and NEDBEH phenocopies much o
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4632,6 +4714,7 @@ A paralog precedent is worth weighing. RERE&#39;s atrophin-family paralog ATN1 c
 
 
 
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -4653,6 +4736,7 @@ A paralog precedent is worth weighing. RERE&#39;s atrophin-family paralog ATN1 c
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4952,6 +5036,7 @@ A paralog precedent is worth weighing. RERE&#39;s atrophin-family paralog ATN1 c
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-rere-nuclear-receptor-co-regulator-dysfunction" data-dismech-node="RERE Nuclear Receptor Co-regulator Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">RERE Nuclear Receptor Co-regulator Dysfunction</div>
 
+
                 <div class="item-desc">The initiating lesion is a heterozygous pathogenic variant in RERE at 1p36.23. RERE encodes a large, widely expressed atrophin-family nuclear receptor co-regulator (atrophin-2) that scaffolds transcriptional complexes through its ELM2, SANT, and Atrophin-1 domains. Two mechanistically distinct allelic classes converge on this node. Nonsense, frameshift, canonical splice-site, and whole- or partial-gene deletion alleles reduce RERE dosage by haploinsufficiency, with nonsense-mediated decay demonstrated for at least one frameshift allele. Missense and in-frame variants clustering in a histidine-rich region (HRR) of the Atrophin-1 domain are instead structurally stabilizing, which is why they are proposed to act by a gain-of-function or dominant-negative mechanism rather than by simple loss of dosage — and why they carry a heavier multisystem burden.
 </div>
 
@@ -5077,6 +5162,7 @@ This pathophysiological event involves decreased transcription corepressor activ
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5098,6 +5184,7 @@ This pathophysiological event involves decreased transcription corepressor activ
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5125,6 +5212,7 @@ This pathophysiological event involves decreased transcription corepressor activ
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5149,6 +5237,7 @@ This pathophysiological event involves decreased transcription corepressor activ
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-rere-dependent-retinoic-acid-signaling" data-dismech-node="Impaired RERE-Dependent Retinoic Acid Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired RERE-Dependent Retinoic Acid Signaling</div>
+
 
                 <div class="item-desc">RERE is a positive regulator of retinoic acid (RA) signaling. It forms a complex with NR2F2, p300, and a retinoic acid receptor that is recruited to the retinoic acid response elements of RA target genes such as the Rarb promoter, and knockdown of NR2F2 and/or RERE decreases RA signaling. RERE is also the co-repressor-recruiting subunit of the WHHERE complex (Wdr5, Hdac1, Hdac2, Rere), which together with the RERE-binding histone methyltransferase Ehmt2/G9a becomes enriched at RA target genes upon RA treatment to promote RNA polymerase II recruitment. Loss of this activity blunts the RA-dependent transcriptional programs that pattern the embryo. Because RA acts as a morphogen across hindbrain, eye, heart, otic, and renal development, a single lesion here propagates into anomalies of several organs at once.
 </div>
@@ -5333,6 +5422,7 @@ This pathophysiological event involves histone deacetylase binding (GO:0042826).
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5354,6 +5444,7 @@ This pathophysiological event involves histone deacetylase binding (GO:0042826).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5381,6 +5472,7 @@ This pathophysiological event involves histone deacetylase binding (GO:0042826).
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5405,6 +5497,7 @@ This pathophysiological event involves histone deacetylase binding (GO:0042826).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-deregulated-developmental-morphogen-signaling" data-dismech-node="Deregulated Developmental Morphogen Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Deregulated Developmental Morphogen Signaling</div>
+
 
                 <div class="item-desc">RERE normally restrains sonic hedgehog (shh) and fgf8 signaling during patterning. NEDBEH-associated human RERE variants behave as hypomorphs in their ability to repress shh signaling, and some show abnormal nuclear localization. In the zebrafish rerea mutant this manifests as expanded fgf8 and pax2a expression domains in the optic stalk with reduced vax1, and in a patient-derived CRISPR knock-in cell line as downregulated SHH signaling with reciprocal upregulation of the Hippo pathway. The direction of the shh change differs between these systems, which is recorded as an open question rather than resolved here.
 </div>
@@ -5514,6 +5607,7 @@ This pathophysiological event involves dysregulated smoothened signaling pathway
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5535,6 +5629,7 @@ This pathophysiological event involves dysregulated smoothened signaling pathway
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5560,6 +5655,7 @@ This pathophysiological event involves dysregulated smoothened signaling pathway
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-ocular-morphogenesis-and-retinal-cell-loss" data-dismech-node="Disrupted Ocular Morphogenesis and Retinal Cell Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Ocular Morphogenesis and Retinal Cell Loss</div>
+
 
                 <div class="item-desc">Two separable ocular mechanisms operate. First, a patterning defect: the zebrafish rerea (babyface) mutant recapitulates the optic fissure closure defect seen in humans, arising from expansion of the proximal retinal optic stalk and reduced expression of ventral retinal fate genes; inhibiting shh signaling with HPI-1 rescues the coloboma, establishing deregulated shh as causal in that model. Second, a cell-survival defect: RERE is expressed in a subset of retinal ganglion cells, the lens epithelium, and the ciliary body, and RERE-deficient mice show apoptosis of retinal cells in the ganglion cell layer from E17.5, reduced retinal ganglion cell numbers, and consequent retinal and optic nerve atrophy. Together these account for the coloboma, microphthalmia, and optic nerve findings of NEDBEH.
 </div>
@@ -5717,6 +5813,7 @@ This pathophysiological event involves decreased closure of optic fissure (GO:00
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5738,6 +5835,7 @@ This pathophysiological event involves decreased closure of optic fissure (GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5765,6 +5863,7 @@ This pathophysiological event involves decreased closure of optic fissure (GO:00
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5789,6 +5888,7 @@ This pathophysiological event involves decreased closure of optic fissure (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-endocardial-emt-in-the-atrioventricular-cushions" data-dismech-node="Impaired Endocardial EMT in the Atrioventricular Cushions" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Endocardial EMT in the Atrioventricular Cushions</div>
+
 
                 <div class="item-desc">Atrioventricular septation depends on endocardial cells in the AV canal undergoing epithelial-to-mesenchymal transition and migrating into the cardiac jelly to populate the endocardial cushions. RERE-deficient mouse embryos have fewer mesenchymal cells in their AV endocardial cushions because both EMT and mesenchymal proliferation are reduced. In the endocardium RERE colocalizes with GATA4, positively regulates transcription from the Gata4 promoter, and Gata4 levels fall in the AV canal of RERE-deficient embryos; Rere and Gata4 interact genetically in the development of congenital heart defects. Notably, endocardium-specific Rere ablation produces hypocellular cushions, defective EMT, and ventricular septal defects WITHOUT reducing GATA4, so the cell-autonomous endocardial role of RERE must be mediated by targets other than GATA4 — the entry keeps both arms rather than collapsing them.
 </div>
@@ -5967,6 +6067,7 @@ This pathophysiological event involves decreased endocardial cushion development
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5988,6 +6089,7 @@ This pathophysiological event involves decreased endocardial cushion development
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6015,6 +6117,7 @@ This pathophysiological event involves decreased endocardial cushion development
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6037,6 +6140,7 @@ This pathophysiological event involves decreased endocardial cushion development
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-brain-growth-and-hindbrain-patterning" data-dismech-node="Impaired Brain Growth and Hindbrain Patterning" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Brain Growth and Hindbrain Patterning</div>
+
 
                 <div class="item-desc">Structural CNS anomalies are recurrent in NEDBEH and include hypoplasia or thinning of the corpus callosum, reduced white matter volume, ventriculomegaly, and a small or abnormal cerebellar vermis. RERE-deficient mice show brain hypoplasia with decreased numbers of NeuN-positive hippocampal neurons, giving a cellular correlate for reduced brain growth. Retinoic acid signaling is required for hindbrain segmentation and morphogenesis, which is the proposed route to the posterior fossa findings, including the Chiari type I malformation reported in one adult. The mechanistic account of the posterior-fossa phenotypes is inferential rather than directly demonstrated.
 </div>
@@ -6127,6 +6231,7 @@ This pathophysiological event involves dysregulated central nervous system devel
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6148,6 +6253,7 @@ This pathophysiological event involves dysregulated central nervous system devel
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6175,6 +6281,7 @@ This pathophysiological event involves dysregulated central nervous system devel
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6197,6 +6304,7 @@ This pathophysiological event involves dysregulated central nervous system devel
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-palatal-shelf-mesenchymal-proliferation" data-dismech-node="Reduced Palatal Shelf Mesenchymal Proliferation" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Palatal Shelf Mesenchymal Proliferation</div>
+
 
                 <div class="item-desc">RERE is broadly expressed in the palate during mouse embryonic development, and most RERE-deficient mouse embryos on a C57BL/6 background have cleft palate. Ablating Rere specifically in cranial neural crest cells with a Wnt1-Cre driver delays elevation of the palatal shelves and produces cleft palate, with significantly reduced proliferation of palatal shelf mesenchymal cells. This is the orofacial clefting arm of the disorder; cleft palate and cleft lip are each documented in single individuals with NEDBEH, so this node explains a rare rather than a core feature.
 </div>
@@ -6341,6 +6449,7 @@ This pathophysiological event involves decreased palate development, annotated w
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6362,6 +6471,7 @@ This pathophysiological event involves decreased palate development, annotated w
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6387,6 +6497,7 @@ This pathophysiological event involves decreased palate development, annotated w
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-multisystem-developmental-field-defect" data-dismech-node="Multisystem Developmental Field Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Multisystem Developmental Field Defect</div>
+
 
                 <div class="item-desc">The convergent consequence: a single lesion in a retinoic-acid co-regulator expressed across the developing embryo produces coordinated anomalies of brain, eye, heart, inner ear, kidney and genitourinary tract rather than an isolated organ defect. The mouse allelic series makes this concrete — one graded reduction in Rere dosage yields microphthalmia, growth deficiency, brain hypoplasia, hearing loss, cardiovascular malformations, and renal agenesis together. The allelic class determines how much of this field is affected in a given individual: loss-of-function alleles produce fewer multisystem anomalies, whereas HRR missense variants and in-frame HRR duplications produce more.
 </div>
@@ -6446,6 +6557,7 @@ This pathophysiological event involves decreased palate development, annotated w
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6470,6 +6582,7 @@ This pathophysiological event involves decreased palate development, annotated w
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6491,6 +6604,7 @@ This pathophysiological event involves decreased palate development, annotated w
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6564,17 +6678,15 @@ This pathophysiological event involves decreased palate development, annotated w
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Ear<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Eye<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Eye<span class="pill-count">(6)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Genitourinary<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Genitourinary<span class="pill-count">(4)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Head and Neck<span class="pill-count">(3)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Musculoskeletal<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Nervous System<span class="pill-count">(8)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Other<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Nervous System<span class="pill-count">(9)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6615,6 +6727,9 @@ This clinical feature is Ventricular septal defect (HP:0001629). HP:0001629 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6629,6 +6744,7 @@ This clinical feature is Ventricular septal defect (HP:0001629). HP:0001629 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6653,6 +6769,7 @@ This clinical feature is Ventricular septal defect (HP:0001629). HP:0001629 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6707,6 +6824,9 @@ This clinical feature is Atrial septal defect (HP:0001631). HP:0001631 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6721,6 +6841,7 @@ This clinical feature is Atrial septal defect (HP:0001631). HP:0001631 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6786,6 +6907,9 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6800,6 +6924,7 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6854,6 +6979,9 @@ This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6868,6 +6996,7 @@ This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6951,6 +7080,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407), qualifie
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6965,6 +7097,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407), qualifie
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6992,6 +7125,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407), qualifie
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7013,6 +7147,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407), qualifie
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7045,7 +7180,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407), qualifie
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
-                    <span class="cat-count">5</span>
+                    <span class="cat-count">6</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-coloboma" data-dismech-node="Coloboma" data-dismech-type="phenotype">
@@ -7076,6 +7211,9 @@ This clinical feature is Coloboma (HP:0000589). HP:0000589 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7090,6 +7228,7 @@ This clinical feature is Coloboma (HP:0000589). HP:0000589 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7114,6 +7253,7 @@ This clinical feature is Coloboma (HP:0000589). HP:0000589 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7168,6 +7308,9 @@ This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7182,6 +7325,7 @@ This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7209,6 +7353,7 @@ This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7217,6 +7362,105 @@ This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype 
 
 
                 <div class="evidence-explanation">Mouse allelic series reproduces microphthalmia, supporting the phenotype as a direct consequence of reduced RERE dosage.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-optic-nerve-anomalies" data-dismech-node="Optic Nerve Anomalies" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Optic Nerve Anomalies
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Optic nerve hypoplasia</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000609" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000609</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Optic nerve hypoplasia (HP:0000609). HP:0000609 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30896913" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30896913" target="_blank">PMID:30896913</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A variety of eye anomalies (coloboma, optic nerve anomalies, microphthalmia, and/or Peter&#39;s anomaly) and vision issues (myopia, anisometropia, astigmatism, exotropia, esotropia) have been reported."</div>
+
+
+                <div class="evidence-explanation">GeneReviews names optic nerve anomalies among the reported eye findings.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33742727" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33742727" target="_blank">PMID:33742727</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"RERE-deficient mice have retinal and optic nerve atrophy."</div>
+
+
+                <div class="evidence-explanation">Provides the model-organism correlate and the degenerative mechanism behind the human optic nerve findings.</div>
 
 
 
@@ -7246,15 +7490,18 @@ This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000659" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000659</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000659" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000659</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Peters anomaly (HP:0000659). HP:0000659 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7274,6 +7521,7 @@ This clinical feature is Peters anomaly (HP:0000659). HP:0000659 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7314,15 +7562,18 @@ This clinical feature is Peters anomaly (HP:0000659). HP:0000659 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000545" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000545</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000545" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000545</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Myopia (HP:0000545). HP:0000545 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7342,6 +7593,7 @@ This clinical feature is Myopia (HP:0000545). HP:0000545 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7382,15 +7634,18 @@ This clinical feature is Myopia (HP:0000545). HP:0000545 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000486</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000486</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7410,6 +7665,7 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7442,12 +7698,12 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Genitourinary
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">4</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-cryptorchidism" data-dismech-node="Cryptorchidism" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-vesicoureteral-reflux" data-dismech-node="Vesicoureteral Reflux" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Cryptorchidism
+                        Vesicoureteral Reflux
 
 
 
@@ -7459,15 +7715,18 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000028" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000028</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000076" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000076</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Vesicoureteral reflux (HP:0000076). HP:0000076 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7487,6 +7746,79 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Genitourinary abnormalities include vesicoureteral reflux, and cryptorchidism and hypospadias in males."</div>
+
+
+                <div class="evidence-explanation">GeneReviews names vesicoureteral reflux as a genitourinary feature of the disorder.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cryptorchidism" data-dismech-node="Cryptorchidism" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Cryptorchidism
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000028" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000028</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30896913" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30896913" target="_blank">PMID:30896913</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7527,15 +7859,18 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000047" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000047</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000047" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000047</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypospadias (HP:0000047). HP:0000047 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7558,6 +7893,7 @@ This clinical feature is Hypospadias (HP:0000047). HP:0000047 is a phenotype fro
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7566,6 +7902,80 @@ This clinical feature is Hypospadias (HP:0000047). HP:0000047 is a phenotype fro
 
 
                 <div class="evidence-explanation">GeneReviews names hypospadias as a male genitourinary feature.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-nocturnal-enuresis" data-dismech-node="Nocturnal Enuresis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Nocturnal Enuresis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Enuresis nocturna</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010677" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0010677</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Enuresis nocturna (HP:0010677). HP:0010677 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40890291" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40890291" target="_blank">PMID:40890291</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"reported the new phenotype of enuresis in RERE variant carriers, which may expand the variant and clinical spectrum of RERE deficiency"</div>
+
+
+                <div class="evidence-explanation">Single-case expansion of the phenotypic spectrum. Frequency omitted: one individual supports no band.</div>
 
 
 
@@ -7604,15 +8014,18 @@ This clinical feature is Hypospadias (HP:0000047). HP:0000047 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001999</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001999</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7632,6 +8045,7 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7656,6 +8070,7 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7696,15 +8111,18 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000175</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000175</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7724,6 +8142,7 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7748,6 +8167,7 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7788,15 +8208,18 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000453" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000453</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000453" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000453</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Choanal atresia (HP:0000453). HP:0000453 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7816,6 +8239,7 @@ This clinical feature is Choanal atresia (HP:0000453). HP:0000453 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7867,15 +8291,18 @@ This clinical feature is Choanal atresia (HP:0000453). HP:0000453 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001252</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7895,6 +8322,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7935,10 +8363,10 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002650</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0002650</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Scoliosis (HP:0002650), qualified as course progressive. HP:0002650 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7967,6 +8395,9 @@ This clinical feature is Scoliosis (HP:0002650), qualified as course progressive
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7981,6 +8412,7 @@ This clinical feature is Scoliosis (HP:0002650), qualified as course progressive
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8005,6 +8437,7 @@ This clinical feature is Scoliosis (HP:0002650), qualified as course progressive
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8045,15 +8478,18 @@ This clinical feature is Scoliosis (HP:0002650), qualified as course progressive
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001385" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001385</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001385" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001385</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hip dysplasia (HP:0001385). HP:0001385 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8073,6 +8509,7 @@ This clinical feature is Hip dysplasia (HP:0001385). HP:0001385 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8105,7 +8542,7 @@ This clinical feature is Hip dysplasia (HP:0001385). HP:0001385 is a phenotype f
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">8</span>
+                    <span class="cat-count">9</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-global-developmental-delay" data-dismech-node="Global Developmental Delay" data-dismech-type="phenotype">
@@ -8124,15 +8561,18 @@ This clinical feature is Hip dysplasia (HP:0001385). HP:0001385 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8152,6 +8592,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8176,6 +8617,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8218,15 +8660,18 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0001249</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8246,6 +8691,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8288,15 +8734,18 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000717" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0000717</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000717" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0000717</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Autism (HP:0000717). HP:0000717 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8316,6 +8765,7 @@ This clinical feature is Autism (HP:0000717). HP:0000717 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8340,6 +8790,7 @@ This clinical feature is Autism (HP:0000717). HP:0000717 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8380,15 +8831,18 @@ This clinical feature is Autism (HP:0000717). HP:0000717 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007018" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0007018</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007018" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0007018</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). HP:0007018 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8408,6 +8862,7 @@ This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8448,15 +8903,18 @@ This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0100716</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0100716</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Self-injurious behavior (HP:0100716). HP:0100716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8476,6 +8934,7 @@ This clinical feature is Self-injurious behavior (HP:0100716). HP:0100716 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8518,15 +8977,18 @@ This clinical feature is Self-injurious behavior (HP:0100716). HP:0100716 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8546,6 +9008,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8586,15 +9049,18 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002079" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0002079</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002079" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0002079</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypoplasia of the corpus callosum (HP:0002079). HP:0002079 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8614,6 +9080,7 @@ This clinical feature is Hypoplasia of the corpus callosum (HP:0002079). HP:0002
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8654,15 +9121,18 @@ This clinical feature is Hypoplasia of the corpus callosum (HP:0002079). HP:0002
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002119" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0002119</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002119" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0002119</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8682,6 +9152,7 @@ This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8708,15 +9179,6 @@ This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotyp
 
                 </div>
 
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-9">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">4</span>
-                </summary>
-
                 <div class="item-box phenotype-box anchor-target" id="phenotype-chiari-type-i-malformation" data-dismech-node="Chiari Type I Malformation" data-dismech-type="phenotype">
                     <div class="item-name">
                         Chiari Type I Malformation
@@ -8731,15 +9193,18 @@ This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007099" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0007099</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007099" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0007099</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Chiari type I malformation (HP:0007099). HP:0007099 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8762,6 +9227,7 @@ This clinical feature is Chiari type I malformation (HP:0007099). HP:0007099 is 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8770,238 +9236,6 @@ This clinical feature is Chiari type I malformation (HP:0007099). HP:0007099 is 
 
 
                 <div class="evidence-explanation">Single-case report of the association. Frequency is deliberately omitted: one individual is below the threshold at which any FrequencyEnum band can honestly be assigned.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-optic-nerve-anomalies" data-dismech-node="Optic Nerve Anomalies" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Optic Nerve Anomalies
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Optic nerve hypoplasia</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000609" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0000609</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Optic nerve hypoplasia (HP:0000609). HP:0000609 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:30896913" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30896913" target="_blank">PMID:30896913</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"A variety of eye anomalies (coloboma, optic nerve anomalies, microphthalmia, and/or Peter&#39;s anomaly) and vision issues (myopia, anisometropia, astigmatism, exotropia, esotropia) have been reported."</div>
-
-
-                <div class="evidence-explanation">GeneReviews names optic nerve anomalies among the reported eye findings.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33742727" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33742727" target="_blank">PMID:33742727</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-
-                </div>
-
-                <div class="evidence-snippet">"RERE-deficient mice have retinal and optic nerve atrophy."</div>
-
-
-                <div class="evidence-explanation">Provides the model-organism correlate and the degenerative mechanism behind the human optic nerve findings.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-vesicoureteral-reflux" data-dismech-node="Vesicoureteral Reflux" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Vesicoureteral Reflux
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000076" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0000076</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Vesicoureteral reflux (HP:0000076). HP:0000076 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:30896913" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30896913" target="_blank">PMID:30896913</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Genitourinary abnormalities include vesicoureteral reflux, and cryptorchidism and hypospadias in males."</div>
-
-
-                <div class="evidence-explanation">GeneReviews names vesicoureteral reflux as a genitourinary feature of the disorder.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-nocturnal-enuresis" data-dismech-node="Nocturnal Enuresis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Nocturnal Enuresis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Enuresis nocturna</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010677" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0010677</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Enuresis nocturna (HP:0010677). HP:0010677 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:40890291" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40890291" target="_blank">PMID:40890291</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"reported the new phenotype of enuresis in RERE variant carriers, which may expand the variant and clinical spectrum of RERE deficiency"</div>
-
-
-                <div class="evidence-explanation">Single-case expansion of the phenotypic spectrum. Frequency omitted: one individual supports no band.</div>
 
 
 
@@ -9089,6 +9323,9 @@ This disease-associated gene is RERE (hgnc:9965). hgnc:9965 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -9103,6 +9340,7 @@ This disease-associated gene is RERE (hgnc:9965). hgnc:9965 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9130,6 +9368,7 @@ This disease-associated gene is RERE (hgnc:9965). hgnc:9965 is a gene from the H
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9151,6 +9390,7 @@ This disease-associated gene is RERE (hgnc:9965). hgnc:9965 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9188,7 +9428,9 @@ This disease-associated gene is RERE (hgnc:9965). hgnc:9965 is a gene from the H
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense and in-frame indel</span>
@@ -9196,6 +9438,11 @@ This disease-associated gene is RERE (hgnc:9965). hgnc:9965 is a gene from the H
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Missense variants and in-frame deletions/duplications clustering in the histidine-rich region (HRR) of the Atrophin-1 domain. Protein modeling in the 2026 cohort found these to be structurally stabilizing, which is why a gain-of-function or dominant-negative mechanism is proposed rather than loss of dosage. This class is associated with more multisystem phenotypes and usually arises de novo. Which of gain-of-function or dominant-negative applies is not resolved; that either/or is kept open in the discussions block rather than being decided here.
@@ -9226,6 +9473,7 @@ This disease-associated gene is RERE (hgnc:9965). hgnc:9965 is a gene from the H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9250,6 +9498,7 @@ This disease-associated gene is RERE (hgnc:9965). hgnc:9965 is a gene from the H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9271,6 +9520,7 @@ This disease-associated gene is RERE (hgnc:9965). hgnc:9965 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9306,7 +9556,9 @@ This disease-associated gene is RERE (hgnc:9965). hgnc:9965 is a gene from the H
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">nonsense, frameshift, splice-site, and gene deletion</span>
@@ -9314,6 +9566,11 @@ This disease-associated gene is RERE (hgnc:9965). hgnc:9965 is a gene from the H
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Nonsense, frameshift, canonical splice-site, and whole- or partial-gene deletion alleles. These reduce RERE dosage — nonsense-mediated decay has been demonstrated for at least one frameshift allele — and produce a milder phenotype with fewer multisystem anomalies. This is the class in which transmission from a mildly symptomatic or asymptomatic parent occurs, so unlike the HRR class it is not exclusively de novo.
@@ -9344,6 +9601,7 @@ This disease-associated gene is RERE (hgnc:9965). hgnc:9965 is a gene from the H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9365,6 +9623,7 @@ This disease-associated gene is RERE (hgnc:9965). hgnc:9965 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9400,7 +9659,9 @@ This disease-associated gene is RERE (hgnc:9965). hgnc:9965 is a gene from the H
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">in-frame duplication</span>
@@ -9408,6 +9669,11 @@ This disease-associated gene is RERE (hgnc:9965). hgnc:9965 is a gene from the H
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A recurrent in-frame six-base-pair (two-amino-acid) duplication within the histidine-rich region. This specific allele is associated with a CHARGE-syndrome-like presentation including choanal atresia and coloboma, and is the basis for the recommendation to test RERE in CHD7-negative individuals meeting CHARGE criteria.
@@ -9438,6 +9704,7 @@ This disease-associated gene is RERE (hgnc:9965). hgnc:9965 is a gene from the H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9459,6 +9726,7 @@ This disease-associated gene is RERE (hgnc:9965). hgnc:9965 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9547,6 +9815,31 @@ This treatment is nutritional support (NCIT:C15433). NCIT:C15433 is a clinical i
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Management of infantile feeding difficulty, escalating from feeding therapy and thickened liquids to nasogastric or gastrostomy tube feeding in severe cases. This is the one manifestation for which GeneReviews gives a specific treatment escalation rather than deferring to standard management.
 </div>
 
@@ -9569,6 +9862,7 @@ This treatment is nutritional support (NCIT:C15433). NCIT:C15433 is a clinical i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9633,6 +9927,31 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">There is no disease-modifying or RERE-targeted therapy. Seizures, abnormal vision and strabismus, hearing loss, congenital heart defects, gastroesophageal reflux, genitourinary anomalies, scoliosis, congenital hip dysplasia, developmental delay, and behavioural problems are each treated in the standard manner for that manifestation. Management is therefore supportive and multidisciplinary rather than mechanism-directed.
 </div>
 
@@ -9655,6 +9974,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9719,6 +10039,31 @@ This treatment is multidisciplinary disease surveillance, annotated with Disease
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Scheduled surveillance is the substantive management contribution in this disorder, because the structural anomalies are congenital and the complications are anticipatable. GeneReviews recommends at least annual monitoring of developmental progress and educational needs and for scoliosis until growth is complete; annual (or as clinically indicated) ophthalmologic and audiologic evaluations; routine cardiology and urology follow-up for those with anomalies of those systems; and monitoring of seizure activity and behavioural issues as needed.
 </div>
 
@@ -9744,6 +10089,7 @@ This treatment is multidisciplinary disease surveillance, annotated with Disease
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9765,6 +10111,7 @@ This treatment is multidisciplinary disease surveillance, annotated with Disease
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9829,6 +10176,31 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Recurrence-risk counseling is central to management. When the proband&#39;s variant is not found in either parent the sibling recurrence risk is about 1%, higher than the general population because of possible parental germline mosaicism. Once a familial variant is known, prenatal testing and preimplantation genetic testing are available. Counseling should now be variant-class-aware: the loss-of-function class is the one in which a mildly symptomatic or asymptomatic parent may carry the variant, so parental testing matters for accurate recurrence-risk estimation.
 </div>
 
@@ -9854,6 +10226,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9875,6 +10248,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9961,6 +10335,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9994,7 +10369,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     </span>
 
 
-                    <span class="tag">1–9 per 10,000</span>
+                    <span class="tag">1–9 per 10,000 (births)</span>
 
                 </div>
 
@@ -10016,6 +10391,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10150,6 +10526,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -10189,6 +10566,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10236,6 +10614,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10382,6 +10761,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10421,6 +10801,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10500,6 +10881,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10539,6 +10921,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10583,6 +10966,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10711,6 +11095,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10750,6 +11135,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10794,6 +11180,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10927,6 +11314,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10966,6 +11354,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11010,6 +11399,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11138,6 +11528,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -11177,6 +11568,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11221,6 +11613,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13445,6 +13838,125 @@ notes: &gt;
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Curation scope note. This entry is anchored on MONDO:0014857 (NEDBEH, OMIM:616975), the RERE entity. Two nearby entities were deliberately kept out and should not be merged in by later curation. First, proximal 1p36 deletion syndrome: RERE lies in its critical region and NEDBEH phenocopies much of it, but the deletion is a contiguous-gene disorder involving other genes, so its epidemiology is recorded here only as explicitly labelled context and its phenotypes are not imported. Second, CDK19-related developmental and epileptic encephalopathy (DEE87, OMIM:618916), which surfaced during deep research under a similar-sounding description; it is a separate gene-disease relationship and is not part of this entity.
+Both deep-research reports used for this entry passed the `just preflight-dr` Named Entity Confusion check against MONDO:0014857 (RERE mentioned 64 and 52 times respectively, dominant over every rival gene, with report OMIM identifiers matching the MONDO xref).
+Frequency discipline: most phenotypes here carry no `frequency:` value. This is deliberate. The available sources describe features qualitatively rather than quantitatively, and several phenotypes (Chiari type I malformation, nocturnal enuresis, orofacial clefting, choanal atresia) rest on one or two reported individuals, which supports no FrequencyEnum band at all. See the `rere_phenotype_frequency_gap` discussion.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: NEDBEH (RERE-related neurodevelopmental disorder)</strong> · 2026-08-18T15:44:03Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Neurodevelopmental_Disorder_with_or_without_Anomalies_of_the_Brain_Eye_or_Heart/2026-08-18T154403Z-claude-code-990009.yaml">View source</a></p>
+                        <p class="research-review-text">Created the NEDBEH entry (MONDO:0014857, OMIM:616975, RERE / hgnc:9965) de novo.
+
+DUPLICATE PREFLIGHT. Checked all three surfaces before starting. git grep over
+origin/main kb/disorders found no RERE-anchored entry (the only word-boundary
+RERE hits are incidental mentions in Laryngotracheoesophageal_Cleft, MED13_Syndrome,
+and Vitiligo). GitHub issue and PR searches for RERE, NEDBEH, and MONDO:0014857
+returned nothing covering this entity. Note that an initial MONDO guess
+(MONDO:0014907) was wrong - that ID is short-rib thoracic dysplasia 15 - and the
+correct term was obtained by OAK label search and confirmed by its RO:0004003
+relation to HGNC:9965 and OMIM:616975 xref.
+
+DEEP RESEARCH PROVIDERS. The default provider, falcon, was attempted first and
+FAILED: the Edison API returned HTTP 402 Payment Required, so no falcon report
+exists for this entry and none of its content was used. Two substitutes were run
+instead, both successfully:
+  - claude_code (research/..._-deep-research-claude_code.md): 16 web searches,
+    24 turns. Its own reference_validation reports 8/8 references verified,
+    confabulation_rate 0.0, but needs_review true because one reference
+    (PMID:9150137, a generic SMRT/mSin3A/HDAC corepressor paper) scored off
+    topic. That reference was NOT cited in this entry - it is generic nuclear
+    receptor corepressor background rather than RERE-specific evidence.
+  - openscientist (research/..._-deep-research-openscientist.md): 16/16
+    references verified, 0 not found, confabulation_rate 0.0, no unresolved
+    references.
+
+NEC PREFLIGHT. just preflight-dr was run against MONDO:0014857 on BOTH reports
+and both returned PASS: RERE mentioned 64 times (claude_code) and 52 times
+(openscientist), dominant over every rival gene, with report OMIM identifiers
+matching the MONDO xref. This mattered here because the claude_code report itself
+flagged a Named Entity Confusion risk against CDK19/DEE87 (OMIM:618916); that
+entity is explicitly excluded in the entry notes.
+
+EVIDENCE DISCIPLINE. The claude_code report states plainly that its own quotes are
+paraphrased from secondary sources and must not be treated as verbatim. That
+warning was honoured: NO snippet in this entry was taken from either research
+report. Every PMID was fetched with just fetch-reference and every snippet was
+copied from the actual cached abstract in references_cache/.
+
+GENEREVIEWS BASELINE (required step). PubMed search found the GeneReviews chapter
+&#34;RERE-Related Disorders&#34; (Scott DA, Sherr EH), PMID:30896913. It was fetched,
+cached, tagged GeneReviews in the top-level references block, and used as the
+phenotype baseline. Every phenotype in its Clinical Characteristics paragraph is
+represented: developmental delay, intellectual disability, hypotonia, feeding
+problems, ADHD, self-injurious behaviour, autism, coloboma, optic nerve anomalies,
+microphthalmia, Peters anomaly, myopia/astigmatism/strabismus, septal heart
+defects, vesicoureteral reflux, cryptorchidism, hypospadias, sensorineural hearing
+loss, plus seizures, GERD, scoliosis and hip dysplasia named in its management
+section. Its surveillance schedule is curated as a treatment entry. GeneReviews
+documents no Agents/Circumstances to Avoid for this disorder, so no drug-safety
+warning was added.
+
+STRUCTURED SOURCE. ClinGen has a Definitive, expert-panel gene-disease validity
+assertion for RERE (Intellectual Disability and Autism GCEP, SOP9, 2023-03-21).
+Its cache file was built with just clingen-rebuild and two rows are cited. Note
+ClinGen anchors on MONDO:0100465, a gene-agnostic ClinGen class rather than the
+RERE entity, so that term is recorded as a skos:broadMatch mapping, not as this
+entry&#39;s anchor. ClinGen also records the mechanism as loss of function, which
+conflicts with the 2026 cohort&#39;s gain-of-function/dominant-negative proposal for
+the HRR class; both are recorded and the conflict is left open rather than
+silently resolved.
+
+CONTENT. Eight-node pathophysiology chain from RERE co-regulator dysfunction
+through impaired retinoic-acid signalling (WHHERE complex; NR2F2/p300/RAR at
+RAREs) and deregulated SHH/FGF8 into four organ-specific effectors (ocular
+morphogenesis and retinal ganglion cell loss; endocardial EMT and GATA4 in the
+AV cushions; brain growth and hindbrain patterning; cranial-neural-crest palatal
+mesenchyme), converging on a multisystem developmental field defect. 27
+phenotypes, three curated RERE variant classes (LOF haploinsufficiency, HRR
+missense/in-frame, recurrent CHARGE-like HRR duplication), four treatments, four
+animal models and one patient-variant CRISPR cell line with modeled_mechanisms
+and readouts.
+
+DELIBERATE OMISSIONS. Most phenotypes carry NO frequency value. The sources
+describe features qualitatively and several phenotypes (Chiari I, nocturnal
+enuresis, clefting, choanal atresia) rest on one or two individuals, which
+supports no FrequencyEnum band; per the frequency SOP, omission was chosen over
+fabricated justification. Orphanet ORPHA:494344 was NOT cited: the bulk
+Orphadata XML is gitignored and not present locally, and cache files must never
+be hand-written. The 1p36 deletion birth prevalence is recorded only as an
+explicitly labelled contextual row marked supports: PARTIAL, because it is the
+contiguous-gene deletion&#39;s rate and not NEDBEH&#39;s.
+
+SELF-REVIEW FIXES. Four phenotypes whose names were broader than the HPO term
+they bound were renamed to match (Myopia, Hypoplasia of the Corpus Callosum,
+Ventricular Septal Defect, Cleft Palate) and a separate Strabismus phenotype was
+added so the motility findings were not lost. A severity: MILD qualifier on the
+hearing loss phenotype had no attached supporting quote; the GeneReviews sentence
+containing &#34;mild sensorineural hearing loss&#34; was added to support it. A
+gene-level variant_origin: DE_NOVO was removed because it flattened the real
+exception that LOF alleles are sometimes inherited - inheritance.de_novo_rate
+carries that nuance accurately instead.
+
+VALIDATION. just validate passes (schema + terms + references). just
+validate-disorders - the batched pre-PR sweep CI runs - passes, output read in
+full: 107/107 snippets verified against cached references. just
+check-duplicate-keys OK. just check-title-snippets OK, no new title-quoting
+snippets. just compliance reports 87.9% global, 88.2% weighted; the residual gap
+is discussions[].evidence and proposed_experiments[].evidence/datasets, which are
+empty by construction because those describe experiments not yet performed.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

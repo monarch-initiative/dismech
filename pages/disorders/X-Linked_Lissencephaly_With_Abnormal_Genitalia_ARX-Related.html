@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,18 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4129,6 +4206,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4253,6 +4331,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4274,6 +4353,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4636,6 +4716,7 @@ This experiment is of type in vivo gyrencephalic model study.</span>
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4660,6 +4741,7 @@ This experiment is of type in vivo gyrencephalic model study.</span>
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4681,6 +4763,7 @@ This experiment is of type in vivo gyrencephalic model study.</span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4720,6 +4803,7 @@ This experiment is of type in vivo gyrencephalic model study.</span>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-arx-functional-deficiency" data-dismech-node="ARX Functional Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">ARX Functional Deficiency</div>
+
 
                 <div class="item-desc">Complete loss-of-function and severe homeodomain variants reduce or mislocalize functional nuclear ARX. This is the initiating molecular lesion in classic XLAG; hypomorphic and polyalanine-expansion alleles can produce different ARX-related disorders and are not assumed to follow every branch modeled here.</div>
 
@@ -4816,6 +4900,7 @@ This pathophysiological event involves ARX (hgnc:18060). hgnc:18060 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4837,6 +4922,7 @@ This pathophysiological event involves ARX (hgnc:18060). hgnc:18060 is a gene fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4862,6 +4948,7 @@ This pathophysiological event involves ARX (hgnc:18060). hgnc:18060 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-arx-dependent-transcriptional-program-disruption" data-dismech-node="ARX-Dependent Transcriptional Program Disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">ARX-Dependent Transcriptional Program Disruption</div>
+
 
                 <div class="item-desc">ARX deficiency perturbs transcriptional programs governing forebrain progenitor proliferation, cortical-interneuron lineage differentiation and guidance, basal-ganglia and thalamocortical development, and testicular differentiation. ARX can regulate targets through context-dependent repression or derepression, so this node does not assume a single direction for every target gene.</div>
 
@@ -5093,6 +5180,7 @@ This pathophysiological event involves ARX (hgnc:18060). hgnc:18060 is a gene fr
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5114,6 +5202,7 @@ This pathophysiological event involves ARX (hgnc:18060). hgnc:18060 is a gene fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5139,6 +5228,7 @@ This pathophysiological event involves ARX (hgnc:18060). hgnc:18060 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-subpallial-interneuron-lineage-program-disruption" data-dismech-node="Subpallial Interneuron Lineage Program Disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">Subpallial Interneuron Lineage Program Disruption</div>
+
 
                 <div class="item-desc">ARX-dependent programs in the ganglionic eminences regulate cortical-interneuron cell-cycle exit, subtype identity, differentiation, and guidance. Their disruption is the conserved upstream interneuronopathy branch of XLAG.</div>
 
@@ -5349,6 +5439,7 @@ This pathophysiological event involves abnormal forebrain development (GO:003090
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5370,6 +5461,7 @@ This pathophysiological event involves abnormal forebrain development (GO:003090
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5395,6 +5487,7 @@ This pathophysiological event involves abnormal forebrain development (GO:003090
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-interneuron-progenitor-differentiation-failure" data-dismech-node="Interneuron Progenitor Differentiation Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Interneuron Progenitor Differentiation Failure</div>
+
 
                 <div class="item-desc">ARX-deficient ventral precursors are mispositioned and fail to complete normal later differentiation, accumulating as immature neurons in ganglionic-eminence regions. The evidence does not support simple depletion of the initial precursor pool.</div>
 
@@ -5520,6 +5613,7 @@ This pathophysiological event involves decreased GABAergic neuron differentiatio
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5541,6 +5635,7 @@ This pathophysiological event involves decreased GABAergic neuron differentiatio
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5566,6 +5661,7 @@ This pathophysiological event involves decreased GABAergic neuron differentiatio
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tangential-migration-failure-from-ganglionic-eminences" data-dismech-node="Tangential Migration Failure from Ganglionic Eminences" data-dismech-type="pathophysiology">
                 <div class="item-name">Tangential Migration Failure from Ganglionic Eminences</div>
+
 
                 <div class="item-desc">ARX-deficient cortical-interneuron precursors show reduced tangential migration from medial and lateral ganglionic eminences toward the neocortex. This is a well-supported conserved branch, but it is not treated as a proven sufficient cause of the human gyral malformation.</div>
 
@@ -5712,6 +5808,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5733,6 +5830,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5760,6 +5858,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5784,6 +5883,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cortical-gabaergic-interneuron-deficit-and-mislocalization" data-dismech-node="Cortical GABAergic Interneuron Deficit and Mislocalization" data-dismech-type="pathophysiology">
                 <div class="item-name">Cortical GABAergic Interneuron Deficit and Mislocalization</div>
+
 
                 <div class="item-desc">Human XLAG cortex contains markedly reduced or mislocalized GABAergic interneurons, with some subtypes retained in white matter or subventricular regions; severe tissue can be almost devoid of cortical interneurons.</div>
 
@@ -5930,6 +6030,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5951,6 +6052,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5978,6 +6080,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6000,6 +6103,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cortical-excitation-inhibition-imbalance" data-dismech-node="Cortical Excitation-Inhibition Imbalance" data-dismech-type="pathophysiology">
                 <div class="item-name">Cortical Excitation-Inhibition Imbalance</div>
+
 
                 <div class="item-desc">Reduced inhibitory-interneuron number and integration are inferred to shift developing cortical networks toward excitation. This is a mechanistic bridge supported by developmental-epilepsy models rather than a directly measured physiological biomarker in classic XLAG.</div>
 
@@ -6159,6 +6263,7 @@ This pathophysiological event involves decreased synaptic transmission, GABAergi
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6181,6 +6286,7 @@ This pathophysiological event involves decreased synaptic transmission, GABAergi
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-developmental-network-hyperexcitability" data-dismech-node="Developmental Network Hyperexcitability" data-dismech-type="pathophysiology">
                 <div class="item-name">Developmental Network Hyperexcitability</div>
+
 
                 <div class="item-desc">Maldevelopment of inhibitory cortical circuits creates severe early-life epileptogenicity. In classic XLAG this presents as clonic convulsions or myoclonus from the first day of life, explicitly without reported infantile spasms or hypsarrhythmia in the defining clinical synthesis.</div>
 
@@ -6234,6 +6340,7 @@ This pathophysiological event involves decreased synaptic transmission, GABAergi
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6256,6 +6363,7 @@ This pathophysiological event involves decreased synaptic transmission, GABAergi
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-forebrain-progenitor-proliferation-deficit" data-dismech-node="Forebrain Progenitor Proliferation Deficit" data-dismech-type="pathophysiology">
                 <div class="item-name">Forebrain Progenitor Proliferation Deficit</div>
+
 
                 <div class="item-desc">Constitutive Arx loss suppresses embryonic forebrain proliferation and causes regional forebrain deficiencies in mice. This model-supported branch may contribute to reduced head growth in severe human XLAG, but the precise human cellular intermediates are unresolved.</div>
 
@@ -6347,6 +6455,7 @@ This pathophysiological event involves abnormal forebrain development (GO:003090
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6369,6 +6478,7 @@ This pathophysiological event involves abnormal forebrain development (GO:003090
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-basal-ganglia-differentiation-failure" data-dismech-node="Basal Ganglia Differentiation Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Basal Ganglia Differentiation Failure</div>
+
 
                 <div class="item-desc">Arx-mutant mice lose a large fraction of basal-ganglia cholinergic neurons. Human XLAG MRI independently shows small or dysplastic basal ganglia; the mouse result supports, but does not fully prove, the cellular basis of that human imaging phenotype.</div>
 
@@ -6515,6 +6625,7 @@ This pathophysiological event occurs in basal ganglion (UBERON:0002420). UBERON:
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6537,6 +6648,7 @@ This pathophysiological event occurs in basal ganglion (UBERON:0002420). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-thalamocortical-projection-failure" data-dismech-node="Thalamocortical Projection Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Thalamocortical Projection Failure</div>
+
 
                 <div class="item-desc">Major thalamocortical axon tracts fail to traverse the basal ganglia in Arx-mutant mice. This is retained as a model-defined ARX branch and is not presented as a directly demonstrated human XLAG imaging lesion.</div>
 
@@ -6575,6 +6687,7 @@ This pathophysiological event occurs in basal ganglion (UBERON:0002420). UBERON:
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6597,6 +6710,7 @@ This pathophysiological event occurs in basal ganglion (UBERON:0002420). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-enteroendocrine-and-pancreatic-developmental-dysfunction" data-dismech-node="Enteroendocrine and Pancreatic Developmental Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Enteroendocrine and Pancreatic Developmental Dysfunction</div>
+
 
                 <div class="item-desc">Some severe XLAG cases have life-limiting intestinal, pancreatic, and hypothalamic manifestations. A detailed molecularly characterized case implicates ARX-dependent enteroendocrine development, but the frequency and precise cellular mechanism are not established.</div>
 
@@ -6658,6 +6772,7 @@ This pathophysiological event occurs in basal ganglion (UBERON:0002420). UBERON:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6680,6 +6795,7 @@ This pathophysiological event occurs in basal ganglion (UBERON:0002420). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-testicular-differentiation-failure" data-dismech-node="Testicular Differentiation Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Testicular Differentiation Failure</div>
+
 
                 <div class="item-desc">ARX is required for normal fetal testicular differentiation. Model evidence links Arx loss to testicular dysgenesis, while human XLAG cases establish the resulting spectrum of ambiguous or hypoplastic male genitalia.</div>
 
@@ -6787,6 +6903,7 @@ This pathophysiological event involves abnormal male genitalia development (GO:0
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6809,6 +6926,7 @@ This pathophysiological event involves abnormal male genitalia development (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-candidate-neocortical-svz-radial-migration-disruption" data-dismech-node="Candidate Neocortical SVZ Radial-Migration Disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">Candidate Neocortical SVZ Radial-Migration Disruption</div>
+
 
                 <div class="item-desc">Human XLAG tissue suggests an abnormal radial-migration process from the neocortical subventricular zone. The migrating lineage, any involvement of dorsal excitatory progenitors or outer radial glia, and the consequences for cortical lamination remain untested. This is an explicitly alternative route because existing mouse models cannot determine whether it is required for the human gyral malformation.</div>
 
@@ -6943,6 +7061,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7002,6 +7121,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7046,6 +7166,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7110,17 +7231,15 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Genitourinary<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Genitourinary<span class="pill-count">(3)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(1)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Musculoskeletal<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Nervous System<span class="pill-count">(5)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Nervous System<span class="pill-count">(8)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -7130,7 +7249,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Digestive
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-chronic-diarrhea" data-dismech-node="Chronic Diarrhea" data-dismech-type="phenotype">
@@ -7161,6 +7280,9 @@ This clinical feature is Chronic diarrhea (HP:0002028). HP:0002028 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7175,6 +7297,7 @@ This clinical feature is Chronic diarrhea (HP:0002028). HP:0002028 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7201,14 +7324,185 @@ This clinical feature is Chronic diarrhea (HP:0002028). HP:0002028 is a phenotyp
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pancreatic-insufficiency" data-dismech-node="Pancreatic Insufficiency" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Pancreatic Insufficiency
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormality of the pancreas</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001732" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001732</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pancreatic insufficiency, annotated with Abnormality of the pancreas (HP:0001732). HP:0001732 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1177/2329048X17738625" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1177/2329048X17738625" target="_blank">DOI:10.1177/2329048X17738625</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Other multisystem manifestations included megacolon, colitis, pancreatic insufficiency hypothalamic dysfunction, hypothyroidism, and hypophosphatasia."</div>
+
+
+                <div class="evidence-explanation">Direct case-level evidence for pancreatic insufficiency.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Genitourinary
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-ambiguous-genitalia" data-dismech-node="Ambiguous Genitalia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Ambiguous Genitalia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000062" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000062</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ambiguous genitalia (HP:0000062). HP:0000062 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17221017" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17221017" target="_blank">PMID:17221017</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Patients present with lissencephaly, agenesis of the corpus callosum, refractory epilepsy of neonatal onset, acquired microcephaly and male genotype with ambiguous genitalia."</div>
+
+
+                <div class="evidence-explanation">Directly establishes ambiguous genitalia in genotypic males with XLAG.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31867230" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31867230" target="_blank">PMID:31867230</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Initial neonatal assessment confirmed tone abnormalities and ambiguous genitalia."</div>
+
+
+                <div class="evidence-explanation">Documents the genital phenotype in a molecularly confirmed neonatal case.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-micropenis" data-dismech-node="Micropenis" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -7224,15 +7518,18 @@ This clinical feature is Chronic diarrhea (HP:0002028). HP:0002028 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000054" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000054</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000054" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000054</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Micropenis (HP:0000054). HP:0000054 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7252,6 +7549,7 @@ This clinical feature is Micropenis (HP:0000054). HP:0000054 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7293,15 +7591,18 @@ lus of 1.2 cm"</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000028" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000028</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000028" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000028</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7321,6 +7622,7 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7370,15 +7672,18 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000252</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7398,6 +7703,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7447,15 +7753,18 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001252</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7475,6 +7784,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7507,12 +7817,12 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">5</span>
+                    <span class="cat-count">8</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-agenesis-of-the-corpus-callosum" data-dismech-node="Agenesis of the Corpus Callosum" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-lissencephaly" data-dismech-node="Lissencephaly" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Agenesis of the Corpus Callosum
+                        Lissencephaly
 
 
 
@@ -7521,20 +7831,21 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
                     <span class="phenotype-id">
 
-                        <span class="phenotype-term-label">Agenesis of corpus callosum</span>
 
 
 
+    <a href="http://purl.obolibrary.org/obo/HP_0001339" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001339</a>
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001274" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001274</a>
 
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Agenesis of corpus callosum (HP:0001274). HP:0001274 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Lissencephaly (HP:0001339). HP:0001339 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7554,6 +7865,106 @@ This clinical feature is Agenesis of corpus callosum (HP:0001274). HP:0001274 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Brain magnetic resonance imaging shows anterior pachygyria and posterior agyria with a mildly thick cortex, agenesis of the corpus callosum, and dysplastic basal ganglia."</div>
+
+
+                <div class="evidence-explanation">Defines the classic agyria-pachygyria pattern.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28440899" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28440899" target="_blank">PMID:28440899</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Lastly, temporal-predominant thin LIS with ACC and abnormal white matter is caused by mutations in ARX."</div>
+
+
+                <div class="evidence-explanation">Places severe ARX disease in the modern imaging classification.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-agenesis-of-the-corpus-callosum" data-dismech-node="Agenesis of the Corpus Callosum" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Agenesis of the Corpus Callosum
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Agenesis of corpus callosum</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001274" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001274</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Agenesis of corpus callosum (HP:0001274). HP:0001274 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15921244" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15921244" target="_blank">PMID:15921244</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7578,6 +7989,7 @@ This clinical feature is Agenesis of corpus callosum (HP:0001274). HP:0001274 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7618,15 +8030,18 @@ This clinical feature is Agenesis of corpus callosum (HP:0001274). HP:0001274 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002134" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0002134</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002134" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0002134</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal basal ganglia morphology (HP:0002134). HP:0002134 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7646,6 +8061,7 @@ This clinical feature is Abnormal basal ganglia morphology (HP:0002134). HP:0002
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7673,6 +8089,7 @@ This clinical feature is Abnormal basal ganglia morphology (HP:0002134). HP:0002
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7681,6 +8098,132 @@ This clinical feature is Abnormal basal ganglia morphology (HP:0002134). HP:0002
 
 
                 <div class="evidence-explanation">Supports dysplastic basal ganglia as part of the classic pattern.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-intractable-neonatal-seizures" data-dismech-node="Intractable Neonatal Seizures" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Intractable Neonatal Seizures
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0032807" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0032807</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Neonatal seizure (HP:0032807), qualified as neonatal onset. HP:0032807 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">
+        Onset: NEONATAL</span>
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15921244" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15921244" target="_blank">PMID:15921244</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Male patients with X-linked lissencephaly with abnormal genitalia show intractable seizures, especially clonic convulsions or myoclonus from the first day of life, but neither infantile spasms nor hypsarrhythmia on electroencephalograms so far."</div>
+
+
+                <div class="evidence-explanation">Defines seizure onset, semiology, refractoriness, and the absence of infantile spasms in classic XLAG.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31867230" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31867230" target="_blank">PMID:31867230</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Within the first few minutes of life, baby developed seizures and cerebral function monitoring (CFM) demonstrated persistent electrical seizure activity, refractory to multi-pharmacological management with antiepileptic medications (phenobarbitone and phenytoin in addition to levetiracetam)."</div>
+
+
+                <div class="evidence-explanation">Directly documents immediate neonatal onset and pharmacoresistance.</div>
 
 
 
@@ -7710,15 +8253,18 @@ This clinical feature is Abnormal basal ganglia morphology (HP:0002134). HP:0002
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012736" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0012736</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012736" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0012736</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Profound global developmental delay (HP:0012736). HP:0012736 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7741,6 +8287,7 @@ This clinical feature is Profound global developmental delay (HP:0012736). HP:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7749,6 +8296,78 @@ This clinical feature is Profound global developmental delay (HP:0012736). HP:00
 
 
                 <div class="evidence-explanation">The clinical synthesis reports absence of psychomotor developmental acquisition in classic XLAG cases.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-pyramidal-signs" data-dismech-node="Abnormal Pyramidal Signs" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Abnormal Pyramidal Signs
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007256" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0007256</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal pyramidal sign (HP:0007256). HP:0007256 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17221017" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17221017" target="_blank">PMID:17221017</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Examination identified microcephaly, axial hypotonia, pyramidal signs and ambiguous genitalia."</div>
+
+
+                <div class="evidence-explanation">Directly documents pyramidal signs in an affected infant.</div>
 
 
 
@@ -7778,15 +8397,18 @@ This clinical feature is Profound global developmental delay (HP:0012736). HP:00
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002059" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0002059</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002059" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0002059</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cerebral atrophy (HP:0002059). HP:0002059 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7806,6 +8428,7 @@ This clinical feature is Cerebral atrophy (HP:0002059). HP:0002059 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7846,15 +8469,18 @@ This clinical feature is Cerebral atrophy (HP:0002059). HP:0002059 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002119" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0002119</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002119" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0002119</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7874,6 +8500,7 @@ This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7885,458 +8512,6 @@ This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotyp
 
 
                 <div class="evidence-explanation">Directly documents ventricular enlargement in a human XLAG case while preserving case-level qualification.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">5</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-lissencephaly" data-dismech-node="Lissencephaly" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Lissencephaly
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001339" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0001339</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Lissencephaly (HP:0001339). HP:0001339 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:15921244" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15921244" target="_blank">PMID:15921244</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Brain magnetic resonance imaging shows anterior pachygyria and posterior agyria with a mildly thick cortex, agenesis of the corpus callosum, and dysplastic basal ganglia."</div>
-
-
-                <div class="evidence-explanation">Defines the classic agyria-pachygyria pattern.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:28440899" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28440899" target="_blank">PMID:28440899</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Lastly, temporal-predominant thin LIS with ACC and abnormal white matter is caused by mutations in ARX."</div>
-
-
-                <div class="evidence-explanation">Places severe ARX disease in the modern imaging classification.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-ambiguous-genitalia" data-dismech-node="Ambiguous Genitalia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Ambiguous Genitalia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000062" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0000062</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Ambiguous genitalia (HP:0000062). HP:0000062 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:17221017" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17221017" target="_blank">PMID:17221017</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Patients present with lissencephaly, agenesis of the corpus callosum, refractory epilepsy of neonatal onset, acquired microcephaly and male genotype with ambiguous genitalia."</div>
-
-
-                <div class="evidence-explanation">Directly establishes ambiguous genitalia in genotypic males with XLAG.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31867230" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31867230" target="_blank">PMID:31867230</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Initial neonatal assessment confirmed tone abnormalities and ambiguous genitalia."</div>
-
-
-                <div class="evidence-explanation">Documents the genital phenotype in a molecularly confirmed neonatal case.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-intractable-neonatal-seizures" data-dismech-node="Intractable Neonatal Seizures" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Intractable Neonatal Seizures
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0032807" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0032807</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Neonatal seizure (HP:0032807), qualified as neonatal onset. HP:0032807 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">
-        Onset: NEONATAL</span>
-
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:15921244" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15921244" target="_blank">PMID:15921244</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Male patients with X-linked lissencephaly with abnormal genitalia show intractable seizures, especially clonic convulsions or myoclonus from the first day of life, but neither infantile spasms nor hypsarrhythmia on electroencephalograms so far."</div>
-
-
-                <div class="evidence-explanation">Defines seizure onset, semiology, refractoriness, and the absence of infantile spasms in classic XLAG.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31867230" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31867230" target="_blank">PMID:31867230</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Within the first few minutes of life, baby developed seizures and cerebral function monitoring (CFM) demonstrated persistent electrical seizure activity, refractory to multi-pharmacological management with antiepileptic medications (phenobarbitone and phenytoin in addition to levetiracetam)."</div>
-
-
-                <div class="evidence-explanation">Directly documents immediate neonatal onset and pharmacoresistance.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-pyramidal-signs" data-dismech-node="Abnormal Pyramidal Signs" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Abnormal Pyramidal Signs
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007256" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0007256</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal pyramidal sign (HP:0007256). HP:0007256 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:17221017" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17221017" target="_blank">PMID:17221017</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Examination identified microcephaly, axial hypotonia, pyramidal signs and ambiguous genitalia."</div>
-
-
-                <div class="evidence-explanation">Directly documents pyramidal signs in an affected infant.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-pancreatic-insufficiency" data-dismech-node="Pancreatic Insufficiency" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Pancreatic Insufficiency
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Abnormality of the pancreas</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001732" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0001732</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Pancreatic insufficiency, annotated with Abnormality of the pancreas (HP:0001732). HP:0001732 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="DOI:10.1177/2329048X17738625" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/DOI:10.1177/2329048X17738625" target="_blank">DOI:10.1177/2329048X17738625</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Other multisystem manifestations included megacolon, colitis, pancreatic insufficiency hypothalamic dysfunction, hypothyroidism, and hypophosphatasia."</div>
-
-
-                <div class="evidence-explanation">Direct case-level evidence for pancreatic insufficiency.</div>
 
 
 
@@ -8422,6 +8597,9 @@ This disease-associated gene is ARX (aristaless-related homeobox), annotated wit
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">X-linked inheritance</span>
@@ -8444,6 +8622,7 @@ This disease-associated gene is ARX (aristaless-related homeobox), annotated wit
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8471,6 +8650,7 @@ This disease-associated gene is ARX (aristaless-related homeobox), annotated wit
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8492,6 +8672,7 @@ This disease-associated gene is ARX (aristaless-related homeobox), annotated wit
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8579,6 +8760,31 @@ This treatment is pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Antiseizure medications are selected for the observed neonatal seizure types, but classic XLAG epilepsy is frequently refractory. The evidence supports symptomatic treatment attempts, not an ARX-specific effective regimen.</div>
 
 
@@ -8622,6 +8828,7 @@ This treatment targets Neonatal seizure (HP:0032807). HP:0032807 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8688,6 +8895,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Individualized supportive care can address documented complications such as failure to thrive, dehydration, electrolyte derangements, and severe chronic diarrhea. Palliative involvement may be appropriate when symptom burden is life limiting.</div>
 
 
@@ -8731,6 +8952,7 @@ This treatment targets Chronic diarrhea (HP:0002028). HP:0002028 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8796,6 +9018,20 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Counseling addresses X-linked inheritance, recurrence and reproductive options, variant-class-dependent prognosis, and the broad but nonuniform phenotype of heterozygous females. Female-spectrum percentages must not be applied to hemizygous XLAG males.</div>
 
 
@@ -8817,6 +9053,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8927,6 +9164,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9019,6 +9257,7 @@ present in addition to lissencephaly."</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9040,6 +9279,7 @@ present in addition to lissencephaly."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9221,6 +9461,7 @@ present in addition to lissencephaly."</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9242,6 +9483,7 @@ present in addition to lissencephaly."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9411,6 +9653,7 @@ present in addition to lissencephaly."</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9577,6 +9820,7 @@ present in addition to lissencephaly."</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9639,6 +9883,7 @@ present in addition to lissencephaly."</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9660,6 +9905,7 @@ present in addition to lissencephaly."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9713,6 +9959,7 @@ present in addition to lissencephaly."</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9763,6 +10010,7 @@ present in addition to lissencephaly."</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9784,6 +10032,7 @@ present in addition to lissencephaly."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9834,6 +10083,7 @@ present in addition to lissencephaly."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9940,6 +10190,7 @@ present in addition to lissencephaly."</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9964,6 +10215,7 @@ present in addition to lissencephaly."</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9985,6 +10237,7 @@ present in addition to lissencephaly."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10062,6 +10315,7 @@ present in addition to lissencephaly."</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10133,6 +10387,7 @@ present in addition to lissencephaly."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10210,6 +10465,7 @@ present in addition to lissencephaly."</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10277,6 +10533,7 @@ present in addition to lissencephaly."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10467,6 +10724,7 @@ This experimental model uses cerebral cortex (UBERON:0000956). UBERON:0000956 is
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -10520,6 +10778,7 @@ This experimental model uses cerebral cortex (UBERON:0000956). UBERON:0000956 is
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -10541,6 +10800,7 @@ This experimental model uses cerebral cortex (UBERON:0000956). UBERON:0000956 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10584,6 +10844,7 @@ This experimental model uses cerebral cortex (UBERON:0000956). UBERON:0000956 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10737,6 +10998,7 @@ This experimental model concerns ARX (hgnc:18060). hgnc:18060 is a gene from the
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10758,6 +11020,7 @@ This experimental model concerns ARX (hgnc:18060). hgnc:18060 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10896,6 +11159,7 @@ This experimental model concerns ARX (hgnc:18060). hgnc:18060 is a gene from the
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10917,6 +11181,7 @@ This experimental model concerns ARX (hgnc:18060). hgnc:18060 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13729,6 +13994,19 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Comprehensive review of ARX-related XLAG</strong> · 2026-07-17T12:28:44Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/ARX-Related_Lissencephaly_and_Interneuronopathy/2026-07-17T122844Z-codex-8dc9bb.yaml">View source</a></p>
+                        <p class="research-review-text">Re-reviewed MONDO:0010268 as strict X-linked lissencephaly with abnormal genitalia (XLAG), separating classic XLAG from other ARX allelic disorders. Rebuilt the causal graph into atomic, evidence-bearing mechanisms; added and refined phenotype, imaging, histopathology, genetic, diagnosis, differential, model, natural-history, management, and human-model-mismatch content. New literature cache files were generated only with just fetch-reference; targeted ontology validation added deterministic imaging-term cache rows. Deep-research output was used only as a search lead, and its unverified ontology table was not imported. Broad observational registries were omitted because their generated caches did not preserve deterministic ARX-specific eligibility text. Targeted checks passed: schema, ontology terms, folded-scalar hyphens, isolated graph integrity, 15/15 phenotype connectivity, 1/1 causal-gene wiring, and a read-only evidence audit covering 120 exact snippets with 20/20 bibliography closure and matching cache titles. The repository-wide graph recipe still reports pre-existing orphan targets in 81 unrelated disease files; the isolated ARX graph passes.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

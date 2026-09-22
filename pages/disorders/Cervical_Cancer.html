@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3756,6 +3821,18 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3796,7 +3873,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 12</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 13</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Cervical%20Cancer"
@@ -3964,7 +4041,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">12</div>
+                <div class="stat-value">13</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4296,6 +4373,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-e6-oncoprotein-mediated-p53-degradation" data-dismech-node="E6 Oncoprotein-Mediated p53 Degradation" data-dismech-type="pathophysiology">
                 <div class="item-name">E6 Oncoprotein-Mediated p53 Degradation</div>
 
+
                 <div class="item-desc">The HPV E6 oncoprotein binds to the cellular E3 ubiquitin ligase E6AP and targets p53 for proteasomal degradation. Loss of p53 function eliminates DNA damage checkpoints, allows cells with genomic instability to survive, and prevents apoptosis of infected cells.</div>
 
 
@@ -4483,11 +4561,12 @@ This pathophysiological event occurs in uterine cervix (UBERON:0000002). UBERON:
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
 
-                <div class="evidence-snippet">"that bind p53 stimulate the degradation of p53."</div>
+                <div class="evidence-snippet">"In this study we demonstrate that the E6 proteins of the oncogenic HPVs that bind p53 stimulate the degradation of p53."</div>
 
 
                 <div class="evidence-explanation">Classic mechanistic evidence shows high-risk HPV E6 promotes p53 degradation, supporting p53 checkpoint loss as a central cervical cancer mechanism.</div>
@@ -4505,6 +4584,7 @@ This pathophysiological event occurs in uterine cervix (UBERON:0000002). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-dna-damage-response" data-dismech-node="Loss of DNA Damage Response" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of DNA Damage Response</div>
+
 
                 <div class="item-desc">E6-mediated degradation of p53 weakens DNA-damage checkpoint and apoptosis responses, allowing damaged cervical epithelial cells to survive instead of undergoing growth arrest or programmed cell death.</div>
 
@@ -4629,15 +4709,18 @@ This pathophysiological event involves decreased cell cycle checkpoint signaling
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
 
-                <div class="evidence-snippet">"p53 is ATP dependent and involves the ubiquitin-dependent protease system."</div>
+                <div class="evidence-snippet">"The E6-promoted degradation of p53 is ATP dependent and involves the ubiquitin-dependent protease system."</div>
 
 
-                <div class="evidence-explanation">p53 degradation provides direct mechanistic support for impaired p53-mediated DNA damage response and checkpoint control.</div>
+                <div class="evidence-explanation">Establishes the proteolytic route by which E6 destroys p53, the direct cause of this node&#39;s checkpoint/DNA-damage-response failure. Marked INDIRECT because this 1990 biochemical study characterizes p53 destruction itself and does not measure the downstream DNA-damage response or checkpoint readout.</div>
 
 
 
@@ -4652,6 +4735,7 @@ This pathophysiological event involves decreased cell cycle checkpoint signaling
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-genomic-instability" data-dismech-node="Genomic Instability" data-dismech-type="pathophysiology">
                 <div class="item-name">Genomic Instability</div>
+
 
                 <div class="item-desc">HPV integration and impaired checkpoint control are associated with structural genomic aberrations, supporting the accumulation of alterations that help drive malignant progression.</div>
 
@@ -4743,11 +4827,12 @@ This pathophysiological event involves abnormal DNA damage response (GO:0006974)
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"aberrations and increased target-gene expression."</div>
+                <div class="evidence-snippet">"Integration of human papilloma virus (HPV) was observed in all HPV18-related samples and 76% of HPV16-related samples, and was associated with structural aberrations and increased target-gene expression."</div>
 
 
                 <div class="evidence-explanation">Human cervical tumor genomic data link HPV integration with structural aberrations, supporting genomic instability in HPV-driven carcinogenesis.</div>
@@ -4765,6 +4850,7 @@ This pathophysiological event involves abnormal DNA damage response (GO:0006974)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-e7-oncoprotein-mediated-prb-inactivation" data-dismech-node="E7 Oncoprotein-Mediated pRB Inactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">E7 Oncoprotein-Mediated pRB Inactivation</div>
+
 
                 <div class="item-desc">The HPV E7 oncoprotein binds to and inactivates the retinoblastoma protein (pRB), releasing E2F transcription factors to drive uncontrolled cell cycle progression. E7 also targets pRB family members p107 and p130, and destabilizes pRB through proteasomal degradation.</div>
 
@@ -4890,11 +4976,12 @@ This pathophysiological event involves decreased cell cycle checkpoint signaling
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
 
-                <div class="evidence-snippet">"form similar complexes with p105-RB. Human papilloma virus-16 is found"</div>
+                <div class="evidence-snippet">"These assays have been used to demonstrate that the E7 oncoprotein of the human papilloma virus type-16 can form similar complexes with p105-RB."</div>
 
 
                 <div class="evidence-explanation">Classic biochemical evidence shows HPV16 E7 binds the retinoblastoma gene product, supporting pRB-pathway inactivation.</div>
@@ -4912,6 +4999,7 @@ This pathophysiological event involves decreased cell cycle checkpoint signaling
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-uncontrolled-cell-proliferation" data-dismech-node="Uncontrolled Cell Proliferation" data-dismech-type="pathophysiology">
                 <div class="item-name">Uncontrolled Cell Proliferation</div>
+
 
                 <div class="item-desc">E7 binding to pRB disrupts retinoblastoma-mediated cell-cycle restraint, enabling inappropriate S-phase entry and proliferation of HPV-transformed cervical epithelial cells.</div>
 
@@ -5036,15 +5124,18 @@ This pathophysiological event involves increased G1/S transition of mitotic cell
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
 
-                <div class="evidence-snippet">"implicate RB binding as a possible step in human papilloma"</div>
+                <div class="evidence-snippet">"These results suggest that these three DNA viruses may utilize similar mechanisms in transformation and implicate RB binding as a possible step in human papilloma virus-associated carcinogenesis."</div>
 
 
-                <div class="evidence-explanation">RB binding by HPV16 E7 supports transformation through loss of RB-mediated cell-cycle control.</div>
+                <div class="evidence-explanation">RB binding by HPV16 E7 implicates loss of RB-mediated cell-cycle restraint in HPV carcinogenesis. Marked INDIRECT because this binding study proposes RB binding as a possible transforming step rather than measuring S-phase entry or proliferation directly.</div>
 
 
 
@@ -5059,6 +5150,7 @@ This pathophysiological event involves increased G1/S transition of mitotic cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hpv-genome-integration" data-dismech-node="HPV Genome Integration" data-dismech-type="pathophysiology">
                 <div class="item-name">HPV Genome Integration</div>
+
 
                 <div class="item-desc">Integration of HPV DNA into the host genome disrupts the viral E2 gene, which normally represses E6/E7 expression. This results in constitutive overexpression of E6 and E7 oncoproteins, a critical step in malignant progression from CIN3 to invasive carcinoma.</div>
 
@@ -5146,11 +5238,12 @@ This pathophysiological event involves viral genome integration into host DNA (G
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"aberrations and increased target-gene expression."</div>
+                <div class="evidence-snippet">"Integration of human papilloma virus (HPV) was observed in all HPV18-related samples and 76% of HPV16-related samples, and was associated with structural aberrations and increased target-gene expression."</div>
 
 
                 <div class="evidence-explanation">TCGA confirmed near-universal HPV integration in HPV18-positive cervical cancers and frequent integration in HPV16-positive cancers, linked to host structural alterations and target-gene upregulation.</div>
@@ -5168,6 +5261,7 @@ This pathophysiological event involves viral genome integration into host DNA (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-constitutive-e6-e7-expression" data-dismech-node="Constitutive E6/E7 Expression" data-dismech-type="pathophysiology">
                 <div class="item-name">Constitutive E6/E7 Expression</div>
+
 
                 <div class="item-desc">HPV integration-associated loss of viral regulatory control sustains expression of the E6 and E7 viral oncoproteins, feeding the p53 and pRB disruption arms of cervical carcinogenesis.</div>
 
@@ -5228,15 +5322,18 @@ This pathophysiological event involves viral genome integration into host DNA (G
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"aberrations and increased target-gene expression."</div>
+                <div class="evidence-snippet">"Integration of human papilloma virus (HPV) was observed in all HPV18-related samples and 76% of HPV16-related samples, and was associated with structural aberrations and increased target-gene expression."</div>
 
 
-                <div class="evidence-explanation">TCGA cervical tumor data support integration-associated increased target gene expression, consistent with persistent oncogene expression.</div>
+                <div class="evidence-explanation">Establishes that HPV integration is near-universal in HPV18-positive and frequent in HPV16-positive cervical tumors, the genomic precondition for loss of E2-mediated repression modeled here. Marked INDIRECT because the &#34;target-gene expression&#34; measured is that of host genes at integration sites, not E6/E7 transcript levels, which this quote does not report.</div>
 
 
 
@@ -5253,11 +5350,12 @@ This pathophysiological event involves viral genome integration into host DNA (G
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
 
-                <div class="evidence-snippet">"one of two viral products expressed in HPV-associated cancers. E6 is an"</div>
+                <div class="evidence-snippet">"The E6 protein encoded by the oncogenic human papillomavirus types 16 and 18 is one of two viral products expressed in HPV-associated cancers."</div>
 
 
                 <div class="evidence-explanation">This establishes E6 as an expressed viral oncoprotein in HPV-associated cancers.</div>
@@ -5275,6 +5373,7 @@ This pathophysiological event involves viral genome integration into host DNA (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cervical-intraepithelial-neoplasia-progression" data-dismech-node="Cervical Intraepithelial Neoplasia Progression" data-dismech-type="pathophysiology">
                 <div class="item-name">Cervical Intraepithelial Neoplasia Progression</div>
+
 
                 <div class="item-desc">HPV infection induces a spectrum of preinvasive lesions graded as CIN1, CIN2, and CIN3 (carcinoma in situ). Low-grade lesions (CIN1) often regress, while high-grade lesions (CIN2/3) have significant risk of progression to invasive carcinoma over 10-20 years if untreated.</div>
 
@@ -5390,11 +5489,12 @@ This pathophysiological event involves increased cell population proliferation (
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"Precursor lesions of the cervix persist longer and progress more"</div>
+                <div class="evidence-snippet">"Precursor lesions of the cervix persist longer and progress more quickly in women with oncogenic HPV infections than in women with non-oncogenic infections or without HPV."</div>
 
 
                 <div class="evidence-explanation">A longitudinal HPV/CIN cohort supports oncogenic HPV-associated persistence and faster progression of cervical precursor lesions.</div>
@@ -5451,6 +5551,9 @@ This pathophysiological event involves increased cell population proliferation (
 
 
 
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
                 </div>
 
                 <div class="evidence-snippet">"Squamous cell carcinoma is the most common malignant cervical tumor"</div>
@@ -5491,7 +5594,7 @@ This pathophysiological event involves increased cell population proliferation (
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Vaginal Bleeding\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The most common presenting symptom, including postcoital bleeding, intermenstrual bleeding, or postmenopausal bleeding. Often the first sign of invasive disease.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100608\"}}, {\"id\": \"Cervical Intraepithelial Neoplasia Progression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HPV infection induces a spectrum of preinvasive lesions graded as CIN1, CIN2, and CIN3 (carcinoma in situ). Low-grade lesions (CIN1) often regress, while high-grade lesions (CIN2/3) have significant risk of progression to invasive carcinoma over 10-20 years if untreated.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell population proliferation\"]}}, {\"id\": \"Constitutive E6/E7 Expression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HPV integration-associated loss of viral regulatory control sustains expression of the E6 and E7 viral oncoproteins, feeding the p53 and pRB disruption arms of cervical carcinogenesis.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"E6 Oncoprotein-Mediated p53 Degradation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The HPV E6 oncoprotein binds to the cellular E3 ubiquitin ligase E6AP and targets p53 for proteasomal degradation. Loss of p53 function eliminates DNA damage checkpoints, allows cells with genomic instability to survive, and prevents apoptosis of infected cells.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"epithelial cell of cervix\"], \"biological_processes\": [\"proteasome-mediated ubiquitin-dependent protein catabolic process\", \"apoptotic process\"], \"locations\": [\"uterine cervix\"]}}, {\"id\": \"E7 Oncoprotein-Mediated pRB Inactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The HPV E7 oncoprotein binds to and inactivates the retinoblastoma protein (pRB), releasing E2F transcription factors to drive uncontrolled cell cycle progression. E7 also targets pRB family members p107 and p130, and destabilizes pRB through proteasomal degradation.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"G1/S transition of mitotic cell cycle\", \"cell cycle checkpoint signaling\"]}}, {\"id\": \"Genomic Instability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HPV integration and impaired checkpoint control are associated with structural genomic aberrations, supporting the accumulation of alterations that help drive malignant progression.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"DNA damage response\"]}}, {\"id\": \"HPV Genome Integration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Integration of HPV DNA into the host genome disrupts the viral E2 gene, which normally represses E6/E7 expression. This results in constitutive overexpression of E6 and E7 oncoproteins, a critical step in malignant progression from CIN3 to invasive carcinoma.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"viral genome integration into host DNA\"]}}, {\"id\": \"Hematuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hematuria is a frequent urinary manifestation in advanced cervical cancer and may reflect bladder mucosal involvement.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000790\"}}, {\"id\": \"Loss of DNA Damage Response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"E6-mediated degradation of p53 weakens DNA-damage checkpoint and apoptosis responses, allowing damaged cervical epithelial cells to survive instead of undergoing growth arrest or programmed cell death.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"DNA damage response\", \"cell cycle checkpoint signaling\"]}}, {\"id\": \"Pelvic Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pelvic pain typically indicates locally advanced disease with parametrial invasion, pelvic sidewall involvement, or nerve compression.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002027\"}}, {\"id\": \"Uncontrolled Cell Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"E7 binding to pRB disrupts retinoblastoma-mediated cell-cycle restraint, enabling inappropriate S-phase entry and proliferation of HPV-transformed cervical epithelial cells.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell population proliferation\", \"G1/S transition of mitotic cell cycle\"]}}, {\"id\": \"Vaginal Discharge\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Watery, mucoid, or blood-tinged vaginal discharge may occur, sometimes with foul odor in advanced cases due to tumor necrosis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0034269\"}}], \"edges\": [{\"source\": \"E6 Oncoprotein-Mediated p53 Degradation\", \"target\": \"Loss of DNA Damage Response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"p53 degradation removes critical cell cycle checkpoints\"}, {\"source\": \"E6 Oncoprotein-Mediated p53 Degradation\", \"target\": \"Genomic Instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cells with damaged DNA continue to proliferate\"}, {\"source\": \"Loss of DNA Damage Response\", \"target\": \"Genomic Instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cells with unrepaired damage persist and acquire additional alterations\"}, {\"source\": \"Genomic Instability\", \"target\": \"Cervical Intraepithelial Neoplasia Progression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Genomic alterations contribute to progression from preinvasive lesions\"}, {\"source\": \"E7 Oncoprotein-Mediated pRB Inactivation\", \"target\": \"Uncontrolled Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"E2F release drives S-phase entry independent of growth signals\"}, {\"source\": \"Uncontrolled Cell Proliferation\", \"target\": \"Cervical Intraepithelial Neoplasia Progression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent proliferative signaling contributes to preinvasive lesion progression\"}, {\"source\": \"HPV Genome Integration\", \"target\": \"Constitutive E6/E7 Expression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of E2 repression leads to unchecked oncoprotein production\"}, {\"source\": \"Constitutive E6/E7 Expression\", \"target\": \"E6 Oncoprotein-Mediated p53 Degradation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained E6 expression drives p53 degradation\"}, {\"source\": \"Constitutive E6/E7 Expression\", \"target\": \"E7 Oncoprotein-Mediated pRB Inactivation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained E7 expression drives pRB inactivation\"}, {\"source\": \"Cervical Intraepithelial Neoplasia Progression\", \"target\": \"Abnormal Vaginal Bleeding\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive cervical neoplasia and invasive tumor disrupt cervical mucosa and vessels, causing abnormal bleeding.\"}, {\"source\": \"Cervical Intraepithelial Neoplasia Progression\", \"target\": \"Vaginal Discharge\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive cervical tumor growth and necrosis contribute to abnormal vaginal discharge.\"}, {\"source\": \"Cervical Intraepithelial Neoplasia Progression\", \"target\": \"Pelvic Pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Locally advanced cervical tumor growth can involve parametrial or pelvic tissues and cause pelvic pain.\"}, {\"source\": \"Cervical Intraepithelial Neoplasia Progression\", \"target\": \"Hematuria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Advanced local tumor extension can involve the bladder mucosa and produce hematuria.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Vaginal Bleeding\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The most common presenting symptom, including postcoital bleeding, intermenstrual bleeding, or postmenopausal bleeding. Often the first sign of invasive disease.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100608\"}}, {\"id\": \"Cervical Intraepithelial Neoplasia Progression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HPV infection induces a spectrum of preinvasive lesions graded as CIN1, CIN2, and CIN3 (carcinoma in situ). Low-grade lesions (CIN1) often regress, while high-grade lesions (CIN2/3) have significant risk of progression to invasive carcinoma over 10-20 years if untreated.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell population proliferation\"]}}, {\"id\": \"Constitutive E6/E7 Expression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HPV integration-associated loss of viral regulatory control sustains expression of the E6 and E7 viral oncoproteins, feeding the p53 and pRB disruption arms of cervical carcinogenesis.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"E6 Oncoprotein-Mediated p53 Degradation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The HPV E6 oncoprotein binds to the cellular E3 ubiquitin ligase E6AP and targets p53 for proteasomal degradation. Loss of p53 function eliminates DNA damage checkpoints, allows cells with genomic instability to survive, and prevents apoptosis of infected cells.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"epithelial cell of cervix\"], \"biological_processes\": [\"proteasome-mediated ubiquitin-dependent protein catabolic process\", \"apoptotic process\"], \"locations\": [\"uterine cervix\"]}}, {\"id\": \"E7 Oncoprotein-Mediated pRB Inactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The HPV E7 oncoprotein binds to and inactivates the retinoblastoma protein (pRB), releasing E2F transcription factors to drive uncontrolled cell cycle progression. E7 also targets pRB family members p107 and p130, and destabilizes pRB through proteasomal degradation.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"G1/S transition of mitotic cell cycle\", \"cell cycle checkpoint signaling\"]}}, {\"id\": \"Genomic Instability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HPV integration and impaired checkpoint control are associated with structural genomic aberrations, supporting the accumulation of alterations that help drive malignant progression.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"DNA damage response\"]}}, {\"id\": \"HPV Genome Integration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Integration of HPV DNA into the host genome disrupts the viral E2 gene, which normally represses E6/E7 expression. This results in constitutive overexpression of E6 and E7 oncoproteins, a critical step in malignant progression from CIN3 to invasive carcinoma.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"viral genome integration into host DNA\"]}}, {\"id\": \"Hematuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hematuria is a frequent urinary manifestation in advanced cervical cancer and may reflect bladder mucosal involvement.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000790\"}}, {\"id\": \"High-Risk HPV Infection\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Persistent infection with a high-risk human papillomavirus type is the necessary cause of cervical cancer. Because the initiating event is viral rather than a host genetic lesion, this exposure is what marks where the disease starts.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Loss of DNA Damage Response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"E6-mediated degradation of p53 weakens DNA-damage checkpoint and apoptosis responses, allowing damaged cervical epithelial cells to survive instead of undergoing growth arrest or programmed cell death.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"DNA damage response\", \"cell cycle checkpoint signaling\"]}}, {\"id\": \"Pelvic Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pelvic pain typically indicates locally advanced disease with parametrial invasion, pelvic sidewall involvement, or nerve compression.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002027\"}}, {\"id\": \"Uncontrolled Cell Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"E7 binding to pRB disrupts retinoblastoma-mediated cell-cycle restraint, enabling inappropriate S-phase entry and proliferation of HPV-transformed cervical epithelial cells.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell population proliferation\", \"G1/S transition of mitotic cell cycle\"]}}, {\"id\": \"Vaginal Discharge\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Watery, mucoid, or blood-tinged vaginal discharge may occur, sometimes with foul odor in advanced cases due to tumor necrosis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0034269\"}}], \"edges\": [{\"source\": \"E6 Oncoprotein-Mediated p53 Degradation\", \"target\": \"Loss of DNA Damage Response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"p53 degradation removes critical cell cycle checkpoints\"}, {\"source\": \"E6 Oncoprotein-Mediated p53 Degradation\", \"target\": \"Genomic Instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cells with damaged DNA continue to proliferate\"}, {\"source\": \"Loss of DNA Damage Response\", \"target\": \"Genomic Instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cells with unrepaired damage persist and acquire additional alterations\"}, {\"source\": \"Genomic Instability\", \"target\": \"Cervical Intraepithelial Neoplasia Progression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Genomic alterations contribute to progression from preinvasive lesions\"}, {\"source\": \"E7 Oncoprotein-Mediated pRB Inactivation\", \"target\": \"Uncontrolled Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"E2F release drives S-phase entry independent of growth signals\"}, {\"source\": \"Uncontrolled Cell Proliferation\", \"target\": \"Cervical Intraepithelial Neoplasia Progression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent proliferative signaling contributes to preinvasive lesion progression\"}, {\"source\": \"HPV Genome Integration\", \"target\": \"Constitutive E6/E7 Expression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of E2 repression leads to unchecked oncoprotein production\"}, {\"source\": \"Constitutive E6/E7 Expression\", \"target\": \"E6 Oncoprotein-Mediated p53 Degradation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained E6 expression drives p53 degradation\"}, {\"source\": \"Constitutive E6/E7 Expression\", \"target\": \"E7 Oncoprotein-Mediated pRB Inactivation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained E7 expression drives pRB inactivation\"}, {\"source\": \"Cervical Intraepithelial Neoplasia Progression\", \"target\": \"Abnormal Vaginal Bleeding\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive cervical neoplasia and invasive tumor disrupt cervical mucosa and vessels, causing abnormal bleeding.\"}, {\"source\": \"Cervical Intraepithelial Neoplasia Progression\", \"target\": \"Vaginal Discharge\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive cervical tumor growth and necrosis contribute to abnormal vaginal discharge.\"}, {\"source\": \"Cervical Intraepithelial Neoplasia Progression\", \"target\": \"Pelvic Pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Locally advanced cervical tumor growth can involve parametrial or pelvic tissues and cause pelvic pain.\"}, {\"source\": \"Cervical Intraepithelial Neoplasia Progression\", \"target\": \"Hematuria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Advanced local tumor extension can involve the bladder mucosa and produce hematuria.\"}, {\"source\": \"High-Risk HPV Infection\", \"target\": \"E6 Oncoprotein-Mediated p53 Degradation\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Infection of the cervical epithelium is what brings the E6 oncoprotein into the cell, so the exposure initiates the earliest curated mechanism.\", \"causal_link_type\": \"DIRECT\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5510,11 +5613,9 @@ This pathophysiological event involves increased cell population proliferation (
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Genitourinary<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Genitourinary<span class="pill-count">(3)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Constitutional<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5524,7 +5625,7 @@ This pathophysiological event involves increased cell population proliferation (
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Genitourinary
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-vaginal-bleeding" data-dismech-node="Abnormal Vaginal Bleeding" data-dismech-type="phenotype">
@@ -5559,6 +5660,9 @@ This clinical feature is Metrorrhagia (HP:0100608). HP:0100608 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5576,6 +5680,7 @@ This clinical feature is Metrorrhagia (HP:0100608). HP:0100608 is a phenotype fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5584,6 +5689,84 @@ This clinical feature is Metrorrhagia (HP:0100608). HP:0100608 is a phenotype fr
 
 
                 <div class="evidence-explanation">Retrospective review of 149 cervical cancer patients in Botswana identifies abnormal vaginal bleeding as the most common presenting symptom (75.8%), supporting its classification as a frequent diagnostic phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-vaginal-discharge" data-dismech-node="Vaginal Discharge" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Vaginal Discharge
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal vaginal discharge</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0034269" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0034269</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Vaginal Discharge, annotated with Abnormal vaginal discharge (HP:0034269). HP:0034269 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">No suitable specific HP term for vaginal discharge was identified in the current ontology build; phenotype captured clinically as abnormal genital tract secretion.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29794500" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29794500" target="_blank">PMID:29794500</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Common symptoms were abnormal vaginal bleeding, low abdominal pain, and malodorous vaginal discharge reported among 75.8%, 66.4%, and 39.6% of cases, respectively."</div>
+
+
+                <div class="evidence-explanation">Same Botswana retrospective review reports malodorous vaginal discharge in 39.6% of cervical cancer cases, supporting its classification as a frequent presenting symptom.</div>
 
 
 
@@ -5615,15 +5798,18 @@ This clinical feature is Metrorrhagia (HP:0100608). HP:0100608 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000790" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000790</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000790" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000790</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hematuria (HP:0000790). HP:0000790 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5643,6 +5829,7 @@ This clinical feature is Hematuria (HP:0000790). HP:0000790 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5696,15 +5883,18 @@ This clinical feature is Hematuria (HP:0000790). HP:0000790 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002027</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002027</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5724,6 +5914,7 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5735,89 +5926,6 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
 
 
                 <div class="evidence-explanation">Low abdominal pain was reported in 66.4% of cervical cancer patients in this Botswana cohort, with the same study identifying low abdominal pain as a significant predictor of locally advanced disease at presentation.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-vaginal-discharge" data-dismech-node="Vaginal Discharge" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Vaginal Discharge
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Abnormal vaginal discharge</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0034269" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0034269</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Vaginal Discharge, annotated with Abnormal vaginal discharge (HP:0034269). HP:0034269 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">No suitable specific HP term for vaginal discharge was identified in the current ontology build; phenotype captured clinically as abnormal genital tract secretion.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:29794500" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29794500" target="_blank">PMID:29794500</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Common symptoms were abnormal vaginal bleeding, low abdominal pain, and malodorous vaginal discharge reported among 75.8%, 66.4%, and 39.6% of cases, respectively."</div>
-
-
-                <div class="evidence-explanation">Same Botswana retrospective review reports malodorous vaginal discharge in 39.6% of cervical cancer cases, supporting its classification as a frequent presenting symptom.</div>
 
 
 
@@ -5907,6 +6015,9 @@ This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-pik3ca" data-dismech-node="PIK3CA" data-dismech-type="genetic">
@@ -5938,6 +6049,9 @@ This disease-associated gene is PIK3CA (hgnc:8975). hgnc:8975 is a gene from the
 
 
                 </div>
+
+
+
 
 
 
@@ -6005,6 +6119,31 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Vaccine</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Prophylactic vaccination against HPV-16, 18, and other high-risk types prevents infection and subsequent development of cervical cancer and precancerous lesions. Most effective when administered before sexual debut.</div>
 
 
@@ -6056,6 +6195,31 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Loop electrosurgical excision procedure (LEEP) or cold knife cone biopsy for treatment of high-grade cervical intraepithelial neoplasia (CIN2/3). Allows fertility preservation while treating preinvasive disease.</div>
 
 
@@ -6102,6 +6266,31 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -6180,6 +6369,31 @@ This treatment uses cisplatin (NCIT:C376). NCIT:C376 is a therapeutic agent from
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Radiotherapy</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Concurrent cisplatin-based chemotherapy with external beam radiation and brachytherapy is the standard treatment for locally advanced cervical cancer (stages IB3-IVA). Improves survival compared to radiation alone.</div>
 
 
@@ -6253,6 +6467,20 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">PD-1 inhibitor approved for recurrent or metastatic cervical cancer with PD-L1 expression (CPS score of at least 1) in combination with chemotherapy, or as monotherapy in previously treated PD-L1 positive tumors.</div>
 
 
@@ -6277,14 +6505,15 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
-                <div class="evidence-snippet">"The incorporation of immunotherapy in combination with chemotherapy (with or without bevacizumab) in first line and as monotherapy in second line after platinum-based chemotherapy, has significantly increased overall survival"</div>
+                <div class="evidence-snippet">"leading to regulatory approval of pembrolizumab for persistent, recurrent, or metastatic CC tumors expressing PD-L1 with a combined positive score (CPS) ≥ 1"</div>
 
 
-                <div class="evidence-explanation">The 2023 SEOM-GEICO cervical cancer guideline supports pembrolizumab immunotherapy with platinum chemotherapy (with or without bevacizumab) first-line and as monotherapy after platinum-based chemotherapy.</div>
+                <div class="evidence-explanation">The 2023 SEOM-GEICO cervical cancer guideline states the approved pembrolizumab indication this entry describes: persistent, recurrent, or metastatic disease with PD-L1 CPS of at least 1. Replaces a previously quoted sentence that referred only to &#34;immunotherapy&#34; generically without naming pembrolizumab.</div>
 
 
 
@@ -6301,6 +6530,145 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
 
 
         <!-- Environmental Factors -->
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ccfbf1; color: #0d9488;">🌍</div>
+                <h2 class="card-title">Environmental Factors</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box environmental-box anchor-target" id="environmental-high-risk-hpv-infection" data-dismech-node="High-Risk HPV Infection" data-dismech-type="environmental">
+                <div class="item-name">High-Risk HPV Infection</div>
+
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        exposure to Human Papillomavirus Infection
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_2000053" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-27">ECTO:2000053</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to Human Papillomavirus Infection (ECTO:2000053). ECTO:2000053 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
+
+
+                <div class="item-desc">Persistent infection with a high-risk human papillomavirus type is the necessary cause of cervical cancer. Because the initiating event is viral rather than a host genetic lesion, this exposure is what marks where the disease starts.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41503346" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41503346" target="_blank">PMID:41503346</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Persistent infection with high-risk human papillomavirus (HR HPV) is the necessary cause of cervical cancer."</div>
+
+
+                <div class="evidence-explanation">States HPV persistence as the necessary cause of cervical cancer.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">E6 Oncoprotein-Mediated p53 Degradation</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Infection of the cervical epithelium is what brings the E6 oncoprotein into the cell, so the exposure initiates the earliest curated mechanism.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41503346" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41503346" target="_blank">PMID:41503346</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Persistent infection with high-risk human papillomavirus (HR HPV) is the necessary cause of cervical cancer."</div>
+
+
+                <div class="evidence-explanation">Supports treating persistent HPV infection as the initiating exposure acting on the E6-mediated mechanism curated here.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
 
 
         <!-- Biochemical Markers -->
@@ -6372,11 +6740,11 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
         clinical assessment
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C124351" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-27">NCIT:C124351</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C124351" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-28">NCIT:C124351</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -6421,6 +6789,7 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6445,6 +6814,7 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6466,6 +6836,7 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6511,11 +6882,11 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
         clinical assessment
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C124351" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-28">NCIT:C124351</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C124351" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-29">NCIT:C124351</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -6558,14 +6929,15 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"This article discusses the epidemiology and pathogenesis of the squamous cell carcinoma, its clinical and histologic features, including microinvasive carcinoma, its histologic grade, and variant tumors."</div>
+                <div class="evidence-snippet">"Squamous cell carcinoma is the most common malignant cervical tumor, but the incidence of adenocarcinomas has been rising during the past few decades."</div>
 
 
-                <div class="evidence-explanation">This pathology review supports histologic characterization as part of cervical cancer diagnosis.</div>
+                <div class="evidence-explanation">A cervical pathology review names the two histologic classes this diagnostic step distinguishes and their relative frequency, supporting tissue diagnosis as the step that assigns histology. Replaces a previously quoted article-scope sentence (&#34;This article discusses...&#34;) that stated the paper&#39;s topic rather than a finding.</div>
 
 
 
@@ -6624,11 +6996,11 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
         Human papillomavirus 16
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_333760" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-29">NCBITaxon:333760</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_333760" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-30">NCBITaxon:333760</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-29">NCBI Taxonomy (NCBITaxon)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-30">NCBI Taxonomy (NCBITaxon)</span>
     </span>
 
 
@@ -6666,6 +7038,9 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
@@ -6982,6 +7357,7 @@ infectious_agent:
   - reference: PMID:41503346
     reference_title: &#34;Prevalence and genotype distribution of high-risk human papillomavirus infections among women in selected communities in the Philippines: Results of the defeat HPV study.&#34;
     supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
     snippet: &#34;Persistent infection with high-risk human papillomavirus (HR HPV) is the necessary cause of cervical cancer.&#34;
     explanation: &#34;Supports HPV as the necessary causal agent for cervical cancer.&#34;
   infectious_agent_term:
@@ -7023,7 +7399,9 @@ pathophysiology:
     reference_title: &#34;The E6 oncoprotein encoded by human papillomavirus types 16 and 18 promotes the degradation of p53.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
-    snippet: that bind p53 stimulate the degradation of p53.
+    snippet: &gt;-
+      In this study we demonstrate that the E6 proteins of the oncogenic HPVs
+      that bind p53 stimulate the degradation of p53.
     explanation: &gt;-
       Classic mechanistic evidence shows high-risk HPV E6 promotes p53
       degradation, supporting p53 checkpoint loss as a central cervical cancer
@@ -7053,11 +7431,17 @@ pathophysiology:
   - reference: PMID:2175676
     reference_title: &#34;The E6 oncoprotein encoded by human papillomavirus types 16 and 18 promotes the degradation of p53.&#34;
     supports: SUPPORT
+    directness: INDIRECT
     evidence_source: IN_VITRO
-    snippet: p53 is ATP dependent and involves the ubiquitin-dependent protease system.
+    snippet: &gt;-
+      The E6-promoted degradation of p53 is ATP dependent and involves the
+      ubiquitin-dependent protease system.
     explanation: &gt;-
-      p53 degradation provides direct mechanistic support for impaired
-      p53-mediated DNA damage response and checkpoint control.
+      Establishes the proteolytic route by which E6 destroys p53, the direct
+      cause of this node&#39;s checkpoint/DNA-damage-response failure. Marked
+      INDIRECT because this 1990 biochemical study characterizes p53
+      destruction itself and does not measure the downstream DNA-damage
+      response or checkpoint readout.
   downstream:
   - target: Genomic Instability
     description: Cells with unrepaired damage persist and acquire additional alterations
@@ -7078,7 +7462,11 @@ pathophysiology:
     reference_title: &#34;Integrated genomic and molecular characterization of cervical cancer.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: aberrations and increased target-gene expression.
+    snippet: &gt;-
+      Integration of human papilloma virus (HPV) was observed in all
+      HPV18-related samples and 76% of HPV16-related samples, and was
+      associated with structural aberrations and increased target-gene
+      expression.
     explanation: &gt;-
       Human cervical tumor genomic data link HPV integration with structural
       aberrations, supporting genomic instability in HPV-driven carcinogenesis.
@@ -7108,7 +7496,10 @@ pathophysiology:
     reference_title: &#34;The human papilloma virus-16 E7 oncoprotein is able to bind to the retinoblastoma gene product.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
-    snippet: form similar complexes with p105-RB. Human papilloma virus-16 is found
+    snippet: &gt;-
+      These assays have been used to demonstrate that the E7 oncoprotein of
+      the human papilloma virus type-16 can form similar complexes with
+      p105-RB.
     explanation: &gt;-
       Classic biochemical evidence shows HPV16 E7 binds the retinoblastoma
       gene product, supporting pRB-pathway inactivation.
@@ -7135,11 +7526,17 @@ pathophysiology:
   - reference: PMID:2537532
     reference_title: &#34;The human papilloma virus-16 E7 oncoprotein is able to bind to the retinoblastoma gene product.&#34;
     supports: SUPPORT
+    directness: INDIRECT
     evidence_source: IN_VITRO
-    snippet: implicate RB binding as a possible step in human papilloma
+    snippet: &gt;-
+      These results suggest that these three DNA viruses may utilize similar
+      mechanisms in transformation and implicate RB binding as a possible step
+      in human papilloma virus-associated carcinogenesis.
     explanation: &gt;-
-      RB binding by HPV16 E7 supports transformation through loss of RB-mediated
-      cell-cycle control.
+      RB binding by HPV16 E7 implicates loss of RB-mediated cell-cycle
+      restraint in HPV carcinogenesis. Marked INDIRECT because this binding
+      study proposes RB binding as a possible transforming step rather than
+      measuring S-phase entry or proliferation directly.
   downstream:
   - target: Cervical Intraepithelial Neoplasia Progression
     description: Persistent proliferative signaling contributes to preinvasive lesion progression
@@ -7155,7 +7552,11 @@ pathophysiology:
     reference_title: &#34;Integrated genomic and molecular characterization of cervical cancer.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: aberrations and increased target-gene expression.
+    snippet: &gt;-
+      Integration of human papilloma virus (HPV) was observed in all
+      HPV18-related samples and 76% of HPV16-related samples, and was
+      associated with structural aberrations and increased target-gene
+      expression.
     explanation: TCGA confirmed near-universal HPV integration in HPV18-positive cervical cancers and frequent integration in HPV16-positive cancers, linked to host structural alterations and target-gene upregulation.
   biological_processes:
   - preferred_term: viral genome integration into host DNA
@@ -7174,16 +7575,26 @@ pathophysiology:
   - reference: PMID:28112728
     reference_title: &#34;Integrated genomic and molecular characterization of cervical cancer.&#34;
     supports: SUPPORT
+    directness: INDIRECT
     evidence_source: HUMAN_CLINICAL
-    snippet: aberrations and increased target-gene expression.
+    snippet: &gt;-
+      Integration of human papilloma virus (HPV) was observed in all
+      HPV18-related samples and 76% of HPV16-related samples, and was
+      associated with structural aberrations and increased target-gene
+      expression.
     explanation: &gt;-
-      TCGA cervical tumor data support integration-associated increased target
-      gene expression, consistent with persistent oncogene expression.
+      Establishes that HPV integration is near-universal in HPV18-positive and
+      frequent in HPV16-positive cervical tumors, the genomic precondition for
+      loss of E2-mediated repression modeled here. Marked INDIRECT because the
+      &#34;target-gene expression&#34; measured is that of host genes at integration
+      sites, not E6/E7 transcript levels, which this quote does not report.
   - reference: PMID:2175676
     reference_title: &#34;The E6 oncoprotein encoded by human papillomavirus types 16 and 18 promotes the degradation of p53.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
-    snippet: one of two viral products expressed in HPV-associated cancers. E6 is an
+    snippet: &gt;-
+      The E6 protein encoded by the oncogenic human papillomavirus types 16
+      and 18 is one of two viral products expressed in HPV-associated cancers.
     explanation: &gt;-
       This establishes E6 as an expressed viral oncoprotein in HPV-associated
       cancers.
@@ -7209,7 +7620,10 @@ pathophysiology:
     reference_title: Human papillomavirus infection and time to progression and regression of cervical intraepithelial neoplasia.
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: Precursor lesions of the cervix persist longer and progress more
+    snippet: &gt;-
+      Precursor lesions of the cervix persist longer and progress more
+      quickly in women with oncogenic HPV infections than in women with
+      non-oncogenic infections or without HPV.
     explanation: &gt;-
       A longitudinal HPV/CIN cohort supports oncogenic HPV-associated
       persistence and faster progression of cervical precursor lesions.
@@ -7235,6 +7649,7 @@ histopathology:
   - reference: PMID:14690308
     reference_title: &#34;Pathology of cervical cancer.&#34;
     supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
     snippet: &#34;Squamous cell carcinoma is the most common malignant cervical tumor&#34;
     explanation: Abstract reports squamous cell carcinoma as the most common malignant cervical tumor.
 
@@ -7417,11 +7832,51 @@ diagnosis:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
-      This article discusses the epidemiology and pathogenesis of the
-      squamous cell carcinoma, its clinical and histologic features,
-      including microinvasive carcinoma, its histologic grade, and
-      variant tumors.
-    explanation: This pathology review supports histologic characterization as part of cervical cancer diagnosis.
+      Squamous cell carcinoma is the most common malignant cervical tumor,
+      but the incidence of adenocarcinomas has been rising during the past
+      few decades.
+    explanation: &gt;-
+      A cervical pathology review names the two histologic classes this
+      diagnostic step distinguishes and their relative frequency, supporting
+      tissue diagnosis as the step that assigns histology. Replaces a
+      previously quoted article-scope sentence (&#34;This article discusses...&#34;)
+      that stated the paper&#39;s topic rather than a finding.
+environmental:
+- name: High-Risk HPV Infection
+  effect: CAUSAL
+  exposure_term:
+    preferred_term: exposure to Human Papillomavirus Infection
+    term:
+      id: ECTO:2000053
+      label: exposure to Human Papillomavirus Infection
+  description: &gt;-
+    Persistent infection with a high-risk human papillomavirus type is the
+    necessary cause of cervical cancer. Because the initiating event is viral
+    rather than a host genetic lesion, this exposure is what marks where the
+    disease starts.
+  evidence:
+  - reference: PMID:41503346
+    reference_title: &#34;Prevalence and genotype distribution of high-risk human papillomavirus infections among women in selected communities in the Philippines: Results of the defeat HPV study.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Persistent infection with high-risk human papillomavirus (HR HPV) is the necessary cause of cervical cancer.&#34;
+    explanation: States HPV persistence as the necessary cause of cervical cancer.
+  influences_mechanisms:
+  - target: E6 Oncoprotein-Mediated p53 Degradation
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      Infection of the cervical epithelium is what brings the E6 oncoprotein
+      into the cell, so the exposure initiates the earliest curated mechanism.
+    evidence:
+    - reference: PMID:41503346
+      reference_title: &#34;Prevalence and genotype distribution of high-risk human papillomavirus infections among women in selected communities in the Philippines: Results of the defeat HPV study.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Persistent infection with high-risk human papillomavirus (HR HPV) is the necessary cause of cervical cancer.&#34;
+      explanation: &gt;-
+        Supports treating persistent HPV infection as the initiating exposure
+        acting on the E6-mediated mechanism curated here.
 treatments:
 - name: HPV Vaccination
   description: &gt;-
@@ -7483,8 +7938,16 @@ treatments:
     reference_title: SEOM-GEICO Clinical Guidelines on cervical cancer (2023).
     supports: SUPPORT
     evidence_source: OTHER
-    snippet: &#34;The incorporation of immunotherapy in combination with chemotherapy (with or without bevacizumab) in first line and as monotherapy in second line after platinum-based chemotherapy, has significantly increased overall survival&#34;
-    explanation: The 2023 SEOM-GEICO cervical cancer guideline supports pembrolizumab immunotherapy with platinum chemotherapy (with or without bevacizumab) first-line and as monotherapy after platinum-based chemotherapy.
+    snippet: &gt;-
+      leading to regulatory approval of pembrolizumab for persistent,
+      recurrent, or metastatic CC tumors expressing PD-L1 with a combined
+      positive score (CPS) ≥ 1
+    explanation: &gt;-
+      The 2023 SEOM-GEICO cervical cancer guideline states the approved
+      pembrolizumab indication this entry describes: persistent, recurrent, or
+      metastatic disease with PD-L1 CPS of at least 1. Replaces a previously
+      quoted sentence that referred only to &#34;immunotherapy&#34; generically
+      without naming pembrolizumab.
   treatment_term:
     preferred_term: immunotherapy
     term:
@@ -7709,6 +8172,7 @@ datasets:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7777,6 +8241,7 @@ datasets:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7851,6 +8316,7 @@ datasets:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7919,6 +8385,7 @@ datasets:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7993,6 +8460,7 @@ datasets:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8061,6 +8529,7 @@ datasets:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8135,6 +8604,7 @@ datasets:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8169,6 +8639,133 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Detailed evidence review: Cervical Cancer evidence and reference audit</strong> · 2026-08-28T23:10:23Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Cervical_Cancer/2026-08-28T231023Z-claude-code-51e1e0.yaml">View source</a></p>
+                        <p class="research-review-text">Full per-item evidence review of kb/disorders/Cervical_Cancer.yaml.
+
+Scope: 27 evidence snippets checked across 17 distinct references. All ten
+PMID-backed references were read in full from the cache (PMID:2175676 Scheffner
+E6/p53 degradation, PMID:2537532 Dyson E7/pRB binding, PMID:28112728 TCGA
+integrated characterization, PMID:12953088 Schlecht CIN progression cohort,
+PMID:14690308 cervical pathology review, PMID:29794500 Botswana presenting-symptom
+series, PMID:23244084 hematuria screening study, PMID:41503346 Philippines HPV
+prevalence study, PMID:41777072 Korean Society of Gynecologic Oncology guideline,
+PMID:39215938 SEOM-GEICO guideline). The seven DOI-prefixed entries in the
+top-level references block are deep-research provenance records that the
+reference validator skips by prefix; they were read but are not cache-verifiable
+and were left as-is.
+
+The dominant defect class in this file was truncation: seven snippets were
+mid-sentence fragments produced by copying across a line break in the cached
+text. Each was an exact substring, so every mechanical check passed, but as
+written they were not propositional statements and several began or ended
+mid-clause. Each was repaired by extending to the complete sentence from the
+same cached reference. No quote was paraphrased, and no reference was added.
+
+Defects found and fixed.
+
+1. E6 Oncoprotein-Mediated p53 Degradation. &#34;that bind p53 stimulate the
+degradation of p53.&#34; extended to the full result sentence beginning &#34;In this
+study we demonstrate that the E6 proteins of the oncogenic HPVs...&#34;.
+
+2. Loss of DNA Damage Response. &#34;p53 is ATP dependent and involves the
+ubiquitin-dependent protease system.&#34; extended to &#34;The E6-promoted degradation
+of p53 is ATP dependent and involves the ubiquitin-dependent protease system.&#34;
+Also marked directness INDIRECT under the narrowed supports enum (which
+retired PARTIAL while this review was in flight): this 1990 biochemical study
+characterizes p53 destruction, the cause, and does not measure the
+DNA-damage-response or checkpoint readout the node asserts.
+
+3. E7 Oncoprotein-Mediated pRB Inactivation. &#34;form similar complexes with
+p105-RB. Human papilloma virus-16 is found&#34; spanned a sentence boundary and
+ended mid-clause. Replaced with the complete sentence &#34;These assays have been
+used to demonstrate that the E7 oncoprotein of the human papilloma virus type-16
+can form similar complexes with p105-RB.&#34;
+
+4. Uncontrolled Cell Proliferation. &#34;implicate RB binding as a possible step in
+human papilloma&#34; extended to the full concluding sentence. Also marked
+directness INDIRECT: the study proposes RB binding as a possible transforming
+step and does not measure S-phase entry or proliferation.
+
+5. Genomic Instability, HPV Genome Integration, and Constitutive E6/E7
+Expression all cited the same fragment, &#34;aberrations and increased target-gene
+expression.&#34; All three were extended to the full TCGA sentence, &#34;Integration of
+human papilloma virus (HPV) was observed in all HPV18-related samples and 76% of
+HPV16-related samples, and was associated with structural aberrations and
+increased target-gene expression.&#34; All three keep evidence_source HUMAN_CLINICAL
+so the shared sentence is graded consistently.
+
+6. Constitutive E6/E7 Expression, additionally. Its use of that TCGA sentence
+was marked directness INDIRECT, because the &#34;target-gene expression&#34; measured
+is that of host genes at integration sites, not E6/E7 transcript levels, which
+the quote does not report. Its second item, from the E6 paper, had the fragment &#34;one of
+two viral products expressed in HPV-associated cancers. E6 is an&#34;, which spanned
+a sentence boundary; extended to the complete sentence naming E6 as one of two
+viral products expressed in HPV-associated cancers, which is the claim actually
+being made.
+
+7. Cervical Intraepithelial Neoplasia Progression. &#34;Precursor lesions of the
+cervix persist longer and progress more&#34; was cut mid-sentence, dropping the
+comparison that carries the meaning. Extended to the full conclusion, &#34;...more
+quickly in women with oncogenic HPV infections than in women with non-oncogenic
+infections or without HPV.&#34;
+
+8. Histopathologic confirmation of cervical malignancy. Its quote, &#34;This article
+discusses the epidemiology and pathogenesis of the squamous cell carcinoma...&#34;,
+is an article-scope sentence describing what the paper covers, not a finding.
+Replaced with the pathology review&#39;s actual finding sentence, &#34;Squamous cell
+carcinoma is the most common malignant cervical tumor, but the incidence of
+adenocarcinomas has been rising during the past few decades&#34;, which names the
+two histologic classes this diagnostic step distinguishes.
+
+9. Pembrolizumab treatment. The cited guideline sentence referred only to
+&#34;immunotherapy&#34; generically while the explanation asserted the guideline
+supports pembrolizumab specifically. Replaced with the sentence from the same
+guideline that names the drug and its approved indication: &#34;leading to
+regulatory approval of pembrolizumab for persistent, recurrent, or metastatic CC
+tumors expressing PD-L1 with a combined positive score (CPS) &gt;= 1&#34;, which
+matches the PD-L1 CPS of at least 1 criterion in this entry&#39;s description.
+
+10. Two evidence items carried no evidence_source at all (the infectious_agent
+HPV item and the squamous cell carcinoma histopathology item). Both cite human
+studies and both were set to HUMAN_CLINICAL, matching how the same references
+are graded elsewhere in the file.
+
+Verified without change: the Botswana series percentages (abnormal vaginal
+bleeding 75.8%, low abdominal pain 66.4%, malodorous discharge 39.6%) support
+all three phenotypes they are attached to and all three sit correctly in the
+FREQUENT band; the hematuria study&#39;s 41.5% likewise supports the FREQUENT band,
+and the phenotype description&#39;s hedged wording about bladder mucosal involvement
+is consistent with the study finding confirmed infiltration in only 3.08%; the
+Philippines study quotes support HPV as the necessary cause and genotyping as
+the diagnostic method; the Korean guideline recommendation is correctly graded
+OTHER. No Named Entity Confusion was found; every cited paper is about cervical
+cancer or its causal HPV infection.
+
+Noted, not changed: PMID:39215938 and the top-level reference
+DOI:10.1007/s12094-024-03604-3 are the same SEOM-GEICO guideline cited under two
+identifier forms. This is duplication in the references block rather than an
+evidence defect, so it was left for a curator to consolidate.
+
+Validation after edits: just validate passed. just count-verified-snippets
+reported 20/27 verified against cached references, with 7 skipped by prefix (the
+DOI-prefixed deep-research references, which the validator skips by
+configuration). just validate-disorders passed for this file; its three warnings
+are pre-existing &#34;could not fetch reference&#34; notices for the ega: dataset
+accessions in the datasets block, which are not literature references and were
+not touched. check-duplicate-keys, check-entity-refs, check-title-snippets,
+check-snippet-length, check-snippet-grading and check-folded-hyphens are all
+clean for this file.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -8476,7 +9073,7 @@ datasets:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Cervical Cancer", "mondoId": "MONDO:0002974", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Cervical_Cancer", "yamlRevision": "e7a1644fddd4"};
+        const OS_CONFIG = {"diseaseName": "Cervical Cancer", "mondoId": "MONDO:0002974", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Cervical_Cancer", "yamlRevision": "c918d0e42dcc"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

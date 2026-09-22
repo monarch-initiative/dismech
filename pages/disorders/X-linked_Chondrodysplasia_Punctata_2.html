@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,18 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4311,6 +4388,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4359,7 +4437,7 @@
                     <span class="tag tag-discussion-kind">KNOWLEDGE GAP</span>
 
 
-                    <span class="tag tag-discussion-status">OPEN</span>
+                    <span class="tag tag-discussion-status">RESOLVED</span>
 
 
                     <span class="entity-ref-chip">hypomorphic_male_entity</span>
@@ -4388,10 +4466,16 @@
                 </div>
 
 
-                <div class="item-desc" style="margin-top: 10px;">Two distinct routes let a male with an EBP variant survive, and they predict different phenotypes. A mosaic male, or one with a null allele plus a supernumerary X, has enzyme-competent clones and presents like a female CDPX2 patient. A male hemizygous for a hypomorphic allele has no competent clones anywhere but retains partial activity in all of them, and the reported phenotype - digital abnormalities, intellectual disability, and short stature, without the ichthyosis and stippling of CDPX2 - does not look like CDPX2 at all. Whether that is a nosologically separate entity or the low-activity end of one continuum is unsettled, and it matters for this entry&#39;s boundaries: the ISDS nosology lists only one EBP row, and MONDO carries only MONDO:0020603, so a decision either way would change what this entry covers. dismech currently treats it as within scope and flags the question here rather than creating a second entry on one report.</div>
+                <div class="item-desc" style="margin-top: 10px;">Resolved in favour of a separate entity. The male hypomorphic phenotype is now curated as MEND syndrome (Male EBP Disorder with Neurologic defects) at kb/disorders/MEND_Syndrome.yaml, bound to MONDO:0010498.
+Two distinct routes let a male with an EBP variant survive, and they predict different phenotypes. A mosaic male, or one with a null allele plus a supernumerary X, has enzyme-competent clones and presents like a female CDPX2 patient - and that male stays inside this entry. A male hemizygous for a constitutional hypomorphic allele has no competent clones anywhere but retains partial activity in all of them, giving a symmetrical, neurologically weighted phenotype rather than the Blaschko-linear, asymmetric one this entry describes. That is the split.
+What changed since this question was first recorded, and both premises it rested on were wrong. This rationale previously stated that &#34;MONDO carries only MONDO:0020603&#34;: MONDO:0010498 (MEND syndrome) exists and is the term the separate entry uses. It also treated the evidence as &#34;a single reported family&#34;: a 2025 review tabulates seven distinct EBP alleles across four unrelated families and eight sporadic patients. Either premise alone would have been enough to reopen the question.
+One factual correction to what this discussion previously asserted, because it now contradicts the MEND entry. The earlier text described the male hypomorphic phenotype as presenting &#34;without the ichthyosis and stippling of CDPX2&#34;. That generalised from the single 2014 family, whose reported features were digital abnormalities, intellectual disability and short stature. Mild ichthyosis is documented in later MEND patients, and the MEND entry curates it. The distinction between the two disorders is the *pattern* of the skin and skeletal findings - symmetrical and often transient in MEND, Blaschko-linear with follicular atrophoderma and scarring alopecia in CDPX2 - not their presence or absence.
+What remains open is not the nosology but the biology: whether the two disorders sit on one activity continuum or differ in kind. That question belongs to the sterol-to-phenotype gap recorded separately, not here.</div>
 
 
 
+
+                <div class="mapping-notes">Resolution: Resolved as a separate entity: the male hypomorphic phenotype is curated as MEND syndrome (kb/disorders/MEND_Syndrome.yaml, MONDO:0010498), while a mosaic male or one with a null allele plus a supernumerary X stays in this entry. The two disorders are distinguished by the pattern of skin and skeletal findings, not by their presence or absence. Whether they sit on one activity continuum remains open and is recorded in the sterol-to-phenotype gap instead.</div>
 
 
 
@@ -4413,6 +4497,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4420,7 +4505,7 @@
                 <div class="evidence-snippet">"The molecular and biochemical evidence convincingly supports the pathogenicity and association of the p.I75N mutation with this newly described phenotype."</div>
 
 
-                <div class="evidence-explanation">The authors argue for a distinct male entity on the strength of one family with biochemical confirmation - enough to raise the question, not to settle it.</div>
+                <div class="evidence-explanation">The authors argue for a distinct male entity on the strength of one family with biochemical confirmation. That was enough to raise the question; the seven alleles across twelve patients tabulated in 2025 are what settled it.</div>
 
 
 
@@ -4494,6 +4579,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4528,6 +4614,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ebp-sterol-delta8-isomerase-deficiency" data-dismech-node="EBP Sterol-Delta8-Isomerase Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">EBP Sterol-Delta8-Isomerase Deficiency</div>
+
 
                 <div class="item-desc">Loss-of-function variants in EBP abolish or reduce 3-beta-hydroxysteroid-delta8,delta7-isomerase activity, the step that moves the sterol double bond from position 8 to position 7 in the conversion of lanosterol to cholesterol. The enzymatic assignment was made in the reverse of the usual direction: the sterol profile of patients was characterized first and pointed at the isomerase, and the candidate gene was then found mutated in every proband tested.</div>
 
@@ -4581,6 +4668,8 @@ This genetic context concerns EBP (hgnc:3133). hgnc:3133 is a gene from the HUGO
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4593,6 +4682,9 @@ This genetic context concerns EBP (hgnc:3133). hgnc:3133 is a gene from the HUGO
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Heterozygous germline (or, in the surviving affected male, post-zygotic mosaic) loss-of-function variants. Missense alleles were shown to be functionally deficient by complementation in an isomerase-deficient yeast strain. Zygosity is recorded as heterozygous because that is the state in the affected female who constitutes at least 95% of live births; a hemizygous male with a null allele is generally not viable.</div>
 
@@ -4746,6 +4838,7 @@ This pathophysiological event involves sterol delta8-delta7 isomerase activity, 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4767,6 +4860,7 @@ This pathophysiological event involves sterol delta8-delta7 isomerase activity, 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4792,6 +4886,7 @@ This pathophysiological event involves sterol delta8-delta7 isomerase activity, 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-accumulation-of-8-9-cholestenol-and-8-dehydrocholesterol" data-dismech-node="Accumulation of 8(9)-Cholestenol and 8-Dehydrocholesterol" data-dismech-type="pathophysiology">
                 <div class="item-name">Accumulation of 8(9)-Cholestenol and 8-Dehydrocholesterol</div>
+
 
                 <div class="item-desc">The two sterols immediately upstream of the isomerase accumulate. Their elevation is both the diagnostic marker of the disease and, in the shared model for this disorder class, a potentially bioactive or toxic insult in its own right rather than an inert by-product. Because the accumulation occurs only in mutant-expressing clones, it is a cell-autonomous signal that tracks the mosaic.</div>
 
@@ -4853,6 +4948,7 @@ This pathophysiological event involves sterol delta8-delta7 isomerase activity, 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4875,6 +4971,7 @@ This pathophysiological event involves sterol delta8-delta7 isomerase activity, 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cellular-cholesterol-deficiency" data-dismech-node="Cellular Cholesterol Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Cellular Cholesterol Deficiency</div>
+
 
                 <div class="item-desc">Beyond its structural membrane role, cholesterol is required for the covalent modification and signalling competence of hedgehog proteins, so a block in its synthesis has a developmental-patterning consequence that is separate from any toxicity of the accumulating intermediates. This is the shared explanatory route from a lipid-synthesis enzymopathy to a malformation syndrome across the post-squalene disorders.</div>
 
@@ -4966,6 +5063,7 @@ This pathophysiological event involves decreased smoothened signaling pathway (G
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4988,6 +5086,7 @@ This pathophysiological event involves decreased smoothened signaling pathway (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-x-inactivation-mosaicism" data-dismech-node="X-Inactivation Mosaicism" data-dismech-type="pathophysiology">
                 <div class="item-name">X-Inactivation Mosaicism</div>
+
 
                 <div class="item-desc">EBP is on Xp11.22-p11.23, so random X inactivation makes a heterozygous female a functional mosaic of enzyme-competent and enzyme-deficient clones. This node is what converts a uniform enzymopathy into the disorder&#39;s signature patterned, asymmetric phenotype, and it is also what accounts for the severity range and for the survival of the rare affected male. It is the mechanistic feature that most sharply distinguishes CDPX2 from the autosomal recessive members of the same skeletal nosology group, where every cell carries the same deficiency.</div>
 
@@ -5111,6 +5210,7 @@ This pathophysiological event involves random X inactivation, annotated with ran
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5132,6 +5232,7 @@ This pathophysiological event involves random X inactivation, annotated with ran
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5157,6 +5258,7 @@ This pathophysiological event involves random X inactivation, annotated with ran
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-abnormal-cartilage-calcification-and-endochondral-ossification" data-dismech-node="Abnormal Cartilage Calcification and Endochondral Ossification" data-dismech-type="pathophysiology">
                 <div class="item-name">Abnormal Cartilage Calcification and Endochondral Ossification</div>
+
 
                 <div class="item-desc">Growth-plate and epiphyseal cartilage calcifies abnormally, producing punctate foci of calcification in the epiphyses of long bones, the vertebrae, the trachea, and the costal ends. The stippling is transient - it disappears as the epiphyses ossify - but the disordered endochondral growth it accompanies leaves permanent shortening and spinal deformity.</div>
 
@@ -5370,6 +5472,7 @@ This pathophysiological event involves abnormal cartilage development (GO:005121
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5392,6 +5495,7 @@ This pathophysiological event involves abnormal cartilage development (GO:005121
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-asymmetric-skeletal-involvement" data-dismech-node="Asymmetric Skeletal Involvement" data-dismech-type="pathophysiology">
                 <div class="item-name">Asymmetric Skeletal Involvement</div>
+
 
                 <div class="item-desc">Rhizomelic (proximal) limb shortening in CDPX2 is characteristically unequal between the two sides, giving leg-length discrepancy as well as short stature. The asymmetry is not incidental - it is the skeletal expression of the same clonal mosaic that patterns the skin.</div>
 
@@ -5453,6 +5557,7 @@ This pathophysiological event involves abnormal cartilage development (GO:005121
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5475,6 +5580,7 @@ This pathophysiological event involves abnormal cartilage development (GO:005121
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-blaschkolinear-cutaneous-phenotype" data-dismech-node="Blaschkolinear Cutaneous Phenotype" data-dismech-type="pathophysiology">
                 <div class="item-name">Blaschkolinear Cutaneous Phenotype</div>
+
 
                 <div class="item-desc">Mutant-expressing keratinocyte clones produce ichthyotic scaling at birth that resolves over infancy into linear and whorled atrophic patches centred on hair follicles, with coarse hair and scarring alopecia in the same distribution. The lesion changes over time while its geometry does not.</div>
 
@@ -5616,6 +5722,7 @@ This pathophysiological event involves abnormal keratinocyte differentiation (GO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5638,6 +5745,7 @@ This pathophysiological event involves abnormal keratinocyte differentiation (GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-epidermal-barrier-and-follicular-dysfunction" data-dismech-node="Epidermal Barrier and Follicular Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Epidermal Barrier and Follicular Dysfunction</div>
+
 
                 <div class="item-desc">The cutaneous phenotype is cell-autonomous to keratinocyte clones expressing the mutant allele, which are the clones that both lack cholesterol and accumulate the upstream sterols. The epidermis is a tissue in which the distal cholesterol pathway is not redundant, since barrier lipids must be synthesized locally.</div>
 
@@ -5718,6 +5826,7 @@ This pathophysiological event involves abnormal epidermis development (GO:000854
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-male-hemizygous-lethality" data-dismech-node="Male Hemizygous Lethality" data-dismech-type="pathophysiology">
                 <div class="item-name">Male Hemizygous Lethality</div>
 
+
                 <div class="item-desc">A male carrying a null EBP allele on his single X has no enzyme-competent tissue and is typically lost in early gestation. The rule is not absolute, and the two documented escape routes are informative about the mechanism: post-zygotic mosaicism (or a supernumerary X) restores a competent clone population, while a hypomorphic allele leaves residual isomerase activity in every cell.</div>
 
 
@@ -5755,6 +5864,7 @@ This pathophysiological event involves abnormal epidermis development (GO:000854
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5776,6 +5886,7 @@ This pathophysiological event involves abnormal epidermis development (GO:000854
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5847,15 +5958,15 @@ This pathophysiological event involves abnormal epidermis development (GO:000854
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Genitourinary<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Integument<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Head and Neck<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Integument<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Growth<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Musculoskeletal<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Other<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Growth<span class="pill-count">(3)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5896,6 +6007,9 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5910,6 +6024,7 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5973,6 +6088,9 @@ This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5987,6 +6105,7 @@ This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6018,6 +6137,87 @@ This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from t
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Genitourinary
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hydronephrosis" data-dismech-node="Hydronephrosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hydronephrosis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000126" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000126</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hydronephrosis (HP:0000126). HP:0000126 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21634086" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21634086" target="_blank">PMID:21634086</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"monitor hydronephrosis if present per nephrologist"</div>
+
+
+                <div class="evidence-explanation">Hydronephrosis is named as a manifestation requiring surveillance.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
                     <span class="cat-count">1</span>
                 </summary>
@@ -6038,15 +6238,18 @@ This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004552" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0004552</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004552" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0004552</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Scarring alopecia of scalp (HP:0004552). HP:0004552 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6066,6 +6269,7 @@ This clinical feature is Scarring alopecia of scalp (HP:0004552). HP:0004552 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6094,11 +6298,11 @@ This clinical feature is Scarring alopecia of scalp (HP:0004552). HP:0004552 is 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Integument
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-ichthyosis" data-dismech-node="Ichthyosis" data-dismech-type="phenotype">
@@ -6115,10 +6319,10 @@ This clinical feature is Scarring alopecia of scalp (HP:0004552). HP:0004552 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008064" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0008064</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008064" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0008064</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ichthyosis (HP:0008064), qualified as temporality transient. HP:0008064 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6147,6 +6351,9 @@ This clinical feature is Ichthyosis (HP:0008064), qualified as temporality trans
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6161,6 +6368,7 @@ This clinical feature is Ichthyosis (HP:0008064), qualified as temporality trans
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6187,14 +6395,176 @@ This clinical feature is Ichthyosis (HP:0008064), qualified as temporality trans
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-coarse-hair" data-dismech-node="Coarse Hair" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Coarse Hair
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002208" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002208</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Coarse hair (HP:0002208). HP:0002208 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21634086" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21634086" target="_blank">PMID:21634086</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"coarse hair with scarring alopecia; and cataracts"</div>
+
+
+                <div class="evidence-explanation">Names coarse hair as a characteristic feature.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-5">
+            <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-epiphyseal-stippling" data-dismech-node="Epiphyseal Stippling" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Epiphyseal Stippling
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010655" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0010655</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Epiphyseal stippling (HP:0010655), qualified as temporality transient. HP:0010655 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Temporal: TRANSIENT</span>
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21634086" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21634086" target="_blank">PMID:21634086</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"chondrodysplasia punctata (stippling of the epiphyses of the long bones, vertebrae, trachea, and distal ends of the ribs)"</div>
+
+
+                <div class="evidence-explanation">Names epiphyseal stippling as a characteristic feature and gives its distribution.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-scoliosis" data-dismech-node="Scoliosis" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6210,10 +6580,10 @@ This clinical feature is Ichthyosis (HP:0008064), qualified as temporality trans
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002650</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002650</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Scoliosis (HP:0002650), qualified as course progressive. HP:0002650 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6242,6 +6612,9 @@ This clinical feature is Scoliosis (HP:0002650), qualified as course progressive
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6256,6 +6629,7 @@ This clinical feature is Scoliosis (HP:0002650), qualified as course progressive
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6296,15 +6670,18 @@ This clinical feature is Scoliosis (HP:0002650), qualified as course progressive
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003417" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0003417</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003417" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0003417</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Coronal cleft vertebrae (HP:0003417). HP:0003417 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6324,6 +6701,7 @@ This clinical feature is Coronal cleft vertebrae (HP:0003417). HP:0003417 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6352,7 +6730,7 @@ This clinical feature is Coronal cleft vertebrae (HP:0003417). HP:0003417 is a p
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-6">
+            <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Growth
@@ -6375,15 +6753,18 @@ This clinical feature is Coronal cleft vertebrae (HP:0003417). HP:0003417 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008905" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0008905</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008905" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0008905</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Rhizomelia (HP:0008905). HP:0008905 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6403,6 +6784,7 @@ This clinical feature is Rhizomelia (HP:0008905). HP:0008905 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6443,15 +6825,18 @@ This clinical feature is Rhizomelia (HP:0008905). HP:0008905 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100555" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0100555</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100555" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0100555</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Asymmetric growth (HP:0100555). HP:0100555 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6471,6 +6856,7 @@ This clinical feature is Asymmetric growth (HP:0100555). HP:0100555 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6511,15 +6897,18 @@ This clinical feature is Asymmetric growth (HP:0100555). HP:0100555 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0004322</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0004322</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6539,6 +6928,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6550,237 +6940,6 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                 <div class="evidence-explanation">Names growth deficiency as a characteristic feature.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-7">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">3</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-epiphyseal-stippling" data-dismech-node="Epiphyseal Stippling" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Epiphyseal Stippling
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010655" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0010655</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Epiphyseal stippling (HP:0010655), qualified as temporality transient. HP:0010655 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Temporal: TRANSIENT</span>
-
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:21634086" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21634086" target="_blank">PMID:21634086</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"chondrodysplasia punctata (stippling of the epiphyses of the long bones, vertebrae, trachea, and distal ends of the ribs)"</div>
-
-
-                <div class="evidence-explanation">Names epiphyseal stippling as a characteristic feature and gives its distribution.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-coarse-hair" data-dismech-node="Coarse Hair" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Coarse Hair
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002208" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002208</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Coarse hair (HP:0002208). HP:0002208 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:21634086" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21634086" target="_blank">PMID:21634086</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"coarse hair with scarring alopecia; and cataracts"</div>
-
-
-                <div class="evidence-explanation">Names coarse hair as a characteristic feature.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hydronephrosis" data-dismech-node="Hydronephrosis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hydronephrosis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000126" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000126</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hydronephrosis (HP:0000126). HP:0000126 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:21634086" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21634086" target="_blank">PMID:21634086</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"monitor hydronephrosis if present per nephrologist"</div>
-
-
-                <div class="evidence-explanation">Hydronephrosis is named as a manifestation requiring surveillance.</div>
 
 
 
@@ -6868,6 +7027,9 @@ This disease-associated gene is EBP (hgnc:3133). hgnc:3133 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6882,6 +7044,7 @@ This disease-associated gene is EBP (hgnc:3133). hgnc:3133 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6906,6 +7069,7 @@ This disease-associated gene is EBP (hgnc:3133). hgnc:3133 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6989,6 +7153,31 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Management of kyphoscoliosis, joint problems, linear growth, and leg-length discrepancy. No disease-modifying therapy exists; unlike CHILD syndrome, where topical cholesterol plus a statin has been shown to clear the skin, no equivalent pathogenesis-based intervention has been established for CDPX2.</div>
 
 
@@ -7032,6 +7221,7 @@ This treatment targets scoliosis (HP:0002650). HP:0002650 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7096,6 +7286,31 @@ This treatment is therapeutic procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Topical management of the ichthyotic scaling, with sun protection.</div>
 
 
@@ -7139,6 +7354,7 @@ This treatment targets ichthyosis (HP:0008064). HP:0008064 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7203,6 +7419,31 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Standard surgical management of the lens opacity.</div>
 
 
@@ -7246,6 +7487,7 @@ This treatment targets cataract (HP:0000518). HP:0000518 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7308,6 +7550,7 @@ This treatment targets cataract (HP:0000518). HP:0000518 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7410,6 +7653,7 @@ This treatment targets cataract (HP:0000518). HP:0000518 is a phenotype from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7475,6 +7719,7 @@ This treatment targets cataract (HP:0000518). HP:0000518 is a phenotype from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7522,6 +7767,7 @@ This treatment targets cataract (HP:0000518). HP:0000518 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7575,6 +7821,7 @@ This treatment targets cataract (HP:0000518). HP:0000518 is a phenotype from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7622,6 +7869,7 @@ This treatment targets cataract (HP:0000518). HP:0000518 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7693,6 +7941,7 @@ This treatment targets cataract (HP:0000518). HP:0000518 is a phenotype from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7743,6 +7992,7 @@ This treatment targets cataract (HP:0000518). HP:0000518 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8047,6 +8297,7 @@ This treatment targets cataract (HP:0000518). HP:0000518 is a phenotype from the
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8086,6 +8337,7 @@ This treatment targets cataract (HP:0000518). HP:0000518 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8140,6 +8392,7 @@ This treatment targets cataract (HP:0000518). HP:0000518 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9318,7 +9571,7 @@ differential_diagnoses:
 discussions:
 - discussion_id: hypomorphic_male_entity
   kind: KNOWLEDGE_GAP
-  status: OPEN
+  status: RESOLVED
   attaches_to:
   - pathophysiology#Male Hemizygous Lethality
   - genetic#EBP
@@ -9326,18 +9579,46 @@ discussions:
     Is the phenotype of a male hemizygous for a hypomorphic EBP allele a mild variant of
     CDPX2, or a separate X-linked recessive disorder that happens to share the gene?
   rationale: &gt;-
+    Resolved in favour of a separate entity. The male hypomorphic phenotype is now
+    curated as MEND syndrome (Male EBP Disorder with Neurologic defects) at
+    kb/disorders/MEND_Syndrome.yaml, bound to MONDO:0010498.
+
     Two distinct routes let a male with an EBP variant survive, and they predict
     different phenotypes. A mosaic male, or one with a null allele plus a supernumerary
-    X, has enzyme-competent clones and presents like a female CDPX2 patient. A male
-    hemizygous for a hypomorphic allele has no competent clones anywhere but retains
-    partial activity in all of them, and the reported phenotype - digital abnormalities,
-    intellectual disability, and short stature, without the ichthyosis and stippling of
-    CDPX2 - does not look like CDPX2 at all. Whether that is a nosologically separate
-    entity or the low-activity end of one continuum is unsettled, and it matters for
-    this entry&#39;s boundaries: the ISDS nosology lists only one EBP row, and MONDO carries
-    only MONDO:0020603, so a decision either way would change what this entry covers.
-    dismech currently treats it as within scope and flags the question here rather than
-    creating a second entry on one report.
+    X, has enzyme-competent clones and presents like a female CDPX2 patient - and that
+    male stays inside this entry. A male hemizygous for a constitutional hypomorphic
+    allele has no competent clones anywhere but retains partial activity in all of
+    them, giving a symmetrical, neurologically weighted phenotype rather than the
+    Blaschko-linear, asymmetric one this entry describes. That is the split.
+
+    What changed since this question was first recorded, and both premises it rested on
+    were wrong. This rationale previously stated that &#34;MONDO carries only
+    MONDO:0020603&#34;: MONDO:0010498 (MEND syndrome) exists and is the term the separate
+    entry uses. It also treated the evidence as &#34;a single reported family&#34;: a 2025
+    review tabulates seven distinct EBP alleles across four unrelated families and eight
+    sporadic patients. Either premise alone would have been enough to reopen the
+    question.
+
+    One factual correction to what this discussion previously asserted, because it now
+    contradicts the MEND entry. The earlier text described the male hypomorphic
+    phenotype as presenting &#34;without the ichthyosis and stippling of CDPX2&#34;. That
+    generalised from the single 2014 family, whose reported features were digital
+    abnormalities, intellectual disability and short stature. Mild ichthyosis is
+    documented in later MEND patients, and the MEND entry curates it. The distinction
+    between the two disorders is the *pattern* of the skin and skeletal findings -
+    symmetrical and often transient in MEND, Blaschko-linear with follicular
+    atrophoderma and scarring alopecia in CDPX2 - not their presence or absence.
+
+    What remains open is not the nosology but the biology: whether the two disorders sit
+    on one activity continuum or differ in kind. That question belongs to the
+    sterol-to-phenotype gap recorded separately, not here.
+  resolution_note: &gt;-
+    Resolved as a separate entity: the male hypomorphic phenotype is curated as MEND
+    syndrome (kb/disorders/MEND_Syndrome.yaml, MONDO:0010498), while a mosaic male or
+    one with a null allele plus a supernumerary X stays in this entry. The two
+    disorders are distinguished by the pattern of skin and skeletal findings, not by
+    their presence or absence. Whether they sit on one activity continuum remains open
+    and is recorded in the sterol-to-phenotype gap instead.
   evidence:
   - reference: PMID:24700572
     reference_title: &#34;A novel EBP c.224T&gt;A mutation supports the existence of a male-specific disorder independent of CDPX2.&#34;
@@ -9348,7 +9629,8 @@ discussions:
       association of the p.I75N mutation with this newly described phenotype.
     explanation: &gt;-
       The authors argue for a distinct male entity on the strength of one family with
-      biochemical confirmation - enough to raise the question, not to settle it.
+      biochemical confirmation. That was enough to raise the question; the seven alleles
+      across twelve patients tabulated in 2025 are what settled it.
 - discussion_id: sterol_to_stippling_route
   kind: KNOWLEDGE_GAP
   status: OPEN
@@ -9386,9 +9668,12 @@ notes: &gt;-
   chondrodysplasia-punctata entry, because the ISDS 2023 nosology lists it as its own
   row (NOS 23-0020) with its own gene and inheritance, and because the mosaic logic that
   drives its phenotype has no counterpart in the autosomal recessive members of the same
-  group. The hypomorphic-allele male phenotype is kept inside this entry and flagged as
-  an open question rather than split off, since a single reported family is not a basis
-  for a second entry. A member of the Chondrodysplasia_Punctata grouping.
+  group. The male hypomorphic-allele phenotype is *not* covered here: it is curated
+  separately as MEND syndrome (MONDO:0010498) at kb/disorders/MEND_Syndrome.yaml. That
+  split was made in 2026 and the reasoning is recorded in the resolved
+  `hypomorphic_male_entity` discussion below. A male who survives by mosaicism or by a
+  null allele plus a supernumerary X does belong here, since he presents as a CDPX2
+  patient. A member of the Chondrodysplasia_Punctata grouping.
 </pre>
             </div>
         </div>
@@ -9551,7 +9836,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "X-linked Chondrodysplasia Punctata 2", "mondoId": "MONDO:0020603", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "X-linked_Chondrodysplasia_Punctata_2", "yamlRevision": "b9a98b4ad3df"};
+        const OS_CONFIG = {"diseaseName": "X-linked Chondrodysplasia Punctata 2", "mondoId": "MONDO:0020603", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "X-linked_Chondrodysplasia_Punctata_2", "yamlRevision": "b551492eee83"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

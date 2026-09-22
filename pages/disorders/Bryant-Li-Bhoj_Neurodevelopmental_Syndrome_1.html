@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,18 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4290,6 +4367,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4314,6 +4392,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4335,6 +4414,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4440,6 +4520,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4461,6 +4542,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4488,6 +4570,7 @@
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4564,6 +4647,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4588,6 +4672,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4609,6 +4694,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4700,6 +4786,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4726,6 +4813,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4747,6 +4835,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4784,6 +4873,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-de-novo-h3-3a-variant-altering-histone-h3-3" data-dismech-node="De Novo H3-3A Variant Altering Histone H3.3" data-dismech-type="pathophysiology">
                 <div class="item-name">De Novo H3-3A Variant Altering Histone H3.3</div>
+
 
                 <div class="item-desc">The disease begins with a de novo heterozygous variant in H3-3A. Unlike the tightly clustered oncohistone substitutions of paediatric glioma, BLBS alleles are largely private and spread across the whole 135-residue protein, tail and core alike. They are read as gain of function or dominant negative rather than haploinsufficiency, which is what makes a single altered allele of one of two redundant H3.3 genes sufficient to cause severe disease.</div>
 
@@ -4879,6 +4969,8 @@ This genetic context concerns H3-3A (hgnc:4764). hgnc:4764 is a gene from the HU
 
 
 
+
+
         <span class="tag tag-classification">allele_type: MISSENSE</span>
 
 
@@ -4894,6 +4986,9 @@ This genetic context concerns H3-3A (hgnc:4764). hgnc:4764 is a gene from the HU
         <span class="tag tag-classification">functional_impact_category: GAIN_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Heterozygous de novo missense alleles distributed across the protein. Recorded as gain of function following the authors&#39; own reading; a dominant-negative effect is the stated alternative for some alleles.</div>
 
@@ -4981,6 +5076,7 @@ This pathophysiological event involves structural constituent of chromatin (GO:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5002,6 +5098,7 @@ This pathophysiological event involves structural constituent of chromatin (GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5027,6 +5124,7 @@ This pathophysiological event involves structural constituent of chromatin (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-nucleosome-assembly-and-chaperone-interaction" data-dismech-node="Disrupted Nucleosome Assembly and Chaperone Interaction" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Nucleosome Assembly and Chaperone Interaction</div>
+
 
                 <div class="item-desc">Molecular modelling of the founding cohort&#39;s variants showed disrupted interactions with DNA, with the other core histones, and with the histone chaperones that deposit H3.3. The two structural classes fall out by domain: core-domain variants are modelled as destabilising the nucleosome itself, while tail-domain variants disrupt protein-protein interactions with chromatin readers and chaperones. The mutant histone is still incorporated into nucleosomes - this is not a failure to assemble chromatin but a failure to assemble it correctly.</div>
 
@@ -5173,6 +5271,7 @@ This pathophysiological event involves nucleosome (GO:0000786). GO:0000786 is a 
 
 
 
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -5194,6 +5293,7 @@ This pathophysiological event involves nucleosome (GO:0000786). GO:0000786 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5219,6 +5319,7 @@ This pathophysiological event involves nucleosome (GO:0000786). GO:0000786 is a 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aberrant-local-histone-post-translational-modification" data-dismech-node="Aberrant Local Histone Post-Translational Modification" data-dismech-type="pathophysiology">
                 <div class="item-name">Aberrant Local Histone Post-Translational Modification</div>
+
 
                 <div class="item-desc">Post-translational modification profiling of patient material showed abnormal modification patterns that are local to the mutant histone rather than global. This is the sharpest mechanistic difference from the somatic oncohistones, whose lysine substitutions dysregulate modification across the whole genome in trans. Here the changes are in cis on the mutant H3.3, which is why the severity of the phenotype cannot be explained by global dysregulation of the histone code.</div>
 
@@ -5326,6 +5427,7 @@ This pathophysiological event involves abnormal chromatin remodeling (GO:0006338
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5347,6 +5449,7 @@ This pathophysiological event involves abnormal chromatin remodeling (GO:0006338
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5372,6 +5475,7 @@ This pathophysiological event involves abnormal chromatin remodeling (GO:0006338
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-deregulated-cell-proliferation" data-dismech-node="Deregulated Cell Proliferation" data-dismech-type="pathophysiology">
                 <div class="item-name">Deregulated Cell Proliferation</div>
+
 
                 <div class="item-desc">RNA sequencing of patient cells showed up-regulation of mitosis and cell-division genes, and cellular assays confirmed increased proliferative capacity. This is the point at which the germline and somatic H3.3 diseases converge without becoming the same thing: the germline variants push proliferation, but no BLBS patient in the founding cohort had a malignancy, including individuals carrying germline substitutions at the same residues that act as oncogenic hotspots somatically.</div>
 
@@ -5448,6 +5552,7 @@ This pathophysiological event involves increased cell population proliferation (
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5469,6 +5574,7 @@ This pathophysiological event involves increased cell population proliferation (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5494,6 +5600,7 @@ This pathophysiological event involves increased cell population proliferation (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neural-crest-and-craniofacial-developmental-defect" data-dismech-node="Neural Crest and Craniofacial Developmental Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Neural Crest and Craniofacial Developmental Defect</div>
+
 
                 <div class="item-desc">Craniofacial dysmorphism is present in the large majority of patients and is the phenotype with the clearest developmental mechanism. In the zebrafish h3f3a model, homozygous null larvae lose neural-crest-derived jaw cartilage entirely and show reduced foxd3-positive neural-crest-derived glia, melanocytes and xanthophores. The glial component is the one that connects to the human imaging phenotype: over a third of the patient cohort has hypomyelination on brain MRI, and glia are the myelinating cell type.</div>
 
@@ -5652,6 +5759,7 @@ This pathophysiological event involves abnormal chromatin remodeling (GO:0006338
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5678,6 +5786,7 @@ This pathophysiological event involves abnormal chromatin remodeling (GO:0006338
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5700,6 +5809,7 @@ This pathophysiological event involves abnormal chromatin remodeling (GO:0006338
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-abnormal-brain-development" data-dismech-node="Abnormal Brain Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Abnormal Brain Development</div>
+
 
                 <div class="item-desc">The congenital arm of the phenotype: severe developmental delay, epilepsy, tone abnormality and structural brain findings, present from infancy. Just over half of individuals with an MRI have at least one abnormal finding, and corpus callosum dysgenesis is the commonest named one.</div>
 
@@ -5861,6 +5971,7 @@ This pathophysiological event occurs in corpus callosum (UBERON:0002336). UBERON
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5882,6 +5993,7 @@ This pathophysiological event occurs in corpus callosum (UBERON:0002336). UBERON
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5907,6 +6019,13 @@ This pathophysiological event occurs in corpus callosum (UBERON:0002336). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-postnatal-neuronal-h3-3-dependence" data-dismech-node="Progressive Postnatal Neuronal H3.3 Dependence" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Postnatal Neuronal H3.3 Dependence</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">The degenerative arm, and the reason the disease has one at all. H3.3 progressively replaces the replication-dependent H3 variants in postnatal brain and comes to dominate the H3 pool in adulthood, so a defective H3.3 matters more to a neuron the older that neuron gets. The clinical correlates are cortical atrophy on imaging and, in adulthood, camptocormia and motor decline. The mechanism is an inference from the timing of the substrate rather than a demonstrated cause of the human degeneration, which is why it is provisional.</div>
 
@@ -6022,6 +6141,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6043,6 +6163,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6091,7 +6212,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aberrant Local Histone Post-Translational Modification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Post-translational modification profiling of patient material showed abnormal modification patterns that are local to the mutant histone rather than global. This is the sharpest mechanistic difference from the somatic oncohistones, whose lysine substitutions dysregulate modification across the whole genome in trans. Here the changes are in cis on the mutant H3.3, which is why the severity of the phenotype cannot be explained by global dysregulation of the histone code.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"chromatin remodeling\"]}}, {\"id\": \"Abnormal Brain Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The congenital arm of the phenotype: severe developmental delay, epilepsy, tone abnormality and structural brain findings, present from infancy. Just over half of individuals with an MRI have at least one abnormal finding, and corpus callosum dysgenesis is the commonest named one.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"locations\": [\"brain\", \"corpus callosum\"], \"animal_models\": [{\"name\": \"H3.3 T45I knock-in mouse\", \"species\": \"Mus musculus\", \"genotype\": \"h3-3a p.T45I knock-in\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces delayed developmental milestones and perinatal growth restriction.\"}]}}, {\"id\": \"Abnormal Corpus Callosum Morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Malformation or dysgenesis of the corpus callosum, the commonest named structural finding among individuals with an abnormal MRI.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001273\"}}, {\"id\": \"Camptocormia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Forward flexion of the spine when standing that resolves when lying down. Together with worsening gait, spasticity and loss of milestones it is the clinical face of the adult neurodegenerative phase.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100595\"}}, {\"id\": \"Cerebral Cortical Atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cortical atrophy on brain MRI in roughly a quarter of the founding cohort, including individuals without intractable epilepsy - so it is not simply a consequence of seizure burden.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002120\"}}, {\"id\": \"Craniofacial Dysmorphism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Nonspecific craniofacial abnormalities, present in the large majority. Next-generation phenotyping of published facial photographs across germline histonopathies has so far failed to establish a recognisable gestalt, so the dysmorphism is a supportive rather than a diagnostic pattern.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001999\"}}, {\"id\": \"De Novo H3-3A Variant Altering Histone H3.3\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The disease begins with a de novo heterozygous variant in H3-3A. Unlike the tightly clustered oncohistone substitutions of paediatric glioma, BLBS alleles are largely private and spread across the whole 135-residue protein, tail and core alike. They are read as gain of function or dominant negative rather than haploinsufficiency, which is what makes a single altered allele of one of two redundant H3.3 genes sufficient to cause severe disease.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"structural constituent of chromatin\"], \"genes\": [\"H3-3A\"], \"gene_terms\": [{\"label\": \"H3-3A\", \"id\": \"hgnc:4764\"}], \"genetic_context\": {\"allele_type\": \"MISSENSE\", \"variant_origin\": \"DE_NOVO\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"GAIN_OF_FUNCTION\", \"description\": \"Heterozygous de novo missense alleles distributed across the protein. Recorded as gain of function following the authors\u0027 own reading; a dominant-negative effect is the stated alternative for some alleles.\", \"gene_terms\": [{\"label\": \"H3-3A\", \"id\": \"hgnc:4764\"}]}}}, {\"id\": \"Deregulated Cell Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"RNA sequencing of patient cells showed up-regulation of mitosis and cell-division genes, and cellular assays confirmed increased proliferative capacity. This is the point at which the germline and somatic H3.3 diseases converge without becoming the same thing: the germline variants push proliferation, but no BLBS patient in the founding cohort had a malignancy, including individuals carrying germline substitutions at the same residues that act as oncogenic hotspots somatically.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cell population proliferation\"]}}, {\"id\": \"Disrupted Nucleosome Assembly and Chaperone Interaction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Molecular modelling of the founding cohort\u0027s variants showed disrupted interactions with DNA, with the other core histones, and with the histone chaperones that deposit H3.3. The two structural classes fall out by domain: core-domain variants are modelled as destabilising the nucleosome itself, while tail-domain variants disrupt protein-protein interactions with chromatin readers and chaperones. The mutant histone is still incorporated into nucleosomes - this is not a failure to assemble chromatin but a failure to assemble it correctly.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"nucleosome assembly\"], \"molecular_functions\": [\"nucleosomal DNA binding\"]}}, {\"id\": \"Global Developmental Delay and Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Essentially universal and typically in the severe range. Many affected individuals never achieve independent sitting, walking or speech.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"H3-3A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"H3-3A\"], \"gene_terms\": [{\"label\": \"H3-3A\", \"id\": \"hgnc:4764\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"DE_NOVO\"}}, {\"id\": \"H3-3A p.Thr45Ile\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The most recurrently reported BLBS1 allele, carried by four individuals in the 2024 cohort. Those four show substantial phenotypic variability, which is the clearest single demonstration that genotype does not determine phenotype in this disease.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"H3-3A\"], \"gene_terms\": [{\"label\": \"H3-3A\", \"id\": \"hgnc:4764\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"H3.3 T45I knock-in mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A knock-in mouse carrying h3-3a p.T45I, the most recurrent BLBS1 allele and the one this entry curates under variants. It is genotype-matched to human disease rather than a null, which is what distinguishes it from the zebrafish model, and it reproduces the two-phase natural history: perinatal growth restriction and delayed developmental milestones early, progressive motor and gait impairment later. Adult animals additionally show craniofacial differences and behavioural changes. Reported so far only as a preprint.\"}, {\"id\": \"Neural Crest and Craniofacial Developmental Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Craniofacial dysmorphism is present in the large majority of patients and is the phenotype with the clearest developmental mechanism. In the zebrafish h3f3a model, homozygous null larvae lose neural-crest-derived jaw cartilage entirely and show reduced foxd3-positive neural-crest-derived glia, melanocytes and xanthophores. The glial component is the one that connects to the human imaging phenotype: over a third of the patient cohort has hypomyelination on brain MRI, and glia are the myelinating cell type.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"radial glial cell\"], \"biological_processes\": [\"chromatin remodeling\"], \"animal_models\": [{\"name\": \"H3.3 T45I knock-in mouse\", \"species\": \"Mus musculus\", \"genotype\": \"h3-3a p.T45I knock-in\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Adult mutant animals show craniofacial differences.\"}, {\"name\": \"Zebrafish h3f3a model\", \"species\": \"Danio rerio\", \"genotype\": \"h3f3a p.D123N dominant allele; h3f3a db1092 homozygous null\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The model reproduces the craniofacial and neural-crest-derived glial components of the human phenotype.\"}]}}, {\"id\": \"Progressive Postnatal Neuronal H3.3 Dependence\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The degenerative arm, and the reason the disease has one at all. H3.3 progressively replaces the replication-dependent H3 variants in postnatal brain and comes to dominate the H3 pool in adulthood, so a defective H3.3 matters more to a neuron the older that neuron gets. The clinical correlates are cortical atrophy on imaging and, in adulthood, camptocormia and motor decline. The mechanism is an inference from the timing of the substrate rather than a demonstrated cause of the human degeneration, which is why it is provisional.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"animal_models\": [{\"name\": \"H3.3 T45I knock-in mouse\", \"species\": \"Mus musculus\", \"genotype\": \"h3-3a p.T45I knock-in\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces progressive motor and gait impairment on a congenital genotype, which is the phenomenon this node exists to explain.\"}]}}, {\"id\": \"Zebrafish h3f3a model\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A zebrafish model of the orthologous gene. A dominant p.D123N allele recovered from a forward genetic screen sits two residues from a patient variant (p.Q125R) and reproduces both the dominant inheritance and the craniofacial anomalies of the human disease. Homozygous db1092 null larvae lose neural-crest-derived jaw cartilage completely and show reduced foxd3-positive cranial glia, melanocytes and xanthophores. Because the model targets the h3f3a paralog, it is the direct ortholog for BLBS1 rather than for BLBS2.\"}], \"edges\": [{\"source\": \"De Novo H3-3A Variant Altering Histone H3.3\", \"target\": \"Disrupted Nucleosome Assembly and Chaperone Interaction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The altered residues sit at DNA contacts, inter-histone interfaces and chaperone-binding surfaces.\"}, {\"source\": \"Disrupted Nucleosome Assembly and Chaperone Interaction\", \"target\": \"Aberrant Local Histone Post-Translational Modification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Incorporated mutant histone carries and induces an abnormal local modification state.\"}, {\"source\": \"Aberrant Local Histone Post-Translational Modification\", \"target\": \"Deregulated Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Local chromatin deregulation is followed by transcriptional changes in mitosis and cell-division programs.\"}, {\"source\": \"Aberrant Local Histone Post-Translational Modification\", \"target\": \"Neural Crest and Craniofacial Developmental Defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chromatin dysregulation in neural crest derivatives disturbs craniofacial and glial development.\"}, {\"source\": \"Aberrant Local Histone Post-Translational Modification\", \"target\": \"Abnormal Brain Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chromatin dysregulation in neural lineages disturbs brain development.\"}, {\"source\": \"Neural Crest and Craniofacial Developmental Defect\", \"target\": \"Craniofacial Dysmorphism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disturbed neural-crest-derived craniofacial development produces the dysmorphic facial features.\"}, {\"source\": \"Abnormal Brain Development\", \"target\": \"Global Developmental Delay and Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The dominant clinical consequence of disrupted neural chromatin regulation.\"}, {\"source\": \"Abnormal Brain Development\", \"target\": \"Abnormal Corpus Callosum Morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The commonest specific structural finding on neuroimaging.\"}, {\"source\": \"Abnormal Brain Development\", \"target\": \"Progressive Postnatal Neuronal H3.3 Dependence\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same lesion becomes progressively more consequential as neurons mature and their H3 pool shifts to H3.3.\"}, {\"source\": \"Progressive Postnatal Neuronal H3.3 Dependence\", \"target\": \"Camptocormia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The characteristic adult-onset motor manifestation of the degenerative phase.\"}, {\"source\": \"Progressive Postnatal Neuronal H3.3 Dependence\", \"target\": \"Cerebral Cortical Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The imaging correlate of progressive neuronal dysfunction.\"}, {\"source\": \"H3.3 T45I knock-in mouse\", \"target\": \"Progressive Postnatal Neuronal H3.3 Dependence\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces progressive motor and gait impairment on a congenital genotype, which is the phenomenon this node exists to explain.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Progressive motor impairment in a mouse is not camptocormia, and the preprint reports no cortical atrophy or other neuropathological correlate, so the node\u0027s proposed mechanism - the postnatal shift of the neuronal H3 pool to H3.3 - is not itself tested by these endpoints. Peer review is pending.\"}, {\"source\": \"H3.3 T45I knock-in mouse\", \"target\": \"Abnormal Brain Development\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Reproduces delayed developmental milestones and perinatal growth restriction.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Mouse developmental milestones are not a counterpart of human developmental delay or intellectual disability, and the preprint reports no structural brain phenotype - no corpus callosum, posterior fossa or myelination finding - so the imaging component of this node is unmodelled. Seizures are not reported either.\"}, {\"source\": \"H3.3 T45I knock-in mouse\", \"target\": \"Neural Crest and Craniofacial Developmental Defect\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Adult mutant animals show craniofacial differences.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"The preprint reports craniofacial difference as a phenotype without linking it to neural crest biology, and the human dysmorphism has no recognisable gestalt to compare against, so the correspondence is at the level of \\\"the face is different\\\" and no further.\"}, {\"source\": \"Zebrafish h3f3a model\", \"target\": \"Neural Crest and Craniofacial Developmental Defect\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"The model reproduces the craniofacial and neural-crest-derived glial components of the human phenotype.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The dominant allele is p.D123N, not a patient allele, and the strongest cartilage and pigment-cell phenotypes come from the homozygous null rather than from a heterozygous missense genotype - so the model is closer to loss of h3f3a function than to the gain-of-function or dominant-negative mechanism inferred in patients. Zebrafish craniofacial cartilage is not a direct counterpart of human facial dysmorphism, and the model says nothing about the neurodevelopmental or degenerative phenotypes that dominate the human disease.\"}, {\"source\": \"H3-3A\", \"target\": \"De Novo H3-3A Variant Altering Histone H3.3\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"H3-3A p.Thr45Ile\", \"target\": \"H3-3A\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aberrant Local Histone Post-Translational Modification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Post-translational modification profiling of patient material showed abnormal modification patterns that are local to the mutant histone rather than global. This is the sharpest mechanistic difference from the somatic oncohistones, whose lysine substitutions dysregulate modification across the whole genome in trans. Here the changes are in cis on the mutant H3.3, which is why the severity of the phenotype cannot be explained by global dysregulation of the histone code.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"chromatin remodeling\"]}}, {\"id\": \"Abnormal Brain Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The congenital arm of the phenotype: severe developmental delay, epilepsy, tone abnormality and structural brain findings, present from infancy. Just over half of individuals with an MRI have at least one abnormal finding, and corpus callosum dysgenesis is the commonest named one.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"locations\": [\"brain\", \"corpus callosum\"], \"animal_models\": [{\"name\": \"H3.3 T45I knock-in mouse\", \"species\": \"Mus musculus\", \"genotype\": \"h3-3a p.T45I knock-in\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces delayed developmental milestones and perinatal growth restriction.\"}]}}, {\"id\": \"Abnormal Corpus Callosum Morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Malformation or dysgenesis of the corpus callosum, the commonest named structural finding among individuals with an abnormal MRI.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001273\"}}, {\"id\": \"Camptocormia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Forward flexion of the spine when standing that resolves when lying down. Together with worsening gait, spasticity and loss of milestones it is the clinical face of the adult neurodegenerative phase.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100595\"}}, {\"id\": \"Cerebral Cortical Atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cortical atrophy on brain MRI in roughly a quarter of the founding cohort, including individuals without intractable epilepsy - so it is not simply a consequence of seizure burden.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002120\"}}, {\"id\": \"Craniofacial Dysmorphism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Nonspecific craniofacial abnormalities, present in the large majority. Next-generation phenotyping of published facial photographs across germline histonopathies has so far failed to establish a recognisable gestalt, so the dysmorphism is a supportive rather than a diagnostic pattern.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001999\"}}, {\"id\": \"De Novo H3-3A Variant Altering Histone H3.3\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The disease begins with a de novo heterozygous variant in H3-3A. Unlike the tightly clustered oncohistone substitutions of paediatric glioma, BLBS alleles are largely private and spread across the whole 135-residue protein, tail and core alike. They are read as gain of function or dominant negative rather than haploinsufficiency, which is what makes a single altered allele of one of two redundant H3.3 genes sufficient to cause severe disease.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"structural constituent of chromatin\"], \"genes\": [\"H3-3A\"], \"gene_terms\": [{\"label\": \"H3-3A\", \"id\": \"hgnc:4764\"}], \"genetic_context\": {\"allele_type\": \"MISSENSE\", \"variant_origin\": \"DE_NOVO\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"GAIN_OF_FUNCTION\", \"description\": \"Heterozygous de novo missense alleles distributed across the protein. Recorded as gain of function following the authors\u0027 own reading; a dominant-negative effect is the stated alternative for some alleles.\", \"gene_terms\": [{\"label\": \"H3-3A\", \"id\": \"hgnc:4764\"}]}}}, {\"id\": \"Deregulated Cell Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"RNA sequencing of patient cells showed up-regulation of mitosis and cell-division genes, and cellular assays confirmed increased proliferative capacity. This is the point at which the germline and somatic H3.3 diseases converge without becoming the same thing: the germline variants push proliferation, but no BLBS patient in the founding cohort had a malignancy, including individuals carrying germline substitutions at the same residues that act as oncogenic hotspots somatically.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cell population proliferation\"]}}, {\"id\": \"Disrupted Nucleosome Assembly and Chaperone Interaction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Molecular modelling of the founding cohort\u0027s variants showed disrupted interactions with DNA, with the other core histones, and with the histone chaperones that deposit H3.3. The two structural classes fall out by domain: core-domain variants are modelled as destabilising the nucleosome itself, while tail-domain variants disrupt protein-protein interactions with chromatin readers and chaperones. The mutant histone is still incorporated into nucleosomes - this is not a failure to assemble chromatin but a failure to assemble it correctly.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"nucleosome assembly\"], \"molecular_functions\": [\"nucleosomal DNA binding\"]}}, {\"id\": \"Global Developmental Delay and Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Essentially universal and typically in the severe range. Many affected individuals never achieve independent sitting, walking or speech.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"H3-3A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"H3-3A\"], \"gene_terms\": [{\"label\": \"H3-3A\", \"id\": \"hgnc:4764\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"DE_NOVO\"}}, {\"id\": \"H3-3A p.Thr45Ile\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The most recurrently reported BLBS1 allele, carried by four individuals in the 2024 cohort. Those four show substantial phenotypic variability, which is the clearest single demonstration that genotype does not determine phenotype in this disease.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"H3-3A\"], \"gene_terms\": [{\"label\": \"H3-3A\", \"id\": \"hgnc:4764\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"H3.3 T45I knock-in mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A knock-in mouse carrying h3-3a p.T45I, the most recurrent BLBS1 allele and the one this entry curates under variants. It is genotype-matched to human disease rather than a null, which is what distinguishes it from the zebrafish model, and it reproduces the two-phase natural history: perinatal growth restriction and delayed developmental milestones early, progressive motor and gait impairment later. Adult animals additionally show craniofacial differences and behavioural changes. Reported so far only as a preprint.\"}, {\"id\": \"Neural Crest and Craniofacial Developmental Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Craniofacial dysmorphism is present in the large majority of patients and is the phenotype with the clearest developmental mechanism. In the zebrafish h3f3a model, homozygous null larvae lose neural-crest-derived jaw cartilage entirely and show reduced foxd3-positive neural-crest-derived glia, melanocytes and xanthophores. The glial component is the one that connects to the human imaging phenotype: over a third of the patient cohort has hypomyelination on brain MRI, and glia are the myelinating cell type.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"radial glial cell\"], \"biological_processes\": [\"chromatin remodeling\"], \"animal_models\": [{\"name\": \"H3.3 T45I knock-in mouse\", \"species\": \"Mus musculus\", \"genotype\": \"h3-3a p.T45I knock-in\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Adult mutant animals show craniofacial differences.\"}, {\"name\": \"Zebrafish h3f3a model\", \"species\": \"Danio rerio\", \"genotype\": \"h3f3a p.D123N dominant allele; h3f3a db1092 homozygous null\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The model reproduces the craniofacial and neural-crest-derived glial components of the human phenotype.\"}]}}, {\"id\": \"Progressive Postnatal Neuronal H3.3 Dependence\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The degenerative arm, and the reason the disease has one at all. H3.3 progressively replaces the replication-dependent H3 variants in postnatal brain and comes to dominate the H3 pool in adulthood, so a defective H3.3 matters more to a neuron the older that neuron gets. The clinical correlates are cortical atrophy on imaging and, in adulthood, camptocormia and motor decline. The mechanism is an inference from the timing of the substrate rather than a demonstrated cause of the human degeneration, which is why it is provisional.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"mechanism_confidence\": \"PROVISIONAL\", \"animal_models\": [{\"name\": \"H3.3 T45I knock-in mouse\", \"species\": \"Mus musculus\", \"genotype\": \"h3-3a p.T45I knock-in\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces progressive motor and gait impairment on a congenital genotype, which is the phenomenon this node exists to explain.\"}]}}, {\"id\": \"Zebrafish h3f3a model\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A zebrafish model of the orthologous gene. A dominant p.D123N allele recovered from a forward genetic screen sits two residues from a patient variant (p.Q125R) and reproduces both the dominant inheritance and the craniofacial anomalies of the human disease. Homozygous db1092 null larvae lose neural-crest-derived jaw cartilage completely and show reduced foxd3-positive cranial glia, melanocytes and xanthophores. Because the model targets the h3f3a paralog, it is the direct ortholog for BLBS1 rather than for BLBS2.\"}], \"edges\": [{\"source\": \"De Novo H3-3A Variant Altering Histone H3.3\", \"target\": \"Disrupted Nucleosome Assembly and Chaperone Interaction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The altered residues sit at DNA contacts, inter-histone interfaces and chaperone-binding surfaces.\"}, {\"source\": \"Disrupted Nucleosome Assembly and Chaperone Interaction\", \"target\": \"Aberrant Local Histone Post-Translational Modification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Incorporated mutant histone carries and induces an abnormal local modification state.\"}, {\"source\": \"Aberrant Local Histone Post-Translational Modification\", \"target\": \"Deregulated Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Local chromatin deregulation is followed by transcriptional changes in mitosis and cell-division programs.\"}, {\"source\": \"Aberrant Local Histone Post-Translational Modification\", \"target\": \"Neural Crest and Craniofacial Developmental Defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chromatin dysregulation in neural crest derivatives disturbs craniofacial and glial development.\"}, {\"source\": \"Aberrant Local Histone Post-Translational Modification\", \"target\": \"Abnormal Brain Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chromatin dysregulation in neural lineages disturbs brain development.\"}, {\"source\": \"Neural Crest and Craniofacial Developmental Defect\", \"target\": \"Craniofacial Dysmorphism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disturbed neural-crest-derived craniofacial development produces the dysmorphic facial features.\"}, {\"source\": \"Abnormal Brain Development\", \"target\": \"Global Developmental Delay and Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The dominant clinical consequence of disrupted neural chromatin regulation.\"}, {\"source\": \"Abnormal Brain Development\", \"target\": \"Abnormal Corpus Callosum Morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The commonest specific structural finding on neuroimaging.\"}, {\"source\": \"Abnormal Brain Development\", \"target\": \"Progressive Postnatal Neuronal H3.3 Dependence\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same lesion becomes progressively more consequential as neurons mature and their H3 pool shifts to H3.3.\"}, {\"source\": \"Progressive Postnatal Neuronal H3.3 Dependence\", \"target\": \"Camptocormia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The characteristic adult-onset motor manifestation of the degenerative phase.\"}, {\"source\": \"Progressive Postnatal Neuronal H3.3 Dependence\", \"target\": \"Cerebral Cortical Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The imaging correlate of progressive neuronal dysfunction.\"}, {\"source\": \"H3.3 T45I knock-in mouse\", \"target\": \"Progressive Postnatal Neuronal H3.3 Dependence\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces progressive motor and gait impairment on a congenital genotype, which is the phenomenon this node exists to explain.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Progressive motor impairment in a mouse is not camptocormia, and the preprint reports no cortical atrophy or other neuropathological correlate, so the node\u0027s proposed mechanism - the postnatal shift of the neuronal H3 pool to H3.3 - is not itself tested by these endpoints. Peer review is pending.\"}, {\"source\": \"H3.3 T45I knock-in mouse\", \"target\": \"Abnormal Brain Development\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Reproduces delayed developmental milestones and perinatal growth restriction.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Mouse developmental milestones are not a counterpart of human developmental delay or intellectual disability, and the preprint reports no structural brain phenotype - no corpus callosum, posterior fossa or myelination finding - so the imaging component of this node is unmodelled. Seizures are not reported either.\"}, {\"source\": \"H3.3 T45I knock-in mouse\", \"target\": \"Neural Crest and Craniofacial Developmental Defect\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Adult mutant animals show craniofacial differences.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"The preprint reports craniofacial difference as a phenotype without linking it to neural crest biology, and the human dysmorphism has no recognisable gestalt to compare against, so the correspondence is at the level of \\\"the face is different\\\" and no further.\"}, {\"source\": \"Zebrafish h3f3a model\", \"target\": \"Neural Crest and Craniofacial Developmental Defect\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"The model reproduces the craniofacial and neural-crest-derived glial components of the human phenotype.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The dominant allele is p.D123N, not a patient allele, and the strongest cartilage and pigment-cell phenotypes come from the homozygous null rather than from a heterozygous missense genotype - so the model is closer to loss of h3f3a function than to the gain-of-function or dominant-negative mechanism inferred in patients. Zebrafish craniofacial cartilage is not a direct counterpart of human facial dysmorphism, and the model says nothing about the neurodevelopmental or degenerative phenotypes that dominate the human disease.\"}, {\"source\": \"H3-3A\", \"target\": \"De Novo H3-3A Variant Altering Histone H3.3\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"H3-3A p.Thr45Ile\", \"target\": \"H3-3A\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6124,13 +6245,11 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Integument<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Musculoskeletal<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Musculoskeletal<span class="pill-count">(5)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Nervous System<span class="pill-count">(6)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Nervous System<span class="pill-count">(9)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Growth<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-11">Other<span class="pill-count">(5)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6175,6 +6294,9 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6189,6 +6311,7 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6213,6 +6336,7 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6276,6 +6400,9 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6290,6 +6417,7 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6353,6 +6481,9 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6367,6 +6498,7 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6434,6 +6566,9 @@ This clinical feature is Abnormality of eye movement (HP:0000496). HP:0000496 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6448,6 +6583,7 @@ This clinical feature is Abnormality of eye movement (HP:0000496). HP:0000496 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6472,6 +6608,7 @@ This clinical feature is Abnormality of eye movement (HP:0000496). HP:0000496 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6539,6 +6676,9 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6553,6 +6693,7 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6577,6 +6718,7 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6644,6 +6786,9 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6658,6 +6803,7 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6685,6 +6831,7 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6709,6 +6856,7 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6762,6 +6910,9 @@ This clinical feature is Craniosynostosis (HP:0001363). HP:0001363 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6776,6 +6927,7 @@ This clinical feature is Craniosynostosis (HP:0001363). HP:0001363 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6832,6 +6984,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6846,6 +7001,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6870,6 +7026,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6937,6 +7094,9 @@ This clinical feature is Abnormality of the skin (HP:0000951). HP:0000951 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6951,6 +7111,7 @@ This clinical feature is Abnormality of the skin (HP:0000951). HP:0000951 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6983,7 +7144,7 @@ This clinical feature is Abnormality of the skin (HP:0000951). HP:0000951 is a p
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">5</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-hypotonia" data-dismech-node="Hypotonia" data-dismech-type="phenotype">
@@ -7016,6 +7177,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7030,6 +7194,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7057,6 +7222,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7065,6 +7231,107 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                 <div class="evidence-explanation">Gives the patient-level frequency underpinning the FREQUENT band, and the hypertonia figure alongside it.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-camptocormia" data-dismech-node="Camptocormia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Camptocormia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100595" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0100595</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Camptocormia (HP:0100595), qualified as adult onset. HP:0100595 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">
+        Onset: ADULT</span>
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37782742" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37782742" target="_blank">PMID:37782742</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The presentation is highly variable and can include hypotonia, epilepsy, other neurologic findings (spasticity, loss of developmental milestones, worsening gait, and/or camptocormia – forward flexion of the spine when standing that resolves when lying down), growth abnormalities (most commonly..."</div>
+
+
+                <div class="evidence-explanation">GeneReviews defines camptocormia and lists it among the neurologic findings of this syndrome.</div>
 
 
 
@@ -7094,15 +7361,18 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001257</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001257</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7122,6 +7392,7 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7164,15 +7435,18 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001276" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001276</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001276" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001276</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypertonia (HP:0001276). HP:0001276 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7192,6 +7466,7 @@ This clinical feature is Hypertonia (HP:0001276). HP:0001276 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7219,6 +7494,7 @@ This clinical feature is Hypertonia (HP:0001276). HP:0001276 is a phenotype from
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7242,13 +7518,89 @@ This clinical feature is Hypertonia (HP:0001276). HP:0001276 is a phenotype from
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-musculoskeletal-anomalies" data-dismech-node="Musculoskeletal Anomalies" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Musculoskeletal Anomalies
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal skeletal morphology</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011842" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0011842</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal skeletal morphology (HP:0011842). HP:0011842 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38678163" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38678163" target="_blank">PMID:38678163</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Over half of individuals (58%) present with musculoskeletal anomalies such as club foot, scoliosis, hip dysplasia, subluxation of various joints/hypermobility, kyphosis, and femoral anteversion"</div>
+
+
+                <div class="evidence-explanation">Gives the frequency of the musculoskeletal category and names scoliosis among its constituents; no scoliosis-specific frequency is reported in prose, so none is recorded here.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
             <details class="phenotype-category-group" id="pheno-cat-9">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">6</span>
+                    <span class="cat-count">9</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-global-developmental-delay-and-intellectual-disability" data-dismech-node="Global Developmental Delay and Intellectual Disability" data-dismech-type="phenotype">
@@ -7267,15 +7619,18 @@ This clinical feature is Hypertonia (HP:0001276). HP:0001276 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7295,6 +7650,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7319,6 +7675,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7361,15 +7718,18 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7389,6 +7749,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7413,6 +7774,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7455,15 +7817,18 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002120" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0002120</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002120" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002120</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cerebral cortical atrophy (HP:0002120). HP:0002120 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7486,6 +7851,7 @@ This clinical feature is Cerebral cortical atrophy (HP:0002120). HP:0002120 is a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7494,6 +7860,154 @@ This clinical feature is Cerebral cortical atrophy (HP:0002120). HP:0002120 is a
 
 
                 <div class="evidence-explanation">Gives the 26% figure and the observation that it occurs independently of intractable epilepsy.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-delayed-cns-myelination" data-dismech-node="Delayed CNS Myelination" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Delayed CNS Myelination
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002188" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0002188</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Delayed CNS myelination (HP:0002188). HP:0002188 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33268356" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33268356" target="_blank">PMID:33268356</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The loss of glial cells may relate to the hypomyelination phenotype that is noted on the brain MRIs of over one-third of the H3.3 cohort as glial cells are the cell type responsible for myelination."</div>
+
+
+                <div class="evidence-explanation">Gives the frequency of the hypomyelination finding in the cohort.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-delayed-ability-to-walk" data-dismech-node="Delayed Ability to Walk" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Delayed Ability to Walk
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031936" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0031936</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Delayed ability to walk (HP:0031936). HP:0031936 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38678163" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38678163" target="_blank">PMID:38678163</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"More individuals harboring variants in H3-3A (85%) had delayed or yet to be achieved independent walking when compared to individuals harboring variants in H3-3B (65%)."</div>
+
+
+                <div class="evidence-explanation">Gives the H3-3A-specific frequency, which is the one this entry needs.</div>
 
 
 
@@ -7525,15 +8039,18 @@ This clinical feature is Cerebral cortical atrophy (HP:0002120). HP:0002120 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000750</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0000750</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Delayed speech and language development (HP:0000750). HP:0000750 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7556,6 +8073,7 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7564,6 +8082,80 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
                 <div class="evidence-explanation">Establishes speech delay or absence as a core feature; GeneReviews does not give a separate frequency for it.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-delayed-ability-to-sit" data-dismech-node="Delayed Ability to Sit" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Delayed Ability to Sit
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0025336" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0025336</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Delayed ability to sit (HP:0025336). HP:0025336 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38678163" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38678163" target="_blank">PMID:38678163</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Individuals with variants in H3-3A (56%) more frequently had delayed or yet to be achieved independent sitting compared to individuals with variants in H3-3B (43%) (Fig. 2)."</div>
+
+
+                <div class="evidence-explanation">Gives the H3-3A-specific frequency, which is the one this entry needs.</div>
 
 
 
@@ -7595,15 +8187,18 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001273" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001273</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001273" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0001273</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal corpus callosum morphology (HP:0001273). HP:0001273 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7623,6 +8218,7 @@ This clinical feature is Abnormal corpus callosum morphology (HP:0001273). HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7663,15 +8259,18 @@ This clinical feature is Abnormal corpus callosum morphology (HP:0001273). HP:00
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000717" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000717</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000717" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0000717</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Autism (HP:0000717). HP:0000717 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7691,6 +8290,7 @@ This clinical feature is Autism (HP:0000717). HP:0000717 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7744,15 +8344,18 @@ This clinical feature is Autism (HP:0000717). HP:0000717 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0004322</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0004322</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7772,6 +8375,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7799,6 +8403,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7807,394 +8412,6 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                 <div class="evidence-explanation">GeneReviews identifies poor growth as the usual direction of the growth abnormality.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-11">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">5</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-camptocormia" data-dismech-node="Camptocormia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Camptocormia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100595" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0100595</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Camptocormia (HP:0100595), qualified as adult onset. HP:0100595 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">
-        Onset: ADULT</span>
-
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:37782742" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37782742" target="_blank">PMID:37782742</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The presentation is highly variable and can include hypotonia, epilepsy, other neurologic findings (spasticity, loss of developmental milestones, worsening gait, and/or camptocormia – forward flexion of the spine when standing that resolves when lying down), growth abnormalities (most commonly..."</div>
-
-
-                <div class="evidence-explanation">GeneReviews defines camptocormia and lists it among the neurologic findings of this syndrome.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-delayed-cns-myelination" data-dismech-node="Delayed CNS Myelination" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Delayed CNS Myelination
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002188" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0002188</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Delayed CNS myelination (HP:0002188). HP:0002188 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33268356" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33268356" target="_blank">PMID:33268356</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The loss of glial cells may relate to the hypomyelination phenotype that is noted on the brain MRIs of over one-third of the H3.3 cohort as glial cells are the cell type responsible for myelination."</div>
-
-
-                <div class="evidence-explanation">Gives the frequency of the hypomyelination finding in the cohort.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-delayed-ability-to-walk" data-dismech-node="Delayed Ability to Walk" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Delayed Ability to Walk
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0031936" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0031936</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Delayed ability to walk (HP:0031936). HP:0031936 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38678163" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38678163" target="_blank">PMID:38678163</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"More individuals harboring variants in H3-3A (85%) had delayed or yet to be achieved independent walking when compared to individuals harboring variants in H3-3B (65%)."</div>
-
-
-                <div class="evidence-explanation">Gives the H3-3A-specific frequency, which is the one this entry needs.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-delayed-ability-to-sit" data-dismech-node="Delayed Ability to Sit" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Delayed Ability to Sit
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0025336" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0025336</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Delayed ability to sit (HP:0025336). HP:0025336 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38678163" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38678163" target="_blank">PMID:38678163</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Individuals with variants in H3-3A (56%) more frequently had delayed or yet to be achieved independent sitting compared to individuals with variants in H3-3B (43%) (Fig. 2)."</div>
-
-
-                <div class="evidence-explanation">Gives the H3-3A-specific frequency, which is the one this entry needs.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-musculoskeletal-anomalies" data-dismech-node="Musculoskeletal Anomalies" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Musculoskeletal Anomalies
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Abnormal skeletal morphology</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011842" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0011842</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal skeletal morphology (HP:0011842). HP:0011842 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38678163" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38678163" target="_blank">PMID:38678163</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Over half of individuals (58%) present with musculoskeletal anomalies such as club foot, scoliosis, hip dysplasia, subluxation of various joints/hypermobility, kyphosis, and femoral anteversion"</div>
-
-
-                <div class="evidence-explanation">Gives the frequency of the musculoskeletal category and names scoliosis among its constituents; no scoliosis-specific frequency is reported in prose, so none is recorded here.</div>
 
 
 
@@ -8284,6 +8501,9 @@ This disease-associated gene is H3-3A (hgnc:4764). hgnc:4764 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8298,6 +8518,7 @@ This disease-associated gene is H3-3A (hgnc:4764). hgnc:4764 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8322,6 +8543,7 @@ This disease-associated gene is H3-3A (hgnc:4764). hgnc:4764 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8368,6 +8590,7 @@ This disease-associated gene is H3-3A (hgnc:4764). hgnc:4764 is a gene from the 
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8389,7 +8612,13 @@ This variant is in H3-3A (hgnc:4764). hgnc:4764 is a gene from the HUGO Gene Nom
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The most recurrently reported BLBS1 allele, carried by four individuals in the 2024 cohort. Those four show substantial phenotypic variability, which is the clearest single demonstration that genotype does not determine phenotype in this disease.</div>
@@ -8419,6 +8648,7 @@ This variant is in H3-3A (hgnc:4764). hgnc:4764 is a gene from the HUGO Gene Nom
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8440,6 +8670,7 @@ This variant is in H3-3A (hgnc:4764). hgnc:4764 is a gene from the HUGO Gene Nom
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8520,6 +8751,31 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">There is no disease-modifying therapy. Management is standard treatment of each manifestation - developmental delay, attention-deficit/hyperactivity disorder, autism spectrum disorder, anxiety, epilepsy, spasticity, constipation, craniosynostosis, vision and hearing problems, congenital heart defects, undescended testes and hypothyroidism - with early developmental intervention and feeding support.</div>
 
 
@@ -8541,6 +8797,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8604,6 +8861,31 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Growth parameters, nutrition and oral intake safety, constipation, new manifestations such as seizures and changes in tone or gait, developmental progress and behaviour at every visit; ophthalmology, audiology and thyroid function annually. The tone-and-gait item is the one that matters for the degenerative phase, since new motor decline in adulthood is expected rather than incidental.</div>
 
 
@@ -8628,6 +8910,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8649,6 +8932,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8712,6 +8996,31 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Because the variants are de novo, recurrence risk to other family members is presumed low. Once a variant is identified, prenatal and preimplantation genetic testing become available.</div>
 
 
@@ -8733,6 +9042,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8808,6 +9118,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8829,6 +9140,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8899,6 +9211,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8951,6 +9264,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8975,6 +9289,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8996,6 +9311,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9064,6 +9380,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9168,6 +9485,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9238,6 +9556,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -9259,6 +9578,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9410,6 +9730,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9451,6 +9772,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9532,6 +9854,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9573,6 +9896,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9632,6 +9956,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9675,6 +10000,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9812,6 +10138,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9871,6 +10198,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9910,6 +10238,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9954,6 +10283,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11740,6 +12070,32 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Entity scope: this entry covers BLBS1 (H3-3A, OMIM 619720) only. The H3-3B counterpart, BLBS2, already exists as its own entry and is recorded here as a differential diagnosis, mirroring how that entry treats BLBS1.
+Cohort figures are reported for the combined BLBS cohort far more often than they are stratified by gene, because the two genes encode an identical protein and were ascertained together. Where a gene-stratified number exists it is used and labelled; where only a combined-cohort figure exists it is quoted as such. The one firmly H3-3A-specific statement available is that every H3-3A variant with parental data has been a de novo missense change, which is not true of H3-3B.
+`just preflight-dr` returned WARN on the research report: H3-3B is mentioned 27 times against 34 for H3-3A, because the report discusses both entities. The report&#39;s H3-3B-specific content - the p.Leu48Arg iPSC hyper-deposition model, the inherited p.Asn108Ser allele, the synonymous stop-gain and stop-loss alleles - was excluded from this entry rather than folded in.
+No `conforms_to` declaration is made against `epigenetic_machinery_neurodevelopmental_dysregulation`. That module&#39;s entry node is haploinsufficiency of an epigenetic machinery component, and this disease is explicitly not haploinsufficiency: three of four H3.3 alleles are wild type and the mechanism is read as gain of function or dominant negative. The sibling BLBS2 entry makes the same choice.
+Two animal models are curated. The h3-3a p.T45I knock-in mouse (DOI:10.64898/2026.06.16.732665) is genotype-matched to the recurrent human allele this entry records under `variants`, and is so far a preprint; it is curated because it is the only in vivo model of an actual patient allele, and its preprint status and its purely behavioural endpoints are stated in the link `limitations` and in the HUMAN_MODEL_MISMATCH discussion. The `DOI:` prefix is in the reference validator&#39;s `skip_prefixes`, so its seven snippets are not machine-verified; each was checked by hand against `references_cache/DOI_10.64898_2026.06.16.732665.md`.
+Two ontology CURIEs suggested by the research report were wrong and were replaced after checking the ontologies directly: HP:0031808 is &#34;Decreased total basophil count&#34;, not Camptocormia (HP:0100595), and CL:0002608 is &#34;hippocampal neuron&#34;, not radial glial cell (CL:0000681). HP:0007256 was also offered for spasticity but is &#34;Abnormal pyramidal sign&#34;; HP:0001257 is used instead.
+A ClinGen Definitive gene-disease validity classification for H3-3A to BLBS1 was dropped rather than left as uncited prose: `just clingen-refresh` currently fails on a checksum mismatch against the pinned `gene_validity.csv`, so no `CGGV:` record could be generated to quote, and fixing that pin is a repository-maintenance change rather than part of this entry.
+Six of the reference-cache files added alongside this entry are not cited. They were screened and set aside: they come from the deep-research run&#39;s own citation-validation pass and are committed because the report that cites them is committed, not because they support anything in the entry.
+Phenotype frequencies come from Table 1 of the 2024 cohort paper, which reports the combined BLBS cohort rather than an H3-3A-only stratification; each is quoted with its own denominator so the reader can see what population it describes. Where a phenotype is named only in GeneReviews management or surveillance guidance - hearing impairment, autism spectrum disorder - no frequency is recorded, because none is published.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Bryant-Li-Bhoj Neurodevelopmental Syndrome 1</strong> · 2026-08-29T15:57:52Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Bryant-Li-Bhoj_Neurodevelopmental_Syndrome_1/2026-08-29T155752Z-claude-code-eee1ce.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of BLBS1 (MONDO:0030606, H3-3A) from stubs/Bryant-Li-Bhoj_Neurodevelopmental_Syndrome_1.yaml, using a claude_code deep-research report. The sibling entry Bryant-Li-Bhoj_Neurodevelopmental_Syndrome_2 (H3-3B) already existed and explicitly recorded BLBS1 as a differential diagnosis rather than folding it in, so this entry reciprocates that differential. just preflight-dr returned WARN because the report mentions H3-3B 27 times against 34 for H3-3A; the report discusses both entities, and its H3-3B-specific content (the p.Leu48Arg iPSC hyper-deposition model, the inherited p.Asn108Ser allele, the synonymous stop-gain and stop-loss alleles) was excluded rather than folded in. The GeneReviews baseline required by the disorder-creation skill was fetched (PMID:37782742) and its Clinical Characteristics, Management and Surveillance sections were cross-referenced into phenotypes and treatments; the top-level references block carries the GeneReviews tag. Mechanism is a seven-node chain from the de novo H3-3A variant through disrupted nucleosome assembly and aberrant local histone post-translational modification to deregulated proliferation, the neural crest craniofacial defect, and the neurodevelopmental plus degenerative brain phenotype. The zebrafish h3f3a model is curated here with modeled_mechanisms, readouts and an explicit limitations note, because h3f3a is the H3-3A ortholog. Three ontology CURIEs suggested by the report were wrong and were replaced after checking the ontologies directly: HP:0031808 is Decreased total basophil count rather than Camptocormia (correct HP:0100595), CL:0002608 is hippocampal neuron rather than radial glial cell (correct CL:0000681), and HP:0007256 is Abnormal pyramidal sign rather than Spasticity (correct HP:0001257). No conforms_to is declared against epigenetic_machinery_neurodevelopmental_dysregulation because that module&#39;s entry node is haploinsufficiency and this disease is explicitly not haploinsufficiency; the sibling entry makes the same choice. Validated with just validate (61/61 snippets verified), just validate-terms, check-entity-refs, check-duplicate-keys, check-folded-hyphens, check-snippet-length, check-title-snippets, check-snippet-grading, and the batched just validate-disorders. After the first CI run, the branch was rebased onto main to pick up #10003, which retired supports: PARTIAL; the three PARTIAL evidence items were migrated to supports: SUPPORT with directness: INDIRECT, which is what each of them was actually recording - a quote from which the curated claim follows by an inference step rather than one that asserts it. A second round addressed the reviewer&#39;s content findings: nine phenotypes were added from Table 1 of the 2024 cohort paper (delayed walking, delayed sitting, delayed speech, corpus callosum morphology, microcephaly, hypertonia, dermatologic features, musculoskeletal anomalies, hearing impairment, autism); three over-specific bindings were generalised to what their sources actually support (ocular involvement from HP:0000486 Strabismus to HP:0000496, congenital heart defect from HP:0001631 to HP:0001627, musculoskeletal from HP:0002650 Scoliosis to HP:0011842); every table-row snippet was replaced with the corresponding prose sentence after `just check-snippet-length` correctly rejected bare table cells as non-propositional; the bundled &#39;Abnormal Brain Development and Progressive Neurologic Dysfunction&#39; node was split into a congenital node and a postnatal-H3.3-dependence node; and the h3-3a p.T45I knock-in mouse (DOI:10.64898/2026.06.16.732665, a preprint located via Europe PMC after PubMed returned nothing) was curated with three modeled_mechanisms links, so the HUMAN_MODEL_MISMATCH discussion now argues from two models failing in opposite directions rather than asserting that no in vivo model exists. The DOI prefix is in the reference validator&#39;s skip_prefixes, so those seven snippets were verified by hand against the cache.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

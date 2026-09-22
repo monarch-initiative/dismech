@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -467,6 +468,18 @@
         .tag-component {
             background: #f0fdf4;
             color: #166534;
+        }
+
+        /* Same values as disorder.html.j2 so a treatment chip looks identical
+           whether it is read on a disorder page or on a module page. */
+        .tag-treatment {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .tag-gene {
+            background: #dbeafe;
+            color: #1e40af;
         }
 
         .tag-role {
@@ -1044,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1059,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1113,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1126,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1284,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1294,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1335,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1541,6 +1590,9 @@
 
     
     
+
+    
+    
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -1581,7 +1633,7 @@
                 
                 <span class="badge badge-category">Module</span>
                 <span class="badge badge-module">ciliopathy_dysfunction</span>
-                <span class="badge badge-count">36 disorders</span>
+                <span class="badge badge-count">42 disorders</span>
                 
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 10</a>
                 
@@ -2187,11 +2239,13 @@ This mechanism module involves abnormal determination of left/right symmetry (GO
 
         
 
+        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
                 <h2 class="card-title">Used By Disorder Entries</h2>
-                <span class="card-count">36</span>
+                <span class="card-count">42</span>
             </div>
             
             <div class="crosslink-list">
@@ -2272,6 +2326,26 @@ This mechanism module involves abnormal determination of left/right symmetry (GO
                 </div>
                 
                 <div class="crosslink-item">
+                    <a href="../disorders/Axial_Spondylometaphyseal_Dysplasia.html">Axial Spondylometaphyseal Dysplasia</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Defective Primary Ciliogenesis → Basal Body and Transition Zone Dysfunction
+                        
+                        
+                        , 
+                        
+                        Photoreceptor Connecting Cilium Dysfunction → Photoreceptor Connecting Cilium Degeneration
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
                     <a href="../disorders/Bardet-Biedl_syndrome.html">Bardet-Biedl syndrome</a>
                     
                     <span class="crosslink-desc">
@@ -2300,6 +2374,41 @@ This mechanism module involves abnormal determination of left/right symmetry (GO
                         , 
                         
                         Altered Sonic hedgehog-dependent limb patterning → Impaired Hedgehog Signal Transduction
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Biliary,_Renal,_Neurologic,_and_Skeletal_Syndrome.html">Biliary, Renal, Neurologic, and Skeletal Syndrome</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        TTC26 Loss of Function → Basal Body and Transition Zone Dysfunction
+                        
+                        
+                        , 
+                        
+                        Abnormal Ciliary Structure and IFT-B Cargo Loading → Basal Body and Transition Zone Dysfunction
+                        
+                        
+                        , 
+                        
+                        Motile Cilia Beat Dysfunction
+                        
+                        
+                        , 
+                        
+                        Dysregulated Sonic Hedgehog Signalling → Impaired Hedgehog Signal Transduction
+                        
+                        
+                        , 
+                        
+                        Multisystem Ciliopathy Organ Involvement → Multisystem Pleiotropic Ciliopathy Phenotype
                         
                         
                     </span>
@@ -2340,6 +2449,31 @@ This mechanism module involves abnormal determination of left/right symmetry (GO
                         , 
                         
                         Extra-Retinal Ciliary Pleiotropy → Multisystem Pleiotropic Ciliopathy Phenotype
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Cone-rod_dystrophy_and_hearing_loss_1.html">Cone-rod dystrophy and hearing loss 1</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Elevated CP110 and Disordered Cilium Assembly → Basal Body and Transition Zone Dysfunction
+                        
+                        
+                        , 
+                        
+                        Photoreceptor Connecting Cilium Dysfunction → Photoreceptor Connecting Cilium Degeneration
+                        
+                        
+                        , 
+                        
+                        Sperm Flagellar Defect → Motile Cilia Beat Dysfunction
                         
                         
                     </span>
@@ -2827,6 +2961,26 @@ This mechanism module involves abnormal determination of left/right symmetry (GO
                 </div>
                 
                 <div class="crosslink-item">
+                    <a href="../disorders/RAB23-related_Carpenter_Syndrome.html">RAB23-related Carpenter Syndrome</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Impaired Ciliary Protein Trafficking → Basal Body and Transition Zone Dysfunction
+                        
+                        
+                        , 
+                        
+                        Hedgehog Signalling Dysregulation → Impaired Hedgehog Signal Transduction
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
                     <a href="../disorders/RP2-Related_Retinopathy.html">RP2-Related Retinopathy</a>
                     
                     <span class="crosslink-desc">
@@ -2895,6 +3049,51 @@ This mechanism module involves abnormal determination of left/right symmetry (GO
                         , 
                         
                         Hedgehog Signaling Disruption in Skeletal Development → Impaired Hedgehog Signal Transduction
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Short-rib_thoracic_dysplasia_21_without_polydactyly.html">Short-rib thoracic dysplasia 21 without polydactyly</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Defective Basal Body Docking and Ciliogenesis → Basal Body and Transition Zone Dysfunction
+                        
+                        
+                        , 
+                        
+                        Impaired Hedgehog Signal Transduction
+                        
+                        
+                        , 
+                        
+                        Short Ribs and Thoracic Constriction → Skeletal Dysplasia with Polydactyly and Thoracic Constriction
+                        
+                        
+                        , 
+                        
+                        Cerebellar and CNS Involvement → Cerebellar and CNS Malformation
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Spermatogenic_failure_43.html">Spermatogenic failure 43</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Multiple Morphological Abnormalities of the Sperm Flagella → Motile Cilia Beat Dysfunction
                         
                         
                     </span>
@@ -2990,11 +3189,13 @@ This mechanism module involves abnormal determination of left/right symmetry (GO
             
             <div class="item-box anchor-target" id="module-pathophysiology-basal-body-and-transition-zone-dysfunction" data-dismech-node="Basal Body and Transition Zone Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Basal Body and Transition Zone Dysfunction</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The shared upstream lesion of the ciliopathies. Mutations in genes encoding basal body, transition zone, BBSome, or intraflagellar transport (IFT) components impair docking of the basal body, ciliary membrane gating at the transition zone, and bidirectional cargo transport along the axoneme. The result is defective ciliogenesis or a structurally present but functionally incompetent cilium that cannot correctly compartmentalize signaling machinery. The specific module affected (basal body, transition zone, IFT, or axonemal motility) varies by gene and biases the downstream phenotype.</div>
                 
@@ -3143,9 +3344,30 @@ This pathophysiological event involves abnormal intraflagellar transport, annota
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Axial_Spondylometaphyseal_Dysplasia.html">Axial Spondylometaphyseal Dysplasia</a>
+                            
+                            <span class="crosslink-desc">as Defective Primary Ciliogenesis</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Bardet-Biedl_syndrome.html">Bardet-Biedl syndrome</a>
                             
                             <span class="crosslink-desc">as Ciliary transition zone and basal body dysfunction</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Biliary,_Renal,_Neurologic,_and_Skeletal_Syndrome.html">Biliary, Renal, Neurologic, and Skeletal Syndrome</a>
+                            
+                            <span class="crosslink-desc">as Abnormal Ciliary Structure and IFT-B Cargo Loading</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Biliary,_Renal,_Neurologic,_and_Skeletal_Syndrome.html">Biliary, Renal, Neurologic, and Skeletal Syndrome</a>
+                            
+                            <span class="crosslink-desc">as TTC26 Loss of Function</span>
                             
                         </div>
                         
@@ -3160,6 +3382,13 @@ This pathophysiological event involves abnormal intraflagellar transport, annota
                             <a href="../disorders/CFAP418-related_retinal_ciliopathy.html">CFAP418-related retinal ciliopathy</a>
                             
                             <span class="crosslink-desc">as CFAP418 Loss of Function at the Photoreceptor Ciliary Base</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Cone-rod_dystrophy_and_hearing_loss_1.html">Cone-rod dystrophy and hearing loss 1</a>
+                            
+                            <span class="crosslink-desc">as Elevated CP110 and Disordered Cilium Assembly</span>
                             
                         </div>
                         
@@ -3262,6 +3491,13 @@ This pathophysiological event involves abnormal intraflagellar transport, annota
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/RAB23-related_Carpenter_Syndrome.html">RAB23-related Carpenter Syndrome</a>
+                            
+                            <span class="crosslink-desc">as Impaired Ciliary Protein Trafficking</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/RP2-Related_Retinopathy.html">RP2-Related Retinopathy</a>
                             
                             <span class="crosslink-desc">as Disrupted Ciliary Trafficking of Phototransduction Proteins</span>
@@ -3279,6 +3515,13 @@ This pathophysiological event involves abnormal intraflagellar transport, annota
                             <a href="../disorders/Short-Rib_Polydactyly_Syndrome.html">Short-Rib Polydactyly Syndrome</a>
                             
                             <span class="crosslink-desc">as Intraflagellar Transport and Ciliogenesis Defects</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Short-rib_thoracic_dysplasia_21_without_polydactyly.html">Short-rib thoracic dysplasia 21 without polydactyly</a>
+                            
+                            <span class="crosslink-desc">as Defective Basal Body Docking and Ciliogenesis</span>
                             
                         </div>
                         
@@ -3326,11 +3569,13 @@ This pathophysiological event involves abnormal intraflagellar transport, annota
             
             <div class="item-box anchor-target" id="module-pathophysiology-impaired-hedgehog-signal-transduction" data-dismech-node="Impaired Hedgehog Signal Transduction" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Hedgehog Signal Transduction</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The primary cilium is the obligate organelle for vertebrate Hedgehog signal transduction: pathway components including SMO and GLI transcription factors traffic through the ciliary compartment to convert Hedgehog ligand into a transcriptional response. Ciliary assembly or trafficking defects derange this process, perturbing GLI activator/repressor balance. Because Hedgehog signaling patterns the limb, neural tube, and skeleton, its disruption produces polydactyly, neural tube and cerebellar defects, and skeletal dysplasia.</div>
                 
@@ -3398,6 +3643,13 @@ This pathophysiological event involves dysregulated Hedgehog (smoothened) signal
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Biliary,_Renal,_Neurologic,_and_Skeletal_Syndrome.html">Biliary, Renal, Neurologic, and Skeletal Syndrome</a>
+                            
+                            <span class="crosslink-desc">as Dysregulated Sonic Hedgehog Signalling</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Cranioectodermal_Dysplasia.html">Cranioectodermal Dysplasia</a>
                             
                             <span class="crosslink-desc">as Cilium-Dependent Signaling Failure</span>
@@ -3461,9 +3713,21 @@ This pathophysiological event involves dysregulated Hedgehog (smoothened) signal
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/RAB23-related_Carpenter_Syndrome.html">RAB23-related Carpenter Syndrome</a>
+                            
+                            <span class="crosslink-desc">as Hedgehog Signalling Dysregulation</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Short-Rib_Polydactyly_Syndrome.html">Short-Rib Polydactyly Syndrome</a>
                             
                             <span class="crosslink-desc">as Hedgehog Signaling Disruption in Skeletal Development</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Short-rib_thoracic_dysplasia_21_without_polydactyly.html">Short-rib thoracic dysplasia 21 without polydactyly</a>
                             
                         </div>
                         
@@ -3497,11 +3761,13 @@ This pathophysiological event involves dysregulated Hedgehog (smoothened) signal
             
             <div class="item-box anchor-target" id="module-pathophysiology-planar-cell-polarity-and-non-canonical-wnt-disruption" data-dismech-node="Planar Cell Polarity and Non-Canonical Wnt Disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">Planar Cell Polarity and Non-Canonical Wnt Disruption</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Beyond Hedgehog, the primary cilium and its basal body coordinate non-canonical Wnt / planar cell polarity (PCP) signaling, which orients cells within the plane of a tissue and drives convergent-extension morphogenesis. Ciliary dysfunction disturbs PCP, contributing to defects in tube elongation and diameter control (kidney tubules), cochlear and stereociliary bundle orientation, and neural tube closure.</div>
                 
@@ -3612,11 +3878,13 @@ This pathophysiological event involves abnormal establishment of planar polarity
             
             <div class="item-box anchor-target" id="module-pathophysiology-photoreceptor-connecting-cilium-degeneration" data-dismech-node="Photoreceptor Connecting Cilium Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Photoreceptor Connecting Cilium Degeneration</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Photoreceptor outer segments are highly specialized non-motile sensory cilia connected to the cell body by a connecting cilium through which all phototransduction cargo is trafficked. Ciliary assembly or transport defects impair outer segment morphogenesis and maintenance, causing progressive photoreceptor death and a retinitis pigmentosa-like retinal degeneration that is one of the most penetrant features of syndromic ciliopathies.</div>
                 
@@ -3733,6 +4001,13 @@ This pathophysiological event involves decreased photoreceptor cell maintenance 
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Axial_Spondylometaphyseal_Dysplasia.html">Axial Spondylometaphyseal Dysplasia</a>
+                            
+                            <span class="crosslink-desc">as Photoreceptor Connecting Cilium Dysfunction</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Bardet-Biedl_syndrome.html">Bardet-Biedl syndrome</a>
                             
                             <span class="crosslink-desc">as Photoreceptor outer-segment transport defect</span>
@@ -3741,6 +4016,13 @@ This pathophysiological event involves decreased photoreceptor cell maintenance 
                         
                         <div class="crosslink-item">
                             <a href="../disorders/CFAP418-related_retinal_ciliopathy.html">CFAP418-related retinal ciliopathy</a>
+                            
+                            <span class="crosslink-desc">as Photoreceptor Connecting Cilium Dysfunction</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Cone-rod_dystrophy_and_hearing_loss_1.html">Cone-rod dystrophy and hearing loss 1</a>
                             
                             <span class="crosslink-desc">as Photoreceptor Connecting Cilium Dysfunction</span>
                             
@@ -3812,11 +4094,13 @@ This pathophysiological event involves decreased photoreceptor cell maintenance 
             
             <div class="item-box anchor-target" id="module-pathophysiology-renal-tubular-cystic-and-fibrotic-disease" data-dismech-node="Renal Tubular Cystic and Fibrotic Disease" data-dismech-type="pathophysiology">
                 <div class="item-name">Renal Tubular Cystic and Fibrotic Disease</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Renal tubular epithelial cells use the primary cilium as a flow and signaling sensor that maintains tubular architecture. Ciliary dysfunction, compounded by disrupted PCP-dependent oriented cell division, leads to tubular dilatation, cyst formation, interstitial fibrosis, and progressive loss of renal function (the nephronophthisis / cystic kidney arm of the ciliopathies).</div>
                 
@@ -3951,11 +4235,13 @@ This pathophysiological event involves kidney tubule epithelial cell, annotated 
             
             <div class="item-box anchor-target" id="module-pathophysiology-skeletal-dysplasia-with-polydactyly-and-thoracic-constriction" data-dismech-node="Skeletal Dysplasia with Polydactyly and Thoracic Constriction" data-dismech-type="pathophysiology">
                 <div class="item-name">Skeletal Dysplasia with Polydactyly and Thoracic Constriction</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">In the developing skeleton, primary cilia on growth-plate chondrocytes transduce Hedgehog signals that regulate chondrocyte proliferation and endochondral ossification. IFT and ciliary defects derange this program, producing the skeletal ciliopathies: short ribs with a narrow, constricted thorax, short limbs, and pre/post-axial polydactyly seen in Jeune asphyxiating thoracic dystrophy, short-rib polydactyly syndromes, and orofaciodigital syndrome.</div>
                 
@@ -4047,6 +4333,13 @@ This pathophysiological event involves dysregulated Hedgehog (smoothened) signal
                             
                         </div>
                         
+                        <div class="crosslink-item">
+                            <a href="../disorders/Short-rib_thoracic_dysplasia_21_without_polydactyly.html">Short-rib thoracic dysplasia 21 without polydactyly</a>
+                            
+                            <span class="crosslink-desc">as Short Ribs and Thoracic Constriction</span>
+                            
+                        </div>
+                        
                     </div>
                 </div>
                 
@@ -4070,11 +4363,13 @@ This pathophysiological event involves dysregulated Hedgehog (smoothened) signal
             
             <div class="item-box anchor-target" id="module-pathophysiology-cerebellar-and-cns-malformation" data-dismech-node="Cerebellar and CNS Malformation" data-dismech-type="pathophysiology">
                 <div class="item-name">Cerebellar and CNS Malformation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Ciliary signaling, particularly cilium-dependent Hedgehog signaling, patterns the midbrain-hindbrain boundary and cerebellum and contributes to neural tube closure. Ciliopathy lesions cause cerebellar vermis hypoplasia/dysgenesis (producing the radiological molar tooth sign of Joubert syndrome) and, in severe cases such as Meckel syndrome, occipital encephalocele and other neural tube defects, with associated developmental disability and abnormal eye movements.</div>
                 
@@ -4116,6 +4411,13 @@ This pathophysiological event involves dysregulated Hedgehog (smoothened) signal
                             
                         </div>
                         
+                        <div class="crosslink-item">
+                            <a href="../disorders/Short-rib_thoracic_dysplasia_21_without_polydactyly.html">Short-rib thoracic dysplasia 21 without polydactyly</a>
+                            
+                            <span class="crosslink-desc">as Cerebellar and CNS Involvement</span>
+                            
+                        </div>
+                        
                     </div>
                 </div>
                 
@@ -4139,11 +4441,13 @@ This pathophysiological event involves dysregulated Hedgehog (smoothened) signal
             
             <div class="item-box anchor-target" id="module-pathophysiology-hypothalamic-ciliary-signaling-and-metabolic-dysfunction" data-dismech-node="Hypothalamic Ciliary Signaling and Metabolic Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypothalamic Ciliary Signaling and Metabolic Dysfunction</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Primary cilia on hypothalamic neurons participate in the central control of energy balance, in part by mediating leptin receptor trafficking and signaling in leptin-responsive neurons. BBSome and related ciliary defects impair this signaling, producing leptin resistance and early-onset obesity, a cardinal feature of Bardet-Biedl and Alstrom syndromes that distinguishes them from non-metabolic ciliopathies.</div>
                 
@@ -4189,11 +4493,13 @@ This pathophysiological event involves dysregulated Hedgehog (smoothened) signal
             
             <div class="item-box anchor-target" id="module-pathophysiology-motile-cilia-beat-dysfunction" data-dismech-node="Motile Cilia Beat Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Motile Cilia Beat Dysfunction</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The motile-cilia arm of the ciliopathy spectrum. When the affected genes encode axonemal dynein arms, the central apparatus, or docking complexes, the cilium is assembled but cannot beat normally. In the airway this impairs mucociliary clearance, causing chronic rhinosinusitis, recurrent respiratory infection, and bronchiectasis; at the embryonic node, loss of motile-monocilia flow randomizes left-right body asymmetry, causing situs inversus/laterality defects. This is the mechanism of primary ciliary dyskinesia, mechanistically distinct from the Hedgehog/PCP signaling arm.</div>
                 
@@ -4326,6 +4632,18 @@ This pathophysiological event involves abnormal determination of left/right symm
                     <div class="crosslink-list">
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Biliary,_Renal,_Neurologic,_and_Skeletal_Syndrome.html">Biliary, Renal, Neurologic, and Skeletal Syndrome</a>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Cone-rod_dystrophy_and_hearing_loss_1.html">Cone-rod dystrophy and hearing loss 1</a>
+                            
+                            <span class="crosslink-desc">as Sperm Flagellar Defect</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Congenital_Hydrocephalus.html">Congenital Hydrocephalus</a>
                             
                             <span class="crosslink-desc">as Ependymal Motile Cilia Beat Dysfunction and Loss of Directional CSF Flow</span>
@@ -4350,6 +4668,13 @@ This pathophysiological event involves abnormal determination of left/right symm
                             <a href="../disorders/Primary_Ciliary_Dyskinesia.html">Primary_Ciliary_Dyskinesia</a>
                             
                             <span class="crosslink-desc">as Ciliary Dysfunction</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Spermatogenic_failure_43.html">Spermatogenic failure 43</a>
+                            
+                            <span class="crosslink-desc">as Multiple Morphological Abnormalities of the Sperm Flagella</span>
                             
                         </div>
                         
@@ -4397,11 +4722,13 @@ This pathophysiological event involves abnormal determination of left/right symm
             
             <div class="item-box anchor-target" id="module-pathophysiology-multisystem-pleiotropic-ciliopathy-phenotype" data-dismech-node="Multisystem Pleiotropic Ciliopathy Phenotype" data-dismech-type="pathophysiology">
                 <div class="item-name">Multisystem Pleiotropic Ciliopathy Phenotype</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The convergent clinical end state of the module. Because cilia are nearly ubiquitous and serve both sensory-signaling and motility functions, ciliary dysfunction produces a multisystem disorder. The particular combination and severity of retinal, renal, skeletal, CNS, metabolic, and respiratory/ laterality features defines the individual ciliopathy syndrome, with extensive overlap and variability among them.</div>
                 
@@ -4416,6 +4743,13 @@ This pathophysiological event involves abnormal determination of left/right symm
                 <div class="crosslink-block">
                     <div class="crosslink-title">Used by disorders</div>
                     <div class="crosslink-list">
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Biliary,_Renal,_Neurologic,_and_Skeletal_Syndrome.html">Biliary, Renal, Neurologic, and Skeletal Syndrome</a>
+                            
+                            <span class="crosslink-desc">as Multisystem Ciliopathy Organ Involvement</span>
+                            
+                        </div>
                         
                         <div class="crosslink-item">
                             <a href="../disorders/CFAP418-related_retinal_ciliopathy.html">CFAP418-related retinal ciliopathy</a>
@@ -4465,6 +4799,9 @@ This pathophysiological event involves abnormal determination of left/right symm
             </div>
             
         </div>
+        
+
+        
         
 
         <footer class="page-footer">

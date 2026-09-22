@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -467,6 +468,18 @@
         .tag-component {
             background: #f0fdf4;
             color: #166534;
+        }
+
+        /* Same values as disorder.html.j2 so a treatment chip looks identical
+           whether it is read on a disorder page or on a module page. */
+        .tag-treatment {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .tag-gene {
+            background: #dbeafe;
+            color: #1e40af;
         }
 
         .tag-role {
@@ -1044,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1059,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1113,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1126,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1284,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1294,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1335,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1537,6 +1586,9 @@
 
     
 
+    
+
+    
     
 
     
@@ -1997,7 +2049,7 @@ This mechanism module involves decreased Autophagy (GO:0006914). GO:0006914 is a
                     
                     
                     
-                    <span class="tag" style="background:#ecfeff;color:#155e75;">Evidence: 3</span>
+                    <span class="tag" style="background:#ecfeff;color:#155e75;">Evidence: 8</span>
                     
                 </div>
                 
@@ -2005,9 +2057,9 @@ This mechanism module involves decreased Autophagy (GO:0006914). GO:0006914 is a
                 <div class="hypothesis-evidence-balance">
                     <span class="hypothesis-evidence-balance-label">Evidence balance</span>
                     
-                    <span class="evidence-support support-SUPPORT">2 support</span>
+                    <span class="evidence-support support-SUPPORT">3 support</span>
                     
-                    <span class="evidence-support support-REFUTE">1 refute</span>
+                    <span class="evidence-support support-REFUTE">5 refute</span>
                     
                 </div>
                 
@@ -2015,7 +2067,7 @@ This mechanism module involves decreased Autophagy (GO:0006914). GO:0006914 is a
                 <div class="item-desc" style="margin-top: 8px;">The most reproducible single finding of the NIA Interventions Testing Program across two decades is that most lifespan-extending compounds work preferentially in one sex, usually males. This hypothesis holds that the dimorphism is pharmacokinetic - that males and females achieve different effective drug exposures, so the aging substrate itself responds equally and the apparent sex difference is a dosing artifact. The competing reading, which this module does not currently model as a separate group, is pharmacodynamic: that the nutrient-sensing network is differently wired or differently rate-limiting for lifespan in the two sexes, so matched exposure would still produce divergent outcomes. The two make an experimentally separable prediction - under the pharmacokinetic model, dose-matching to equal blood levels should abolish the sex difference.</div>
                 
                 
-                <div class="hypothesis-notes">Scope caveat a curator must carry forward: this module is an imperfect home for the hypothesis. The ITP male bias spans compounds that act well outside nutrient sensing (17-alpha-estradiol, nordihydroguaiaretic acid), so the phenomenon is broader than the mechanism modeled here; the hypothesis is filed on this module because rapamycin, acarbose, canagliflozin and metformin are the compounds it can be tested against structurally. Note also that the SUPPORT and REFUTE evidence come from the same program and are genuinely in tension - the pharmacokinetic model may hold for some compounds (canagliflozin, rapamycin) and fail for others (NDGA), in which case the single-model framing is itself wrong and should be split.</div>
+                <div class="hypothesis-notes">Scope caveat a curator must carry forward: this module is an imperfect home for the hypothesis. The ITP male bias spans compounds that act well outside nutrient sensing (17-alpha-estradiol, nordihydroguaiaretic acid), so the phenomenon is broader than the mechanism modeled here; the hypothesis is filed on this module because rapamycin, acarbose, canagliflozin and metformin are the compounds it can be tested against structurally. Note also that the SUPPORT and REFUTE evidence come from the same program and are genuinely in tension - the pharmacokinetic model may hold for some compounds (canagliflozin, rapamycin) and fail for others (NDGA), in which case the single-model framing is itself wrong and should be split. Assessed against the openscientist run under kb/hypotheses/deregulated_nutrient_sensing/sex_dimorphic_geroprotector_exposure/. That assessment&#39;s verdict - refuted as a general model, surviving as a compound-specific contributor - stays in its sidecar and is deliberately not written here, for the reason recorded on the sibling hypothesis: MechanisticHypothesisStatusEnum records where a hypothesis sits among competing accounts of a mechanism, not how one provider run read the evidence on one date, so the status remains EMERGING. What the added evidence changes is the balance. The model has one prediction that can be manipulated rather than observed, and it has now failed every time it was manipulated: dose-matched blood levels for NDGA, threefold dose escalation for NDGA and 17-alpha-estradiol, and dose reduction alongside measured over-accumulation for canagliflozin. Against that, the disposition differences themselves are real and are now evidenced at class level for rapalogs, and rapamycin remains the one compound whose numbers stay internally consistent with the model, since its sex gap narrows at the higher dose instead of persisting. Three limits on the counter-evidence, all of which keep this short of a settled refutation. The canagliflozin item is an unreviewed preprint measuring cognition and neuroinflammation, so its lifespan conclusion is reached by extension. The castration results are positive evidence for the competing pharmacodynamic account rather than a second exposure-matching test, because drug levels were not measured in the gonadectomized animals. And every study on both sides is UM-HET3 mice from one program, so none of this has been replicated in another model or in any human cohort. The split this note has called for since seeding - a pharmacokinetic-modulatory group for rapamycin and a gonadal-hormone-gated pharmacodynamic group for NDGA, 17-alpha-estradiol, acarbose and canagliflozin - is now the reading the evidence favours, but it is left as an open curation decision rather than made here on the strength of one provider run. The untested half of it is recorded as discussions#knowledge_gap_exposure_matched_lifespan_test_by_compound.</div>
                 
             </div>
             
@@ -2060,7 +2112,7 @@ This mechanism module involves decreased Autophagy (GO:0006914). GO:0006914 is a
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">?</div>
                 <h2 class="card-title">Discussions and Knowledge Gaps</h2>
-                <span class="card-count">3</span>
+                <span class="card-count">4</span>
             </div>
             
             <div class="item-box anchor-target" id="knowledge_gap_which_amino_acid_is_the_signal">
@@ -2174,6 +2226,44 @@ This mechanism module involves decreased Autophagy (GO:0006914). GO:0006914 is a
                     <span class="tag" style="background:#e0f2fe;color:#0369a1;">Lifespan-matched dietary restriction versus rapamycin, one cohort, one platform</span>
                     
                     <span class="tag" style="background:#e0f2fe;color:#0369a1;">Combination arm testing additivity of dietary restriction and rapamycin</span>
+                    
+                </div>
+                
+            </div>
+            
+            <div class="item-box anchor-target" id="knowledge_gap_exposure_matched_lifespan_test_by_compound">
+                <div class="item-name">Outside nordihydroguaiaretic acid, has any geroprotector been dose-matched to equal blood exposure in both sexes and then followed to a lifespan endpoint - and does rapamycin&#39;s female-favouring dimorphism, the one case still consistent with a dosing explanation, survive that test?</div>
+                <div class="item-meta">
+                    
+                    <span class="tag" style="background:#eef2ff;color:#4338ca;">KNOWLEDGE GAP</span>
+                    
+                    
+                    <span class="tag" style="background:#ecfdf5;color:#047857;">OPEN</span>
+                    
+                    
+                    <span class="tag" style="background:#f3f4f6;color:#374151;">knowledge_gap_exposure_matched_lifespan_test_by_compound</span>
+                    
+                </div>
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #6b7280;">Attached to:</strong>
+                    
+                    <span class="tag" style="background:#fef3c7;color:#b45309;">sex_dimorphic_geroprotector_exposure</span>
+                    
+                    <span class="tag" style="background:#fef3c7;color:#b45309;">Rapamycin (mTOR Inhibition)</span>
+                    
+                </div>
+                
+                
+                <div class="item-desc" style="margin-top: 10px;">The pharmacokinetic account of sex-dimorphic geroprotector response makes one prediction that can be manipulated rather than merely observed - equalize exposure and the sex difference should go - and that prediction has been put to two compounds. It failed both times. For nordihydroguaiaretic acid the test was done properly, on survival: females dosed to male blood levels still got no benefit, and escalating the dose threefold did not change that. For canagliflozin the exposure was manipulated in both directions and the benefit tracked neither, but the endpoints were cognition and neuroinflammation rather than lifespan and the report is an unreviewed preprint. What is missing is the clean version of the experiment for the drugs this module actually owns: rapamycin, acarbose and canagliflozin have all been fed at a fixed dietary concentration to both sexes and followed to death, never at matched measured exposure. The gap matters most for rapamycin, because rapamycin is the one compound whose data still fit the model - its sex gap narrows at the higher dose rather than persisting - so it is where the model has most to lose and has never been made to risk anything. Two further limits belong here rather than on the hypothesis. The castration experiments that carry the competing pharmacodynamic account did not measure drug concentrations, so they infer equal exposure from equal dosing. And the whole evidence base on both sides is UM-HET3 mice from a single program, so nothing here has been replicated in another model, another laboratory, or any human cohort.</div>
+                
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #6b7280;">Proposed experiments:</strong>
+                    
+                    <span class="tag" style="background:#e0f2fe;color:#0369a1;">Sex-equalized blood-exposure survival trial, one compound at a time</span>
+                    
+                    <span class="tag" style="background:#e0f2fe;color:#0369a1;">Gonadectomy by drug factorial with drug levels measured in every arm</span>
                     
                 </div>
                 
@@ -2316,6 +2406,26 @@ This mechanism module involves decreased Autophagy (GO:0006914). GO:0006914 is a
 
         
 
+        
+        <div class="card" id="module-collections">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4338ca;">⌘</div>
+                <h2 class="card-title">Module Collections</h2>
+                <span class="card-count">1</span>
+            </div>
+            <div class="crosslink-list">
+                
+                <div class="crosslink-item">
+                    <a href="../module-collections/Hallmarks_of_Aging.html">Hallmarks of Aging</a>
+                    
+                    <span class="crosslink-desc">as Deregulated nutrient-sensing</span>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
@@ -2399,11 +2509,13 @@ This mechanism module involves decreased Autophagy (GO:0006914). GO:0006914 is a
             
             <div class="item-box anchor-target" id="module-pathophysiology-nutrient-surplus-and-anabolic-signaling" data-dismech-node="Nutrient Surplus and Anabolic Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Nutrient Surplus and Anabolic Signaling</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">A sustained state of nutrient and growth-factor abundance keeps the anabolic arm of the nutrient-sensing network engaged: the somatotroph GH/IGF-1 axis and amino-acid/nutrient sensing upstream of mTORC1. Because reducing the activity of these nutrient-sensing pathways (by dietary restriction, mutation, or chemical inhibitors) extends lifespan and lowers age-related disease, their chronic engagement is the initiating driver of the deregulated-nutrient-sensing hallmark.</div>
                 
@@ -2503,11 +2615,13 @@ This pathophysiological event involves increased Insulin-Like Growth Factor Rece
             
             <div class="item-box anchor-target" id="module-pathophysiology-mtorc1-hyperactivation" data-dismech-node="mTORC1 Hyperactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">mTORC1 Hyperactivation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Persistent nutrient and growth-factor input drives chronic activation of mTOR complex 1 (mTORC1), the master anabolic sensor that couples nutrient availability to cell growth, protein translation, and biosynthesis. Because inhibition of the mTOR pathway extends lifespan across model organisms and protects against a growing list of age-related pathologies, its age-associated hyperactivation is the central effector of this hallmark and the node targeted by rapamycin and (indirectly, via AMPK) metformin. This is the conserved central node that disease-specific mTOR-activating lesions converge upon.</div>
                 
@@ -2593,11 +2707,13 @@ This pathophysiological event involves increased TORC1 Signaling (GO:0038202). G
             
             <div class="item-box anchor-target" id="module-pathophysiology-ampk-and-sirtuin-catabolic-sensing-attenuation" data-dismech-node="AMPK and Sirtuin Catabolic-Sensing Attenuation" data-dismech-type="pathophysiology">
                 <div class="item-name">AMPK and Sirtuin Catabolic-Sensing Attenuation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">In parallel with anabolic hyperactivation, the catabolic low-energy sensors that oppose mTORC1 - AMP-activated protein kinase (AMPK, which senses a low energy/high-AMP state) and the NAD+-dependent sirtuins - are relatively attenuated in the nutrient-replete aging state. These sensors normally drive the protective, pro-longevity response to nutrient scarcity (the mechanism engaged by dietary restriction, Sirtuin 1 activation, and metformin), so their reduced activity reinforces the anabolic bias and its downstream consequences.</div>
                 
@@ -2692,11 +2808,13 @@ This pathophysiological event involves abnormal Energy Homeostasis (GO:0097009).
             
             <div class="item-box anchor-target" id="module-pathophysiology-gcn2-amino-acid-scarcity-sensing-attenuation" data-dismech-node="GCN2 Amino-Acid-Scarcity Sensing Attenuation" data-dismech-type="pathophysiology">
                 <div class="item-name">GCN2 Amino-Acid-Scarcity Sensing Attenuation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The second catabolic sensing arm, sensing amino-acid rather than energy scarcity. GCN2 (general control nonderepressible 2) is the conserved stress-responsive kinase activated by the uncharged tRNAs that accumulate when amino acids are limiting; activated GCN2 phosphorylates eIF2-alpha, repressing global translation while selectively increasing translation of ATF4, and it additionally restrains TORC1 directly. Because this sensor is engaged only by amino-acid scarcity, a protein- and amino-acid-replete state leaves the GCN2-eIF2-alpha-ATF4 integrated stress response unmobilized: translation is not restrained, ATF4 target genes are not induced, and the GCN2-mediated brake on TORC1 is absent. Engaging this arm is what dietary protein and amino-acid restriction does, and GCN2 is required for the lifespan extension those diets produce - so its quiescence in nutrient surplus is the amino-acid-sensing counterpart of AMPK/sirtuin attenuation.</div>
                 
@@ -2824,11 +2942,13 @@ This pathophysiological event involves decreased Integrated Stress Response Sign
             
             <div class="item-box anchor-target" id="module-pathophysiology-attenuated-fgf21-endocrine-starvation-response" data-dismech-node="Attenuated FGF21 Endocrine Starvation Response" data-dismech-type="pathophysiology">
                 <div class="item-name">Attenuated FGF21 Endocrine Starvation Response</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The organism-level endocrine output of the amino-acid-sensing arm. FGF21 is a hepatokine induced by amino-acid scarcity downstream of GCN2/ATF4 acting on amino-acid response elements in the FGF21 promoter; once secreted it drives the systemic adaptive starvation response (increased energy expenditure, improved insulin sensitivity, restrained somatic growth via the GH/IGF-1 axis). In a protein-replete state this signal stays low. The node is included because FGF21 is not merely correlative: it is required for dietary protein restriction to extend lifespan, and raising it alone is sufficient to extend lifespan - making the attenuated FGF21 signal an independent endocrine route from deregulated amino-acid sensing to age-related decline, parallel to the cell-autonomous mTORC1/autophagy route. The dependence on GCN2 is partial and time-limited rather than absolute: Gcn2-null mice recover low-protein-induced FGF21 after roughly two weeks on diet, so GCN2-independent routes to FGF21 induction operate on longer timescales and this node should not be curated as strictly GCN2-gated.</div>
                 
@@ -2918,11 +3038,13 @@ This pathophysiological event involves decreased Response to Starvation (GO:0042
             
             <div class="item-box anchor-target" id="module-pathophysiology-autophagy-suppression-and-anabolic-bias" data-dismech-node="Autophagy Suppression and Anabolic Bias" data-dismech-type="pathophysiology">
                 <div class="item-name">Autophagy Suppression and Anabolic Bias</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Active mTORC1 suppresses macroautophagy, while attenuated AMPK/sirtuin signaling fails to induce it. Autophagy is the cytoplasmic recycling process that clears damaged organelles and proteins; its induction by starvation or genetic inactivation of nutrient signaling counteracts the age-associated accumulation of cellular damage. When nutrient signaling holds autophagy suppressed, this quality-control capacity is lost and damaged components accumulate - the amplifying step that links deregulated nutrient sensing to tissue decline.</div>
                 
@@ -3026,11 +3148,13 @@ This pathophysiological event involves decreased Autophagy (GO:0006914). GO:0006
             
             <div class="item-box anchor-target" id="module-pathophysiology-accelerated-cellular-aging-and-age-related-tissue-decline" data-dismech-node="Accelerated Cellular Aging and Age-Related Tissue Decline" data-dismech-type="pathophysiology">
                 <div class="item-name">Accelerated Cellular Aging and Age-Related Tissue Decline</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The sustained anabolic bias, attenuated stress-responsive catabolic signaling, and suppressed autophagy converge on accelerated cellular aging: accumulation of damaged macromolecules and organelles, loss of proteostatic and metabolic fitness, and declining tissue function. This is the conserved consequence by which deregulated nutrient sensing contributes causally to age-related pathology; the specific organ or disease phenotype is supplied by the conforming disorder. It is the outcome that geroprotector interventions (dietary restriction, rapamycin, metformin) are intended to delay.</div>
                 
@@ -3043,6 +3167,370 @@ This pathophysiological event involves decreased Autophagy (GO:0006914). GO:0006
 
                 
 
+                
+            </div>
+            
+        </div>
+        
+
+        
+        
+        <div class="card" id="treatments">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
+                <h2 class="card-title">Treatments</h2>
+                <span class="card-count">3</span>
+            </div>
+            
+            <div class="item-box" data-dismech-node="Rapamycin (mTOR Inhibition)" data-dismech-type="treatment">
+                <div class="item-name">Rapamycin (mTOR Inhibition)</div>
+                
+                <div class="item-meta">
+                    
+                    
+                    
+                    
+                    <span class="tag tag-treatment">
+                        Pharmacotherapy
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-25">NCIT:C15986</a>
+    
+    
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    
+                    
+                    
+                    <span class="tag tag-treatment">
+                        sirolimus
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/CHEBI_9168" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-26">CHEBI:9168</a>
+    
+    
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses sirolimus (CHEBI:9168). CHEBI:9168 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+                    
+                </div>
+                
+                
+    
+    
+    
+    
+    
+    
+    
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+        
+        <span class="tag tag-treatment">Small molecule</span>
+        
+        
+        
+        
+        
+    </div>
+    
+    
+    
+    
+    
+    
+    
+                
+                <div class="item-desc">Rapamycin (sirolimus) is a small-molecule inhibitor of mTORC1 that, by binding FKBP12, decreases mTOR complex 1 activity. It is the prototypical geroprotector: pharmacologic inhibition of the anabolic nutrient-sensing hub extends lifespan in model organisms including mice, even when started late in life. Represents the anabolic-node inhibition drug-target design pattern for conforming disorders.</div>
+                
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism target:</strong>
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">INHIBITS</span>
+                        
+                        
+                        <a href="#module-pathophysiology-mtorc1-hyperactivation"><strong>mTORC1 Hyperactivation</strong></a>
+                        
+                        <span> — Rapamycin directly inhibits mTORC1, down-shifting the anabolic nutrient-sensing hub and relieving its suppression of autophagy.</span>
+                        
+                    </div>
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <span class="tag" style="background:#ecfeff;color:#155e75;">Evidence: 3</span>
+                </div>
+                
+                
+            </div>
+            
+            <div class="item-box" data-dismech-node="Metformin (AMPK-Mediated Nutrient-Signaling Restraint)" data-dismech-type="treatment">
+                <div class="item-name">Metformin (AMPK-Mediated Nutrient-Signaling Restraint)</div>
+                
+                <div class="item-meta">
+                    
+                    
+                    
+                    
+                    <span class="tag tag-treatment">
+                        Pharmacotherapy
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-27">NCIT:C15986</a>
+    
+    
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    
+                    
+                    
+                    <span class="tag tag-treatment">
+                        metformin
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/CHEBI_6801" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-28">CHEBI:6801</a>
+    
+    
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses metformin (CHEBI:6801). CHEBI:6801 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+                    
+                </div>
+                
+                
+    
+    
+    
+    
+    
+    
+    
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+        
+        <span class="tag tag-treatment">Small molecule</span>
+        
+        
+        
+        
+        
+    </div>
+    
+    
+    
+    
+    
+    
+    
+                
+                <div class="item-desc">Metformin is a biguanide that activates AMPK and acts as a caloric-restriction mimetic, indirectly restraining anabolic mTORC1 signaling and re-engaging the catabolic, autophagy-permissive state. It has demonstrated protective effects against several age-related diseases in humans and is the agent of the TAME (Targeting Aging with Metformin) trial, the flagship test of a geroprotector for healthy aging.</div>
+                
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism target:</strong>
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">INHIBITS</span>
+                        
+                        
+                        <a href="#module-pathophysiology-mtorc1-hyperactivation"><strong>mTORC1 Hyperactivation</strong></a>
+                        
+                        <span> — Metformin activates AMPK, which indirectly restrains mTORC1 and re-engages the catabolic, autophagy-permissive low-energy response, opposing the anabolic bias of the deregulated nutrient-sensing state.</span>
+                        
+                    </div>
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <span class="tag" style="background:#ecfeff;color:#155e75;">Evidence: 1</span>
+                </div>
+                
+                
+            </div>
+            
+            <div class="item-box" data-dismech-node="Dietary Protein and Amino-Acid Restriction" data-dismech-type="treatment">
+                <div class="item-name">Dietary Protein and Amino-Acid Restriction</div>
+                
+                <div class="item-meta">
+                    
+                    
+                    
+                    
+                    <span class="tag tag-treatment">
+                        Dietary Intervention
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15447" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-29">NCIT:C15447</a>
+    
+    
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Dietary Intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    
+                </div>
+                
+                
+                
+    
+    
+    
+    
+    
+    
+    
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+        
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+        
+        
+        
+        
+        
+    </div>
+    
+    
+    
+    
+    
+    
+    
+                
+                <div class="item-desc">Lowering total dietary protein - or restricting specific essential amino acids (methionine, isoleucine, valine) - while still meeting nutritional needs. This is the non-pharmacological arm of the same design pattern: instead of inhibiting the anabolic node with a drug, it removes the amino-acid input that drives it and simultaneously engages the GCN2 amino-acid-scarcity sensor that a protein-replete state leaves quiescent. It is distinct from calorie restriction - the benefit tracks the macronutrient ratio rather than energy intake, and calorie restriction achieved with high-protein diets does not extend lifespan.</div>
+                
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism target:</strong>
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">INHIBITS</span>
+                        
+                        
+                        <a href="#module-pathophysiology-nutrient-surplus-and-anabolic-signaling"><strong>Nutrient Surplus and Anabolic Signaling</strong></a>
+                        
+                        <span> — Restricting dietary protein removes the amino-acid input that sustains the anabolic arm of the nutrient-sensing network, lowering signaling into mTORC1.</span>
+                        
+                    </div>
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">INHIBITS</span>
+                        
+                        
+                        <a href="#module-pathophysiology-gcn2-amino-acid-scarcity-sensing-attenuation"><strong>GCN2 Amino-Acid-Scarcity Sensing Attenuation</strong></a>
+                        
+                        <span> — Amino-acid restriction reverses the attenuation of this node by causing uncharged tRNAs to accumulate, which activates GCN2 and re-engages the eIF2-alpha/ATF4 integrated stress response and its downstream FGF21 induction.</span>
+                        
+                    </div>
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <span class="tag" style="background:#ecfeff;color:#155e75;">Evidence: 5</span>
+                </div>
+                
                 
             </div>
             

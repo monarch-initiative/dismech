@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -467,6 +468,18 @@
         .tag-component {
             background: #f0fdf4;
             color: #166534;
+        }
+
+        /* Same values as disorder.html.j2 so a treatment chip looks identical
+           whether it is read on a disorder page or on a module page. */
+        .tag-treatment {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .tag-gene {
+            background: #dbeafe;
+            color: #1e40af;
         }
 
         .tag-role {
@@ -1044,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1059,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1113,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1126,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1284,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1294,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1335,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1541,6 +1590,9 @@
 
     
     
+
+    
+    
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -1581,7 +1633,7 @@
                 
                 <span class="badge badge-category">Module</span>
                 <span class="badge badge-module">nociceptor_sodium_channel_excitability</span>
-                <span class="badge badge-count">3 disorders</span>
+                <span class="badge badge-count">4 disorders</span>
                 
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 8</a>
                 
@@ -1830,11 +1882,13 @@ Not an Xogenesis module: nothing pathological is formed; the terminal output is 
 
         
 
+        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
                 <h2 class="card-title">Used By Disorder Entries</h2>
-                <span class="card-count">3</span>
+                <span class="card-count">4</span>
             </div>
             
             <div class="crosslink-list">
@@ -1858,6 +1912,36 @@ Not an Xogenesis module: nothing pathological is formed; the terminal output is 
                         , 
                         
                         Impaired nociceptor excitability → Nociceptor Action Potential Threshold and Firing
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Familial_Episodic_Pain_Syndrome_With_Predominantly_Lower_Limb_Involvement.html">Familial_Episodic_Pain_Syndrome_With_Predominantly_Lower_Limb_Involvement</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Heterozygous SCN11A Gain-of-Function Variant → Nociceptor Voltage-Gated Sodium Channel Variant
+                        
+                        
+                        , 
+                        
+                        Hyperpolarized NaV1.9 Activation with Enlarged Window Current → Enhanced or Persistent Nociceptor Sodium Current
+                        
+                        
+                        , 
+                        
+                        Nociceptor Hyperexcitability with Reduced Firing Threshold → Nociceptor Action Potential Threshold and Firing
+                        
+                        
+                        , 
+                        
+                        Ectopic Nociceptive Signalling from Distal Limb Afferents → Nociceptor Hyperexcitability and Ectopic Firing
                         
                         
                     </span>
@@ -1948,11 +2032,13 @@ Not an Xogenesis module: nothing pathological is formed; the terminal output is 
             
             <div class="item-box anchor-target" id="module-pathophysiology-nociceptor-voltage-gated-sodium-channel-variant" data-dismech-node="Nociceptor Voltage-Gated Sodium Channel Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">Nociceptor Voltage-Gated Sodium Channel Variant</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">A germline variant in one of the three voltage-gated sodium channel alpha-subunits whose expression is concentrated in nociceptive dorsal-root-ganglion and trigeminal neurons: SCN9A (Nav1.7), SCN10A (Nav1.8) or SCN11A (Nav1.9). Their restricted expression is what makes these channels a non-redundant, dose-sensitive control point for pain rather than a general determinant of excitability, and it is why the resulting syndromes are sensory-selective and — for Nav1.7 loss — otherwise silent.</div>
                 
@@ -1999,6 +2085,13 @@ This pathophysiological event involves nociceptor, annotated with pain receptor 
                     <div class="crosslink-list">
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Familial_Episodic_Pain_Syndrome_With_Predominantly_Lower_Limb_Involvement.html">Familial_Episodic_Pain_Syndrome_With_Predominantly_Lower_Limb_Involvement</a>
+                            
+                            <span class="crosslink-desc">as Heterozygous SCN11A Gain-of-Function Variant</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Paroxysmal_Extreme_Pain_Disorder.html">Paroxysmal Extreme Pain Disorder</a>
                             
                             <span class="crosslink-desc">as SCN9A Missense Variant Impairing Nav1.7 Fast Inactivation</span>
@@ -2035,11 +2128,13 @@ This pathophysiological event involves nociceptor, annotated with pain receptor 
             
             <div class="item-box anchor-target" id="module-pathophysiology-loss-of-nociceptor-sodium-current" data-dismech-node="Loss of Nociceptor Sodium Current" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Nociceptor Sodium Current</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The loss-of-function branch. Truncating or otherwise inactivating variants abolish the channel&#39;s current, removing the subthreshold amplification that normally lets a receptor potential reach action-potential threshold. Because the channel is non-redundant in nociceptors, no other sodium channel compensates, and the deficit is specific to pain signalling.</div>
                 
@@ -2115,11 +2210,13 @@ This pathophysiological event involves nociceptor, annotated with pain receptor 
             
             <div class="item-box anchor-target" id="module-pathophysiology-enhanced-or-persistent-nociceptor-sodium-current" data-dismech-node="Enhanced or Persistent Nociceptor Sodium Current" data-dismech-type="pathophysiology">
                 <div class="item-name">Enhanced or Persistent Nociceptor Sodium Current</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The gain-of-function branch, which splits by biophysical mechanism — a distinction that predicts both the clinical syndrome and the drug response, and that conformers must preserve rather than collapsing into a generic &#34;gain of function&#34;. Variants shifting voltage-dependence of activation to more negative potentials open the channel to ordinary warmth-level depolarizations (the inherited erythromelalgia mechanism). Variants impairing fast inactivation leave a persistent, non-inactivating sodium current (the paroxysmal extreme pain disorder mechanism). A third pattern, excessive channel activity at resting voltage, produces sustained depolarization rather than enhanced firing and is routed separately below.</div>
                 
@@ -2166,6 +2263,13 @@ This pathophysiological event involves nociceptor, annotated with pain receptor 
                     <div class="crosslink-list">
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Familial_Episodic_Pain_Syndrome_With_Predominantly_Lower_Limb_Involvement.html">Familial_Episodic_Pain_Syndrome_With_Predominantly_Lower_Limb_Involvement</a>
+                            
+                            <span class="crosslink-desc">as Hyperpolarized NaV1.9 Activation with Enlarged Window Current</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Paroxysmal_Extreme_Pain_Disorder.html">Paroxysmal Extreme Pain Disorder</a>
                             
                             <span class="crosslink-desc">as Persistent Non-Inactivating Nav1.7 Sodium Current</span>
@@ -2209,11 +2313,13 @@ This pathophysiological event involves nociceptor, annotated with pain receptor 
             
             <div class="item-box anchor-target" id="module-pathophysiology-sustained-nociceptor-depolarization-and-conduction-block" data-dismech-node="Sustained Nociceptor Depolarization and Conduction Block" data-dismech-type="pathophysiology">
                 <div class="item-name">Sustained Nociceptor Depolarization and Conduction Block</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The module&#39;s counterintuitive crossing branch, and the reason it is curated bidirectionally rather than as two separate one-way modules. A gain-of-function variant whose excess activity falls at resting membrane potential holds the nociceptor tonically depolarized. That sustained depolarization inactivates the action-potential machinery, so the cell can no longer fire or transmit — a biophysical gain producing a clinical loss. It is the mechanism by which SCN11A gain-of-function causes congenital pain insensitivity, and it means the sign of the channel defect cannot be inferred from the patient&#39;s phenotype or vice versa.</div>
                 
@@ -2321,11 +2427,13 @@ This pathophysiological event involves dysregulated membrane depolarization duri
             
             <div class="item-box anchor-target" id="module-pathophysiology-nociceptor-action-potential-threshold-and-firing" data-dismech-node="Nociceptor Action Potential Threshold and Firing" data-dismech-type="pathophysiology">
                 <div class="item-name">Nociceptor Action Potential Threshold and Firing</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The rate-limiting, disorder-agnostic node of this module and its key conformance target. Every arm — loss of current, enhanced or persistent current, and depolarization block — converges here, on whether and how readily the nociceptor generates and propagates action potentials in response to a stimulus. Shifted downward, the neuron fires spontaneously and to innocuous stimuli; abolished, noxious stimuli produce no signal at all. The clinical phenotype is read off the direction and magnitude of the shift at this node, not off the direction of the underlying channel defect.</div>
                 
@@ -2411,6 +2519,13 @@ This pathophysiological event involves dysregulated action potential (GO:0001508
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Familial_Episodic_Pain_Syndrome_With_Predominantly_Lower_Limb_Involvement.html">Familial_Episodic_Pain_Syndrome_With_Predominantly_Lower_Limb_Involvement</a>
+                            
+                            <span class="crosslink-desc">as Nociceptor Hyperexcitability with Reduced Firing Threshold</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Paroxysmal_Extreme_Pain_Disorder.html">Paroxysmal Extreme Pain Disorder</a>
                             
                             <span class="crosslink-desc">as Nociceptor and Autonomic Neuron Hyperexcitability</span>
@@ -2447,11 +2562,13 @@ This pathophysiological event involves dysregulated action potential (GO:0001508
             
             <div class="item-box anchor-target" id="module-pathophysiology-nociceptor-hyperexcitability-and-ectopic-firing" data-dismech-node="Nociceptor Hyperexcitability and Ectopic Firing" data-dismech-type="pathophysiology">
                 <div class="item-name">Nociceptor Hyperexcitability and Ectopic Firing</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Nociceptors fire spontaneously and in response to stimuli that would not normally be painful, so that ordinary warmth, exercise, or defecation triggers a barrage of nociceptive input. Conforming entries substitute the disorder-specific trigger and territory: heat-provoked, cooling-relieved distal extremity flares in inherited erythromelalgia; paroxysms in rectal, ocular and submandibular territory in paroxysmal extreme pain disorder; distal burning pain with autonomic complaints in small-fibre neuropathy.</div>
                 
@@ -2530,6 +2647,13 @@ This pathophysiological event involves increased sensory perception of pain (GO:
                     <div class="crosslink-list">
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Familial_Episodic_Pain_Syndrome_With_Predominantly_Lower_Limb_Involvement.html">Familial_Episodic_Pain_Syndrome_With_Predominantly_Lower_Limb_Involvement</a>
+                            
+                            <span class="crosslink-desc">as Ectopic Nociceptive Signalling from Distal Limb Afferents</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Primary_Erythermalgia.html">Primary Erythermalgia</a>
                             
                             <span class="crosslink-desc">as Nociceptor Hyperexcitability</span>
@@ -2545,11 +2669,13 @@ This pathophysiological event involves increased sensory perception of pain (GO:
             
             <div class="item-box anchor-target" id="module-pathophysiology-failure-of-nociceptive-signal-transduction" data-dismech-node="Failure of Nociceptive Signal Transduction" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Nociceptive Signal Transduction</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">No nociceptive signal reaches the spinal cord, whether because the amplifying current is absent or because the neuron is held in depolarization block. The nociceptors themselves are present and structurally normal — which is what distinguishes this node from the developmental NGF-TRKA/PRDM12 route to pain insensitivity, where the neurons are lost. Other sensory modalities and autonomic function are spared, so the deficit is a selective, complete and painless anaesthesia to noxious stimuli, with injury, mutilation and unrecognized fracture as its consequences.</div>
                 
@@ -2594,6 +2720,131 @@ This pathophysiological event involves decreased sensory perception of pain (GO:
 
                 
 
+                
+            </div>
+            
+        </div>
+        
+
+        
+        
+        <div class="card" id="treatments">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
+                <h2 class="card-title">Treatments</h2>
+                <span class="card-count">1</span>
+            </div>
+            
+            <div class="item-box" data-dismech-node="Carbamazepine (persistent-current-selective sodium channel blockade)" data-dismech-type="treatment">
+                <div class="item-name">Carbamazepine (persistent-current-selective sodium channel blockade)</div>
+                
+                <div class="item-meta">
+                    
+                    
+                    
+                    
+                    <span class="tag tag-treatment">
+                        Pharmacotherapy
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-16">NCIT:C15986</a>
+    
+    
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    
+                    
+                    
+                    <span class="tag tag-treatment">
+                        carbamazepine
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/CHEBI_3387" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-17">CHEBI:3387</a>
+    
+    
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses carbamazepine (CHEBI:3387). CHEBI:3387 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+                    
+                </div>
+                
+                
+    
+    
+    
+    
+    
+    
+    
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+        
+        <span class="tag tag-treatment">Small molecule</span>
+        
+        
+        
+        
+        
+    </div>
+    
+    
+    
+    
+    
+    
+    
+                
+                <div class="item-desc">Carbamazepine blocks the persistent sodium current produced by inactivation-impaired Nav1.7 variants, and is effective in paroxysmal extreme pain disorder. It is the module&#39;s drug-target pattern and is deliberately branch-specific: it does not correct the hyperpolarized activation threshold of the erythromelalgia variants and is not effective in that syndrome. A conforming disorder inherits this pattern only if its own variants act through the persistent-current mechanism; the pattern is a mechanistic illustration, not a treatment recommendation transferable across the module.</div>
+                
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism target:</strong>
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">INHIBITS</span>
+                        
+                        
+                        <a href="#module-pathophysiology-enhanced-or-persistent-nociceptor-sodium-current"><strong>Enhanced or Persistent Nociceptor Sodium Current</strong></a>
+                        
+                        <span> — Selective block of the non-inactivating component of the mutant sodium current, restoring normal inactivation behaviour at the amplifier node.</span>
+                        
+                        <span class="tag" style="background:#ecfeff;color:#155e75;font-size:0.75rem;">Evidence: 1</span>
+                        
+                    </div>
+                    
+                </div>
+                
+                
                 
             </div>
             

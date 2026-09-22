@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,18 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4184,6 +4261,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4230,6 +4308,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-serpinf1-loss-of-function-abolishes-pedf-secretion" data-dismech-node="SERPINF1 Loss of Function Abolishes PEDF Secretion" data-dismech-type="pathophysiology">
                 <div class="item-name">SERPINF1 Loss of Function Abolishes PEDF Secretion</div>
+
 
                 <div class="item-desc">Biallelic loss-of-function variants in SERPINF1 abolish secretion of pigment epithelium-derived factor (PEDF), a secreted serpin-family glycoprotein normally produced by osteoblasts and osteocytes. Most pathogenic alleles are truncating (nonsense/frameshift) and eliminate the protein; rarer in-frame deletions/insertions yield a misfolded PEDF that is retained in the endoplasmic reticulum, triggering a stress response in osteoblastic cells. Type I collagen is normal, distinguishing this from the collagen-related OI types.</div>
 
@@ -4363,6 +4442,7 @@ This pathophysiological event involves increased endoplasmic reticulum stress re
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4384,6 +4464,7 @@ This pathophysiological event involves increased endoplasmic reticulum stress re
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4411,6 +4492,7 @@ This pathophysiological event involves increased endoplasmic reticulum stress re
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4435,6 +4517,7 @@ This pathophysiological event involves increased endoplasmic reticulum stress re
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-rankl-mediated-osteoclast-overactivation" data-dismech-node="RANKL-Mediated Osteoclast Overactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">RANKL-Mediated Osteoclast Overactivation</div>
+
 
                 <div class="item-desc">PEDF normally upregulates osteoprotegerin (OPG) in osteoblasts and directly inhibits RANKL-mediated osteoclast differentiation, survival, and resorptive activity. In its absence the OPG:RANKL balance shifts toward RANKL, driving osteoclast overactivation and increased bone resorption. This resorptive arm is the rationale for the efficacy of the anti-RANKL antibody denosumab in OI type VI, and it conforms to the conserved increased-osteoclastic-resorption pattern.</div>
 
@@ -4560,6 +4643,7 @@ This pathophysiological event involves increased osteoclast differentiation (GO:
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4581,6 +4665,7 @@ This pathophysiological event involves increased osteoclast differentiation (GO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4606,6 +4691,7 @@ This pathophysiological event involves increased osteoclast differentiation (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-osteoblast-function-and-defective-matrix-mineralization" data-dismech-node="Impaired Osteoblast Function and Defective Matrix Mineralization" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Osteoblast Function and Defective Matrix Mineralization</div>
+
 
                 <div class="item-desc">PEDF suppresses osteocyte expression of sclerostin (SOST) and other osteocyte genes through ERK/GSK-3beta/beta-catenin signaling, supporting Wnt-dependent osteoblast function and orderly matrix mineralization. Without PEDF, sclerostin is derepressed and Wnt signaling is disturbed, osteoblasts fail to mineralize matrix normally, and unmineralized osteoid accumulates with a prolonged mineralization lag time. The disorganized lamellae produce the characteristic polarized-light &#34;fish-scale&#34; pattern.</div>
 
@@ -4829,6 +4915,7 @@ This pathophysiological event involves decreased bone mineralization (GO:0030282
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4850,6 +4937,7 @@ This pathophysiological event involves decreased bone mineralization (GO:0030282
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4877,6 +4965,7 @@ This pathophysiological event involves decreased bone mineralization (GO:0030282
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4901,6 +4990,7 @@ This pathophysiological event involves decreased bone mineralization (GO:0030282
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bone-fragility-fractures-and-skeletal-deformity" data-dismech-node="Bone Fragility, Fractures, and Skeletal Deformity" data-dismech-type="pathophysiology">
                 <div class="item-name">Bone Fragility, Fractures, and Skeletal Deformity</div>
+
 
                 <div class="item-desc">The convergence of increased osteoclastic resorption and defective osteoblast matrix mineralization produces mechanically weak bone. Clinically this manifests as recurrent fractures beginning after the onset of weight-bearing, universal vertebral compression fractures, progressive long-bone deformity and bowing, kyphoscoliosis, and short stature.</div>
 
@@ -4939,6 +5029,7 @@ This pathophysiological event involves decreased bone mineralization (GO:0030282
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4960,6 +5051,7 @@ This pathophysiological event involves decreased bone mineralization (GO:0030282
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5029,11 +5121,11 @@ This pathophysiological event involves decreased bone mineralization (GO:0030282
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Limbs<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Musculoskeletal<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Metabolism<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(5)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Growth<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5092,6 +5184,9 @@ This clinical feature is Bowing of the long bones (HP:0006487), qualified as cou
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5106,6 +5201,7 @@ This clinical feature is Bowing of the long bones (HP:0006487), qualified as cou
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5137,13 +5233,13 @@ This clinical feature is Bowing of the long bones (HP:0006487), qualified as cou
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Musculoskeletal
-                    <span class="cat-count">4</span>
+                    Metabolism
+                    <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-fractures" data-dismech-node="Recurrent Fractures" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-elevated-serum-alkaline-phosphatase" data-dismech-node="Elevated Serum Alkaline Phosphatase" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Recurrent Fractures
+                        Elevated Serum Alkaline Phosphatase
 
 
 
@@ -5152,18 +5248,23 @@ This clinical feature is Bowing of the long bones (HP:0006487), qualified as cou
 
                     <span class="phenotype-id">
 
+                        <span class="phenotype-term-label">Elevated circulating alkaline phosphatase concentration</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002757" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0002757</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003155" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0003155</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Recurrent fractures (HP:0002757). HP:0002757 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Elevated circulating alkaline phosphatase concentration (HP:0003155). HP:0003155 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5183,6 +5284,88 @@ This clinical feature is Recurrent fractures (HP:0002757). HP:0002757 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Serum alkaline phosphatase levels were elevated compared with age-matched patients with type IV OI (409 +/- 145 U/liter vs. 295 +/- 95 U/liter; p &lt; 0.03 by t-test)."</div>
+
+
+                <div class="evidence-explanation">Quantifies the elevated childhood serum alkaline phosphatase characteristic of OI type VI.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Musculoskeletal
+                    <span class="cat-count">5</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-fractures" data-dismech-node="Recurrent Fractures" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Recurrent Fractures
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002757" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0002757</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Recurrent fractures (HP:0002757). HP:0002757 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11771667" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11771667" target="_blank">PMID:11771667</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5223,15 +5406,18 @@ This clinical feature is Recurrent fractures (HP:0002757). HP:0002757 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002953" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0002953</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002953" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0002953</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Vertebral compression fracture (HP:0002953). HP:0002953 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5251,6 +5437,7 @@ This clinical feature is Vertebral compression fracture (HP:0002953). HP:0002953
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5291,15 +5478,18 @@ This clinical feature is Vertebral compression fracture (HP:0002953). HP:0002953
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004349" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0004349</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004349" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0004349</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Reduced bone mineral density (HP:0004349). HP:0004349 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5319,6 +5509,7 @@ This clinical feature is Reduced bone mineral density (HP:0004349). HP:0004349 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5330,248 +5521,6 @@ This clinical feature is Reduced bone mineral density (HP:0004349). HP:0004349 i
 
 
                 <div class="evidence-explanation">Documents low lumbar-spine areal BMD in OI type VI.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-kyphoscoliosis" data-dismech-node="Kyphoscoliosis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Kyphoscoliosis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002751" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002751</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Kyphoscoliosis (HP:0002751), qualified as course progressive. HP:0002751 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Course: PROGRESSIVE</span>
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:21353196" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21353196" target="_blank">PMID:21353196</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Fractures of long bones and severe vertebral compression fractures with resulting deformities were observed as early as the first year of life in these individuals."</div>
-
-
-                <div class="evidence-explanation">Severe vertebral compression fractures with resulting deformities underlie the progressive spinal deformity (kyphoscoliosis) of OI type VI.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Growth
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-short-stature" data-dismech-node="Short Stature" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Short Stature
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0004322</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:21353196" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21353196" target="_blank">PMID:21353196</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"All four individuals with SERPINF1 mutations have severe OI."</div>
-
-
-                <div class="evidence-explanation">SERPINF1-mutant OI type VI is severe, with growth impairment among its features; short stature is part of the severe skeletal phenotype.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-elevated-serum-alkaline-phosphatase" data-dismech-node="Elevated Serum Alkaline Phosphatase" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Elevated Serum Alkaline Phosphatase
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Elevated circulating alkaline phosphatase concentration</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003155" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0003155</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Elevated circulating alkaline phosphatase concentration (HP:0003155). HP:0003155 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:11771667" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11771667" target="_blank">PMID:11771667</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Serum alkaline phosphatase levels were elevated compared with age-matched patients with type IV OI (409 +/- 145 U/liter vs. 295 +/- 95 U/liter; p &lt; 0.03 by t-test)."</div>
-
-
-                <div class="evidence-explanation">Quantifies the elevated childhood serum alkaline phosphatase characteristic of OI type VI.</div>
 
 
 
@@ -5603,15 +5552,18 @@ This clinical feature is Elevated circulating alkaline phosphatase concentration
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003330" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0003330</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003330" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0003330</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Increased unmineralized osteoid (&#34;fish-scale&#34; lamellation), annotated with Abnormal bone structure (HP:0003330). HP:0003330 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5634,6 +5586,7 @@ This clinical feature is Increased unmineralized osteoid (&#34;fish-scale&#34; l
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5642,6 +5595,177 @@ This clinical feature is Increased unmineralized osteoid (&#34;fish-scale&#34; l
 
 
                 <div class="evidence-explanation">Documents the pathognomonic loss of lamellar birefringence (&#34;fish-scale&#34; pattern) reflecting defective mineralization in OI type VI.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-kyphoscoliosis" data-dismech-node="Kyphoscoliosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Kyphoscoliosis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002751" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002751</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Kyphoscoliosis (HP:0002751), qualified as course progressive. HP:0002751 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Course: PROGRESSIVE</span>
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21353196" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21353196" target="_blank">PMID:21353196</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Fractures of long bones and severe vertebral compression fractures with resulting deformities were observed as early as the first year of life in these individuals."</div>
+
+
+                <div class="evidence-explanation">Severe vertebral compression fractures with resulting deformities underlie the progressive spinal deformity (kyphoscoliosis) of OI type VI.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Growth
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-short-stature" data-dismech-node="Short Stature" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Short Stature
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0004322</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21353196" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21353196" target="_blank">PMID:21353196</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"All four individuals with SERPINF1 mutations have severe OI."</div>
+
+
+                <div class="evidence-explanation">SERPINF1-mutant OI type VI is severe, with growth impairment among its features; short stature is part of the severe skeletal phenotype.</div>
 
 
 
@@ -5729,6 +5853,9 @@ This disease-associated gene is SERPINF1 (PEDF), annotated with SERPINF1 (hgnc:8
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5743,6 +5870,7 @@ This disease-associated gene is SERPINF1 (PEDF), annotated with SERPINF1 (hgnc:8
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5767,6 +5895,7 @@ This disease-associated gene is SERPINF1 (PEDF), annotated with SERPINF1 (hgnc:8
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5871,6 +6000,31 @@ This treatment uses denosumab (NCIT:C61313). NCIT:C61313 is a therapeutic agent 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Monoclonal antibody</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Denosumab, a monoclonal antibody against RANKL, directly targets the increased osteoclastic bone resorption that drives OI type VI, and is the mechanism-directed treatment of choice. In children with OI type VI, two years of denosumab increased bone mineral density, normalized vertebral shape, improved mobility, and reduced fracture rate. The short-acting, reversible anti-resorptive effect carries a rebound risk: abrupt discontinuation or end-of-interval offset can cause hyper-resorptive rebound with symptomatic hypercalcemia, which can be mitigated by alternating denosumab with a long-acting bisphosphonate (zoledronic acid).</div>
 
 
@@ -5895,6 +6049,7 @@ This treatment uses denosumab (NCIT:C61313). NCIT:C61313 is a therapeutic agent 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5916,6 +6071,7 @@ This treatment uses denosumab (NCIT:C61313). NCIT:C61313 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5980,6 +6136,20 @@ This treatment is bisphosphonate agent therapy, annotated with Bisphosphonate Th
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Intravenous bisphosphonates are standard for most OI types, but OI type VI responds poorly because the lesion is increased resorption acting on unmineralized osteoid rather than impaired bone formation; denosumab is preferred.</div>
 
 
@@ -6004,6 +6174,7 @@ This treatment is bisphosphonate agent therapy, annotated with Bisphosphonate Th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6025,6 +6196,7 @@ This treatment is bisphosphonate agent therapy, annotated with Bisphosphonate Th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6089,6 +6261,31 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Intramedullary (telescoping) rod fixation and corrective osteotomy stabilize and realign deformed, fracture-prone long bones; spinal stabilization may be needed for progressive kyphoscoliosis.</div>
 
 
@@ -6110,6 +6307,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6174,6 +6372,31 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Physiotherapy, safe strengthening and mobility training (including hydrotherapy to minimize fracture risk), and adaptive aids preserve function and mobility.</div>
 
 
@@ -6195,6 +6418,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6303,6 +6527,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6324,6 +6549,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7346,6 +7572,19 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Initial curation: SERPINF1-related OI with osteoid hypermineralization and distinctive pathophysiology</strong> · 2026-07-07T07:46:28Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Osteogenesis_Imperfecta_Type_VI/2026-07-07T074628Z-claude-code-5857e6.yaml">View source</a></p>
+                        <p class="research-review-text">Full initial curation of OI Type VI (SERPINF1). Dual-provider deep-research workflow with every PMID title-verified and every snippet confirmed as exact substring. SERPINF1 encodes PEDF, disruption leads to excessive osteoid accumulation and abnormal bone mineralization.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

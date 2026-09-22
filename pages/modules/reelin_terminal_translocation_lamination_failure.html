@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -467,6 +468,18 @@
         .tag-component {
             background: #f0fdf4;
             color: #166534;
+        }
+
+        /* Same values as disorder.html.j2 so a treatment chip looks identical
+           whether it is read on a disorder page or on a module page. */
+        .tag-treatment {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .tag-gene {
+            background: #dbeafe;
+            color: #1e40af;
         }
 
         .tag-role {
@@ -1044,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1059,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1113,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1126,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1284,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1294,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1335,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1537,6 +1586,9 @@
 
     
 
+    
+
+    
     
 
     
@@ -2125,6 +2177,8 @@ This mechanism module involves increased reelin-mediated signaling pathway (GO:0
 
         
 
+        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
@@ -2208,11 +2262,13 @@ This mechanism module involves increased reelin-mediated signaling pathway (GO:0
             
             <div class="item-box anchor-target" id="module-pathophysiology-cajal-retzius-reelin-ligand-deficiency" data-dismech-node="Cajal-Retzius Reelin Ligand Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Cajal-Retzius Reelin Ligand Deficiency</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Pathogenic RELN variants reduce or alter the secreted Reelin cue normally produced by Cajal-Retzius cells in the developing cortical marginal zone. Loss of this ligand deprives postmitotic neurons of the extracellular positioning signal required for terminal translocation and inside-out lamination.</div>
                 
@@ -2316,11 +2372,13 @@ This pathophysiological event involves decreased reelin-mediated signaling pathw
             
             <div class="item-box anchor-target" id="module-pathophysiology-vldlr-apoer2-dab1-signal-transduction-failure" data-dismech-node="VLDLR-ApoER2-DAB1 Signal Transduction Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">VLDLR-ApoER2-DAB1 Signal Transduction Failure</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Reelin normally binds VLDLR and ApoER2/LRP8 on migrating neurons, causing DAB1 activation through Src-family kinase signaling. Pathogenic VLDLR loss, RELN receptor-binding defects, or impaired DAB1 pathway propagation reduce the signal that couples the extracellular Reelin cue to neuron-intrinsic migration and lamination effectors.</div>
                 
@@ -2434,11 +2492,13 @@ This pathophysiological event involves decreased reelin-mediated signaling pathw
             
             <div class="item-box anchor-target" id="module-pathophysiology-rap1-cadherin-leading-process-instability" data-dismech-node="Rap1-Cadherin Leading Process Instability" data-dismech-type="pathophysiology">
                 <div class="item-name">Rap1-Cadherin Leading Process Instability</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Impaired DAB1 signaling reduces Rap1-dependent regulation of cadherin adhesion, destabilizing the leading processes of translocating cortical neurons. This node captures the neuron-intrinsic effector step that links the Reelin receptor-adaptor signal to terminal somal translocation.</div>
                 
@@ -2558,11 +2618,13 @@ This pathophysiological event involves dysregulated neuron migration (GO:0001764
             
             <div class="item-box anchor-target" id="module-pathophysiology-ephrin-b-and-clasp2-reelin-effector-branch" data-dismech-node="Ephrin-B and CLASP2 Reelin Effector Branch" data-dismech-type="pathophysiology">
                 <div class="item-name">Ephrin-B and CLASP2 Reelin Effector Branch</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Ephrin-B proteins and CLASP2 represent Reelin-associated effector or modulator branches that influence DAB1 phosphorylation, cytoskeletal dynamics, neurite extension, motility, and neuronal positioning. This is a branch off the core pathway rather than a separate disease skeleton unless a disorder-specific entry demonstrates primary disruption of this branch.</div>
                 
@@ -2682,11 +2744,13 @@ This pathophysiological event involves dysregulated cytoskeleton organization (G
             
             <div class="item-box anchor-target" id="module-pathophysiology-terminal-somal-translocation-failure" data-dismech-node="Terminal Somal Translocation Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Terminal Somal Translocation Failure</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Developing cortical neurons fail to complete the glia-independent terminal somal translocation step, often retracting or destabilizing leading processes after contact with the marginal zone. This failure is the central cellular mechanism distinguishing this module from earlier locomotion or microtubule-based migration arrest modules.</div>
                 
@@ -2790,11 +2854,13 @@ This pathophysiological event involves decreased neuron migration (GO:0001764). 
             
             <div class="item-box anchor-target" id="module-pathophysiology-cortical-lamination-and-gyral-simplification" data-dismech-node="Cortical Lamination and Gyral Simplification" data-dismech-type="pathophysiology">
                 <div class="item-name">Cortical Lamination and Gyral Simplification</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Failed terminal translocation and Reelin-pathway signaling produce disrupted inside-out lamination, simplified gyral patterning, pachygyria or lissencephaly-like cortical malformation depending on disease context and severity. Disease entries should instantiate the specific imaging or histopathologic endpoint rather than treating this module endpoint as a single disease.</div>
                 
@@ -2884,11 +2950,13 @@ This pathophysiological event involves dysregulated cerebral cortex development 
             
             <div class="item-box anchor-target" id="module-pathophysiology-hippocampal-and-cerebellar-organization-defect" data-dismech-node="Hippocampal and Cerebellar Organization Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Hippocampal and Cerebellar Organization Defect</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Reelin-pathway disruption affects laminated structures beyond neocortex, especially hippocampal formation and cerebellum. Human RELN/VLDLR disease and mouse Reln/Vldlr/ApoER2 pathway models show recurring hippocampal and cerebellar abnormalities, while RELN receptor-binding hypomorphs can uncouple cortical/hippocampal defects from cerebellar hypoplasia.</div>
                 
@@ -2978,11 +3046,13 @@ This pathophysiological event involves dysregulated cerebellum development (GO:0
             
             <div class="item-box anchor-target" id="module-pathophysiology-akt3-foxg1-secondary-reelin-misexpression-branch" data-dismech-node="AKT3-FOXG1 Secondary Reelin Misexpression Branch" data-dismech-type="pathophysiology">
                 <div class="item-name">AKT3-FOXG1 Secondary Reelin Misexpression Branch</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">In focal cortical malformations driven by mosaic AKT3 activation, Reelin can be misexpressed through FOXG1-dependent derepression in neural progenitors. This produces a non-cell-autonomous migration defect in neighboring cells. The branch should be curated as secondary Reelin-pathway involvement within a PI3K-AKT-mTOR disease skeleton unless Reelin misexpression is the central causal mechanism of the entry.</div>
                 
@@ -3127,6 +3197,9 @@ This pathophysiological event involves dysregulated neuron migration (GO:0001764
             </div>
             
         </div>
+        
+
+        
         
 
         <footer class="page-footer">
