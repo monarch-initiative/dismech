@@ -65,7 +65,7 @@ def test_whole_object_preserves_qualifiers_and_subtype_without_other_evidence():
     assert "EXPLANATION MUST" not in json.dumps(task.state)
     assert "origin" not in task.state
     assert doc == before
-    assert set(task.criteria) == {"MATCH", "MISMATCH"}
+    assert set(task.criteria) == {"MATCH", "MISMATCH", "PARTIAL"}
 
 
 def test_nested_assertion_inherits_parent_scope_and_keeps_refutation_on_evidence():

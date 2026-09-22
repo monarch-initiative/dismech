@@ -60,7 +60,7 @@ structured assertion, type and about context. Provenance, other citations,
 benchmark expectations and reviews are excluded. Source text can resolve referents
 and qualifications but cannot supply independent results outside the snippet.
 
-The primary task returns MATCH/MISMATCH. An optional second Choice task diagnoses
+The primary task returns MATCH/MISMATCH/PARTIAL. An optional second Choice task diagnoses
 mismatches as `insufficient_specificity`, `incompatible_assertion`, `unrelated`, or
 `other`. A different assay or population is not automatically contradictory.
 Jev returns these fixed choices and probabilities, not invented free-text reasons
@@ -93,3 +93,13 @@ Choice questions in one request and records usage once. Jev returns judgments,
 probabilities and confidence, not curator rationales. Existing single-question
 classification remains supported. Review records and target aggregation belong
 to the consuming benchmark, not to this model-input schema.
+
+The current structured-claim and aspect prompts use `three-valued-v1` (prompt
+version 2): MATCH for adequate justification, MISMATCH for a clear failure, and
+PARTIAL for incomplete, weak, mixed or unsettled support. PARTIAL is an explicit
+deferral, including when both curator and model choose it. It does not change
+the source evidence direction (SUPPORT/REFUTE/NO_EVIDENCE). Missing assessments
+remain unassessed. Reviewer rationales explain the broad PARTIAL category without
+requiring confidence scores or ambiguity subtypes. Older binary experiment
+helpers in `evidence.py` and `direct_support.py` retain their original contracts;
+new structured-claim integrations use `structured.py` and `aspects.py`.

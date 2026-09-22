@@ -34,6 +34,9 @@ def test_questions_follow_present_fields_and_schema_semantics():
         "/assertion/frequency",
         "/assertion/phenotype_term/term",
     }
+    assert all(
+        set(p["enum"]) == {"MATCH", "MISMATCH", "PARTIAL"} for p in properties.values()
+    )
     assert "5-29%" in properties["/assertion/frequency"]["description"]
     other = claim()
     other["assertion"]["phenotype_term"]["temporality"] = "RECURRENT"
@@ -68,7 +71,11 @@ def test_one_request_maps_all_answers_and_counts_usage_once():
                         "type": "choice",
                         "choice": "MATCH",
                         "confidence": 0.8,
-                        "probabilities": {"MATCH": 0.9, "MISMATCH": 0.1},
+                        "probabilities": {
+                            "MATCH": 0.9,
+                            "MISMATCH": 0.1,
+                            "PARTIAL": 0.0,
+                        },
                     }
                     for name in payload["questions"]
                 },
