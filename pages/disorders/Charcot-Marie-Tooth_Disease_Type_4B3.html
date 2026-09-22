@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -5176,6 +5215,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sbf1-loss-of-function" data-dismech-node="SBF1 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">SBF1 Loss of Function</div>
 
+
                 <div class="item-desc">Biallelic SBF1 variants - missense, frameshift or splice-site - reduce or abolish functional MTMR5. The protein&#39;s own myotubularin phosphatase domain is catalytically inactive, so this is not the loss of an enzyme. What is lost is MTMR5&#39;s regulatory and scaffolding role: a coiled-coil-mediated interaction that raises MTMR2&#39;s phosphoinositide 3-phosphatase activity and fixes where in the cell MTMR2 acts, and an N-terminal DENN domain that activates Rab GTPases. Reported pathogenic variants cluster in the DENN and SBF2 domains but occur throughout the gene, and are generally associated with loss of expression or of function. A frameshift allele has been shown directly to reduce MTMR5 protein in patient cells. `zygosity` is deliberately left unset: reported families are homozygous (the consanguineous ones) or compound heterozygous (the index Korean and the Italian families), the slot is single-valued, and the enum has no &#34;biallelic&#34; value that would cover both without misreporting one.</div>
 
 
@@ -5267,9 +5307,14 @@ This genetic context concerns SBF1 (hgnc:10542). hgnc:10542 is a gene from the H
 
 
 
+
+
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -5511,6 +5556,7 @@ This pathophysiological event involves decreased DENN-domain Rab GTPase activati
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-mtmr2-partnering-and-phosphoinositide-misregulation" data-dismech-node="Loss of MTMR2 Partnering and Phosphoinositide Misregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of MTMR2 Partnering and Phosphoinositide Misregulation</div>
 
+
                 <div class="item-desc">MTMR5 binds MTMR2 through its coiled-coil domain, increases MTMR2&#39;s enzymatic activity and dictates where MTMR2 is localized. Without that partnering, dephosphorylation of the endosomal phosphoinositides PI3P and PI(3,5)P2 is misregulated in both amount and place. Because MTMR5 has no catalytic activity of its own, this is the step at which a pseudophosphatase lesion becomes a phosphoinositide lesion.</div>
 
 
@@ -5710,6 +5756,7 @@ This pathophysiological event involves abnormal Phosphatidylinositol dephosphory
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disordered-endolysosomal-trafficking-in-schwann-cells" data-dismech-node="Disordered Endolysosomal Trafficking in Schwann Cells" data-dismech-type="pathophysiology">
                 <div class="item-name">Disordered Endolysosomal Trafficking in Schwann Cells</div>
+
 
                 <div class="item-desc">Schwann cells are unusually sensitive to disruption of endolysosomal membrane trafficking - nearly half the CMT4 genes encode regulators of that pathway - because building and maintaining the myelin sheath requires large, precisely directed membrane flux and correct trafficking of the receptors that time myelination. MTMR5 is almost ubiquitously expressed, yet SBF1 variants strike the peripheral nervous system, which is the observation this node explains.</div>
 
@@ -5926,6 +5973,7 @@ This pathophysiological event involves abnormal Endosomal transport (GO:0016197)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-focally-folded-and-redundant-myelin" data-dismech-node="Focally Folded and Redundant Myelin" data-dismech-type="pathophysiology">
                 <div class="item-name">Focally Folded and Redundant Myelin</div>
+
 
                 <div class="item-desc">The histological signature of the CMT4B group: myelin sheaths that fold back on themselves into redundant loops and outfoldings, with loss of large myelinated fibers. In CMT4B3 this was found in the index Korean family, although the absolute number of myelinated fibers differed from CMT4B1 and CMT4B2. It is characteristic of the demyelinating presentation and is not reported in the axonal syndromic families.</div>
 
@@ -6147,6 +6195,7 @@ This pathophysiological event involves abnormal myelin sheath (GO:0043209). GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-axon-radial-sorting" data-dismech-node="Impaired Axon Radial Sorting" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Axon Radial Sorting</div>
 
+
                 <div class="item-desc">Radial sorting is the developmental step in which Schwann cells segregate large-calibre axons out of bundles into 1:1 relationships before myelinating them. Mouse work places MTMR5&#39;s main peripheral-nerve role here rather than in myelin maintenance: Mtmr5-null nerves contain fewer myelinated axons and show sorting defects, while Mtmr13 loss produces the outfoldings. Whether this division of labour holds in human CMT4B3, where outfoldings are seen, is unresolved - see the model-mismatch discussion below.</div>
 
 
@@ -6337,6 +6386,7 @@ This pathophysiological event involves decreased Myelination in peripheral nervo
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-secondary-mitochondrial-dysfunction-and-altered-autophagic-selectivity" data-dismech-node="Secondary Mitochondrial Dysfunction and Altered Autophagic Selectivity" data-dismech-type="pathophysiology">
                 <div class="item-name">Secondary Mitochondrial Dysfunction and Altered Autophagic Selectivity</div>
+
 
                 <div class="item-desc">Muscle from one CMT4B3 child showed partial defects of oxidative metabolism, and fibroblasts from the same patient have fragmented mitochondrial networks with reduced ATP production despite preserved mitochondrial mass and respiratory chain assembly, strongly activated PINK1-PRKN mitophagy without the matching rise in macroautophagy, and features of premature senescence. This is presented as a downstream consequence of the trafficking and autophagy lesion, not as a primary respiratory chain defect - which is what separates CMT4B3 from CMT4K, where the gene itself is a complex IV assembly factor.</div>
 
@@ -6552,6 +6602,7 @@ This pathophysiological event involves increased Mitophagy (GO:0000423). GO:0000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysmyelination-and-slowed-nerve-conduction" data-dismech-node="Dysmyelination and Slowed Nerve Conduction" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysmyelination and Slowed Nerve Conduction</div>
+
 
                 <div class="item-desc">The structurally abnormal sheath conducts badly. In the demyelinating presentation this appears as markedly slowed motor conduction velocities; in the axonal syndromic presentation velocities are relatively preserved and it is the action-potential amplitudes that collapse. A zebrafish mtmr5 knockout shows dysmyelination changes described as reminiscent of the human nerve pathology.</div>
 
@@ -6807,6 +6858,7 @@ This pathophysiological event involves abnormal myelin sheath (GO:0043209). GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-secondary-axonal-loss" data-dismech-node="Secondary Axonal Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Secondary Axonal Loss</div>
 
+
                 <div class="item-desc">Length-dependent loss of peripheral axons follows the myelin lesion and is what tracks disability. It is the shared endpoint of the demyelinating and axonal presentations, and drives the distal-predominant motor and sensory deficit and the foot deformity.</div>
 
 
@@ -7029,6 +7081,7 @@ This pathophysiological event involves decreased Myelination (GO:0042552). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-central-nervous-system-and-cranial-nerve-involvement" data-dismech-node="Central Nervous System and Cranial Nerve Involvement" data-dismech-type="pathophysiology">
                 <div class="item-name">Central Nervous System and Cranial Nerve Involvement</div>
+
 
                 <div class="item-desc">In the syndromic families, SBF1 loss also produces progressive microcephaly, intellectual disability, cerebellar atrophy with ataxia and pyramidal signs, and degeneration of multiple cranial nerves. The mechanism is not established. Two observations argue that it is not simply more of the same Schwann-cell lesion: the syndromic variants fall in the DENN domain, which only SBF1 and SBF2 carry among the myotubularins, and the mtmr5-null zebrafish develops reduced head size and brain volume rather than a purely peripheral phenotype. Not every severe case has it - one child with severe infantile axonal disease had normal brain MRI and normal cognition throughout.</div>
 
@@ -8956,6 +9009,9 @@ This disease-associated gene is SBF1 (hgnc:10542). hgnc:10542 is a gene from the
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4572,6 +4611,7 @@ This subtype is caused by variation in COLEC10 (hgnc:2220). hgnc:2220 is a gene 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-cl-k1-calcium-binding" data-dismech-node="Impaired CL-K1 Calcium Binding" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired CL-K1 Calcium Binding</div>
 
+
                 <div class="item-desc">Three tested COLEC11 carbohydrate-recognition-domain variants (Ser169Pro, Gly204Ser and Ser217 deletion) abolish calcium binding in recombinant fragments. The fragments can refold and oligomerize in vitro, but lack calcium-dependent stabilization.</div>
 
 
@@ -4739,6 +4779,7 @@ This pathophysiological event involves decreased calcium ion binding (GO:0005509
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-cl-k1-carbohydrate-binding" data-dismech-node="Impaired CL-K1 Carbohydrate Binding" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired CL-K1 Carbohydrate Binding</div>
 
+
                 <div class="item-desc">Recombinant CL-K1 fragments carrying the three tested 3MC-associated carbohydrate-recognition-domain variants fail to bind yeast invertase or the dextran chromatography matrix. These ligand-binding assays demonstrate functional loss even though the fragments assemble into trimers in vitro.</div>
 
 
@@ -4840,6 +4881,7 @@ This pathophysiological event involves decreased carbohydrate binding (GO:003024
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-extracellular-cl-k1-availability" data-dismech-node="Reduced Extracellular CL-K1 Availability" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Extracellular CL-K1 Availability</div>
 
+
                 <div class="item-desc">Biallelic COLEC11 loss-of-function variants reduce functional extracellular CL-K1. Three tested carbohydrate-recognition-domain variants block secretion in mammalian cells, and Gly204Ser CL-K1 was undetectable in serum from two patients. This node does not assume that all COLEC11 variants share the same biosynthetic defect.</div>
 
 
@@ -4900,6 +4942,8 @@ This pathophysiological event involves COLEC11 (hgnc:17213). hgnc:17213 is a gen
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4910,6 +4954,9 @@ This pathophysiological event involves COLEC11 (hgnc:17213). hgnc:17213 is a gen
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Biallelic germline COLEC11 variants include missense substitutions, truncating alleles and a multi-exon deletion.</div>
 
@@ -5020,6 +5067,7 @@ This pathophysiological event involves COLEC11 (hgnc:17213). hgnc:17213 is a gen
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-extracellular-cl-l1-availability" data-dismech-node="Reduced Extracellular CL-L1 Availability" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Extracellular CL-L1 Availability</div>
 
+
                 <div class="item-desc">Some biallelic COLEC10 variants impair CL-L1 expression or secretion. Arg9Ter and Gly77Glufs*66 constructs yield no detectable protein, whereas Cys176Trp accumulates intracellularly with severely reduced secretion. This route is distinct from the Cys270Serfs*33 allele, which has normal measured plasma levels but impaired chemoattractant activity.</div>
 
 
@@ -5080,6 +5128,8 @@ This pathophysiological event involves COLEC10 (hgnc:2220). hgnc:2220 is a gene 
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -5090,6 +5140,9 @@ This pathophysiological event involves COLEC10 (hgnc:2220). hgnc:2220 is a gene 
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Biallelic COLEC10 variants affecting protein expression or secretion; compound heterozygous genotypes occur.</div>
 
@@ -5165,6 +5218,7 @@ This pathophysiological event involves COLEC10 (hgnc:2220). hgnc:2220 is a gene 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-cl-l1-chemoattractant-activity" data-dismech-node="Impaired CL-L1 Chemoattractant Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired CL-L1 Chemoattractant Activity</div>
 
+
                 <div class="item-desc">The homozygous COLEC10 c.807_810delCTGT (p.Cys270Serfs*33) variant extends the protein and removes a conserved cysteine. Plasma CL-L1 levels were normal in the reported family, while mutant protein induced less HeLa-cell migration than wild type. Loss of extracellular function can therefore occur without reduced measured abundance.</div>
 
 
@@ -5225,6 +5279,8 @@ This pathophysiological event involves COLEC10 (hgnc:2220). hgnc:2220 is a gene 
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -5235,6 +5291,9 @@ This pathophysiological event involves COLEC10 (hgnc:2220). hgnc:2220 is a gene 
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Homozygous germline c.807_810delCTGT (p.Cys270Serfs*33), with reduced function in a cell-migration assay.</div>
 
@@ -5337,6 +5396,7 @@ This pathophysiological event involves COLEC10 (hgnc:2220). hgnc:2220 is a gene 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-masp-3-serine-protease-activity" data-dismech-node="Loss of MASP-3 Serine Protease Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of MASP-3 Serine Protease Activity</div>
 
+
                 <div class="item-desc">Biallelic MASP1 variants impair MASP-3 serine protease activity. Tested 3MC-associated MASP-3 mutants were enzymatically inactive. Variants confined to the exon-12 protease domain can selectively affect MASP-3, whereas earlier truncating variants may also affect MASP-1 or MAp44; selective MASP-3 deficiency is not assumed for every genotype.</div>
 
 
@@ -5397,6 +5457,8 @@ This pathophysiological event involves MASP1 (hgnc:6901). hgnc:6901 is a gene fr
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -5407,6 +5469,9 @@ This pathophysiological event involves MASP1 (hgnc:6901). hgnc:6901 is a gene fr
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Biallelic germline MASP1 variants include missense changes in the MASP-3 protease domain, earlier nonsense alleles in shared sequence and intragenic deletions.</div>
 
@@ -5527,6 +5592,7 @@ This pathophysiological event involves decreased MASP-3 serine endopeptidase act
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-neural-crest-cell-guidance" data-dismech-node="Impaired Neural Crest Cell Guidance" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Neural Crest Cell Guidance</div>
+
 
                 <div class="item-desc">Experimental colec11 or masp1 knockdown causes ectopic neural crest distribution and disrupted migratory streams in zebrafish. Recombinant CL-K1 also attracts quail neural crest cells in explants. These observations support a guidance defect as a candidate cause of craniofacial malformation in 3MC; they do not establish that every affected organ derives from neural crest.</div>
 
@@ -5738,6 +5804,7 @@ This pathophysiological event involves dysregulated neural crest cell migration 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-cranial-neural-crest-derived-craniofacial-morphogenesis" data-dismech-node="Defective Cranial Neural Crest-Derived Craniofacial Morphogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective Cranial Neural Crest-Derived Craniofacial Morphogenesis</div>
 
+
                 <div class="item-desc">Craniofacial cartilage and bone development is disrupted in zebrafish models, supporting a developmental explanation for the facial abnormalities and clefting of 3MC. Expression of CL-K1 and CL-L1 in murine palatal and craniofacial tissues supports biological plausibility, without proving a specific mechanism for each human malformation.</div>
 
 
@@ -5921,6 +5988,7 @@ This pathophysiological event involves dysregulated neural crest cell developmen
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-complement-dependent-osteoclastogenesis" data-dismech-node="Impaired Complement-Dependent Osteoclastogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Complement-Dependent Osteoclastogenesis</div>
+
 
                 <div class="item-desc">Experimental loss of collectin-11 impairs osteoclast differentiation in mouse bone-marrow cultures and engineered healthy-donor human iPSC-derived cells. The effect is modest after isolated mouse Colec11 deletion and pronounced in Colec11/C3 or Colec11/Cfb double-knockout cultures; isolated human COLEC11 deletion already has a marked effect. Recombinant CL-11 partially rescues differentiation, and complement-convertase inhibition impairs differentiation in human cells. These results identify a candidate mechanism relevant to 3MC, without establishing osteoclast dysfunction as the cause of skeletal malformations in affected patients.</div>
 
@@ -6172,6 +6240,7 @@ This pathophysiological event involves decreased osteoclast differentiation (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-pro-factor-d-maturation" data-dismech-node="Impaired Pro-Factor D Maturation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Pro-Factor D Maturation</div>
+
 
                 <div class="item-desc">MASP-3 deficiency compromises conversion of pro-factor D to mature factor D. Tested patient samples predominantly contain pro-factor D but retain detectable mature factor D, consistent with an additional maturation route. Resting-plasma inhibition experiments establish MASP-3 dependence under those assay conditions; serum coagulation and patient measurements need separate interpretation.</div>
 
@@ -9634,6 +9703,9 @@ This disease-associated gene is MASP1 (hgnc:6901). hgnc:6901 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -9739,6 +9811,12 @@ This disease-associated gene is MASP1 (hgnc:6901). hgnc:6901 is a gene from the 
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Reported alleles include p.Gly687Arg and other missense changes in the MASP-3 protease domain, earlier nonsense variants such as p.Trp290Ter, and intragenic deletions partially affecting exon 12.</div>
 
 
@@ -9787,6 +9865,9 @@ This disease-associated gene is COLEC11 (hgnc:17213). hgnc:17213 is a gene from 
 
 
                 </div>
+
+
+
 
 
 
@@ -9861,6 +9942,9 @@ This disease-associated gene is COLEC10 (hgnc:2220). hgnc:2220 is a gene from th
 
 
                 </div>
+
+
+
 
 
 

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4975,6 +5014,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pten-loss-and-pi3k-akt-mtor-pathway-activation" data-dismech-node="PTEN Loss and PI3K/AKT/mTOR Pathway Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">PTEN Loss and PI3K/AKT/mTOR Pathway Activation</div>
 
+
                 <div class="item-desc">PTEN (phosphatase and tensin homolog) is a tumor suppressor that dephosphorylates phosphatidylinositol-3,4,5-trisphosphate (PIP3) to PIP2, thereby inhibiting the PI3K/AKT/mTOR signaling axis. Germline loss-of-function mutations in PTEN lead to constitutive accumulation of PIP3 and unopposed activation of AKT and downstream mTOR complex 1 (mTORC1), resulting in excessive cell proliferation, survival, and growth that underlies hamartoma formation and elevated cancer risk across multiple organ systems.
 </div>
 
@@ -5338,6 +5378,7 @@ This pathophysiological event involves increased Negative regulation of apoptosi
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hamartoma-formation" data-dismech-node="Hamartoma Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Hamartoma Formation</div>
 
+
                 <div class="item-desc">Constitutive activation of PI3K/AKT/mTOR signaling in multiple cell lineages drives the abnormal but organized proliferation of tissue elements native to the affected site, producing hamartomas. In Cowden syndrome these manifest as mucocutaneous trichilemmomas, papillomatous papules, acral keratoses, gastrointestinal hamartomatous polyps, and thyroid adenomas. The hamartomas are histologically benign but serve as a marker of systemic PTEN dysfunction and elevated cancer predisposition.
 </div>
 
@@ -5535,6 +5576,7 @@ This pathophysiological event involves increased Hamartomatous cell proliferatio
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-cancer-risk" data-dismech-node="Increased Cancer Risk" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Cancer Risk</div>
 
+
                 <div class="item-desc">The same PI3K/AKT/mTOR over-activation that drives benign hamartoma formation also confers markedly elevated lifetime risks for malignancies. The cumulative lifetime risk in PTEN mutation carriers includes breast cancer (~77-85%), follicular/papillary thyroid cancer (~35-38%), endometrial cancer (~28%), renal cell carcinoma (~34%), and colorectal cancer (~9-16%). Second-hit somatic mutations or epigenetic silencing of the remaining wild-type PTEN allele accelerate neoplastic progression.
 </div>
 
@@ -5706,6 +5748,7 @@ This pathophysiological event involves increased Cell proliferation, annotated w
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pten-genome-integrity-defect" data-dismech-node="PTEN Genome Integrity Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">PTEN Genome Integrity Defect</div>
+
 
                 <div class="item-desc">Beyond its well-known role as a lipid phosphatase, PTEN performs nuclear functions in maintaining genome integrity, including DNA double-strand break repair and chromosomal stability. Quantitative DNA damage response (DDR) modeling of PHTS patient-derived lymphoblastoid cell lines (n=43) shows that PTEN nonsense variants have less efficient DNA repair (higher residual gamma-H2AX foci 24 h after irradiation) than missense variants, and that DDR dynamics differ between PHTS-ASD/DD and PHTS-cancer phenotypic subgroups. This second molecular axis (genome instability) likely contributes to the pleiotropy of PHTS — explaining why cancer and neurodevelopmental phenotypes can both arise from germline PTEN loss without simply scaling with PI3K/AKT/mTOR over-activation.
 </div>
@@ -5918,6 +5961,7 @@ This pathophysiological event involves decreased Maintenance of genome integrity
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neurodevelopmental-cortical-dysfunction" data-dismech-node="Neurodevelopmental Cortical Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Neurodevelopmental Cortical Dysfunction</div>
+
 
                 <div class="item-desc">In addition to its cell-autonomous role in restraining cell growth, PTEN regulates neuronal differentiation, dendritic arborisation, and synaptic homeostasis. Germline PTEN loss causes early-stage neuroectoderm and forebrain organoid abnormalities (disrupted neuronal differentiation, radial glia mispositioning, and altered cortical layering) and contributes to macrocephaly and autism-spectrum neurobehavioral phenotypes through PI3K/AKT/mTOR over-activation in cortical progenitors and neurons. PTEN germline mutations account for ~0.2-1% of all autism spectrum disorder (ASD) cases, ~17% of ASD with macrocephaly, and ~20-23% of PHTS individuals are diagnosed with ASD.
 </div>
@@ -6280,6 +6324,7 @@ This pathophysiological event involves abnormal Cortical layering, annotated wit
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-succinate-dehydrogenase-activity" data-dismech-node="Reduced Succinate Dehydrogenase Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Succinate Dehydrogenase Activity</div>
+
 
                 <div class="item-desc">A proposed convergent node, carried explicitly as a hypothesis. Cowden and Cowden-like syndrome have genetically unrelated causes - PTEN loss, KLLN promoter hypermethylation, and SDHB/SDHD variants - and this node is the only account on offer for why they produce clinically indistinguishable disease. SDHx variants reduce succinate dehydrogenase activity by definition; the claim that PTEN loss does so as well rests on a single study of 21 carriers that measured plasma succinate and inferred the enzyme. Nothing downstream is drawn from this node, because what the accumulated succinate would then do in Cowden syndrome has not been shown.</div>
 
@@ -7721,6 +7766,9 @@ This disease-associated gene is PTEN (hgnc:9588). hgnc:9588 is a gene from the H
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
@@ -7797,6 +7845,9 @@ This disease-associated gene is KLLN (hgnc:37212). hgnc:37212 is a gene from the
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -7879,6 +7930,9 @@ This disease-associated gene is PIK3CA (hgnc:8975). hgnc:8975 is a gene from the
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
@@ -7957,6 +8011,9 @@ This disease-associated gene is SDHB (hgnc:10681). hgnc:10681 is a gene from the
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">

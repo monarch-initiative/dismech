@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4848,6 +4887,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-pathogenic-polg-variation" data-dismech-node="Biallelic Pathogenic POLG Variation" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic Pathogenic POLG Variation</div>
 
+
                 <div class="item-desc">Biallelic pathogenic POLG variants cause the molecularly defined Alpers phenotype. The combination of alleles and other modifiers influences presentation; a common polymorphism alone is not the initiating lesion modeled here.</div>
 
 
@@ -5051,6 +5091,7 @@ This pathophysiological event involves POLG (hgnc:9179). hgnc:9179 is a gene fro
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-dna-polymerase-gamma-function" data-dismech-node="Reduced DNA Polymerase Gamma Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced DNA Polymerase Gamma Function</div>
 
+
                 <div class="item-desc">Reduced catalytic activity and/or processivity impairs mitochondrial genome maintenance. Recombinant A467T retains residual polymerase activity and relatively preserved exonuclease function; other alleles need not have the same biochemical profile.</div>
 
 
@@ -5207,6 +5248,7 @@ This pathophysiological event involves mitochondrion (GO:0005739). GO:0005739 is
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-mitochondrial-dna-replication" data-dismech-node="Impaired Mitochondrial DNA Replication" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Mitochondrial DNA Replication</div>
 
+
                 <div class="item-desc">Impaired synthesis and maintenance of mitochondrial genomes can reduce copy number as tissues develop and genomes turn over. Depletion is tissue- and stage-dependent, so an initially normal muscle assay does not exclude the disorder.</div>
 
 
@@ -5359,6 +5401,7 @@ This pathophysiological event involves mitochondrion (GO:0005739). GO:0005739 is
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitochondrial-dna-depletion" data-dismech-node="Mitochondrial DNA Depletion" data-dismech-type="pathophysiology">
                 <div class="item-name">Mitochondrial DNA Depletion</div>
 
+
                 <div class="item-desc">Reduced mitochondrial genome copy number occurs in affected tissues and in Alpers patient-derived neural stem cells. It is not uniformly detectable in all tissues or at every disease stage. TFAM staining in organoids is a proxy; the neural-stem-cell experiment also used mtDNA/nuclear-DNA qPCR.</div>
 
 
@@ -5487,6 +5530,7 @@ This pathophysiological event involves mitochondrion (GO:0005739). GO:0005739 is
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-respiratory-chain-deficiency" data-dismech-node="Respiratory Chain Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Respiratory Chain Deficiency</div>
 
+
                 <div class="item-desc">Respiratory-chain impairment is prominent in vulnerable neurons. Postmortem Alpers tissue showed reduced complex I and, more variably, complex IV subunit immunoreactivity; those assays estimate dysfunction from protein abundance rather than directly measuring electron flux. Neural stem-cell experiments also showed complex I/IV protein loss.</div>
 
 
@@ -5595,6 +5639,7 @@ This pathophysiological event involves mitochondrion (GO:0005739). GO:0005739 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-cellular-atp-availability" data-dismech-node="Reduced Cellular ATP Availability" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Cellular ATP Availability</div>
+
 
                 <div class="item-desc">Cellular ATP availability is reduced in differentiated Alpers neural stem cells, whereas the corresponding pluripotent cells did not show a significant ATP deficit. Energy failure is a proposed contributor to neural and hepatic injury rather than a universal measured state in every cell.</div>
 
@@ -5709,6 +5754,7 @@ This pathophysiological event involves mitochondrion (GO:0005739). GO:0005739 is
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-mitochondrial-oxidative-stress" data-dismech-node="Increased Mitochondrial Oxidative Stress" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Mitochondrial Oxidative Stress</div>
 
+
                 <div class="item-desc">Increased mitochondrial ROS probe signals and altered antioxidant transcription were observed in Alpers-derived neural stem cells. This is experimental evidence from one donor, not proof that oxidative stress is the initiating event in patient brains.</div>
 
 
@@ -5822,6 +5868,7 @@ This pathophysiological event involves response to oxidative stress (GO:0006979)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cortical-neuronal-loss" data-dismech-node="Cortical Neuronal Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Cortical Neuronal Loss</div>
+
 
                 <div class="item-desc">Reduced densities of inhibitory interneurons and pyramidal neurons were observed in occipital cortex at autopsy, with gliosis and areas of laminar necrosis. Loss was similar between these two populations; respiratory-chain deficiency was more pronounced in interneurons. Regional specificity and a within-patient sequence from deficiency to cell loss were not demonstrated.</div>
 
@@ -5975,6 +6022,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-cortical-inhibition" data-dismech-node="Reduced Cortical Inhibition" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Cortical Inhibition</div>
 
+
                 <div class="item-desc">Reduced inhibitory interneuron function is a proposed contributor to cortical hyperexcitability. The human evidence is postmortem and the Alpers organoid evidence includes lower GAD65 staining and synaptic gene-set changes; neither directly measures the excitation-inhibition ratio in living patients.</div>
 
 
@@ -6054,6 +6102,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-recurrent-seizure-activity" data-dismech-node="Recurrent Seizure Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Recurrent Seizure Activity</div>
+
 
                 <div class="item-desc">Epilepsy often begins focally and may progress to drug-resistant seizures, status epilepticus or epilepsia partialis continua. Initial control is possible in some children; refractory disease is not necessarily present from the first seizure.</div>
 
@@ -6150,6 +6199,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-purkinje-cell-loss" data-dismech-node="Purkinje Cell Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Purkinje Cell Loss</div>
+
 
                 <div class="item-desc">Reduced cerebellar Purkinje-cell density accompanies respiratory-chain protein deficiency in surviving cells. The study could not separate intrinsic mitochondrial injury from effects of seizures or treatment; loss did not correlate with residual-cell complex I/IV deficiency.</div>
 
@@ -6285,6 +6335,7 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatocellular-injury" data-dismech-node="Hepatocellular Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatocellular Injury</div>
+
 
                 <div class="item-desc">Intrinsic hepatic disease can develop independently of valproate exposure. Hepatocyte loss, steatosis and architectural disruption can lead to impaired metabolic and synthetic function. The specific sequence connecting POLG dysfunction to hepatic injury remains incompletely resolved.</div>
 
@@ -6440,6 +6491,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-valproate-associated-hepatocellular-injury" data-dismech-node="Valproate-Associated Hepatocellular Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Valproate-Associated Hepatocellular Injury</div>
+
 
                 <div class="item-desc">Valproate can precipitate or accelerate severe liver injury in POLG-related disease, including without pre-existing biochemical liver disease. The molecular mediator is unresolved. The 2010 muscle-cell and yeast experiments neither established hepatocyte regeneration failure nor excluded liver-specific mtDNA or fatty-acid mechanisms.</div>
 
@@ -6625,6 +6677,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-polymerase-gamma-holoenzyme-assembly" data-dismech-node="Impaired Polymerase Gamma Holoenzyme Assembly" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Polymerase Gamma Holoenzyme Assembly</div>
 
+
                 <div class="item-desc">Mouse A449T and corresponding human A467T impair productive interaction between catalytic POLG and accessory POLG2 subunits. Assembly is reduced, not absent. This allele-specific route is separate from the measured DNA-binding and long-template synthesis defects.</div>
 
 
@@ -6725,6 +6778,7 @@ This pathophysiological event involves mitochondrion (GO:0005739). GO:0005739 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-degradation-of-unprotected-polg" data-dismech-node="Increased Degradation of Unprotected POLG" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Degradation of Unprotected POLG</div>
+
 
                 <div class="item-desc">LONP1 degrades unprotected catalytic polymerase gamma in an ATP-dependent assay. The mutant difference is incomplete protection by POLG2 in the assembled mixture, not intrinsically faster degradation of free mutant protein. Additional proteases may contribute in vivo.</div>
 
@@ -6843,6 +6897,7 @@ This pathophysiological event involves mitochondrion (GO:0005739). GO:0005739 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-polg-protein-abundance" data-dismech-node="Reduced POLG Protein Abundance" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced POLG Protein Abundance</div>
+
 
                 <div class="item-desc">Lower catalytic-subunit abundance was observed in the A449T mouse model. HeLa LONP1 knockdown increased endogenous wild-type POLG protein, but no mutant-patient or clinical rescue was demonstrated.</div>
 
@@ -8683,6 +8738,9 @@ This disease-associated gene is POLG (hgnc:9179). hgnc:9179 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
