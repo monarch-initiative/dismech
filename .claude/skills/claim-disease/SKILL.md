@@ -398,7 +398,18 @@ close the claim issue:
 + history/disorders/Yao_Syndrome/...
 ```
 
-Put `Closes #<issue>` in the PR body so merging releases the claim.
+Put a closing keyword in the PR body so merging releases the claim:
+
+```
+Closes #1234
+```
+
+**Write it as bare text, not inside backticks.** GitHub does not parse a closing
+keyword inside a code span, so a body carrying `` `Closes #1234` `` merges
+without closing anything — the issue stays open, the claim stays held, and
+nothing warns you. Issues #12156-#12160 all sat open after their curation PRs
+merged for exactly this reason: the instruction above was copied into the PR
+body with its formatting backticks intact.
 
 If you forget the stub, **nothing breaks** — stubs are informative, not curated
 content, and a stale one is reported as an advisory that never gates. A periodic
