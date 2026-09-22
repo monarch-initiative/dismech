@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4654,6 +4693,13 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bi-allelic-nrcam-loss-of-function" data-dismech-node="Bi-allelic NRCAM Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Bi-allelic NRCAM Loss of Function</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Homozygous or compound heterozygous NRCAM variants — nonsense, frameshift, canonical splice-site and deep-intronic splice-disrupting alleles, and damaging missense substitutions — abolish or degrade NrCAM protein function. Missense variants are predicted to change residue polarity and/or charge and so perturb the protein&#39;s electrostatic surface and its protein-protein interaction interfaces; truncating alleles remove the C-terminal region including the third Fn-III domain.</div>
 
 
@@ -4748,6 +4794,8 @@ This genetic context concerns NRCAM (hgnc:7994). hgnc:7994 is a gene from the HU
 
 
 
+
+
         <span class="tag tag-classification">allele_type: SNV, indel, and splice-site variants</span>
 
 
@@ -4763,6 +4811,9 @@ This genetic context concerns NRCAM (hgnc:7994). hgnc:7994 is a gene from the HU
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Bi-allelic germline variants; both homozygous (consanguineous/founder families) and compound heterozygous genotypes are reported. Loss-of-function alleles trend toward a more severe phenotype than missense alleles, but the correlation is not absolute.</div>
 
@@ -4860,6 +4911,13 @@ This genetic context concerns NRCAM (hgnc:7994). hgnc:7994 is a gene from the HU
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-nrcam-mediated-neural-cell-adhesion" data-dismech-node="Impaired NrCAM-Mediated Neural Cell Adhesion" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired NrCAM-Mediated Neural Cell Adhesion</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">NrCAM is a type-I transmembrane L1-family Ig-CAM whose extracellular region comprises six immunoglobulin-like domains followed by five fibronectin type III repeats; the Ig domains mediate ligand recognition and homophilic and heterophilic trans-binding (contactin-1/TAG-1, neurofascin), while the Fn-III repeats mediate adhesion signaling, and the cytoplasmic tail binds ankyrin. Loss of NrCAM therefore removes an adhesion and signaling hub that is shared by the neuron-neuron, neuron-glia and axon-glia interfaces. Most disease variants fall in the third Fn-III domain, which carries a KGE integrin-recognition motif and an RNRR furin site and is predicted to form a protein-protein interaction surface.</div>
 
@@ -5100,6 +5158,13 @@ This pathophysiological event involves plasma membrane (GO:0005886). GO:0005886 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-axon-growth-and-guidance" data-dismech-node="Defective Axon Growth and Guidance" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective Axon Growth and Guidance</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">NrCAM is expressed on growing and crossing axons and on the specialized midline glia they navigate (floor plate, optic chiasm, median eminence), and it partners with contactin-1/TAG-1 to promote neurite extension. Nrcam-null cerebellar granule cells fail to extend neurites on contactin-1 substrate, and Nrcam-deficient mice mistarget motor and somatosensory thalamic axons to the visual cortex. Loss of this guidance function is the proposed origin of the misrouted central and peripheral fibre tracts in affected individuals.</div>
 
@@ -5371,6 +5436,13 @@ This pathophysiological event involves abnormal neuron projection development (G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-synaptogenesis-and-dendritic-spine-remodeling" data-dismech-node="Impaired Synaptogenesis and Dendritic Spine Remodeling" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Synaptogenesis and Dendritic Spine Remodeling</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Beyond its presynaptic and axonal roles, NrCAM acts postsynaptically as an integral component of the Semaphorin 3F receptor complex with Neuropilin-2 and PlexinA3, and is required for Sema3F-induced dendritic spine pruning. NrCAM-null mice show elevated spine density, increased asymmetric synapse number and increased miniature EPSC frequency in visual cortex, i.e. a shift in excitatory/inhibitory balance. This arm is mechanistically well supported in the mouse but has not been demonstrated in tissue from affected individuals, hence the provisional confidence.</div>
 
 
@@ -5607,6 +5679,13 @@ This pathophysiological event involves synapse (GO:0045202). GO:0045202 is a cel
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-node-of-ranvier-assembly-and-maintenance" data-dismech-node="Defective Node of Ranvier Assembly and Maintenance" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective Node of Ranvier Assembly and Maintenance</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">At the peripheral node of Ranvier, glial NrCAM and gliomedin on the Schwann cell bind axonal neurofascin-186; this axo-glial complex recruits ankyrin-G, which in turn clusters and concentrates voltage-gated sodium channels at the nodal axolemma. NrCAM is also present on the axonal side at nodes and axon initial segments together with neurofascin and ankyrin-G. Loss of the glial clustering signal produces delayed and disorganized node formation and, over time, progressive loss of Nav channels, ankyrin-G and βIV spectrin from established nodes.</div>
 
@@ -5849,6 +5928,13 @@ This pathophysiological event involves node of Ranvier (GO:0033268). GO:0033268 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-peripheral-nerve-conduction-failure-and-axonal-degeneration" data-dismech-node="Peripheral Nerve Conduction Failure and Axonal Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Peripheral Nerve Conduction Failure and Axonal Degeneration</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Progressive loss of nodal sodium channels and disorganization of nodal architecture slow or block saltatory conduction. In the mouse double mutant that removes the entire glial clustering signal this produces measurable neurological abnormality and slowed nerve conduction. In affected individuals the corresponding clinical finding is a peripheral neuropathy - motor-predominant and axonal in the one case with quotable electrophysiology - with chronic neurogenic changes on needle EMG, neurogenic grouped fibre atrophy on muscle biopsy, and modestly elevated creatine kinase.</div>
 
 
@@ -6053,6 +6139,13 @@ This pathophysiological event occurs in peripheral nerve, annotated with nerve (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aberrant-cns-white-matter-tract-formation" data-dismech-node="Aberrant CNS White Matter Tract Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Aberrant CNS White Matter Tract Formation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Nr-CAM is expressed along the major crossing fibre pathways — the anterior commissure, corpus callosum and posterior commissure — so loss of NrCAM guidance is expected to disturb their formation. Zebrafish nrcamaΔ mutants lacking the third Fn-III domain show a trend toward increased α-tubulin fibre density in the dorsal telencephalon and a thicker anterior telencephalic commissure. In affected individuals, brain MRI is variable and non-specific: thin corpus callosum, ventriculomegaly, periventricular leukomalacia and delayed myelination are each seen in a subset, and some individuals have normal imaging. Confidence is provisional because the zebrafish differences were trends rather than significant, and no human neuropathological correlate exists.</div>
 
@@ -6259,6 +6352,13 @@ This pathophysiological event occurs in corpus callosum (UBERON:0002336). UBERON
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cortical-circuit-dysfunction" data-dismech-node="Cortical Circuit Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Cortical Circuit Dysfunction</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
+
                 <div class="item-desc">Excess dendritic spines and asymmetric synapses with increased mEPSC frequency in NrCAM-null cortex predict a shift in excitatory/inhibitory balance in neocortical circuits. This is the proposed cellular substrate for the cognitive impairment and the behavioural phenotype (irritability, aggression, self-injurious behaviour) in affected individuals, but it is an extrapolation from mouse visual cortex and has not been measured in humans.</div>
 
 
@@ -6370,6 +6470,13 @@ This pathophysiological event involves dysregulated modulation of chemical synap
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sensory-pathway-miswiring" data-dismech-node="Sensory Pathway Miswiring" data-dismech-type="pathophysiology">
                 <div class="item-name">Sensory Pathway Miswiring</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">NrCAM is expressed at the optic chiasm and on cochlear spiral ganglion afferents, olivocochlear efferents and cochlear hair and supporting cells. Nrcam-null mice mistarget thalamic axons to visual cortex and have abnormal visual-evoked potentials, and Nrcam-null cochleae show type II spiral ganglion fasciculation errors and reduced efferent innervation. This is the proposed basis for the abnormal VEPs, optic atrophy, strabismus and auditory findings in affected individuals. A translational caveat applies: the cochlear defects in mice are transient and adult Nrcam-null mice hear normally, whereas some affected individuals have persistent hearing impairment.</div>
 
@@ -6553,6 +6660,13 @@ This pathophysiological event involves abnormal retinal ganglion cell axon guida
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuromuscular-dysfunction" data-dismech-node="Neuromuscular Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Neuromuscular Dysfunction</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The convergent clinical output of peripheral nerve involvement and corticospinal/central involvement is a neuromuscular phenotype that is present in every reported individual, though its polarity differs: either hypotonia with peripheral neuropathy, or spasticity and hypertonia. The founding report proposes misrouting of nerve fibres as the common origin of both poles. Muscle weakness predominates distally and in the lower limbs in the neuropathy-predominant individuals.</div>
 
 
@@ -6672,6 +6786,13 @@ This pathophysiological event involves abnormal retinal ganglion cell axon guida
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-global-neurodevelopmental-impairment" data-dismech-node="Global Neurodevelopmental Impairment" data-dismech-type="pathophysiology">
                 <div class="item-name">Global Neurodevelopmental Impairment</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Global developmental delay with cognitive impairment of congenital onset is the dominant central manifestation, present in seven of the ten individuals of the founding cohort. It is absent in the mildest phenotype (isolated late-onset peripheral neuropathy) and, in one individual with a severe neonatal presentation, resolved with age.</div>
 
 
@@ -6745,6 +6866,13 @@ This pathophysiological event involves abnormal retinal ganglion cell axon guida
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-secondary-musculoskeletal-deformity" data-dismech-node="Secondary Musculoskeletal Deformity" data-dismech-type="pathophysiology">
                 <div class="item-name">Secondary Musculoskeletal Deformity</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">Scoliosis, hip dysplasia/acetabular dysplasia, coxa valga, pes cavus, hammertoe and distal arthrogryposis are recorded in the OMIM clinical synopsis for this disorder and give the entity its name. No cell-autonomous role for NRCAM in bone or cartilage has been reported, and NRCAM is characterized throughout the literature as a nervous-system adhesion molecule; the skeletal findings are therefore modeled here as secondary to chronic abnormal biomechanical loading from hypotonia, spasticity and neurogenic muscle weakness — the same route by which scoliosis, hip subluxation and cavus foot arise in other early-onset neuromuscular disorders. This is an inference, not a demonstrated mechanism; it is flagged as a KNOWLEDGE_GAP and the confidence is HYPOTHETICAL.</div>
 
@@ -6888,7 +7016,7 @@ This pathophysiological event involves abnormal retinal ganglion cell axon guida
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aberrant CNS White Matter Tract Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Nr-CAM is expressed along the major crossing fibre pathways \\u2014 the anterior commissure, corpus callosum and posterior commissure \\u2014 so loss of NrCAM guidance is expected to disturb their formation. Zebrafish nrcama\\u0394 mutants lacking the third Fn-III domain show a trend toward increased \\u03b1-tubulin fibre density in the dorsal telencephalon and a thicker anterior telencephalic commissure. In affected individuals, brain MRI is variable and non-specific: thin corpus callosum, ventriculomegaly, periventricular leukomalacia and delayed myelination are each seen in a subset, and some individuals have normal imaging. Confidence is provisional because the zebrafish differences were trends rather than significant, and no human neuropathological correlate exists.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"central nervous system myelination\"], \"role\": \"consequence\", \"locations\": [\"corpus callosum\"], \"animal_models\": [{\"name\": \"Zebrafish nrcama third Fn-III domain deletion mutant\", \"species\": \"Zebrafish\", \"genotype\": \"nrcama\\u0394 (CRISPR-Cas9 deletion of the third Fn-III domain)\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Altered axonal projections in the dorsal telencephalon and anterior commissure, the zebrafish counterpart of the mammalian pallium and of the commissural tracts abnormal on human MRI.\"}]}}, {\"id\": \"Bi-allelic NRCAM Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Homozygous or compound heterozygous NRCAM variants \\u2014 nonsense, frameshift, canonical splice-site and deep-intronic splice-disrupting alleles, and damaging missense substitutions \\u2014 abolish or degrade NrCAM protein function. Missense variants are predicted to change residue polarity and/or charge and so perturb the protein\u0027s electrostatic surface and its protein-protein interaction interfaces; truncating alleles remove the C-terminal region including the third Fn-III domain.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"NRCAM\"], \"gene_terms\": [{\"label\": \"NRCAM\", \"id\": \"hgnc:7994\"}], \"genetic_context\": {\"allele_type\": \"SNV, indel, and splice-site variants\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Bi-allelic germline variants; both homozygous (consanguineous/founder families) and compound heterozygous genotypes are reported. Loss-of-function alleles trend toward a more severe phenotype than missense alleles, but the correlation is not absolute.\", \"gene_terms\": [{\"label\": \"NRCAM\", \"id\": \"hgnc:7994\"}]}, \"role\": \"trigger\"}}, {\"id\": \"Cortical Circuit Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Excess dendritic spines and asymmetric synapses with increased mEPSC frequency in NrCAM-null cortex predict a shift in excitatory/inhibitory balance in neocortical circuits. This is the proposed cellular substrate for the cognitive impairment and the behavioural phenotype (irritability, aggression, self-injurious behaviour) in affected individuals, but it is an extrapolation from mouse visual cortex and has not been measured in humans.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"modulation of chemical synaptic transmission\"], \"role\": \"intermediate\"}}, {\"id\": \"Defective Axon Growth and Guidance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NrCAM is expressed on growing and crossing axons and on the specialized midline glia they navigate (floor plate, optic chiasm, median eminence), and it partners with contactin-1/TAG-1 to promote neurite extension. Nrcam-null cerebellar granule cells fail to extend neurites on contactin-1 substrate, and Nrcam-deficient mice mistarget motor and somatosensory thalamic axons to the visual cortex. Loss of this guidance function is the proposed origin of the misrouted central and peripheral fibre tracts in affected individuals.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cerebellar granule cell\"], \"biological_processes\": [\"axon guidance\", \"axonogenesis\", \"neuron projection development\"], \"role\": \"intermediate\"}}, {\"id\": \"Defective Node of Ranvier Assembly and Maintenance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"At the peripheral node of Ranvier, glial NrCAM and gliomedin on the Schwann cell bind axonal neurofascin-186; this axo-glial complex recruits ankyrin-G, which in turn clusters and concentrates voltage-gated sodium channels at the nodal axolemma. NrCAM is also present on the axonal side at nodes and axon initial segments together with neurofascin and ankyrin-G. Loss of the glial clustering signal produces delayed and disorganized node formation and, over time, progressive loss of Nav channels, ankyrin-G and \\u03b2IV spectrin from established nodes.\", \"meta\": {\"evidence_count\": 7, \"cell_types\": [\"Schwann cell\"], \"biological_processes\": [\"clustering of voltage-gated sodium channels\"], \"role\": \"intermediate\", \"animal_models\": [{\"name\": \"Nrcam knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Nrcam-null (homozygous knockout)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Peripheral nerves of Nrcam-deficient mice show delayed or abnormal node formation with delayed nodal sodium channel clustering, the same lesion proposed to underlie the human peripheral neuropathy.\"}]}}, {\"id\": \"Gliomedin/NrCAM double knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Removing both glial nodal adhesion molecules abolishes the glial clustering signal entirely and, unlike either single knockout, produces progressive disintegration of established nodes \\u2014 sequential loss of neurofascin-186, sodium channels, ankyrin-G and then \\u03b2IV spectrin, binary node formation and dysregulated nodal gap length \\u2014 with neurological abnormality and slowed nerve conduction. It is the model that isolates the consequences of losing NrCAM-dependent nodal contact from the redundancy that masks them in the single mutant.\"}, {\"id\": \"Global Neurodevelopmental Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Global developmental delay with cognitive impairment of congenital onset is the dominant central manifestation, present in seven of the ten individuals of the founding cohort. It is absent in the mildest phenotype (isolated late-onset peripheral neuropathy) and, in one individual with a severe neonatal presentation, resolved with age.\", \"meta\": {\"evidence_count\": 1, \"role\": \"consequence\"}}, {\"id\": \"Hip Dysplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hip dysplasia, with acetabular dysplasia and coxa valga also recorded; reported in 3 of 9 individuals assessed in the OMIM clinical synopsis.\", \"meta\": {\"term_id\": \"HP:0001385\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Central and/or peripheral hypotonia, one of the two poles of the neuromuscular phenotype (the other being spasticity). Contributes to feeding difficulty and motor delay in severely affected infants.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001252\"}}, {\"id\": \"Impaired NrCAM-Mediated Neural Cell Adhesion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NrCAM is a type-I transmembrane L1-family Ig-CAM whose extracellular region comprises six immunoglobulin-like domains followed by five fibronectin type III repeats; the Ig domains mediate ligand recognition and homophilic and heterophilic trans-binding (contactin-1/TAG-1, neurofascin), while the Fn-III repeats mediate adhesion signaling, and the cytoplasmic tail binds ankyrin. Loss of NrCAM therefore removes an adhesion and signaling hub that is shared by the neuron-neuron, neuron-glia and axon-glia interfaces. Most disease variants fall in the third Fn-III domain, which carries a KGE integrin-recognition motif and an RNRR furin site and is predicted to form a protein-protein interaction surface.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"cell adhesion\", \"neuron cell-cell adhesion\"], \"role\": \"central_effector\"}}, {\"id\": \"Impaired Synaptogenesis and Dendritic Spine Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Beyond its presynaptic and axonal roles, NrCAM acts postsynaptically as an integral component of the Semaphorin 3F receptor complex with Neuropilin-2 and PlexinA3, and is required for Sema3F-induced dendritic spine pruning. NrCAM-null mice show elevated spine density, increased asymmetric synapse number and increased miniature EPSC frequency in visual cortex, i.e. a shift in excitatory/inhibitory balance. This arm is mechanistically well supported in the mouse but has not been demonstrated in tissue from affected individuals, hence the provisional confidence.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"synapse assembly\", \"dendrite development\"], \"role\": \"intermediate\", \"animal_models\": [{\"name\": \"Nrcam knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Nrcam-null (homozygous knockout)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"NrCAM-null cortex shows elevated dendritic spine density, increased asymmetric synapses and increased mEPSC frequency, establishing NrCAM as a postnatal regulator of spine density within the Sema3F receptor complex.\"}]}}, {\"id\": \"NRCAM\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"NRCAM\"], \"gene_terms\": [{\"label\": \"NRCAM\", \"id\": \"hgnc:7994\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 13}}, {\"id\": \"Neuromuscular Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergent clinical output of peripheral nerve involvement and corticospinal/central involvement is a neuromuscular phenotype that is present in every reported individual, though its polarity differs: either hypotonia with peripheral neuropathy, or spasticity and hypertonia. The founding report proposes misrouting of nerve fibres as the common origin of both poles. Muscle weakness predominates distally and in the lower limbs in the neuropathy-predominant individuals.\", \"meta\": {\"evidence_count\": 2, \"role\": \"consequence\", \"animal_models\": [{\"name\": \"Nrcam knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Nrcam-null (homozygous knockout)\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"Despite the nodal defect, Nrcam-null mice show no neuromuscular disorder, in contrast to the hypotonia, spasticity and neuropathy present in every reported affected individual.\"}]}}, {\"id\": \"Nrcam knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Constitutive Nrcam-null mice reproduce the cellular defects of the disorder \\u2014 delayed and abnormal node of Ranvier formation with delayed sodium channel clustering, failure of cerebellar granule cells to extend neurites on contactin-1, excess dendritic spines with increased mEPSC frequency in visual cortex, thalamic axon mistargeting with abnormal visual-evoked potentials, lens fibre disorganization with cataract, and transient cochlear innervation errors \\u2014 yet do not develop a neuromuscular disorder and have only mildly reduced cerebellar size. The disconnect is the central translational caveat for this entry.\"}, {\"id\": \"Orthopedic Management of Skeletal Deformity\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Orthopedic surveillance and, where indicated, surgical management of scoliosis, hip dysplasia/subluxation and foot deformity, as for other early-onset neuromuscular disorders.\"}, {\"id\": \"Peripheral Nerve Conduction Failure and Axonal Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive loss of nodal sodium channels and disorganization of nodal architecture slow or block saltatory conduction. In the mouse double mutant that removes the entire glial clustering signal this produces measurable neurological abnormality and slowed nerve conduction. In affected individuals the corresponding clinical finding is a peripheral neuropathy - motor-predominant and axonal in the one case with quotable electrophysiology - with chronic neurogenic changes on needle EMG, neurogenic grouped fibre atrophy on muscle biopsy, and modestly elevated creatine kinase.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"neuronal action potential\"], \"role\": \"consequence\", \"locations\": [\"peripheral nerve\"], \"animal_models\": [{\"name\": \"Gliomedin/NrCAM double knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Gldn-null; Nrcam-null double knockout\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Loss of the gliomedin/NrCAM clustering signal produces measurable slowing of nerve conduction and neurological abnormality.\"}]}}, {\"id\": \"Physical Therapy and Rehabilitation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Physical and occupational therapy for hypotonia, spasticity and motor delay, with orthoses where walking is limited; the second reported patient ambulates with braces.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Progressive Muscle Weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive weakness of proximal and distal muscles predominating in the lower limbs, with limitation of walking requiring braces, in the neuropathy-predominant phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001324\"}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lateral curvature of the spine, the most frequent skeletal finding in the OMIM clinical synopsis for this disorder (5 of 9 individuals assessed).\", \"meta\": {\"term_id\": \"HP:0002650\"}}, {\"id\": \"Secondary Musculoskeletal Deformity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Scoliosis, hip dysplasia/acetabular dysplasia, coxa valga, pes cavus, hammertoe and distal arthrogryposis are recorded in the OMIM clinical synopsis for this disorder and give the entity its name. No cell-autonomous role for NRCAM in bone or cartilage has been reported, and NRCAM is characterized throughout the literature as a nervous-system adhesion molecule; the skeletal findings are therefore modeled here as secondary to chronic abnormal biomechanical loading from hypotonia, spasticity and neurogenic muscle weakness \\u2014 the same route by which scoliosis, hip subluxation and cavus foot arise in other early-onset neuromuscular disorders. This is an inference, not a demonstrated mechanism; it is flagged as a KNOWLEDGE_GAP and the confidence is HYPOTHETICAL.\", \"meta\": {\"evidence_count\": 1, \"role\": \"consequence\"}}, {\"id\": \"Sensory Pathway Miswiring\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NrCAM is expressed at the optic chiasm and on cochlear spiral ganglion afferents, olivocochlear efferents and cochlear hair and supporting cells. Nrcam-null mice mistarget thalamic axons to visual cortex and have abnormal visual-evoked potentials, and Nrcam-null cochleae show type II spiral ganglion fasciculation errors and reduced efferent innervation. This is the proposed basis for the abnormal VEPs, optic atrophy, strabismus and auditory findings in affected individuals. A translational caveat applies: the cochlear defects in mice are transient and adult Nrcam-null mice hear normally, whereas some affected individuals have persistent hearing impairment.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"retinal ganglion cell axon guidance\"], \"role\": \"consequence\", \"animal_models\": [{\"name\": \"Nrcam knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Nrcam-null (homozygous knockout)\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Nrcam-null mice reproduce the developmental miswiring \\u2014 thalamic axon mistargeting to visual cortex with abnormal VEPs, and cochlear afferent and efferent innervation errors \\u2014 but the cochlear defects self-correct and adult auditory acuity is normal, unlike the persistent hearing impairment in some affected individuals.\"}]}}, {\"id\": \"Zebrafish nrcama third Fn-III domain deletion mutant\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A CRISPR-Cas9 mutant deleting the third Fn-III repeat \\u2014 the domain in which most human disease variants cluster \\u2014 generated in the founding study. Mutant larvae are viable with no gross morphological defect but show significantly altered swimming behaviour and a trend toward increased \\u03b1-tubulin fibre density in the dorsal telencephalon and a thickened anterior telencephalic commissure. It is the only in vivo model built around the human variant hotspot.\"}, {\"id\": \"c.230+824G\u003eC\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Deep-intronic variant, invisible to exome sequencing and identified only by genome sequencing, predicted to disrupt a binding site for the splicing regulator SC35 and to activate a cryptic acceptor site generating a cryptic exon.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"NRCAM\"], \"gene_terms\": [{\"label\": \"NRCAM\", \"id\": \"hgnc:7994\"}], \"variant_type\": \"deep intronic splice\"}}, {\"id\": \"c.2647-2A\u003eG (p.Ile883Serfs*8)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Canonical splice-acceptor variant predicted to cause skipping of exon 22, producing a frameshift and a truncated protein.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"NRCAM\"], \"gene_terms\": [{\"label\": \"NRCAM\", \"id\": \"hgnc:7994\"}], \"variant_type\": \"splice acceptor\"}}, {\"id\": \"c.73C\u003eT (p.Gln25*)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Homozygous nonsense allele in the N-terminal signal peptide, before the first Ig-like domain, reported in the second family. Notable because this loss-of-function allele produced the mildest phenotype described - isolated motor-predominant axonal polyneuropathy with normal cognition - which is what breaks the simple loss-of-function-equals-severe correlation.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"NRCAM\"], \"gene_terms\": [{\"label\": \"NRCAM\", \"id\": \"hgnc:7994\"}], \"variant_type\": \"nonsense\"}}, {\"id\": \"p.Arg853Cys\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense substitution in the third Fn-III domain. The residue is solvent-exposed and the substitution changes polarity and/or charge, so it is predicted to perturb the electrostatic surface and protein-protein interaction interfaces.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"NRCAM\"], \"gene_terms\": [{\"label\": \"NRCAM\", \"id\": \"hgnc:7994\"}], \"variant_type\": \"missense\"}}, {\"id\": \"p.Arg929*\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Truncating (nonsense) allele producing a premature stop codon and a truncated, non-functional protein.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"NRCAM\"], \"gene_terms\": [{\"label\": \"NRCAM\", \"id\": \"hgnc:7994\"}], \"variant_type\": \"nonsense\"}}, {\"id\": \"p.Asn469Ser\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense substitution in Ig-like domain 5. The residue is solvent-exposed, and the paper groups it with the other six under an aggregate electrostatic prediction - but that sentence hedges (\\\"most of the amino acid substitutions change the polarity and/or charge\\\"), and this substitution is the likeliest member of the excluded minority: asparagine and serine are both polar and both uncharged, so the change is one of side-chain size and hydrogen-bonding geometry (carboxamide to hydroxyl) rather than of polarity or charge. The predicted effect on this allele is therefore weaker than for its six counterparts.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"NRCAM\"], \"gene_terms\": [{\"label\": \"NRCAM\", \"id\": \"hgnc:7994\"}], \"variant_type\": \"missense\"}}, {\"id\": \"p.Asp55Gly\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense substitution in the first Ig-like domain, found in compound heterozygosity with the deep-intronic c.230+824G\u003eC allele. The residue is solvent-exposed. See the genetic notes: the substitution, domain assignment and pairing are transcribed from Table 2 via the deep-research report rather than from the paper\u0027s narrative, which names only the residue Asp55.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"NRCAM\"], \"gene_terms\": [{\"label\": \"NRCAM\", \"id\": \"hgnc:7994\"}], \"variant_type\": \"missense\"}}, {\"id\": \"p.Glu111*\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Truncating (nonsense) allele producing a premature stop codon and a truncated, non-functional protein.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"NRCAM\"], \"gene_terms\": [{\"label\": \"NRCAM\", \"id\": \"hgnc:7994\"}], \"variant_type\": \"nonsense\"}}, {\"id\": \"p.Gly197Asp\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense substitution in Ig-like domain 2. The residue is solvent-exposed and the substitution changes polarity and/or charge, so it is predicted to perturb the electrostatic surface and protein-protein interaction interfaces.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"NRCAM\"], \"gene_terms\": [{\"label\": \"NRCAM\", \"id\": \"hgnc:7994\"}], \"variant_type\": \"missense\"}}, {\"id\": \"p.Gly913Asp\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense substitution in the third Fn-III domain. The residue is solvent-exposed and the substitution changes polarity and/or charge, so it is predicted to perturb the electrostatic surface and protein-protein interaction interfaces.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"NRCAM\"], \"gene_terms\": [{\"label\": \"NRCAM\", \"id\": \"hgnc:7994\"}], \"variant_type\": \"missense\"}}, {\"id\": \"p.Lys902Thr\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense substitution in the third Fn-III domain. It sits close to the domain\u0027s KGE integrin-recognition and RNRR furin motifs, so it may specifically impair the protein-protein interactions of this domain. The residue is solvent-exposed and the substitution changes polarity and/or charge, so it is predicted to perturb the electrostatic surface and protein-protein interaction interfaces.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"NRCAM\"], \"gene_terms\": [{\"label\": \"NRCAM\", \"id\": \"hgnc:7994\"}], \"variant_type\": \"missense\"}}, {\"id\": \"p.Ser134Pro\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense substitution in Ig-like domain 1. The residue is solvent-exposed and the substitution changes polarity and/or charge, so it is predicted to perturb the electrostatic surface and protein-protein interaction interfaces.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"NRCAM\"], \"gene_terms\": [{\"label\": \"NRCAM\", \"id\": \"hgnc:7994\"}], \"variant_type\": \"missense\"}}, {\"id\": \"p.Thr766Ilefs*4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Truncating (frameshift) allele producing a premature stop codon and a truncated, non-functional protein.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"NRCAM\"], \"gene_terms\": [{\"label\": \"NRCAM\", \"id\": \"hgnc:7994\"}], \"variant_type\": \"frameshift\"}}], \"edges\": [{\"source\": \"Bi-allelic NRCAM Loss of Function\", \"target\": \"Impaired NrCAM-Mediated Neural Cell Adhesion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The variants act on the adhesion protein itself, so the link from genotype to loss of adhesion function is direct.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired NrCAM-Mediated Neural Cell Adhesion\", \"target\": \"Defective Axon Growth and Guidance\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired NrCAM-Mediated Neural Cell Adhesion\", \"target\": \"Defective Node of Ranvier Assembly and Maintenance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"NrCAM is one of the two glial adhesion molecules that deliver the nodal clustering signal, so loss of its adhesion function acts directly on node assembly.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired NrCAM-Mediated Neural Cell Adhesion\", \"target\": \"Impaired Synaptogenesis and Dendritic Spine Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Defective Axon Growth and Guidance\", \"target\": \"Aberrant CNS White Matter Tract Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Defective Axon Growth and Guidance\", \"target\": \"Sensory Pathway Miswiring\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Synaptogenesis and Dendritic Spine Remodeling\", \"target\": \"Cortical Circuit Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Defective Node of Ranvier Assembly and Maintenance\", \"target\": \"Peripheral Nerve Conduction Failure and Axonal Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Nodal sodium channel density sets conduction competence, so disassembly of the node degrades saltatory conduction directly.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Peripheral Nerve Conduction Failure and Axonal Degeneration\", \"target\": \"Neuromuscular Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of peripheral nerve conduction is the proximate cause of the hypotonia, weakness and neuropathic findings.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Aberrant CNS White Matter Tract Formation\", \"target\": \"Global Neurodevelopmental Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cortical Circuit Dysfunction\", \"target\": \"Global Neurodevelopmental Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Sensory Pathway Miswiring\", \"target\": \"Global Neurodevelopmental Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neuromuscular Dysfunction\", \"target\": \"Secondary Musculoskeletal Deformity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Global Neurodevelopmental Impairment\", \"target\": \"Secondary Musculoskeletal Deformity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Physical Therapy and Rehabilitation\", \"target\": \"Neuromuscular Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Physical Therapy and Rehabilitation\", \"target\": \"Hypotonia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Physical Therapy and Rehabilitation\", \"target\": \"Progressive Muscle Weakness\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Orthopedic Management of Skeletal Deformity\", \"target\": \"Secondary Musculoskeletal Deformity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Orthopedic Management of Skeletal Deformity\", \"target\": \"Scoliosis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Orthopedic Management of Skeletal Deformity\", \"target\": \"Hip Dysplasia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Nrcam knockout mouse\", \"target\": \"Defective Node of Ranvier Assembly and Maintenance\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Peripheral nerves of Nrcam-deficient mice show delayed or abnormal node formation with delayed nodal sodium channel clustering, the same lesion proposed to underlie the human peripheral neuropathy.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Node formation is delayed rather than abolished, because gliomedin provides a partially redundant glial clustering signal; the severe nodal phenotype requires loss of both molecules.\"}, {\"source\": \"Nrcam knockout mouse\", \"target\": \"Neuromuscular Dysfunction\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"Despite the nodal defect, Nrcam-null mice show no neuromuscular disorder, in contrast to the hypotonia, spasticity and neuropathy present in every reported affected individual.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"Probable compensation by other L1-family Ig-CAMs (L1cam, Chl1, Nfasc) in mouse, and possible transcriptional adaptation triggered by nonsense-mediated decay of the null allele. Species differences in the protein itself are also implicated: the KGE and RNRR motifs of the human third Fn-III domain are poorly conserved outside mammals.\"}, {\"source\": \"Nrcam knockout mouse\", \"target\": \"Impaired Synaptogenesis and Dendritic Spine Remodeling\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"NrCAM-null cortex shows elevated dendritic spine density, increased asymmetric synapses and increased mEPSC frequency, establishing NrCAM as a postnatal regulator of spine density within the Sema3F receptor complex.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Measured in mouse primary visual cortex; no corresponding measurement exists in tissue from affected individuals, so the relevance to the human cognitive and behavioural phenotype is inferred.\"}, {\"source\": \"Nrcam knockout mouse\", \"target\": \"Sensory Pathway Miswiring\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Nrcam-null mice reproduce the developmental miswiring \\u2014 thalamic axon mistargeting to visual cortex with abnormal VEPs, and cochlear afferent and efferent innervation errors \\u2014 but the cochlear defects self-correct and adult auditory acuity is normal, unlike the persistent hearing impairment in some affected individuals.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Transient cochlear phenotype with functional recovery by weaning; humans appear to lack the compensatory mechanism.\"}, {\"source\": \"Gliomedin/NrCAM double knockout mouse\", \"target\": \"Peripheral Nerve Conduction Failure and Axonal Degeneration\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Loss of the gliomedin/NrCAM clustering signal produces measurable slowing of nerve conduction and neurological abnormality.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The double knockout removes a redundant partner that is intact in affected individuals, so the model overstates the nodal deficit expected from NRCAM loss alone; it establishes the direction of the mechanism rather than its magnitude in human disease.\"}, {\"source\": \"Zebrafish nrcama third Fn-III domain deletion mutant\", \"target\": \"Aberrant CNS White Matter Tract Formation\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Altered axonal projections in the dorsal telencephalon and anterior commissure, the zebrafish counterpart of the mammalian pallium and of the commissural tracts abnormal on human MRI.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"The axonal differences were reported as trends and did not reach significance; the pallium is massively expanded in humans relative to zebrafish; and the KGE and RNRR motifs of the human third Fn-III domain are not conserved in zebrafish Nrcam (HGD and QDYD), so the deleted domain is not functionally equivalent.\"}, {\"source\": \"NRCAM\", \"target\": \"Bi-allelic NRCAM Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"p.Asp55Gly\", \"target\": \"NRCAM\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Ser134Pro\", \"target\": \"NRCAM\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Gly197Asp\", \"target\": \"NRCAM\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Asn469Ser\", \"target\": \"NRCAM\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Arg853Cys\", \"target\": \"NRCAM\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Lys902Thr\", \"target\": \"NRCAM\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Gly913Asp\", \"target\": \"NRCAM\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Glu111*\", \"target\": \"NRCAM\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Arg929*\", \"target\": \"NRCAM\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Thr766Ilefs*4\", \"target\": \"NRCAM\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.2647-2A\u003eG (p.Ile883Serfs*8)\", \"target\": \"NRCAM\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.230+824G\u003eC\", \"target\": \"NRCAM\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.73C\u003eT (p.Gln25*)\", \"target\": \"NRCAM\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aberrant CNS White Matter Tract Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Nr-CAM is expressed along the major crossing fibre pathways \\u2014 the anterior commissure, corpus callosum and posterior commissure \\u2014 so loss of NrCAM guidance is expected to disturb their formation. Zebrafish nrcama\\u0394 mutants lacking the third Fn-III domain show a trend toward increased \\u03b1-tubulin fibre density in the dorsal telencephalon and a thicker anterior telencephalic commissure. In affected individuals, brain MRI is variable and non-specific: thin corpus callosum, ventriculomegaly, periventricular leukomalacia and delayed myelination are each seen in a subset, and some individuals have normal imaging. Confidence is provisional because the zebrafish differences were trends rather than significant, and no human neuropathological correlate exists.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"central nervous system myelination\"], \"role\": \"consequence\", \"locations\": [\"corpus callosum\"], \"mechanism_confidence\": \"PROVISIONAL\", \"animal_models\": [{\"name\": \"Zebrafish nrcama third Fn-III domain deletion mutant\", \"species\": \"Zebrafish\", \"genotype\": \"nrcama\\u0394 (CRISPR-Cas9 deletion of the third Fn-III domain)\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Altered axonal projections in the dorsal telencephalon and anterior commissure, the zebrafish counterpart of the mammalian pallium and of the commissural tracts abnormal on human MRI.\"}]}}, {\"id\": \"Bi-allelic NRCAM Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Homozygous or compound heterozygous NRCAM variants \\u2014 nonsense, frameshift, canonical splice-site and deep-intronic splice-disrupting alleles, and damaging missense substitutions \\u2014 abolish or degrade NrCAM protein function. Missense variants are predicted to change residue polarity and/or charge and so perturb the protein\u0027s electrostatic surface and its protein-protein interaction interfaces; truncating alleles remove the C-terminal region including the third Fn-III domain.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"NRCAM\"], \"gene_terms\": [{\"label\": \"NRCAM\", \"id\": \"hgnc:7994\"}], \"genetic_context\": {\"allele_type\": \"SNV, indel, and splice-site variants\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Bi-allelic germline variants; both homozygous (consanguineous/founder families) and compound heterozygous genotypes are reported. Loss-of-function alleles trend toward a more severe phenotype than missense alleles, but the correlation is not absolute.\", \"gene_terms\": [{\"label\": \"NRCAM\", \"id\": \"hgnc:7994\"}]}, \"role\": \"trigger\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Cortical Circuit Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Excess dendritic spines and asymmetric synapses with increased mEPSC frequency in NrCAM-null cortex predict a shift in excitatory/inhibitory balance in neocortical circuits. This is the proposed cellular substrate for the cognitive impairment and the behavioural phenotype (irritability, aggression, self-injurious behaviour) in affected individuals, but it is an extrapolation from mouse visual cortex and has not been measured in humans.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"modulation of chemical synaptic transmission\"], \"role\": \"intermediate\", \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Defective Axon Growth and Guidance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NrCAM is expressed on growing and crossing axons and on the specialized midline glia they navigate (floor plate, optic chiasm, median eminence), and it partners with contactin-1/TAG-1 to promote neurite extension. Nrcam-null cerebellar granule cells fail to extend neurites on contactin-1 substrate, and Nrcam-deficient mice mistarget motor and somatosensory thalamic axons to the visual cortex. Loss of this guidance function is the proposed origin of the misrouted central and peripheral fibre tracts in affected individuals.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cerebellar granule cell\"], \"biological_processes\": [\"axon guidance\", \"axonogenesis\", \"neuron projection development\"], \"role\": \"intermediate\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Defective Node of Ranvier Assembly and Maintenance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"At the peripheral node of Ranvier, glial NrCAM and gliomedin on the Schwann cell bind axonal neurofascin-186; this axo-glial complex recruits ankyrin-G, which in turn clusters and concentrates voltage-gated sodium channels at the nodal axolemma. NrCAM is also present on the axonal side at nodes and axon initial segments together with neurofascin and ankyrin-G. Loss of the glial clustering signal produces delayed and disorganized node formation and, over time, progressive loss of Nav channels, ankyrin-G and \\u03b2IV spectrin from established nodes.\", \"meta\": {\"evidence_count\": 7, \"cell_types\": [\"Schwann cell\"], \"biological_processes\": [\"clustering of voltage-gated sodium channels\"], \"role\": \"intermediate\", \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Nrcam knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Nrcam-null (homozygous knockout)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Peripheral nerves of Nrcam-deficient mice show delayed or abnormal node formation with delayed nodal sodium channel clustering, the same lesion proposed to underlie the human peripheral neuropathy.\"}]}}, {\"id\": \"Gliomedin/NrCAM double knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Removing both glial nodal adhesion molecules abolishes the glial clustering signal entirely and, unlike either single knockout, produces progressive disintegration of established nodes \\u2014 sequential loss of neurofascin-186, sodium channels, ankyrin-G and then \\u03b2IV spectrin, binary node formation and dysregulated nodal gap length \\u2014 with neurological abnormality and slowed nerve conduction. It is the model that isolates the consequences of losing NrCAM-dependent nodal contact from the redundancy that masks them in the single mutant.\"}, {\"id\": \"Global Neurodevelopmental Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Global developmental delay with cognitive impairment of congenital onset is the dominant central manifestation, present in seven of the ten individuals of the founding cohort. It is absent in the mildest phenotype (isolated late-onset peripheral neuropathy) and, in one individual with a severe neonatal presentation, resolved with age.\", \"meta\": {\"evidence_count\": 1, \"role\": \"consequence\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Hip Dysplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hip dysplasia, with acetabular dysplasia and coxa valga also recorded; reported in 3 of 9 individuals assessed in the OMIM clinical synopsis.\", \"meta\": {\"term_id\": \"HP:0001385\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Central and/or peripheral hypotonia, one of the two poles of the neuromuscular phenotype (the other being spasticity). Contributes to feeding difficulty and motor delay in severely affected infants.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001252\"}}, {\"id\": \"Impaired NrCAM-Mediated Neural Cell Adhesion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NrCAM is a type-I transmembrane L1-family Ig-CAM whose extracellular region comprises six immunoglobulin-like domains followed by five fibronectin type III repeats; the Ig domains mediate ligand recognition and homophilic and heterophilic trans-binding (contactin-1/TAG-1, neurofascin), while the Fn-III repeats mediate adhesion signaling, and the cytoplasmic tail binds ankyrin. Loss of NrCAM therefore removes an adhesion and signaling hub that is shared by the neuron-neuron, neuron-glia and axon-glia interfaces. Most disease variants fall in the third Fn-III domain, which carries a KGE integrin-recognition motif and an RNRR furin site and is predicted to form a protein-protein interaction surface.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"cell adhesion\", \"neuron cell-cell adhesion\"], \"role\": \"central_effector\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Impaired Synaptogenesis and Dendritic Spine Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Beyond its presynaptic and axonal roles, NrCAM acts postsynaptically as an integral component of the Semaphorin 3F receptor complex with Neuropilin-2 and PlexinA3, and is required for Sema3F-induced dendritic spine pruning. NrCAM-null mice show elevated spine density, increased asymmetric synapse number and increased miniature EPSC frequency in visual cortex, i.e. a shift in excitatory/inhibitory balance. This arm is mechanistically well supported in the mouse but has not been demonstrated in tissue from affected individuals, hence the provisional confidence.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"synapse assembly\", \"dendrite development\"], \"role\": \"intermediate\", \"mechanism_confidence\": \"PROVISIONAL\", \"animal_models\": [{\"name\": \"Nrcam knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Nrcam-null (homozygous knockout)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"NrCAM-null cortex shows elevated dendritic spine density, increased asymmetric synapses and increased mEPSC frequency, establishing NrCAM as a postnatal regulator of spine density within the Sema3F receptor complex.\"}]}}, {\"id\": \"NRCAM\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"NRCAM\"], \"gene_terms\": [{\"label\": \"NRCAM\", \"id\": \"hgnc:7994\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 13}}, {\"id\": \"Neuromuscular Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergent clinical output of peripheral nerve involvement and corticospinal/central involvement is a neuromuscular phenotype that is present in every reported individual, though its polarity differs: either hypotonia with peripheral neuropathy, or spasticity and hypertonia. The founding report proposes misrouting of nerve fibres as the common origin of both poles. Muscle weakness predominates distally and in the lower limbs in the neuropathy-predominant individuals.\", \"meta\": {\"evidence_count\": 2, \"role\": \"consequence\", \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Nrcam knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Nrcam-null (homozygous knockout)\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"Despite the nodal defect, Nrcam-null mice show no neuromuscular disorder, in contrast to the hypotonia, spasticity and neuropathy present in every reported affected individual.\"}]}}, {\"id\": \"Nrcam knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Constitutive Nrcam-null mice reproduce the cellular defects of the disorder \\u2014 delayed and abnormal node of Ranvier formation with delayed sodium channel clustering, failure of cerebellar granule cells to extend neurites on contactin-1, excess dendritic spines with increased mEPSC frequency in visual cortex, thalamic axon mistargeting with abnormal visual-evoked potentials, lens fibre disorganization with cataract, and transient cochlear innervation errors \\u2014 yet do not develop a neuromuscular disorder and have only mildly reduced cerebellar size. The disconnect is the central translational caveat for this entry.\"}, {\"id\": \"Orthopedic Management of Skeletal Deformity\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Orthopedic surveillance and, where indicated, surgical management of scoliosis, hip dysplasia/subluxation and foot deformity, as for other early-onset neuromuscular disorders.\"}, {\"id\": \"Peripheral Nerve Conduction Failure and Axonal Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive loss of nodal sodium channels and disorganization of nodal architecture slow or block saltatory conduction. In the mouse double mutant that removes the entire glial clustering signal this produces measurable neurological abnormality and slowed nerve conduction. In affected individuals the corresponding clinical finding is a peripheral neuropathy - motor-predominant and axonal in the one case with quotable electrophysiology - with chronic neurogenic changes on needle EMG, neurogenic grouped fibre atrophy on muscle biopsy, and modestly elevated creatine kinase.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"neuronal action potential\"], \"role\": \"consequence\", \"locations\": [\"peripheral nerve\"], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Gliomedin/NrCAM double knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Gldn-null; Nrcam-null double knockout\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Loss of the gliomedin/NrCAM clustering signal produces measurable slowing of nerve conduction and neurological abnormality.\"}]}}, {\"id\": \"Physical Therapy and Rehabilitation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Physical and occupational therapy for hypotonia, spasticity and motor delay, with orthoses where walking is limited; the second reported patient ambulates with braces.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Progressive Muscle Weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive weakness of proximal and distal muscles predominating in the lower limbs, with limitation of walking requiring braces, in the neuropathy-predominant phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001324\"}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lateral curvature of the spine, the most frequent skeletal finding in the OMIM clinical synopsis for this disorder (5 of 9 individuals assessed).\", \"meta\": {\"term_id\": \"HP:0002650\"}}, {\"id\": \"Secondary Musculoskeletal Deformity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Scoliosis, hip dysplasia/acetabular dysplasia, coxa valga, pes cavus, hammertoe and distal arthrogryposis are recorded in the OMIM clinical synopsis for this disorder and give the entity its name. No cell-autonomous role for NRCAM in bone or cartilage has been reported, and NRCAM is characterized throughout the literature as a nervous-system adhesion molecule; the skeletal findings are therefore modeled here as secondary to chronic abnormal biomechanical loading from hypotonia, spasticity and neurogenic muscle weakness \\u2014 the same route by which scoliosis, hip subluxation and cavus foot arise in other early-onset neuromuscular disorders. This is an inference, not a demonstrated mechanism; it is flagged as a KNOWLEDGE_GAP and the confidence is HYPOTHETICAL.\", \"meta\": {\"evidence_count\": 1, \"role\": \"consequence\", \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Sensory Pathway Miswiring\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NrCAM is expressed at the optic chiasm and on cochlear spiral ganglion afferents, olivocochlear efferents and cochlear hair and supporting cells. Nrcam-null mice mistarget thalamic axons to visual cortex and have abnormal visual-evoked potentials, and Nrcam-null cochleae show type II spiral ganglion fasciculation errors and reduced efferent innervation. This is the proposed basis for the abnormal VEPs, optic atrophy, strabismus and auditory findings in affected individuals. A translational caveat applies: the cochlear defects in mice are transient and adult Nrcam-null mice hear normally, whereas some affected individuals have persistent hearing impairment.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"retinal ganglion cell axon guidance\"], \"role\": \"consequence\", \"mechanism_confidence\": \"PROVISIONAL\", \"animal_models\": [{\"name\": \"Nrcam knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Nrcam-null (homozygous knockout)\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Nrcam-null mice reproduce the developmental miswiring \\u2014 thalamic axon mistargeting to visual cortex with abnormal VEPs, and cochlear afferent and efferent innervation errors \\u2014 but the cochlear defects self-correct and adult auditory acuity is normal, unlike the persistent hearing impairment in some affected individuals.\"}]}}, {\"id\": \"Zebrafish nrcama third Fn-III domain deletion mutant\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A CRISPR-Cas9 mutant deleting the third Fn-III repeat \\u2014 the domain in which most human disease variants cluster \\u2014 generated in the founding study. Mutant larvae are viable with no gross morphological defect but show significantly altered swimming behaviour and a trend toward increased \\u03b1-tubulin fibre density in the dorsal telencephalon and a thickened anterior telencephalic commissure. It is the only in vivo model built around the human variant hotspot.\"}, {\"id\": \"c.230+824G\u003eC\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Deep-intronic variant, invisible to exome sequencing and identified only by genome sequencing, predicted to disrupt a binding site for the splicing regulator SC35 and to activate a cryptic acceptor site generating a cryptic exon.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"NRCAM\"], \"gene_terms\": [{\"label\": \"NRCAM\", \"id\": \"hgnc:7994\"}], \"variant_type\": \"deep intronic splice\"}}, {\"id\": \"c.2647-2A\u003eG (p.Ile883Serfs*8)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Canonical splice-acceptor variant predicted to cause skipping of exon 22, producing a frameshift and a truncated protein.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"NRCAM\"], \"gene_terms\": [{\"label\": \"NRCAM\", \"id\": \"hgnc:7994\"}], \"variant_type\": \"splice acceptor\"}}, {\"id\": \"c.73C\u003eT (p.Gln25*)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Homozygous nonsense allele in the N-terminal signal peptide, before the first Ig-like domain, reported in the second family. Notable because this loss-of-function allele produced the mildest phenotype described - isolated motor-predominant axonal polyneuropathy with normal cognition - which is what breaks the simple loss-of-function-equals-severe correlation.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"NRCAM\"], \"gene_terms\": [{\"label\": \"NRCAM\", \"id\": \"hgnc:7994\"}], \"variant_type\": \"nonsense\"}}, {\"id\": \"p.Arg853Cys\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense substitution in the third Fn-III domain. The residue is solvent-exposed and the substitution changes polarity and/or charge, so it is predicted to perturb the electrostatic surface and protein-protein interaction interfaces.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"NRCAM\"], \"gene_terms\": [{\"label\": \"NRCAM\", \"id\": \"hgnc:7994\"}], \"variant_type\": \"missense\"}}, {\"id\": \"p.Arg929*\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Truncating (nonsense) allele producing a premature stop codon and a truncated, non-functional protein.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"NRCAM\"], \"gene_terms\": [{\"label\": \"NRCAM\", \"id\": \"hgnc:7994\"}], \"variant_type\": \"nonsense\"}}, {\"id\": \"p.Asn469Ser\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense substitution in Ig-like domain 5. The residue is solvent-exposed, and the paper groups it with the other six under an aggregate electrostatic prediction - but that sentence hedges (\\\"most of the amino acid substitutions change the polarity and/or charge\\\"), and this substitution is the likeliest member of the excluded minority: asparagine and serine are both polar and both uncharged, so the change is one of side-chain size and hydrogen-bonding geometry (carboxamide to hydroxyl) rather than of polarity or charge. The predicted effect on this allele is therefore weaker than for its six counterparts.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"NRCAM\"], \"gene_terms\": [{\"label\": \"NRCAM\", \"id\": \"hgnc:7994\"}], \"variant_type\": \"missense\"}}, {\"id\": \"p.Asp55Gly\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense substitution in the first Ig-like domain, found in compound heterozygosity with the deep-intronic c.230+824G\u003eC allele. The residue is solvent-exposed. See the genetic notes: the substitution, domain assignment and pairing are transcribed from Table 2 via the deep-research report rather than from the paper\u0027s narrative, which names only the residue Asp55.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"NRCAM\"], \"gene_terms\": [{\"label\": \"NRCAM\", \"id\": \"hgnc:7994\"}], \"variant_type\": \"missense\"}}, {\"id\": \"p.Glu111*\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Truncating (nonsense) allele producing a premature stop codon and a truncated, non-functional protein.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"NRCAM\"], \"gene_terms\": [{\"label\": \"NRCAM\", \"id\": \"hgnc:7994\"}], \"variant_type\": \"nonsense\"}}, {\"id\": \"p.Gly197Asp\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense substitution in Ig-like domain 2. The residue is solvent-exposed and the substitution changes polarity and/or charge, so it is predicted to perturb the electrostatic surface and protein-protein interaction interfaces.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"NRCAM\"], \"gene_terms\": [{\"label\": \"NRCAM\", \"id\": \"hgnc:7994\"}], \"variant_type\": \"missense\"}}, {\"id\": \"p.Gly913Asp\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense substitution in the third Fn-III domain. The residue is solvent-exposed and the substitution changes polarity and/or charge, so it is predicted to perturb the electrostatic surface and protein-protein interaction interfaces.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"NRCAM\"], \"gene_terms\": [{\"label\": \"NRCAM\", \"id\": \"hgnc:7994\"}], \"variant_type\": \"missense\"}}, {\"id\": \"p.Lys902Thr\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense substitution in the third Fn-III domain. It sits close to the domain\u0027s KGE integrin-recognition and RNRR furin motifs, so it may specifically impair the protein-protein interactions of this domain. The residue is solvent-exposed and the substitution changes polarity and/or charge, so it is predicted to perturb the electrostatic surface and protein-protein interaction interfaces.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"NRCAM\"], \"gene_terms\": [{\"label\": \"NRCAM\", \"id\": \"hgnc:7994\"}], \"variant_type\": \"missense\"}}, {\"id\": \"p.Ser134Pro\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense substitution in Ig-like domain 1. The residue is solvent-exposed and the substitution changes polarity and/or charge, so it is predicted to perturb the electrostatic surface and protein-protein interaction interfaces.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"NRCAM\"], \"gene_terms\": [{\"label\": \"NRCAM\", \"id\": \"hgnc:7994\"}], \"variant_type\": \"missense\"}}, {\"id\": \"p.Thr766Ilefs*4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Truncating (frameshift) allele producing a premature stop codon and a truncated, non-functional protein.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"NRCAM\"], \"gene_terms\": [{\"label\": \"NRCAM\", \"id\": \"hgnc:7994\"}], \"variant_type\": \"frameshift\"}}], \"edges\": [{\"source\": \"Bi-allelic NRCAM Loss of Function\", \"target\": \"Impaired NrCAM-Mediated Neural Cell Adhesion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The variants act on the adhesion protein itself, so the link from genotype to loss of adhesion function is direct.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired NrCAM-Mediated Neural Cell Adhesion\", \"target\": \"Defective Axon Growth and Guidance\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired NrCAM-Mediated Neural Cell Adhesion\", \"target\": \"Defective Node of Ranvier Assembly and Maintenance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"NrCAM is one of the two glial adhesion molecules that deliver the nodal clustering signal, so loss of its adhesion function acts directly on node assembly.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired NrCAM-Mediated Neural Cell Adhesion\", \"target\": \"Impaired Synaptogenesis and Dendritic Spine Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Defective Axon Growth and Guidance\", \"target\": \"Aberrant CNS White Matter Tract Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Defective Axon Growth and Guidance\", \"target\": \"Sensory Pathway Miswiring\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Synaptogenesis and Dendritic Spine Remodeling\", \"target\": \"Cortical Circuit Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Defective Node of Ranvier Assembly and Maintenance\", \"target\": \"Peripheral Nerve Conduction Failure and Axonal Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Nodal sodium channel density sets conduction competence, so disassembly of the node degrades saltatory conduction directly.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Peripheral Nerve Conduction Failure and Axonal Degeneration\", \"target\": \"Neuromuscular Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of peripheral nerve conduction is the proximate cause of the hypotonia, weakness and neuropathic findings.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Aberrant CNS White Matter Tract Formation\", \"target\": \"Global Neurodevelopmental Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cortical Circuit Dysfunction\", \"target\": \"Global Neurodevelopmental Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Sensory Pathway Miswiring\", \"target\": \"Global Neurodevelopmental Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neuromuscular Dysfunction\", \"target\": \"Secondary Musculoskeletal Deformity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Global Neurodevelopmental Impairment\", \"target\": \"Secondary Musculoskeletal Deformity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Physical Therapy and Rehabilitation\", \"target\": \"Neuromuscular Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Physical Therapy and Rehabilitation\", \"target\": \"Hypotonia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Physical Therapy and Rehabilitation\", \"target\": \"Progressive Muscle Weakness\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Orthopedic Management of Skeletal Deformity\", \"target\": \"Secondary Musculoskeletal Deformity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Orthopedic Management of Skeletal Deformity\", \"target\": \"Scoliosis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Orthopedic Management of Skeletal Deformity\", \"target\": \"Hip Dysplasia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Nrcam knockout mouse\", \"target\": \"Defective Node of Ranvier Assembly and Maintenance\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Peripheral nerves of Nrcam-deficient mice show delayed or abnormal node formation with delayed nodal sodium channel clustering, the same lesion proposed to underlie the human peripheral neuropathy.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Node formation is delayed rather than abolished, because gliomedin provides a partially redundant glial clustering signal; the severe nodal phenotype requires loss of both molecules.\"}, {\"source\": \"Nrcam knockout mouse\", \"target\": \"Neuromuscular Dysfunction\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"Despite the nodal defect, Nrcam-null mice show no neuromuscular disorder, in contrast to the hypotonia, spasticity and neuropathy present in every reported affected individual.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"Probable compensation by other L1-family Ig-CAMs (L1cam, Chl1, Nfasc) in mouse, and possible transcriptional adaptation triggered by nonsense-mediated decay of the null allele. Species differences in the protein itself are also implicated: the KGE and RNRR motifs of the human third Fn-III domain are poorly conserved outside mammals.\"}, {\"source\": \"Nrcam knockout mouse\", \"target\": \"Impaired Synaptogenesis and Dendritic Spine Remodeling\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"NrCAM-null cortex shows elevated dendritic spine density, increased asymmetric synapses and increased mEPSC frequency, establishing NrCAM as a postnatal regulator of spine density within the Sema3F receptor complex.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Measured in mouse primary visual cortex; no corresponding measurement exists in tissue from affected individuals, so the relevance to the human cognitive and behavioural phenotype is inferred.\"}, {\"source\": \"Nrcam knockout mouse\", \"target\": \"Sensory Pathway Miswiring\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Nrcam-null mice reproduce the developmental miswiring \\u2014 thalamic axon mistargeting to visual cortex with abnormal VEPs, and cochlear afferent and efferent innervation errors \\u2014 but the cochlear defects self-correct and adult auditory acuity is normal, unlike the persistent hearing impairment in some affected individuals.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Transient cochlear phenotype with functional recovery by weaning; humans appear to lack the compensatory mechanism.\"}, {\"source\": \"Gliomedin/NrCAM double knockout mouse\", \"target\": \"Peripheral Nerve Conduction Failure and Axonal Degeneration\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Loss of the gliomedin/NrCAM clustering signal produces measurable slowing of nerve conduction and neurological abnormality.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The double knockout removes a redundant partner that is intact in affected individuals, so the model overstates the nodal deficit expected from NRCAM loss alone; it establishes the direction of the mechanism rather than its magnitude in human disease.\"}, {\"source\": \"Zebrafish nrcama third Fn-III domain deletion mutant\", \"target\": \"Aberrant CNS White Matter Tract Formation\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Altered axonal projections in the dorsal telencephalon and anterior commissure, the zebrafish counterpart of the mammalian pallium and of the commissural tracts abnormal on human MRI.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"The axonal differences were reported as trends and did not reach significance; the pallium is massively expanded in humans relative to zebrafish; and the KGE and RNRR motifs of the human third Fn-III domain are not conserved in zebrafish Nrcam (HGD and QDYD), so the deleted domain is not functionally equivalent.\"}, {\"source\": \"NRCAM\", \"target\": \"Bi-allelic NRCAM Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"p.Asp55Gly\", \"target\": \"NRCAM\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Ser134Pro\", \"target\": \"NRCAM\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Gly197Asp\", \"target\": \"NRCAM\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Asn469Ser\", \"target\": \"NRCAM\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Arg853Cys\", \"target\": \"NRCAM\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Lys902Thr\", \"target\": \"NRCAM\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Gly913Asp\", \"target\": \"NRCAM\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Glu111*\", \"target\": \"NRCAM\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Arg929*\", \"target\": \"NRCAM\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Thr766Ilefs*4\", \"target\": \"NRCAM\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.2647-2A\u003eG (p.Ile883Serfs*8)\", \"target\": \"NRCAM\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.230+824G\u003eC\", \"target\": \"NRCAM\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.73C\u003eT (p.Gln25*)\", \"target\": \"NRCAM\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7382,7 +7510,7 @@ This clinical feature is Pes cavus (HP:0001761). HP:0001761 is a phenotype from 
 
                     <span class="phenotype-id">
 
-                        <span class="phenotype-term-label">Elevated circulating creatine kinase concentration</span>
+                        <span class="phenotype-term-label">Elevated circulating creatine kinase activity</span>
 
 
 
@@ -7392,7 +7520,7 @@ This clinical feature is Pes cavus (HP:0001761). HP:0001761 is a phenotype from 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Elevated circulating creatine kinase concentration (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Elevated circulating creatine kinase activity (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8878,6 +9006,9 @@ This disease-associated gene is NRCAM (hgnc:7994). hgnc:7994 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -8976,6 +9107,7 @@ This disease-associated gene is NRCAM (hgnc:7994). hgnc:7994 is a gene from the 
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8995,11 +9127,17 @@ This variant is in NRCAM (hgnc:7994). hgnc:7994 is a gene from the HUGO Gene Nom
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Missense substitution in the first Ig-like domain, found in compound heterozygosity with the deep-intronic c.230+824G&gt;C allele. The residue is solvent-exposed. See the genetic notes: the substitution, domain assignment and pairing are transcribed from Table 2 via the deep-research report rather than from the paper&#39;s narrative, which names only the residue Asp55.</div>
@@ -9060,6 +9198,7 @@ This variant is in NRCAM (hgnc:7994). hgnc:7994 is a gene from the HUGO Gene Nom
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9079,11 +9218,17 @@ This variant is in NRCAM (hgnc:7994). hgnc:7994 is a gene from the HUGO Gene Nom
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Missense substitution in Ig-like domain 1. The residue is solvent-exposed and the substitution changes polarity and/or charge, so it is predicted to perturb the electrostatic surface and protein-protein interaction interfaces.</div>
@@ -9169,6 +9314,7 @@ This variant is in NRCAM (hgnc:7994). hgnc:7994 is a gene from the HUGO Gene Nom
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9188,11 +9334,17 @@ This variant is in NRCAM (hgnc:7994). hgnc:7994 is a gene from the HUGO Gene Nom
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Missense substitution in Ig-like domain 2. The residue is solvent-exposed and the substitution changes polarity and/or charge, so it is predicted to perturb the electrostatic surface and protein-protein interaction interfaces.</div>
@@ -9278,6 +9430,7 @@ This variant is in NRCAM (hgnc:7994). hgnc:7994 is a gene from the HUGO Gene Nom
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9297,11 +9450,17 @@ This variant is in NRCAM (hgnc:7994). hgnc:7994 is a gene from the HUGO Gene Nom
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Missense substitution in Ig-like domain 5. The residue is solvent-exposed, and the paper groups it with the other six under an aggregate electrostatic prediction - but that sentence hedges (&#34;most of the amino acid substitutions change the polarity and/or charge&#34;), and this substitution is the likeliest member of the excluded minority: asparagine and serine are both polar and both uncharged, so the change is one of side-chain size and hydrogen-bonding geometry (carboxamide to hydroxyl) rather than of polarity or charge. The predicted effect on this allele is therefore weaker than for its six counterparts.</div>
@@ -9387,6 +9546,7 @@ This variant is in NRCAM (hgnc:7994). hgnc:7994 is a gene from the HUGO Gene Nom
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9406,11 +9566,17 @@ This variant is in NRCAM (hgnc:7994). hgnc:7994 is a gene from the HUGO Gene Nom
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Missense substitution in the third Fn-III domain. The residue is solvent-exposed and the substitution changes polarity and/or charge, so it is predicted to perturb the electrostatic surface and protein-protein interaction interfaces.</div>
@@ -9496,6 +9662,7 @@ This variant is in NRCAM (hgnc:7994). hgnc:7994 is a gene from the HUGO Gene Nom
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9515,11 +9682,17 @@ This variant is in NRCAM (hgnc:7994). hgnc:7994 is a gene from the HUGO Gene Nom
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Missense substitution in the third Fn-III domain. It sits close to the domain&#39;s KGE integrin-recognition and RNRR furin motifs, so it may specifically impair the protein-protein interactions of this domain. The residue is solvent-exposed and the substitution changes polarity and/or charge, so it is predicted to perturb the electrostatic surface and protein-protein interaction interfaces.</div>
@@ -9605,6 +9778,7 @@ This variant is in NRCAM (hgnc:7994). hgnc:7994 is a gene from the HUGO Gene Nom
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9624,11 +9798,17 @@ This variant is in NRCAM (hgnc:7994). hgnc:7994 is a gene from the HUGO Gene Nom
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Missense substitution in the third Fn-III domain. The residue is solvent-exposed and the substitution changes polarity and/or charge, so it is predicted to perturb the electrostatic surface and protein-protein interaction interfaces.</div>
@@ -9714,6 +9894,7 @@ This variant is in NRCAM (hgnc:7994). hgnc:7994 is a gene from the HUGO Gene Nom
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9733,11 +9914,17 @@ This variant is in NRCAM (hgnc:7994). hgnc:7994 is a gene from the HUGO Gene Nom
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">nonsense</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Truncating (nonsense) allele producing a premature stop codon and a truncated, non-functional protein.</div>
@@ -9798,6 +9985,7 @@ This variant is in NRCAM (hgnc:7994). hgnc:7994 is a gene from the HUGO Gene Nom
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9817,11 +10005,17 @@ This variant is in NRCAM (hgnc:7994). hgnc:7994 is a gene from the HUGO Gene Nom
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">nonsense</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Truncating (nonsense) allele producing a premature stop codon and a truncated, non-functional protein.</div>
@@ -9882,6 +10076,7 @@ This variant is in NRCAM (hgnc:7994). hgnc:7994 is a gene from the HUGO Gene Nom
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9901,11 +10096,17 @@ This variant is in NRCAM (hgnc:7994). hgnc:7994 is a gene from the HUGO Gene Nom
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">frameshift</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Truncating (frameshift) allele producing a premature stop codon and a truncated, non-functional protein.</div>
@@ -9966,6 +10167,7 @@ This variant is in NRCAM (hgnc:7994). hgnc:7994 is a gene from the HUGO Gene Nom
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9985,11 +10187,17 @@ This variant is in NRCAM (hgnc:7994). hgnc:7994 is a gene from the HUGO Gene Nom
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">splice acceptor</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Canonical splice-acceptor variant predicted to cause skipping of exon 22, producing a frameshift and a truncated protein.</div>
@@ -10050,6 +10258,7 @@ This variant is in NRCAM (hgnc:7994). hgnc:7994 is a gene from the HUGO Gene Nom
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -10069,11 +10278,17 @@ This variant is in NRCAM (hgnc:7994). hgnc:7994 is a gene from the HUGO Gene Nom
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">deep intronic splice</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Deep-intronic variant, invisible to exome sequencing and identified only by genome sequencing, predicted to disrupt a binding site for the splicing regulator SC35 and to activate a cryptic acceptor site generating a cryptic exon.</div>
@@ -10134,6 +10349,7 @@ This variant is in NRCAM (hgnc:7994). hgnc:7994 is a gene from the HUGO Gene Nom
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -10153,11 +10369,17 @@ This variant is in NRCAM (hgnc:7994). hgnc:7994 is a gene from the HUGO Gene Nom
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">nonsense</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Homozygous nonsense allele in the N-terminal signal peptide, before the first Ig-like domain, reported in the second family. Notable because this loss-of-function allele produced the mildest phenotype described - isolated motor-predominant axonal polyneuropathy with normal cognition - which is what breaks the simple loss-of-function-equals-severe correlation.</div>
@@ -13596,10 +13818,10 @@ phenotypes:
     phenotype, reflecting chronic neurogenic muscle involvement rather than a
     primary myopathy.
   phenotype_term:
-    preferred_term: Elevated circulating creatine kinase concentration
+    preferred_term: Elevated circulating creatine kinase activity
     term:
       id: HP:0003236
-      label: Elevated circulating creatine kinase concentration
+      label: Elevated circulating creatine kinase activity
   evidence:
   - reference: PMID:36606341
     reference_title: Bi-allelic loss of function variant in the NRCAM gene is associated with motor-predominant axonal polyneuropathy; the second report.
@@ -16249,7 +16471,7 @@ Resolving is not the same as being relevant, though - see the references listed 
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Neurodevelopmental Disorder with Neuromuscular and Skeletal Abnormalities", "mondoId": "MONDO:0859236", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Neurodevelopmental_Disorder_with_Neuromuscular_and_Skeletal_Abnormalities", "yamlRevision": "ff409c4364ee"};
+        const OS_CONFIG = {"diseaseName": "Neurodevelopmental Disorder with Neuromuscular and Skeletal Abnormalities", "mondoId": "MONDO:0859236", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Neurodevelopmental_Disorder_with_Neuromuscular_and_Skeletal_Abnormalities", "yamlRevision": "1f2e65c84751"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

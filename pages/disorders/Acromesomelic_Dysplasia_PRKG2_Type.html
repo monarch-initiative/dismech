@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -5122,6 +5161,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-prkg2-loss-of-function" data-dismech-node="Biallelic PRKG2 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic PRKG2 Loss of Function</div>
 
+
                 <div class="item-desc">Pathogenic variants on both PRKG2 alleles eliminate or cripple cGMP-dependent protein kinase II. Truncating transcripts are degraded by nonsense-mediated decay, and residual mutant protein is present at markedly reduced levels and lacks all or part of the catalytic kinase domain.</div>
 
 
@@ -5303,6 +5343,7 @@ This pathophysiological event involves increased Nonsense-mediated decay of PRKG
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-cgkii-kinase-activity-downstream-of-cnp-npr-b" data-dismech-node="Loss of cGKII Kinase Activity Downstream of CNP/NPR-B" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of cGKII Kinase Activity Downstream of CNP/NPR-B</div>
+
 
                 <div class="item-desc">cGKII is the cGMP-activated kinase that carries the CNP/NPR-B growth signal forward inside growth-plate chondrocytes. This node is the mechanistic junction with acromesomelic dysplasia Maroteaux type: NPR2 variants disable the receptor that generates cGMP, PRKG2 variants disable the kinase that reads it, and the two disorders converge on the same downstream defect.</div>
 
@@ -5707,6 +5748,7 @@ This pathophysiological event involves cGMP binding (GO:0030553), qualified as l
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-persistent-nuclear-sox9-in-postmitotic-chondrocytes" data-dismech-node="Persistent Nuclear SOX9 in Postmitotic Chondrocytes" data-dismech-type="pathophysiology">
                 <div class="item-name">Persistent Nuclear SOX9 in Postmitotic Chondrocytes</div>
 
+
                 <div class="item-desc">SOX9 sustains the proliferative and matrix-producing chondrocyte state and represses hypertrophic differentiation. cGKII normally excludes SOX9 from the nucleus at the point where chondrocytes stop dividing, and without that exclusion SOX9 activity persists in postmitotic cells, which stall before hypertrophy. This is the mechanism established in the cGKII-deficient KMI rat; whether it operates in human AMDP has not been tested.</div>
 
 
@@ -5956,6 +5998,7 @@ This pathophysiological event involves decreased Chondrocyte hypertrophy (GO:000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-gsk-3beta-inhibition-and-reduced-beta-catenin-signaling" data-dismech-node="Loss of GSK-3beta Inhibition and Reduced beta-Catenin Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of GSK-3beta Inhibition and Reduced beta-Catenin Signaling</div>
 
+
                 <div class="item-desc">cGKII phosphorylates GSK-3beta and thereby inhibits it, which spares beta-catenin from degradation and permits canonical Wnt transcriptional output that drives chondrocyte hypertrophy. Without cGKII, GSK-3beta stays active and beta-catenin levels fall. The genetic test of this model is that removing one Gsk3b allele partially rescues the Prkg2-null growth plate.</div>
 
 
@@ -6204,6 +6247,7 @@ This pathophysiological event involves decreased Canonical Wnt signaling pathway
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-cgkii-restraint-on-the-c-raf-1-erk1-2-cascade" data-dismech-node="Loss of cGKII Restraint on the c-Raf-1/ERK1/2 Cascade" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of cGKII Restraint on the c-Raf-1/ERK1/2 Cascade</div>
+
 
                 <div class="item-desc">In chondrocytes, cGKII acts as an inhibitory input onto the FGF-MAPK cascade by phosphorylating c-Raf-1 at Ser43. Losing that input dysregulates FGF2-driven ERK1/2 signalling in a pathway whose excess activity is a well-established cause of impaired chondrocyte proliferation in the FGFR3 chondrodysplasias. This node is deliberately named for the lesion rather than for a direction of change. Two of the three source abstracts phrase the mutant effect ambiguously - the clause reads equally as the mutant reducing ERK activation or as the mutant failing to reduce it - and only PMID:37789084 states it unambiguously, that the mutant was unable to down-regulate FGF2-induced MAPK signalling. Loss of restraint is therefore what the evidence supports; a quantified increase in chondrocyte ERK output is not.</div>
 
@@ -6528,6 +6572,7 @@ This pathophysiological event involves decreased Peptidyl-serine phosphorylation
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-sox9-dependent-chondrocyte-collagen-program" data-dismech-node="Dysregulated SOX9-Dependent Chondrocyte Collagen Program" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysregulated SOX9-Dependent Chondrocyte Collagen Program</div>
+
 
                 <div class="item-desc">COL10A1 marks hypertrophic chondrocytes and COL2A1 marks the proliferative and resting zones. Downregulation of COL10A1 with upregulation of COL2A1 indicates chondrocytes that fail to advance through hypertrophic maturation and remain in an earlier differentiation state.</div>
 
@@ -6912,6 +6957,7 @@ This pathophysiological event involves abnormal Extracellular matrix organizatio
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-endochondral-longitudinal-bone-growth" data-dismech-node="Impaired Endochondral Longitudinal Bone Growth" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Endochondral Longitudinal Bone Growth</div>
+
 
                 <div class="item-desc">Reduced longitudinal growth at the physis produces the disproportionate short stature, with the growth deficit falling most heavily on the middle and distal limb segments and accompanied by metaphyseal and vertebral change.</div>
 
@@ -7885,6 +7931,9 @@ This disease-associated gene is PRKG2 (hgnc:9416). hgnc:9416 is a gene from the 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4561,6 +4600,7 @@ The entry is scoped to NKGCD rather than to the FGD series. kb/disorders/Familia
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypomorphic-mcm4-deficiency" data-dismech-node="Hypomorphic MCM4 Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypomorphic MCM4 Deficiency</div>
 
+
                 <div class="item-desc">The c.71-1insG frameshift abolishes the major 96 kDa MCM4 isoform. A minor 85 kDa isoform survives through re-initiation at downstream methionine codons, so the cell retains partial MCM4 function rather than none. This is why the disorder exists at all as a viable phenotype.</div>
 
 
@@ -4621,6 +4661,8 @@ This pathophysiological event involves MCM4 (hgnc:6947). hgnc:6947 is a gene fro
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4633,6 +4675,9 @@ This pathophysiological event involves MCM4 (hgnc:6947). hgnc:6947 is a gene fro
         <span class="tag tag-classification">functional_impact_category: PARTIAL_LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4723,6 +4768,7 @@ This pathophysiological event involves MCM4 (hgnc:6947). hgnc:6947 is a gene fro
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-depletion-of-licensed-dormant-replication-origins" data-dismech-node="Depletion of Licensed Dormant Replication Origins" data-dismech-type="pathophysiology">
                 <div class="item-name">Depletion of Licensed Dormant Replication Origins</div>
+
 
                 <div class="item-desc">Most licensed origins are never used. They exist as a reserve that fires when a replication fork stalls, and that reserve is the first line of defence for the genome. Reduced MCM2-7 leaves fewer of them, which is the specific reason a partial licensing defect produces instability rather than simply slower replication.</div>
 
@@ -4860,6 +4906,7 @@ This pathophysiological event involves decreased DNA replication initiation (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-replication-stress-and-genomic-instability" data-dismech-node="Replication Stress and Genomic Instability" data-dismech-type="pathophysiology">
                 <div class="item-name">Replication Stress and Genomic Instability</div>
+
 
                 <div class="item-desc">Patient fibroblasts show genomic instability, and the instability is rescued by expressing wild-type MCM4, which is what ties it to the gene rather than to the genetic background of a consanguineous kindred. Clinically this appears as increased chromosomal breakage, and it is what made the syndrome look like an atypical Fanconi-type breakage disorder before the gene was found.</div>
 
@@ -5022,6 +5069,7 @@ This pathophysiological event involves increased DNA damage response (GO:0006974
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-cd56-dim-nk-cell-maturation" data-dismech-node="Failure of CD56-dim NK Cell Maturation" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of CD56-dim NK Cell Maturation</div>
+
 
                 <div class="item-desc">The selective part of the phenotype, and the part that explains why a housekeeping defect produces an immunodeficiency. Terminal maturation from CD56-bright to CD56-dim is tightly dependent on MCM4-dependent cell division, so the compartment that needs the most divisions is the one that fails. Independent work shows CD56-bright NK cells accumulate more DNA damage and replication stress on activation than either CD56-dim NK cells or T cells, and die by apoptosis under aphidicolin, which supplies the cell-intrinsic reason for the selectivity.</div>
 
@@ -5195,6 +5243,7 @@ This pathophysiological event involves CD16-negative, CD56-bright natural killer
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-steroidogenic-cells-in-the-zona-fasciculata" data-dismech-node="Loss of Steroidogenic Cells in the Zona Fasciculata" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Steroidogenic Cells in the Zona Fasciculata</div>
+
 
                 <div class="item-desc">In Mcm4-depleted mice the adrenal cortex is grossly abnormal: non-steroidogenic GATA4- and Gli1-positive cells appear within the steroidogenic cortex and the number of steroidogenic cells in the zona fasciculata falls. That is a structural account of the glucocorticoid deficiency rather than a functional one, and it is what distinguishes this adrenal failure from the ACTH-receptor and redox lesions of the classic FGD series.</div>
 
@@ -6142,6 +6191,9 @@ This disease-associated gene is MCM4 (hgnc:6947). hgnc:6947 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6418,7 +6470,7 @@ This treatment targets Primary adrenal insufficiency (HP:0008207). HP:0008207 is
                 <div class="evidence-snippet">"Adrenal insufficiency requiring corticosteroid replacement therapy developed in 3 patients, P1.2, P1.4, and P1.5"</div>
 
 
-                <div class="evidence-explanation">Documents corticosteroid replacement in the three kindred-A patients besides the index case, who required it as well. The sentence names three patients and carries no denominator of its own.</div>
+                <div class="evidence-explanation">Documents corticosteroid replacement in three kindred-A patients besides the index case, who required it as well. The sentence names three patients and carries no denominator of its own.</div>
 
 
 
@@ -7903,8 +7955,8 @@ treatments:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Adrenal insufficiency requiring corticosteroid replacement therapy developed in 3 patients, P1.2, P1.4, and P1.5&#34;
     explanation: &gt;-
-      Documents corticosteroid replacement in the three kindred-A patients besides
-      the index case, who required it as well. The sentence names three patients and
+      Documents corticosteroid replacement in three kindred-A patients besides the
+      index case, who required it as well. The sentence names three patients and
       carries no denominator of its own.
 - name: Haematopoietic Stem Cell Transplantation
   description: &gt;-
@@ -8854,7 +8906,7 @@ Model organism (mouse/yeast): PMID 17143284, 17495541, 23133403, 23975433, 24589
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Natural Killer Cell and Glucocorticoid Deficiency with DNA Repair Defect", "mondoId": "MONDO:0012383", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Natural_Killer_Cell_and_Glucocorticoid_Deficiency_with_DNA_Repair_Defect", "yamlRevision": "1c8013c158da"};
+        const OS_CONFIG = {"diseaseName": "Natural Killer Cell and Glucocorticoid Deficiency with DNA Repair Defect", "mondoId": "MONDO:0012383", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Natural_Killer_Cell_and_Glucocorticoid_Deficiency_with_DNA_Repair_Defect", "yamlRevision": "7e5d07fa044b"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

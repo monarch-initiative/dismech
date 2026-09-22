@@ -60,8 +60,57 @@ on:
         description: "Maximum additive CSV cache-conflict repairs (0 disables)"
         default: "3"
         type: string
+      max_assignment_actions:
+        description: "Maximum inactive-assignment reminders or releases (0 disables)"
+        default: "10"
+        type: string
 
 jobs:
+  assignment-inactivity:
+    # Independent ownership housekeeping, including human-authored/assigned PRs.
+    # Only trusted default-branch code; no PR checkout, dependencies, or LLM.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: pr-shepherd-assignment-inactivity
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+    env:
+      DRY_RUN: ${{ inputs.dry_run || false }}
+      SPECIFIC_PR: ${{ inputs.pr_number || '' }}
+      ASSIGNMENT_LIMIT: ${{ inputs.max_assignment_actions || '10' }}
+    steps:
+      - name: Checkout trusted default branch
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Generate scoped assignment token
+        id: assignment-token
+        if: ${{ env.DRY_RUN != 'true' && env.ASSIGNMENT_LIMIT != '0' }}
+        uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1
+        with:
+          app-id: ${{ secrets.AI4C_AGENT_APP_ID }}
+          private-key: ${{ secrets.AI4C_AGENT_PRIVATE_KEY }}
+          permission-pull-requests: write
+      - name: Remind or release inactive assignments
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_ASSIGNMENT_TOKEN: ${{ steps.assignment-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          args=(--repo "$GITHUB_REPOSITORY" --max-actions "$ASSIGNMENT_LIMIT")
+          if [ "$DRY_RUN" = "true" ]; then args+=(--dry-run); fi
+          if [ -n "$SPECIFIC_PR" ]; then args+=(--specific-pr "$SPECIFIC_PR"); fi
+          python scripts/expire_pr_assignments.py "${args[@]}"
+
   retry-reviews:
     # Independent of the agent, its shortlist, and the merge controller.
     runs-on: ubuntu-latest
@@ -296,7 +345,7 @@ jobs:
             DRY_RUN: ${{ inputs.dry_run || false }}
 
             You are the automated PR Shepherd for the dismech repository. Your job is to tend
-            stuck bot-authored pull requests and move at most MAX_PRS of them forward in this run.
+            stuck unassigned pull requests by any author and move at most MAX_PRS forward in this run.
             You own recovery of eligible abandoned PRs, including Python, tests, scripts,
             schemas, workflows, documentation, and curation. A code change or an old comment
             calling it "outside curation scope" is not a reason to leave a PR abandoned.
@@ -319,16 +368,19 @@ jobs:
             If a reference cache entry is needed, regenerate it with `just fetch-reference <ID>`.
 
             Candidate PRs:
-            - The deterministic policy step has already normalized GitHub App login variants
-              (`app/<slug>`, `<slug>[bot]`, and `<slug>`), verified Bot identity where
-              applicable, excluded assigned/claimed PRs, and selected CANDIDATE_PRS.
+            - The deterministic policy step has selected open PRs targeting main with heads in
+              this repository (`isCrossRepository == false`), excluded assigned PRs and separately
+              managed automation branches, and selected CANDIDATE_PRS. Fork heads and missing or
+              unknown head-repository metadata are ineligible.
+              Author identity does not affect eligibility: human and bot authors are treated alike.
             - CANDIDATE_PRS is a bounded shortlist of at most 3 × MAX_PRS, ranked as:
               oldest changes requested, conflicts, approved red or blocked branches, then review
               gaps. Approved PRs are omitted when merge-state and check-rollup inspection shows
               the deterministic merge job owns them. That job does not require a branch to
               contain current main; approved clean PRs need no freshness-only update.
             - Inspect and act only on PR numbers in CANDIDATE_PRS. If SPECIFIC_PR was supplied,
-              it appears there only when it passed the same bot-author policy.
+              it appears there only when it passed the same assignment, head-repository, and
+              lifecycle guards.
             - Draft state is metadata, not an exclusion, priority, or hold signal. Treat a draft
               exactly like any other open PR while tending review feedback or branch state.
             - Separately managed automation PRs whose heads start with `auto/` have already
@@ -340,7 +392,8 @@ jobs:
 
             Gather enough context for each candidate before choosing:
             - PR metadata: author, draft state, base/head refs, head SHA, updated/created time,
-              reviewDecision, mergeStateStatus, statusCheckRollup, and labels.
+              isCrossRepository, assignees, reviewDecision, mergeStateStatus, statusCheckRollup,
+              and labels.
             - The current main SHA and PR head SHA. If a branch update is needed to resolve a
               blocker, determine freshness with GitHub's exact commit comparison
               (`repos/$REPO/compare/$MAIN_SHA...$HEAD_SHA`): the head contains main only when
@@ -348,7 +401,9 @@ jobs:
               metadata but is NOT an ancestry signal. Being behind alone is not a blocker.
             - Reviews and review comments, especially the latest review state per reviewer.
             - Recent workflow/check status, including cancelled Claude review runs.
-            - Existing discussion so you do not repeat an action already taken.
+            - Recent activity and existing discussion so you do not repeat an action already
+              taken or duplicate an ongoing repair. Inspect the actual activity; do not impose
+              a fixed PR-age cutoff or treat human authorship as evidence of active ownership.
 
             Classify each candidate into one of these states:
             - APPROVED + CLEAN: latest reviewDecision is APPROVED, the branch is mergeable, and
@@ -374,6 +429,9 @@ jobs:
             shortlist until the budget is used or every candidate has been investigated.
 
             Repair scope and validation:
+            - Before checking out a PR branch or executing its code, re-read its metadata and
+              require `isCrossRepository == false`. If it is true, missing, or unknown, skip
+              the PR; do not check out or execute its code.
             - Address review feedback and reproducible CI failures in the files the repair
               requires, including Python under src/, scripts/, and tests/. Keep the change
               tied to the PR's intended behavior and the diagnosed failure; inspect callers
@@ -386,9 +444,11 @@ jobs:
               the PR. Never use a blanket ours/theirs resolution for generated directories,
               drop either side's unique cache entries, or replace a whole cache from main.
               Regenerate reference and term caches only through their supported commands.
-              Never read, write, edit, or stage the frozen dataset-accession JSON cache.
+              Never read, recreate, or restore the retired dataset-accession JSON cache.
+              If an old PR carries it, keep its deletion without reading or merging its contents.
             - Before any push, verify the remote head and assignment again. If the head moved,
               stop that push and re-inspect; never overwrite another contributor's work.
+              Reconfirm `isCrossRepository == false`; stop if that cannot be established.
               Review the final diff against main for unrelated deletions or stale reversions.
               Bundle the review fixes, necessary conflict repair, and validation in one push.
 
@@ -445,10 +505,11 @@ jobs:
             - Never merge a PR, enable auto-merge, approve a review, or mark a draft ready.
               Those transitions belong to deterministic policy or a human maintainer.
             - Never force-push, rebase, reset, or rewrite PR history.
-            - Never modify human-authored PRs.
+            - Author identity never excludes a PR from repair. Human and bot-authored PRs follow
+              the same assignment, lifecycle, validation, and history-preservation rules.
             - Never modify a PR that is assigned when you inspect it; assignment is the
-              repository's explicit human-claim/hold signal even if it was unassigned when
-              the shortlist was built.
+              deterministic active-work hold even if it was unassigned when the shortlist was
+              built. For unassigned PRs, assess ongoing work from recent activity and discussion.
             - Never create duplicate scanner work or assign `dragon-ai-agent` just to trigger work.
             - If you are unsure about a biological, clinical, ontology, or evidence fix, ask for
               clarification on the PR instead of guessing.
@@ -462,8 +523,8 @@ jobs:
             - If you scan candidates but find nothing actionable, do NOT post comments.
               Instead, print your summary to stdout so it can be captured in GITHUB_STEP_SUMMARY.
             - For every skipped candidate, name the concrete unresolved blocker, investigation
-              performed, and next action needed. File type, old age, or "outside curation scope"
-              alone are never adequate reasons to skip.
+              performed, and next action needed. File type, author identity, old age, or
+              "outside curation scope" alone are never adequate reasons to skip.
 
             End by posting or logging a concise summary of candidates scanned, selected PRs, actions
             taken, validation run, and any blockers that remain.

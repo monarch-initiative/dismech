@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4544,6 +4583,7 @@ This experiment is of type prospective cohort with serial endometrial biopsy.</s
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lower-genital-tract-infection-and-cervical-colonization" data-dismech-node="Lower Genital Tract Infection and Cervical Colonization" data-dismech-type="pathophysiology">
                 <div class="item-name">Lower Genital Tract Infection and Cervical Colonization</div>
 
+
                 <div class="item-desc">Establishment of Neisseria gonorrhoeae, Chlamydia trachomatis, Mycoplasma genitalium or bacterial-vaginosis-associated anaerobes at the endocervix. This is the reservoir from which the upper tract is seeded, and it is where the disease is interruptible: detecting and treating cervical infection at this stage prevents PID, whereas nothing downstream reverses tubal damage once it has occurred. Most cervical infection is asymptomatic, which is why the node is usually crossed unobserved.
 </div>
 
@@ -4703,6 +4743,7 @@ This pathophysiological event occurs in uterine cervix (UBERON:0000002). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-vaginal-lactobacillus-dominance" data-dismech-node="Loss of Vaginal Lactobacillus Dominance" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Vaginal Lactobacillus Dominance</div>
+
 
                 <div class="item-desc">Replacement of a lactobacillus-dominated vaginal community by a diverse anaerobic consortium (Gardnerella vaginalis, Megasphaera, Atopobium). This is the bacterial vaginosis arm of PID: it supplies organisms that can themselves ascend, and it is the reason anaerobic coverage is part of the regimen. It is curated as a parallel entry route rather than as a step in the sexually transmitted chain, because it does not require acquisition of a classical STI pathogen.
 </div>
@@ -4867,6 +4908,7 @@ This pathophysiological event occurs in vagina (UBERON:0000996). UBERON:0000996 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ascension-to-the-upper-genital-tract" data-dismech-node="Ascension to the Upper Genital Tract" data-dismech-type="pathophysiology">
                 <div class="item-name">Ascension to the Upper Genital Tract</div>
+
 
                 <div class="item-desc">Arrival of organisms in the endometrial cavity and fallopian tubes, producing the endometritis-salpingitis spectrum that is PID. Because the endometrium and tube are contiguous, the same event is named endometritis, salpingitis, tubo-ovarian abscess or pelvic peritonitis depending on how far it has extended, and these are not separate diseases.
 </div>
@@ -5101,6 +5143,7 @@ This pathophysiological event occurs in fallopian tube (UBERON:0003889). UBERON:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-intracellular-survival-and-innate-immune-evasion" data-dismech-node="Intracellular Survival and Innate Immune Evasion" data-dismech-type="pathophysiology">
                 <div class="item-name">Intracellular Survival and Innate Immune Evasion</div>
 
+
                 <div class="item-desc">Both classical PID pathogens persist inside host epithelial cells and neutrophils and actively subvert the innate response, which is why the infection is chronic and why the therapeutic requirement is for an agent that reaches the intracellular compartment. This is the lifestyle-gating step: it constrains which drugs can work, independently of any organism&#39;s in vitro susceptibility.
 </div>
 
@@ -5330,6 +5373,7 @@ This pathophysiological event involves biological process involved in interactio
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-requirement-for-a-cell-penetrant-antimicrobial" data-dismech-node="Requirement for a Cell-Penetrant Antimicrobial" data-dismech-type="pathophysiology">
                 <div class="item-name">Requirement for a Cell-Penetrant Antimicrobial</div>
 
+
                 <div class="item-desc">The therapeutic consequence of the intracellular niche: efficacy tracks the intracellular concentration achieved rather than the in vitro MIC, so doxycycline rather than the cephalosporin is the component of the PID regimen that addresses chlamydial upper tract infection. This node exists to carry that constraint explicitly; it is why every recommended PID regimen pairs a cephalosporin with a tetracycline instead of escalating the cephalosporin.
 </div>
 
@@ -5452,6 +5496,7 @@ This pathophysiological event involves response to antibiotic (GO:0046677). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neutrophil-dominant-innate-inflammation-with-dampened-t-cell-activation" data-dismech-node="Neutrophil-Dominant Innate Inflammation with Dampened T-Cell Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Neutrophil-Dominant Innate Inflammation with Dampened T-Cell Activation</div>
+
 
                 <div class="item-desc">The host response that actually causes the damage. Endometrial tissue from women with histologically confirmed PID shows activation of myeloid, cell death and innate inflammatory programmes together with suppression of T-cell activation — an inflammatory response that is intense but non-protective, which is consistent with the absence of durable immunity after natural infection and with the high rate of reinfection.
 </div>
@@ -5728,6 +5773,7 @@ This pathophysiological event occurs in endometrium (UBERON:0001295). UBERON:000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tnf-mediated-sloughing-of-ciliated-tubal-epithelium" data-dismech-node="TNF-Mediated Sloughing of Ciliated Tubal Epithelium" data-dismech-type="pathophysiology">
                 <div class="item-name">TNF-Mediated Sloughing of Ciliated Tubal Epithelium</div>
 
+
                 <div class="item-desc">Detachment and loss of the multiciliated cells lining the tubal mucosa, the lesion that converts a transient infection into permanent transport failure. The classical human fallopian tube organ culture work established that this is not direct bacterial cytotoxicity: purified gonococcal peptidoglycan monomers reproduce the damage in the absence of live organisms, and recombinant TNF-alpha alone is sufficient. Because the ciliated epithelium does not regenerate its function, this node is the point at which the disease becomes irreversible.
 </div>
 
@@ -5939,6 +5985,7 @@ This pathophysiological event occurs in fallopian tube (UBERON:0003889). UBERON:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chlamydial-hsp60-directed-immunopathology" data-dismech-node="Chlamydial HSP60-Directed Immunopathology" data-dismech-type="pathophysiology">
                 <div class="item-name">Chlamydial HSP60-Directed Immunopathology</div>
 
+
                 <div class="item-desc">The chlamydia-specific arm of the immunopathology. Chlamydial heat shock protein 60, released when infected cells lyse, is recognised by T-cell clones recoverable from inflamed salpingeal tissue of women with tubal factor infertility, and drives the proinflammatory response that ends in fibrosis. Curated as a separate node from the generic innate response because the antigen, the effector cell type and the clinical correlate are all specific to chlamydia.
 </div>
 
@@ -6140,6 +6187,7 @@ This pathophysiological event occurs in fallopian tube (UBERON:0003889). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tubal-fibrosis-and-luminal-occlusion" data-dismech-node="Tubal Fibrosis and Luminal Occlusion" data-dismech-type="pathophysiology">
                 <div class="item-name">Tubal Fibrosis and Luminal Occlusion</div>
+
 
                 <div class="item-desc">Replacement of damaged tubal mucosa by scar, with adhesion formation and narrowing or closure of the lumen; hydrosalpinx is its imaged form. Matrix metalloproteinase regulation of the extracellular matrix is implicated. This is the structural lesion that all the downstream reproductive consequences share.
 </div>
@@ -6391,6 +6439,7 @@ This pathophysiological event occurs in fallopian tube (UBERON:0003889). UBERON:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tubo-ovarian-abscess-and-pelvic-peritonitis" data-dismech-node="Tubo-ovarian Abscess and Pelvic Peritonitis" data-dismech-type="pathophysiology">
                 <div class="item-name">Tubo-ovarian Abscess and Pelvic Peritonitis</div>
 
+
                 <div class="item-desc">Extension of infection beyond the tubal lumen into a walled-off adnexal collection and onto the peritoneal surface. This is the acute-severity branch: it is the branch that requires hospitalization and, when medical therapy fails, drainage or surgery, and it is what makes PID an occasionally surgical disease rather than a purely outpatient one.
 </div>
 
@@ -6564,6 +6613,7 @@ This pathophysiological event occurs in peritoneum (UBERON:0002358). UBERON:0002
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-subclinical-upper-genital-tract-inflammation" data-dismech-node="Subclinical Upper Genital Tract Inflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Subclinical Upper Genital Tract Inflammation</div>
 
+
                 <div class="item-desc">Histologic endometritis without a symptomatic PID episode. This is the most consequential feature of the disease for the knowledge base, because it breaks the assumption that treating the diagnosable disease prevents the sequelae: in a prospective cohort, women with biopsy-defined subclinical PID had a 40% lower incidence of pregnancy despite receiving treatment for their gonococcal, chlamydial or bacterial-vaginosis infection, while women with those infections but without subclinical PID were not at increased risk. Most tubal factor infertility therefore arises along a route that current care does not intercept.
 </div>
 
@@ -6728,6 +6778,7 @@ This pathophysiological event occurs in endometrium (UBERON:0001295). UBERON:000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tubal-factor-infertility" data-dismech-node="Tubal Factor Infertility" data-dismech-type="pathophysiology">
                 <div class="item-name">Tubal Factor Infertility</div>
 
+
                 <div class="item-desc">Inability to conceive attributable to tubal damage. Risk rises with the number and severity of PID episodes, which is the clearest available evidence that the lesion is cumulative rather than all-or-none.
 </div>
 
@@ -6812,6 +6863,7 @@ This pathophysiological event occurs in fallopian tube (UBERON:0003889). UBERON:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ectopic-implantation" data-dismech-node="Ectopic Implantation" data-dismech-type="pathophysiology">
                 <div class="item-name">Ectopic Implantation</div>
 
+
                 <div class="item-desc">Implantation of the conceptus in the damaged tube. The Westrom cohort puts the ectopic rate for the first pregnancy after laparoscopically verified PID at 9.1% against 1.4% in laparoscopy-normal controls, an approximately sixfold excess. This node is the point of contact between this entry and the separate Ectopic Pregnancy entry, which models the implantation event itself.
 </div>
 
@@ -6895,6 +6947,7 @@ This pathophysiological event occurs in fallopian tube (UBERON:0003889). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-pelvic-pain" data-dismech-node="Chronic Pelvic Pain" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic Pelvic Pain</div>
+
 
                 <div class="item-desc">Persistent pelvic pain after the acute episode, the most common long-term complaint and the one least well explained mechanistically. It is frequent enough after PID to be a defining sequela — 42% among women with endometrial M. genitalium in the PEACH substudy — yet no node in this pathograph accounts for it in mechanistic terms, which is recorded as a knowledge gap rather than papered over.
 </div>
@@ -6984,6 +7037,7 @@ This pathophysiological event occurs in fallopian tube (UBERON:0003889). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-delayed-presentation-and-treatment" data-dismech-node="Delayed Presentation and Treatment" data-dismech-type="pathophysiology">
                 <div class="item-name">Delayed Presentation and Treatment</div>
+
 
                 <div class="item-desc">The interval between symptom onset and effective therapy, curated as a node rather than as context because it is the strongest modifiable determinant of outcome in this disease and because it acts on the pathograph — it lengthens the period during which the inflammatory lesion accumulates. Delay is driven by the nonspecific clinical picture and by the absence of any validated noninvasive diagnostic test.
 </div>

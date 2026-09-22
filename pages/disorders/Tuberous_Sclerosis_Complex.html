@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -5099,6 +5138,7 @@ This subtype is caused by variation in TSC1 (hgnc:12362). hgnc:12362 is a gene f
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tsc1-tsc2-loss-of-function-germline-first-hit" data-dismech-node="TSC1/TSC2 Loss of Function (Germline First Hit)" data-dismech-type="pathophysiology">
                 <div class="item-name">TSC1/TSC2 Loss of Function (Germline First Hit)</div>
 
+
                 <div class="item-desc">Heterozygous loss-of-function variants in TSC1 (hamartin) or TSC2 (tuberin) disrupt the TSC1/TSC2 protein complex, which normally functions as a GTPase-activating protein (GAP) for the small GTPase RHEB. The germline pathogenic variant constitutes the &#34;first hit&#34; in a Knudson two-hit model; by itself it produces haploinsufficiency but typical hamartomatous lesions require a somatic second hit at the TSC locus.
 </div>
 
@@ -5401,6 +5441,7 @@ This pathophysiological event involves decreased negative regulation of TORC1 si
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tsc2-gap-domain-catalytic-loss" data-dismech-node="TSC2 GAP Domain Catalytic Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">TSC2 GAP Domain Catalytic Loss</div>
 
+
                 <div class="item-desc">Cryo-EM structural studies of the human TSC complex show it assembles as an arch-shaped 2:2:1 (TSC1:TSC2:TBC1D7) heteropentamer in which a parallel TSC1 coiled-coil dimer packs against a tail-to-tail TSC2 dimer, with a single TBC1D7 bound to the TSC1 C-terminal helices (TBC1D7 makes no direct contact with TSC2 and sits far from the central core, consistent with an auxiliary role). The two TSC2 GAP domains are cradled within the core module formed by the TSC2 dimerization domain and the TSC1 central coiled-coil, and directly contact RHEB: an asparagine &#34;thumb&#34; (N1643) in the TSC2 GAP domain stabilizes the gamma-phosphate of GTP-bound RHEB and accelerates RHEB GTP hydrolysis. TSC1 contributes no catalytic residues to this reaction; its coiled-coil region instead scaffolds and stabilizes the complex. Pathogenic variants disrupting the TSC2 GAP domain or its RHEB-contacting residues therefore abolish RHEB-GAP catalysis directly. Note this is a candidate structural contribution to — not a complete explanation of — the observed TSC2-over-TSC1 severity gradient, which is also shaped by TSC2&#39;s larger mutational target size, its higher burden of truncating alleles, the rarity of pathogenic TSC1 missense variants, and ascertainment differences; TSC1 loss also destabilizes TSC2 and abolishes complex GAP activity in vivo.
 </div>
 
@@ -5606,6 +5647,7 @@ This pathophysiological event involves GTPase activator activity (GO:0005096). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-somatic-second-hit-at-tsc-locus" data-dismech-node="Somatic Second Hit at TSC Locus" data-dismech-type="pathophysiology">
                 <div class="item-name">Somatic Second Hit at TSC Locus</div>
+
 
                 <div class="item-desc">Loss of the wild-type TSC1 or TSC2 allele (loss of heterozygosity, LOH) or an acquired pathogenic variant in lesion precursor cells results in biallelic inactivation of the TSC complex and full release of RHEB-GTPase inhibition. The two-hit model accounts for the focal nature of hamartomas (cortical tubers, angiomyolipomas, SEGAs, rhabdomyomas, LAM) despite a germline heterozygous mutation. Approximately 10-15% of clinically definite TSC cases have no germline pathogenic variant identified, with low-level somatic mosaicism postulated as the underlying mechanism. The requirement for a second hit is well established for the classic hamartomas but is not universal across lesion classes: mesenchymal tumorigenesis in the TSC2+/- mouse proceeds from haploinsufficiency alone and is HMGA2- rather than mTOR-dependent, with mTOR pathway activation detectable in only half of the corresponding human tumours.
 </div>
@@ -5820,6 +5862,7 @@ This pathophysiological event involves TSC2 (hgnc:12363). hgnc:12363 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-constitutive-mtorc1-hyperactivation" data-dismech-node="Constitutive mTORC1 Hyperactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">Constitutive mTORC1 Hyperactivation</div>
+
 
                 <div class="item-desc">Loss of TSC1/TSC2 GAP activity allows persistent RHEB-GTP loading at the lysosomal membrane, leading to constitutive activation of mTORC1 kinase activity. Active mTORC1 phosphorylates downstream effectors (S6K1, 4E-BP1, ULK1, lipin-1, TFEB) that drive translation, anabolic biosynthesis, cell growth, and suppression of autophagy. mTORC1 signalling is constitutively active within all TSC-associated lesions and is the central, druggable pathobiological hub of the disease.
 </div>
@@ -6047,6 +6090,7 @@ This pathophysiological event involves increased positive regulation of TOR sign
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-translation-and-anabolic-biosynthesis-upregulation" data-dismech-node="Translation and Anabolic Biosynthesis Upregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Translation and Anabolic Biosynthesis Upregulation</div>
+
 
                 <div class="item-desc">Hyperactive mTORC1 phosphorylates S6K1 and 4E-BP1, releasing eIF4E and enabling cap-dependent translation initiation, ribosome biogenesis, and cell growth. mTORC1 also stimulates de novo lipid biosynthesis (SREBP1, lipin-1) and nucleotide synthesis. The net effect is upregulation of anabolic metabolism and excessive cell growth — the cell-biological basis of hamartoma expansion.
 </div>
@@ -6291,6 +6335,7 @@ This pathophysiological event involves increased cell growth (GO:0016049). GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-autophagy-suppression" data-dismech-node="Autophagy Suppression" data-dismech-type="pathophysiology">
                 <div class="item-name">Autophagy Suppression</div>
 
+
                 <div class="item-desc">Active mTORC1 phosphorylates ULK1 (Ser757) to block autophagosome initiation and phosphorylates TFEB to retain it in the cytoplasm, blunting lysosomal biogenesis. Reduced autophagic flux leads to accumulation of damaged organelles and metabolic stress in TSC-deficient cells, contributing to dysplastic phenotypes and tuber formation. Autophagy suppression also underlies sensitivity to mTOR inhibitor therapy.
 </div>
 
@@ -6406,6 +6451,7 @@ This pathophysiological event involves increased negative regulation of autophag
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mtor-driven-multisystem-hamartoma-growth" data-dismech-node="mTOR-Driven Multisystem Hamartoma Growth" data-dismech-type="pathophysiology">
                 <div class="item-name">mTOR-Driven Multisystem Hamartoma Growth</div>
+
 
                 <div class="item-desc">Constitutive mTORC1 activity increases anabolic growth programs and cell population expansion. The shared consequence is hamartomatous or dysplastic lesion formation in the brain, kidney, skin, heart, and lung, with each organ producing a characteristic downstream clinical phenotype.
 </div>
@@ -6719,6 +6765,7 @@ This pathophysiological event occurs in skin, annotated with skin of body (UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuroglial-dysplasia-and-cortical-network-disorganization" data-dismech-node="Neuroglial Dysplasia and Cortical Network Disorganization" data-dismech-type="pathophysiology">
                 <div class="item-name">Neuroglial Dysplasia and Cortical Network Disorganization</div>
+
 
                 <div class="item-desc">Brain mTORC1 hyperactivation disrupts neuronal and glial differentiation, radial migration, and dendritic morphology, producing cortical tubers, radial migration lines, and dysmorphic giant neurons. These lesions and network abnormalities provide the pathophysiologic bridge from TSC1/TSC2 mutation to infantile spasms, drug-resistant focal seizures, and TSC-associated neuropsychiatric disorders (TAND).
 </div>
@@ -7104,6 +7151,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mtor-driven-gliopathy-and-neurovascular-unit-dysfunction" data-dismech-node="mTOR-Driven Gliopathy and Neurovascular Unit Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">mTOR-Driven Gliopathy and Neurovascular Unit Dysfunction</div>
+
 
                 <div class="item-desc">Alongside the neuron-centred account of TSC brain disease, mTORC1 hyperactivation produces a distinct, non-neuronal &#34;gliopathy&#34; arm. mTORC1 hyperactivity biases neural precursors toward gliogenesis (contributing to the glial excess within tubers); astrocytes become reactive, proliferative and proinflammatory while losing homeostatic ion- and neurotransmitter-handling functions; oligodendrocyte lineage cells mature abnormally, giving hypomyelination and impaired remyelination; NG2 glia and microglia are also altered. The same mTOR-dependent lesion extends to the neurovascular unit: a human iPSC-derived, microfluidic blood-brain-barrier model built from TSC-mutant cells is abnormally permeable, and the defect is corrected either by supplying wild-type astrocytes or by rapamycin, showing the barrier phenotype is astrocyte-dependent and mTOR-dependent rather than a fixed structural consequence of the mutation. This node captures the glial and neurovascular contribution to epileptogenesis and to the cognitive/behavioural comorbidities of TAND, which the dysplasia node above does not.
 </div>
@@ -7554,6 +7602,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-subependymal-glioneuronal-tumor-growth" data-dismech-node="Subependymal Glioneuronal Tumor Growth" data-dismech-type="pathophysiology">
                 <div class="item-name">Subependymal Glioneuronal Tumor Growth</div>
 
+
                 <div class="item-desc">mTOR-driven growth along the ventricular subependymal region produces subependymal nodules; a subset enlarge into subependymal giant cell astrocytomas that may obstruct cerebrospinal fluid flow.
 </div>
 
@@ -7735,6 +7784,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-renal-angiomyolipoma-growth" data-dismech-node="Renal Angiomyolipoma Growth" data-dismech-type="pathophysiology">
                 <div class="item-name">Renal Angiomyolipoma Growth</div>
+
 
                 <div class="item-desc">Constitutive mTORC1 signalling in renal tumour cells (perivascular epithelioid cell, PEC, lineage) expands vascular, smooth-muscle-like, and adipocytic lesion components, producing renal angiomyolipomas. Lesions &gt;4 cm risk haemorrhage. Cystic lesions and a small minority of renal cell carcinomas also arise from mTOR-driven proliferation in renal epithelium.
 </div>
@@ -8079,6 +8129,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cutaneous-fibrovascular-hamartoma-formation" data-dismech-node="Cutaneous Fibrovascular Hamartoma Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Cutaneous Fibrovascular Hamartoma Formation</div>
 
+
                 <div class="item-desc">mTORC1-driven growth dysregulation in skin stromal, vascular, and melanocyte compartments produces a spectrum of cutaneous lesions: facial angiofibromas, fibrous cephalic plaques, ungual/subungual fibromas, shagreen patches (connective-tissue nevi), hypomelanotic macules, and confetti-like hypopigmented macules.
 </div>
 
@@ -8416,6 +8467,7 @@ This pathophysiological event occurs in skin, annotated with skin of body (UBERO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiac-rhabdomyoma-formation" data-dismech-node="Cardiac Rhabdomyoma Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiac Rhabdomyoma Formation</div>
 
+
                 <div class="item-desc">During fetal and early postnatal life, mTORC1-driven growth dysregulation in fetal cardiomyocytes produces benign rhabdomyomas; these are typically multiple, often detectable prenatally on fetal echocardiography, and are the earliest TSC manifestation. Most rhabdomyomas regress spontaneously during childhood as cardiomyocyte proliferative capacity wanes; large or multiple lesions can cause hydrops fetalis, arrhythmias, or outflow obstruction.
 </div>
 
@@ -8704,6 +8756,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-retinal-hamartoma-formation" data-dismech-node="Retinal Hamartoma Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Retinal Hamartoma Formation</div>
 
+
                 <div class="item-desc">mTORC1 hyperactivation in retinal glia produces nodular astrocytic hamartomas and achromic patches in the retina. Retinal hamartomas are typically asymptomatic but contribute to TSC&#39;s clinical diagnostic criteria and confirm CNS dissemination of the mTOR-driven lesion process.
 </div>
 
@@ -8839,6 +8892,7 @@ This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pulmonary-lymphangioleiomyomatosis-growth" data-dismech-node="Pulmonary Lymphangioleiomyomatosis Growth" data-dismech-type="pathophysiology">
                 <div class="item-name">Pulmonary Lymphangioleiomyomatosis Growth</div>
+
 
                 <div class="item-desc">In the lung, mTOR pathway activation supports proliferation of smooth-muscle-like LAM cells and cystic remodeling, producing pulmonary lymphangioleiomyomatosis and reduced pulmonary function. Not all of the relevant mTOR signalling runs through mTORC1: in TSC2-deficient LAM cells an estradiol-driven COX-2/prostaglandin arm is regulated by mTORC2 and is not suppressed by rapamycin, which is one candidate explanation for the striking female predominance of LAM and for the incompleteness of the rapalogue response.
 </div>
@@ -12347,6 +12401,9 @@ This disease-associated gene is TSC1 (hgnc:12362). hgnc:12362 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (7 references)
@@ -12473,6 +12530,9 @@ This disease-associated gene is TSC2 (hgnc:12363). hgnc:12363 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (5 references)
@@ -12571,6 +12631,9 @@ This disease-associated gene is TSC2 (hgnc:12363). hgnc:12363 is a gene from the
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Mosaic Pathogenic Variants)</span>
 
                 </div>
+
+
+
 
 
 
