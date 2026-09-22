@@ -64,6 +64,7 @@ Usage
     python scripts/check_enum_values.py                    # gate: fail on any finding
     python scripts/check_enum_values.py kb/disorders/Asthma.yaml
 """
+
 from __future__ import annotations
 
 import argparse
@@ -88,6 +89,7 @@ TARGETS: tuple[tuple[str, tuple[str, ...]], ...] = (
         (
             "kb/disorders/**/*.yaml",
             "kb/modules/**/*.yaml",
+            "kb/module_collections/**/*.yaml",
             "kb/comorbidities/**/*.yaml",
             "kb/groupings/**/*.yaml",
             "kb/surrogate_endpoints/**/*.yaml",
@@ -135,9 +137,15 @@ def find_violations(data: object, tracked: dict[str, set[str]], path: str = ""):
         for key, value in data.items():
             location = f"{path}.{key}" if path else key
             if key in tracked:
-                for index, item in enumerate(value if isinstance(value, list) else [value]):
+                for index, item in enumerate(
+                    value if isinstance(value, list) else [value]
+                ):
                     if isinstance(item, str) and item not in tracked[key]:
-                        where = f"{location}[{index}]" if isinstance(value, list) else location
+                        where = (
+                            f"{location}[{index}]"
+                            if isinstance(value, list)
+                            else location
+                        )
                         yield where, key, item
             yield from find_violations(value, tracked, location)
     elif isinstance(data, list):

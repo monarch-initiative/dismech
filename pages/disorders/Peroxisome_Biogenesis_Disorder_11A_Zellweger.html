@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,18 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4112,6 +4189,7 @@ Two features are relatively specific to this locus. Import failure at the dockin
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4136,6 +4214,7 @@ Two features are relatively specific to this locus. Import failure at the dockin
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4157,6 +4236,7 @@ Two features are relatively specific to this locus. Import failure at the dockin
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4258,6 +4338,7 @@ Two things do differ, and both are cell-biological rather than clinical. First, 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4452,6 +4533,7 @@ The gap is between that and a patient. The one human observation that points the
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4531,6 +4613,7 @@ The gap is between that and a patient. The one human observation that points the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4555,6 +4638,7 @@ The gap is between that and a patient. The one human observation that points the
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4576,6 +4660,7 @@ The gap is between that and a patient. The one human observation that points the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4614,6 +4699,13 @@ The gap is between that and a patient. The one human observation that points the
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-pex13-loss-of-function" data-dismech-node="Biallelic PEX13 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic PEX13 Loss of Function</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Variants on both PEX13 alleles. The reported allelic spectrum spans whole-gene deletion, frameshift, nonsense and missense alleles. Where an allele sits along the protein matters more than its class: p.Trp234Ter truncates before the third transmembrane helix and the entire SH3 domain and gives classical Zellweger syndrome, while p.Ile326Thr, a temperature-sensitive missense change inside the SH3 domain, gives the milder NALD presentation. Missense is therefore not a mild class here - the p.Ala165Pro allele is also lethal in infancy.</div>
 
 
@@ -4631,6 +4723,8 @@ The gap is between that and a patient. The one human observation that points the
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4641,6 +4735,9 @@ The gap is between that and a patient. The one human observation that points the
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4724,6 +4821,7 @@ This pathophysiological event involves decreased SH3 domain binding (GO:0017124)
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4745,6 +4843,7 @@ This pathophysiological event involves decreased SH3 domain binding (GO:0017124)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4772,6 +4871,7 @@ This pathophysiological event involves decreased SH3 domain binding (GO:0017124)
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4796,6 +4896,13 @@ This pathophysiological event involves decreased SH3 domain binding (GO:0017124)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-pex13-pex14-docking-complex" data-dismech-node="Disrupted PEX13-PEX14 Docking Complex" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted PEX13-PEX14 Docking Complex</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">PEX13 and PEX14 together form the docking complex of the peroxisomal membrane, the module that receives cargo-loaded PEX5 and PEX7. PEX13 also self-associates within peroxisomes, and modelling of the recurrent p.Arg294Trp allele predicts that it destabilises the dimer and with it the whole PEX13/PEX14 translocation module. Loss of self-association is not the same lesion as loss of PEX14 binding: the conserved SH3 tryptophan W313 is required for PEX13 homooligomerisation but dispensable for the PEX14 interaction, so an allele can break one and spare the other.
 The human module is not simply the yeast one. In yeast the Pex13 SH3 domain binds a polyproline PxxP motif in Pex14; in humans that surface does not recognise PEX14 PxxP motifs at all. Instead PEX14 binding is mediated by an FxxxF motif C-terminal to the SH3 domain, and the same FxxxF motif folds back onto the SH3 domain intramolecularly and regulates how PEX5 WxxxF/Y motifs bind there. So the docking module carries its own autoregulatory switch, and the textbook yeast model should not be carried across.</div>
@@ -4945,6 +5052,7 @@ This pathophysiological event involves peroxisomal membrane (GO:0005778). GO:000
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4966,6 +5074,7 @@ This pathophysiological event involves peroxisomal membrane (GO:0005778). GO:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4993,6 +5102,7 @@ This pathophysiological event involves peroxisomal membrane (GO:0005778). GO:000
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5017,6 +5127,13 @@ This pathophysiological event involves peroxisomal membrane (GO:0005778). GO:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-pts1-and-pts2-receptor-docking" data-dismech-node="Failure of PTS1 and PTS2 Receptor Docking" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of PTS1 and PTS2 Receptor Docking</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">PEX5 carries PTS1-tagged matrix enzymes and PEX7 carries PTS2-tagged ones; both must dock at the membrane before their cargo can be translocated. The PEX13 SH3 domain is the PEX5 docking site, so losing it stalls the cycle before unloading rather than after it. Both cargo classes are affected in vivo, but they are not equally sensitive: interrupting PEX13 homooligomerisation specifically disrupts PTS1 import.</div>
 
@@ -5126,6 +5243,7 @@ This pathophysiological event involves decreased protein import into peroxisome 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5147,6 +5265,7 @@ This pathophysiological event involves decreased protein import into peroxisome 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5174,6 +5293,7 @@ This pathophysiological event involves decreased protein import into peroxisome 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5196,6 +5316,13 @@ This pathophysiological event involves decreased protein import into peroxisome 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-collapse-of-peroxisomal-matrix-protein-import" data-dismech-node="Collapse of Peroxisomal Matrix Protein Import" data-dismech-type="pathophysiology">
                 <div class="item-name">Collapse of Peroxisomal Matrix Protein Import</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Matrix enzymes never reach the organelle. The membrane compartment still forms - the &#34;peroxisomal ghost&#34; - which is the morphological signature distinguishing a biogenesis defect from a single enzyme deficiency. In PEX13 patient fibroblasts the residual peroxisome population is both reduced in number and abnormal in PEX13 content.</div>
 
@@ -5362,6 +5489,7 @@ This pathophysiological event involves peroxisomal matrix (GO:0005782). GO:00057
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5383,6 +5511,7 @@ This pathophysiological event involves peroxisomal matrix (GO:0005782). GO:00057
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5408,6 +5537,13 @@ This pathophysiological event involves peroxisomal matrix (GO:0005782). GO:00057
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-accumulation-of-very-long-chain-and-branched-chain-fatty-acids" data-dismech-node="Accumulation of Very-Long-Chain and Branched-Chain Fatty Acids" data-dismech-type="pathophysiology">
                 <div class="item-name">Accumulation of Very-Long-Chain and Branched-Chain Fatty Acids</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Substrates that only peroxisomes degrade build up systemically: C26:0 and other VLCFA, phytanic and pristanic acid, pipecolic acid, and C27 bile-acid intermediates. This is the accumulation half of the biochemical signature and the basis of diagnostic testing.</div>
 
@@ -5579,6 +5715,7 @@ This pathophysiological event involves decreased bile acid biosynthetic process 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5600,6 +5737,7 @@ This pathophysiological event involves decreased bile acid biosynthetic process 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5625,6 +5763,13 @@ This pathophysiological event involves decreased bile acid biosynthetic process 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-plasmalogen-deficiency" data-dismech-node="Plasmalogen Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Plasmalogen Deficiency</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Ether phospholipid synthesis begins in the peroxisome, so plasmalogens - major constituents of myelin - and DHA are not made. This is the deficiency half of the signature and the one most plausibly linked to the white-matter disease. In the brain-restricted PEX13 mouse it is the half that is present: plasmalogens fall while VLCFA stay normal, which dissociates the two arms of the biochemical lesion.</div>
 
@@ -5734,6 +5879,7 @@ This pathophysiological event involves decreased ether lipid biosynthetic proces
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5756,6 +5902,13 @@ This pathophysiological event involves decreased ether lipid biosynthetic proces
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-secondary-mitochondrial-dysfunction" data-dismech-node="Secondary Mitochondrial Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Secondary Mitochondrial Dysfunction</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">PEX13 patient muscle and fibroblasts show respiratory-chain abnormalities and mislocalised mitochondria alongside the peroxisomal defect, and Pex13-null cerebellar neurons show mitochondrial dysfunction with elevated reactive oxygen species. Whether this is a driver of the neuronal loss or a downstream consequence of it is the open question; it is curated as PROVISIONAL because the observations are consistent across human tissue and mouse neurons but the causal direction has not been tested.</div>
 
@@ -5899,6 +6052,7 @@ This pathophysiological event involves increased reactive oxygen species metabol
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5920,6 +6074,7 @@ This pathophysiological event involves increased reactive oxygen species metabol
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5947,6 +6102,7 @@ This pathophysiological event involves increased reactive oxygen species metabol
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5971,6 +6127,13 @@ This pathophysiological event involves increased reactive oxygen species metabol
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pexophagy-of-import-incompetent-peroxisomes" data-dismech-node="Pexophagy of Import-Incompetent Peroxisomes" data-dismech-type="pathophysiology">
                 <div class="item-name">Pexophagy of Import-Incompetent Peroxisomes</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Losing PEX13 does not only stop peroxisomes being filled - it appears to mark them for destruction. In edited cells and in zebrafish, PEX13 loss causes ubiquitinated PEX5 to accumulate on the peroxisomal membrane and peroxisome-derived reactive oxygen species to rise, and together those two signals induce pexophagy of peroxisomes that would otherwise be healthy. If it operates in patients it would compound the import block, because the residual organelle population is being cleared as well as being left empty - which is consistent with the reduced peroxisome number found in PEX13 patient fibroblasts.
 Curated as PROVISIONAL, not ESTABLISHED: the mechanism is demonstrated in cell lines and zebrafish, and no measurement in a PEX13 patient ties pexophagy to any clinical feature.</div>
@@ -6082,6 +6245,7 @@ This pathophysiological event involves increased protein ubiquitination (GO:0016
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6103,6 +6267,7 @@ This pathophysiological event involves increased protein ubiquitination (GO:0016
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6132,6 +6297,7 @@ This pathophysiological event involves increased protein ubiquitination (GO:0016
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6154,6 +6320,13 @@ This pathophysiological event involves increased protein ubiquitination (GO:0016
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-neuronal-migration-and-neurogenesis" data-dismech-node="Impaired Neuronal Migration and Neurogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Neuronal Migration and Neurogenesis</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Neuronal precursors fail to proliferate, migrate and mature normally during fetal brain development, producing a congenital malformation rather than a purely degenerative lesion. Because the lesion forms before birth, it is not reversible by any postnatal intervention. The PEX13 mouse adds cerebellar detail to the cortical picture - impaired granule cell migration and Purkinje layer formation - with astrogliosis and microgliosis as prominent accompaniments.</div>
 
@@ -6362,6 +6535,7 @@ This pathophysiological event involves microglial cell (CL:0000129). CL:0000129 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6383,6 +6557,7 @@ This pathophysiological event involves microglial cell (CL:0000129). CL:0000129 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6410,6 +6585,7 @@ This pathophysiological event involves microglial cell (CL:0000129). CL:0000129 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6432,6 +6608,13 @@ This pathophysiological event involves microglial cell (CL:0000129). CL:0000129 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-hepatic-injury" data-dismech-node="Progressive Hepatic Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Hepatic Injury</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">VLCFA and C27 bile-acid intermediates are directly hepatotoxic, driving cholestasis and fibrosis. Hepatic dysfunction was part of the presenting picture in the reported severe PEX13 cases.</div>
 
@@ -6504,6 +6687,7 @@ This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6526,6 +6710,13 @@ This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-adrenocortical-insufficiency" data-dismech-node="Adrenocortical Insufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Adrenocortical Insufficiency</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">VLCFA accumulation in adrenocortical cells impairs steroidogenesis. Often subclinical at first, which is why GeneReviews asks for ACTH and cortisol measurement by age one even in children who look adrenally well.</div>
 
@@ -6598,6 +6789,7 @@ This pathophysiological event involves cortical cell of adrenal gland (CL:000209
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6620,6 +6812,13 @@ This pathophysiological event involves cortical cell of adrenal gland (CL:000209
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-severe-neurodevelopmental-impairment" data-dismech-node="Severe Neurodevelopmental Impairment" data-dismech-type="pathophysiology">
                 <div class="item-name">Severe Neurodevelopmental Impairment</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Profound hypotonia, neonatal seizures, and absent or regressing developmental progress. In the severe form death usually follows in infancy; the molecularly confirmed PEX13 cases at this end of the spectrum died at 14 months and in the neonatal period respectively.</div>
 
@@ -6678,6 +6877,7 @@ This pathophysiological event involves cortical cell of adrenal gland (CL:000209
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6699,6 +6899,7 @@ This pathophysiological event involves cortical cell of adrenal gland (CL:000209
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6747,7 +6948,7 @@ This pathophysiological event involves cortical cell of adrenal gland (CL:000209
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Accumulation of Very-Long-Chain and Branched-Chain Fatty Acids\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Substrates that only peroxisomes degrade build up systemically: C26:0 and other VLCFA, phytanic and pristanic acid, pipecolic acid, and C27 bile-acid intermediates. This is the accumulation half of the biochemical signature and the basis of diagnostic testing.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"very long-chain fatty acid beta-oxidation\", \"fatty acid alpha-oxidation\", \"bile acid biosynthetic process\"]}}, {\"id\": \"Adrenal Replacement Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Glucocorticoid replacement where adrenal insufficiency is documented. GeneReviews asks for ACTH and cortisol by age one and annually thereafter, because the insufficiency is often subclinical when it starts. The screening and the treating are deliberately separate steps: cortisone carries its own harms - growth suppression, osteoporosis - so the recommendation is to screen everyone and treat only those with a demonstrated insufficiency on Synacthen testing, not to supplement on suspicion.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"hydrocortisone\"]}}, {\"id\": \"Adrenocortical Insufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"VLCFA accumulation in adrenocortical cells impairs steroidogenesis. Often subclinical at first, which is why GeneReviews asks for ACTH and cortisol measurement by age one even in children who look adrenally well.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cortical cell of adrenal gland\"]}}, {\"id\": \"Anti-Seizure Medication\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Seizure control in an epilepsy that arises from a fixed cortical malformation, so the aim is symptomatic control rather than modification of the underlying lesion.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"anticonvulsant agent\"]}}, {\"id\": \"Biallelic PEX13 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Variants on both PEX13 alleles. The reported allelic spectrum spans whole-gene deletion, frameshift, nonsense and missense alleles. Where an allele sits along the protein matters more than its class: p.Trp234Ter truncates before the third transmembrane helix and the entire SH3 domain and gives classical Zellweger syndrome, while p.Ile326Thr, a temperature-sensitive missense change inside the SH3 domain, gives the milder NALD presentation. Missense is therefore not a mild class here - the p.Ala165Pro allele is also lethal in infancy.\", \"meta\": {\"evidence_count\": 4, \"molecular_functions\": [\"SH3 domain binding\"], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\"}}}, {\"id\": \"Brain-restricted Pex13 conditional mouse (Nestin-Cre)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Built to escape the neonatal lethality of the ubiquitous null. Most animals survive to about 35 days, which opens the postnatal cerebellar and glial phenotype to study. It is also the model that dissociates the two arms of the biochemical lesion.\"}, {\"id\": \"C26:0-lysophosphatidylcholine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Increased\", \"readouts\": [{\"target\": \"Accumulation of Very-Long-Chain and Branched-Chain Fatty Acids\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated dried-blood-spot C26:0-lysoPC reports peroxisomal beta-oxidation failure.\"}]}}, {\"id\": \"Cholic Acid\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Oral cholic acid restores feedback inhibition of endogenous bile acid synthesis, so the hepatotoxic C27 intermediates that peroxisome-deficient hepatocytes cannot process stop accumulating. It is the only FDA-approved therapy for Zellweger spectrum disease and the only intervention in this entry that acts on a curated mechanism node rather than on a consequence. The trial evidence is spectrum-wide; no PEX13 patient has been reported on it, so its use here is by extension from the shared biochemical lesion.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"cholic acid\"]}}, {\"id\": \"Collapse of Peroxisomal Matrix Protein Import\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Matrix enzymes never reach the organelle. The membrane compartment still forms - the \\\"peroxisomal ghost\\\" - which is the morphological signature distinguishing a biogenesis defect from a single enzyme deficiency. In PEX13 patient fibroblasts the residual peroxisome population is both reduced in number and abnormal in PEX13 content.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"protein import into peroxisome matrix\", \"peroxisome organization\"]}}, {\"id\": \"Disrupted PEX13-PEX14 Docking Complex\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PEX13 and PEX14 together form the docking complex of the peroxisomal membrane, the module that receives cargo-loaded PEX5 and PEX7. PEX13 also self-associates within peroxisomes, and modelling of the recurrent p.Arg294Trp allele predicts that it destabilises the dimer and with it the whole PEX13/PEX14 translocation module. Loss of self-association is not the same lesion as loss of PEX14 binding: the conserved SH3 tryptophan W313 is required for PEX13 homooligomerisation but dispensable for the PEX14 interaction, so an allele can break one and spare the other.\\nThe human module is not simply the yeast one. In yeast the Pex13 SH3 domain binds a polyproline PxxP motif in Pex14; in humans that surface does not recognise PEX14 PxxP motifs at all. Instead PEX14 binding is mediated by an FxxxF motif C-terminal to the SH3 domain, and the same FxxxF motif folds back onto the SH3 domain intramolecularly and regulates how PEX5 WxxxF/Y motifs bind there. So the docking module carries its own autoregulatory switch, and the textbook yeast model should not be carried across.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"protein homooligomerization\"], \"molecular_functions\": [\"SH3 domain binding\"]}}, {\"id\": \"Failure of PTS1 and PTS2 Receptor Docking\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PEX5 carries PTS1-tagged matrix enzymes and PEX7 carries PTS2-tagged ones; both must dock at the membrane before their cargo can be translocated. The PEX13 SH3 domain is the PEX5 docking site, so losing it stalls the cycle before unloading rather than after it. Both cargo classes are affected in vivo, but they are not equally sensitive: interrupting PEX13 homooligomerisation specifically disrupts PTS1 import.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"protein import into peroxisome matrix, docking\"], \"animal_models\": [{\"name\": \"Pex13-null mouse (ubiquitous Cre)\", \"species\": \"Mouse\", \"genotype\": \"Pex13 conditional (loxP) allele, ubiquitous Cre-mediated inactivation, homozygous\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Reproduces the import block for both cargo classes, confirming that the docking peroxin is required for PTS1 and PTS2 routes alike.\"}]}}, {\"id\": \"Impaired Neuronal Migration and Neurogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neuronal precursors fail to proliferate, migrate and mature normally during fetal brain development, producing a congenital malformation rather than a purely degenerative lesion. Because the lesion forms before birth, it is not reversible by any postnatal intervention. The PEX13 mouse adds cerebellar detail to the cortical picture - impaired granule cell migration and Purkinje layer formation - with astrogliosis and microgliosis as prominent accompaniments.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neuron\", \"radial glial cell\", \"astrocyte\", \"microglial cell\"], \"animal_models\": [{\"name\": \"Pex13-null mouse (ubiquitous Cre)\", \"species\": \"Mouse\", \"genotype\": \"Pex13 conditional (loxP) allele, ubiquitous Cre-mediated inactivation, homozygous\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces the cortical migration defect that is otherwise inferred from human neuropathology.\"}, {\"name\": \"Brain-restricted Pex13 conditional mouse (Nestin-Cre)\", \"species\": \"Mouse\", \"genotype\": \"Pex13 conditional (loxP) allele, brain-restricted Cre-mediated inactivation\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces impaired cerebellar development - fissure and cortical layer formation, granule cell migration, Purkinje cell layer development - with astrogliosis and microgliosis, and separately impaired proliferation and maturation of neural progenitors from E12.5.\"}]}}, {\"id\": \"Pex13-null mouse (ubiquitous Cre)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The definitive whole-animal model of this disease: the orthologous gene, disrupted in every tissue. Unlike the Pex2-null mouse curated on the PBD3A entry, this is a same-gene model rather than a paralogous one.\"}, {\"id\": \"Pexophagy of Import-Incompetent Peroxisomes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Losing PEX13 does not only stop peroxisomes being filled - it appears to mark them for destruction. In edited cells and in zebrafish, PEX13 loss causes ubiquitinated PEX5 to accumulate on the peroxisomal membrane and peroxisome-derived reactive oxygen species to rise, and together those two signals induce pexophagy of peroxisomes that would otherwise be healthy. If it operates in patients it would compound the import block, because the residual organelle population is being cleared as well as being left empty - which is consistent with the reduced peroxisome number found in PEX13 patient fibroblasts.\\nCurated as PROVISIONAL, not ESTABLISHED: the mechanism is demonstrated in cell lines and zebrafish, and no measurement in a PEX13 patient ties pexophagy to any clinical feature.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"autophagy of peroxisome\", \"protein ubiquitination\"]}}, {\"id\": \"Phytanic acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"presence\": \"Increased\", \"term_id\": \"CHEBI:16285\", \"term_label\": \"phytanic acid\", \"readouts\": [{\"target\": \"Accumulation of Very-Long-Chain and Branched-Chain Fatty Acids\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated phytanic acid reports the peroxisomal alpha-oxidation block.\"}]}}, {\"id\": \"Plasmalogen Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ether phospholipid synthesis begins in the peroxisome, so plasmalogens - major constituents of myelin - and DHA are not made. This is the deficiency half of the signature and the one most plausibly linked to the white-matter disease. In the brain-restricted PEX13 mouse it is the half that is present: plasmalogens fall while VLCFA stay normal, which dissociates the two arms of the biochemical lesion.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"ether lipid biosynthetic process\"], \"animal_models\": [{\"name\": \"Brain-restricted Pex13 conditional mouse (Nestin-Cre)\", \"species\": \"Mouse\", \"genotype\": \"Pex13 conditional (loxP) allele, brain-restricted Cre-mediated inactivation\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Plasmalogens fall in the mutant brain, so the deficiency arm is reproduced.\"}]}}, {\"id\": \"Plasmalogens\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"presence\": \"Decreased\", \"term_id\": \"CHEBI:64611\", \"term_label\": \"ether lipid\", \"readouts\": [{\"target\": \"Plasmalogen Deficiency\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Reduced plasmalogens report failed peroxisomal ether lipid synthesis.\"}]}}, {\"id\": \"Progressive Hepatic Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"VLCFA and C27 bile-acid intermediates are directly hepatotoxic, driving cholestasis and fibrosis. Hepatic dysfunction was part of the presenting picture in the reported severe PEX13 cases.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"]}}, {\"id\": \"Secondary Mitochondrial Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PEX13 patient muscle and fibroblasts show respiratory-chain abnormalities and mislocalised mitochondria alongside the peroxisomal defect, and Pex13-null cerebellar neurons show mitochondrial dysfunction with elevated reactive oxygen species. Whether this is a driver of the neuronal loss or a downstream consequence of it is the open question; it is curated as PROVISIONAL because the observations are consistent across human tissue and mouse neurons but the causal direction has not been tested.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"mitochondrion organization\", \"reactive oxygen species metabolic process\"], \"animal_models\": [{\"name\": \"Brain-restricted Pex13 conditional mouse (Nestin-Cre)\", \"species\": \"Mouse\", \"genotype\": \"Pex13 conditional (loxP) allele, brain-restricted Cre-mediated inactivation\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Cerebellar neurons from this line show mitochondrial dysfunction with elevated reactive oxygen species and MnSOD, together with increased apoptosis. The same line also shows an expanded and morphologically altered mitochondrial population in the intact brain, with oxidative damage to neuronal lipid and DNA, so the finding is not confined to culture.\"}]}}, {\"id\": \"Severe Neurodevelopmental Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Profound hypotonia, neonatal seizures, and absent or regressing developmental progress. In the severe form death usually follows in infancy; the molecularly confirmed PEX13 cases at this end of the spectrum died at 14 months and in the neonatal period respectively.\", \"meta\": {\"evidence_count\": 2, \"animal_models\": [{\"name\": \"Pex13-null mouse (ubiquitous Cre)\", \"species\": \"Mouse\", \"genotype\": \"Pex13 conditional (loxP) allele, ubiquitous Cre-mediated inactivation, homozygous\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Reproduces the clinical syndrome, including the perinatal lethality that defines the severe end of the spectrum.\"}]}}, {\"id\": \"Supportive and Symptomatic Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"There is no treatment for the biogenesis defect. Management is entirely symptomatic - gastrostomy feeding, anti-seizure medication, hearing aids, cataract surgery, fat-soluble vitamin and cholic acid supplementation, adrenal replacement. None of it restores peroxisomal import, and the congenital brain malformation is fixed before birth.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Very-long-chain fatty acids\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Increased\", \"term_id\": \"CHEBI:27283\", \"term_label\": \"very long-chain fatty acid\", \"readouts\": [{\"target\": \"Accumulation of Very-Long-Chain and Branched-Chain Fatty Acids\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated VLCFA reports the peroxisomal beta-oxidation block directly.\"}]}}], \"edges\": [{\"source\": \"Biallelic PEX13 Loss of Function\", \"target\": \"Disrupted PEX13-PEX14 Docking Complex\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted PEX13-PEX14 Docking Complex\", \"target\": \"Failure of PTS1 and PTS2 Receptor Docking\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of PTS1 and PTS2 Receptor Docking\", \"target\": \"Collapse of Peroxisomal Matrix Protein Import\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Collapse of Peroxisomal Matrix Protein Import\", \"target\": \"Accumulation of Very-Long-Chain and Branched-Chain Fatty Acids\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Collapse of Peroxisomal Matrix Protein Import\", \"target\": \"Plasmalogen Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Collapse of Peroxisomal Matrix Protein Import\", \"target\": \"Secondary Mitochondrial Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Peroxisomal and mitochondrial beta-oxidation are metabolically coupled and the two organelles share fission machinery, but which of those links carries the effect in PEX13 deficiency is not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Collapse of Peroxisomal Matrix Protein Import\", \"target\": \"Pexophagy of Import-Incompetent Peroxisomes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Import failure leaves ubiquitinated PEX5 on the membrane and raises peroxisomal reactive oxygen species, and both signals induce pexophagy. Shown in edited cells and zebrafish, not in patients.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Accumulation of Very-Long-Chain and Branched-Chain Fatty Acids\", \"target\": \"Progressive Hepatic Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accumulation of Very-Long-Chain and Branched-Chain Fatty Acids\", \"target\": \"Adrenocortical Insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accumulation of Very-Long-Chain and Branched-Chain Fatty Acids\", \"target\": \"Impaired Neuronal Migration and Neurogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Peroxisomal failure demonstrably disrupts cortical migration, but which accumulating substrate or missing lipid does it is not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Plasmalogen Deficiency\", \"target\": \"Impaired Neuronal Migration and Neurogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Secondary Mitochondrial Dysfunction\", \"target\": \"Impaired Neuronal Migration and Neurogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neuronal Migration and Neurogenesis\", \"target\": \"Severe Neurodevelopmental Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Supportive and Symptomatic Management\", \"target\": \"Severe Neurodevelopmental Impairment\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Cholic Acid\", \"target\": \"Accumulation of Very-Long-Chain and Branched-Chain Fatty Acids\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Cholic Acid\", \"target\": \"Progressive Hepatic Injury\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Adrenal Replacement Therapy\", \"target\": \"Adrenocortical Insufficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Anti-Seizure Medication\", \"target\": \"Impaired Neuronal Migration and Neurogenesis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Pex13-null mouse (ubiquitous Cre)\", \"target\": \"Failure of PTS1 and PTS2 Receptor Docking\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces the import block for both cargo classes, confirming that the docking peroxin is required for PTS1 and PTS2 routes alike.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The model is a null. Most human PEX13 alleles - including the recurrent p.Arg294Trp - are missense and may retain partial docking function, so the null does not model the residual-function biology that separates 11A from 11B.\"}, {\"source\": \"Pex13-null mouse (ubiquitous Cre)\", \"target\": \"Severe Neurodevelopmental Impairment\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces the clinical syndrome, including the perinatal lethality that defines the severe end of the spectrum.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Death is neonatal, so the postnatal course seen in longer-surviving human infants - the sensory loss, the progressive white-matter disease, the developmental regression - cannot be observed in this model. The brain-restricted conditional was made for that reason.\"}, {\"source\": \"Pex13-null mouse (ubiquitous Cre)\", \"target\": \"Impaired Neuronal Migration and Neurogenesis\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces the cortical migration defect that is otherwise inferred from human neuropathology.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Mouse cortical development is lissencephalic, so the polymicrogyria seen in human ZSD has no direct counterpart; disordered lamination is the closest available readout.\"}, {\"source\": \"Brain-restricted Pex13 conditional mouse (Nestin-Cre)\", \"target\": \"Impaired Neuronal Migration and Neurogenesis\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces impaired cerebellar development - fissure and cortical layer formation, granule cell migration, Purkinje cell layer development - with astrogliosis and microgliosis, and separately impaired proliferation and maturation of neural progenitors from E12.5.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Peroxisomal function is intact outside the brain, so this model cannot address the hepatic, adrenal or renal disease, and the systemic metabolic milieu of a real patient is absent. Notably VLCFA are normal in the mutant brain, so any phenotype here is attributable to the plasmalogen arm and to local peroxisomal failure rather than to circulating VLCFA.\"}, {\"source\": \"Brain-restricted Pex13 conditional mouse (Nestin-Cre)\", \"target\": \"Secondary Mitochondrial Dysfunction\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Cerebellar neurons from this line show mitochondrial dysfunction with elevated reactive oxygen species and MnSOD, together with increased apoptosis. The same line also shows an expanded and morphologically altered mitochondrial population in the intact brain, with oxidative damage to neuronal lipid and DNA, so the finding is not confined to culture.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"What the model does not settle is direction. Antioxidant treatment rescues mitochondrial superoxide and membrane depolarization in PEX13-deficient fibroblasts, but that rescue has not been run in neurons and carries no survival endpoint, so nothing yet shows that correcting the mitochondrial phenotype prevents the neuronal death.\"}, {\"source\": \"Brain-restricted Pex13 conditional mouse (Nestin-Cre)\", \"target\": \"Plasmalogen Deficiency\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Plasmalogens fall in the mutant brain, so the deficiency arm is reproduced.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Only one arm of the biochemical signature is present - VLCFA are normal - so this model reproduces the plasmalogen lesion without the accumulation lesion that accompanies it in patients.\"}, {\"source\": \"Accumulation of Very-Long-Chain and Branched-Chain Fatty Acids\", \"target\": \"Very-long-chain fatty acids\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated VLCFA reports the peroxisomal beta-oxidation block directly.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Accumulation of Very-Long-Chain and Branched-Chain Fatty Acids\", \"target\": \"Phytanic acid\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated phytanic acid reports the peroxisomal alpha-oxidation block.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Accumulation of Very-Long-Chain and Branched-Chain Fatty Acids\", \"target\": \"C26:0-lysophosphatidylcholine\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated dried-blood-spot C26:0-lysoPC reports peroxisomal beta-oxidation failure.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Plasmalogen Deficiency\", \"target\": \"Plasmalogens\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Reduced plasmalogens report failed peroxisomal ether lipid synthesis.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Accumulation of Very-Long-Chain and Branched-Chain Fatty Acids\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Substrates that only peroxisomes degrade build up systemically: C26:0 and other VLCFA, phytanic and pristanic acid, pipecolic acid, and C27 bile-acid intermediates. This is the accumulation half of the biochemical signature and the basis of diagnostic testing.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"very long-chain fatty acid beta-oxidation\", \"fatty acid alpha-oxidation\", \"bile acid biosynthetic process\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Adrenal Replacement Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Glucocorticoid replacement where adrenal insufficiency is documented. GeneReviews asks for ACTH and cortisol by age one and annually thereafter, because the insufficiency is often subclinical when it starts. The screening and the treating are deliberately separate steps: cortisone carries its own harms - growth suppression, osteoporosis - so the recommendation is to screen everyone and treat only those with a demonstrated insufficiency on Synacthen testing, not to supplement on suspicion.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"hydrocortisone\"]}}, {\"id\": \"Adrenocortical Insufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"VLCFA accumulation in adrenocortical cells impairs steroidogenesis. Often subclinical at first, which is why GeneReviews asks for ACTH and cortisol measurement by age one even in children who look adrenally well.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cortical cell of adrenal gland\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Anti-Seizure Medication\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Seizure control in an epilepsy that arises from a fixed cortical malformation, so the aim is symptomatic control rather than modification of the underlying lesion.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"anticonvulsant agent\"]}}, {\"id\": \"Biallelic PEX13 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Variants on both PEX13 alleles. The reported allelic spectrum spans whole-gene deletion, frameshift, nonsense and missense alleles. Where an allele sits along the protein matters more than its class: p.Trp234Ter truncates before the third transmembrane helix and the entire SH3 domain and gives classical Zellweger syndrome, while p.Ile326Thr, a temperature-sensitive missense change inside the SH3 domain, gives the milder NALD presentation. Missense is therefore not a mild class here - the p.Ala165Pro allele is also lethal in infancy.\", \"meta\": {\"evidence_count\": 4, \"molecular_functions\": [\"SH3 domain binding\"], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\"}, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Brain-restricted Pex13 conditional mouse (Nestin-Cre)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Built to escape the neonatal lethality of the ubiquitous null. Most animals survive to about 35 days, which opens the postnatal cerebellar and glial phenotype to study. It is also the model that dissociates the two arms of the biochemical lesion.\"}, {\"id\": \"C26:0-lysophosphatidylcholine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Increased\", \"readouts\": [{\"target\": \"Accumulation of Very-Long-Chain and Branched-Chain Fatty Acids\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated dried-blood-spot C26:0-lysoPC reports peroxisomal beta-oxidation failure.\"}]}}, {\"id\": \"Cholic Acid\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Oral cholic acid restores feedback inhibition of endogenous bile acid synthesis, so the hepatotoxic C27 intermediates that peroxisome-deficient hepatocytes cannot process stop accumulating. It is the only FDA-approved therapy for Zellweger spectrum disease and the only intervention in this entry that acts on a curated mechanism node rather than on a consequence. The trial evidence is spectrum-wide; no PEX13 patient has been reported on it, so its use here is by extension from the shared biochemical lesion.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"cholic acid\"]}}, {\"id\": \"Collapse of Peroxisomal Matrix Protein Import\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Matrix enzymes never reach the organelle. The membrane compartment still forms - the \\\"peroxisomal ghost\\\" - which is the morphological signature distinguishing a biogenesis defect from a single enzyme deficiency. In PEX13 patient fibroblasts the residual peroxisome population is both reduced in number and abnormal in PEX13 content.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"protein import into peroxisome matrix\", \"peroxisome organization\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Disrupted PEX13-PEX14 Docking Complex\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PEX13 and PEX14 together form the docking complex of the peroxisomal membrane, the module that receives cargo-loaded PEX5 and PEX7. PEX13 also self-associates within peroxisomes, and modelling of the recurrent p.Arg294Trp allele predicts that it destabilises the dimer and with it the whole PEX13/PEX14 translocation module. Loss of self-association is not the same lesion as loss of PEX14 binding: the conserved SH3 tryptophan W313 is required for PEX13 homooligomerisation but dispensable for the PEX14 interaction, so an allele can break one and spare the other.\\nThe human module is not simply the yeast one. In yeast the Pex13 SH3 domain binds a polyproline PxxP motif in Pex14; in humans that surface does not recognise PEX14 PxxP motifs at all. Instead PEX14 binding is mediated by an FxxxF motif C-terminal to the SH3 domain, and the same FxxxF motif folds back onto the SH3 domain intramolecularly and regulates how PEX5 WxxxF/Y motifs bind there. So the docking module carries its own autoregulatory switch, and the textbook yeast model should not be carried across.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"protein homooligomerization\"], \"molecular_functions\": [\"SH3 domain binding\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Failure of PTS1 and PTS2 Receptor Docking\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PEX5 carries PTS1-tagged matrix enzymes and PEX7 carries PTS2-tagged ones; both must dock at the membrane before their cargo can be translocated. The PEX13 SH3 domain is the PEX5 docking site, so losing it stalls the cycle before unloading rather than after it. Both cargo classes are affected in vivo, but they are not equally sensitive: interrupting PEX13 homooligomerisation specifically disrupts PTS1 import.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"protein import into peroxisome matrix, docking\"], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Pex13-null mouse (ubiquitous Cre)\", \"species\": \"Mouse\", \"genotype\": \"Pex13 conditional (loxP) allele, ubiquitous Cre-mediated inactivation, homozygous\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Reproduces the import block for both cargo classes, confirming that the docking peroxin is required for PTS1 and PTS2 routes alike.\"}]}}, {\"id\": \"Impaired Neuronal Migration and Neurogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neuronal precursors fail to proliferate, migrate and mature normally during fetal brain development, producing a congenital malformation rather than a purely degenerative lesion. Because the lesion forms before birth, it is not reversible by any postnatal intervention. The PEX13 mouse adds cerebellar detail to the cortical picture - impaired granule cell migration and Purkinje layer formation - with astrogliosis and microgliosis as prominent accompaniments.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neuron\", \"radial glial cell\", \"astrocyte\", \"microglial cell\"], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Pex13-null mouse (ubiquitous Cre)\", \"species\": \"Mouse\", \"genotype\": \"Pex13 conditional (loxP) allele, ubiquitous Cre-mediated inactivation, homozygous\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces the cortical migration defect that is otherwise inferred from human neuropathology.\"}, {\"name\": \"Brain-restricted Pex13 conditional mouse (Nestin-Cre)\", \"species\": \"Mouse\", \"genotype\": \"Pex13 conditional (loxP) allele, brain-restricted Cre-mediated inactivation\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces impaired cerebellar development - fissure and cortical layer formation, granule cell migration, Purkinje cell layer development - with astrogliosis and microgliosis, and separately impaired proliferation and maturation of neural progenitors from E12.5.\"}]}}, {\"id\": \"Pex13-null mouse (ubiquitous Cre)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The definitive whole-animal model of this disease: the orthologous gene, disrupted in every tissue. Unlike the Pex2-null mouse curated on the PBD3A entry, this is a same-gene model rather than a paralogous one.\"}, {\"id\": \"Pexophagy of Import-Incompetent Peroxisomes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Losing PEX13 does not only stop peroxisomes being filled - it appears to mark them for destruction. In edited cells and in zebrafish, PEX13 loss causes ubiquitinated PEX5 to accumulate on the peroxisomal membrane and peroxisome-derived reactive oxygen species to rise, and together those two signals induce pexophagy of peroxisomes that would otherwise be healthy. If it operates in patients it would compound the import block, because the residual organelle population is being cleared as well as being left empty - which is consistent with the reduced peroxisome number found in PEX13 patient fibroblasts.\\nCurated as PROVISIONAL, not ESTABLISHED: the mechanism is demonstrated in cell lines and zebrafish, and no measurement in a PEX13 patient ties pexophagy to any clinical feature.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"autophagy of peroxisome\", \"protein ubiquitination\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Phytanic acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"presence\": \"Increased\", \"term_id\": \"CHEBI:16285\", \"term_label\": \"phytanic acid\", \"readouts\": [{\"target\": \"Accumulation of Very-Long-Chain and Branched-Chain Fatty Acids\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated phytanic acid reports the peroxisomal alpha-oxidation block.\"}]}}, {\"id\": \"Plasmalogen Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ether phospholipid synthesis begins in the peroxisome, so plasmalogens - major constituents of myelin - and DHA are not made. This is the deficiency half of the signature and the one most plausibly linked to the white-matter disease. In the brain-restricted PEX13 mouse it is the half that is present: plasmalogens fall while VLCFA stay normal, which dissociates the two arms of the biochemical lesion.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"ether lipid biosynthetic process\"], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Brain-restricted Pex13 conditional mouse (Nestin-Cre)\", \"species\": \"Mouse\", \"genotype\": \"Pex13 conditional (loxP) allele, brain-restricted Cre-mediated inactivation\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Plasmalogens fall in the mutant brain, so the deficiency arm is reproduced.\"}]}}, {\"id\": \"Plasmalogens\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"presence\": \"Decreased\", \"term_id\": \"CHEBI:64611\", \"term_label\": \"ether lipid\", \"readouts\": [{\"target\": \"Plasmalogen Deficiency\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Reduced plasmalogens report failed peroxisomal ether lipid synthesis.\"}]}}, {\"id\": \"Progressive Hepatic Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"VLCFA and C27 bile-acid intermediates are directly hepatotoxic, driving cholestasis and fibrosis. Hepatic dysfunction was part of the presenting picture in the reported severe PEX13 cases.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Secondary Mitochondrial Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PEX13 patient muscle and fibroblasts show respiratory-chain abnormalities and mislocalised mitochondria alongside the peroxisomal defect, and Pex13-null cerebellar neurons show mitochondrial dysfunction with elevated reactive oxygen species. Whether this is a driver of the neuronal loss or a downstream consequence of it is the open question; it is curated as PROVISIONAL because the observations are consistent across human tissue and mouse neurons but the causal direction has not been tested.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"mitochondrion organization\", \"reactive oxygen species metabolic process\"], \"mechanism_confidence\": \"PROVISIONAL\", \"animal_models\": [{\"name\": \"Brain-restricted Pex13 conditional mouse (Nestin-Cre)\", \"species\": \"Mouse\", \"genotype\": \"Pex13 conditional (loxP) allele, brain-restricted Cre-mediated inactivation\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Cerebellar neurons from this line show mitochondrial dysfunction with elevated reactive oxygen species and MnSOD, together with increased apoptosis. The same line also shows an expanded and morphologically altered mitochondrial population in the intact brain, with oxidative damage to neuronal lipid and DNA, so the finding is not confined to culture.\"}]}}, {\"id\": \"Severe Neurodevelopmental Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Profound hypotonia, neonatal seizures, and absent or regressing developmental progress. In the severe form death usually follows in infancy; the molecularly confirmed PEX13 cases at this end of the spectrum died at 14 months and in the neonatal period respectively.\", \"meta\": {\"evidence_count\": 2, \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Pex13-null mouse (ubiquitous Cre)\", \"species\": \"Mouse\", \"genotype\": \"Pex13 conditional (loxP) allele, ubiquitous Cre-mediated inactivation, homozygous\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Reproduces the clinical syndrome, including the perinatal lethality that defines the severe end of the spectrum.\"}]}}, {\"id\": \"Supportive and Symptomatic Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"There is no treatment for the biogenesis defect. Management is entirely symptomatic - gastrostomy feeding, anti-seizure medication, hearing aids, cataract surgery, fat-soluble vitamin and cholic acid supplementation, adrenal replacement. None of it restores peroxisomal import, and the congenital brain malformation is fixed before birth.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Very-long-chain fatty acids\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Increased\", \"term_id\": \"CHEBI:27283\", \"term_label\": \"very long-chain fatty acid\", \"readouts\": [{\"target\": \"Accumulation of Very-Long-Chain and Branched-Chain Fatty Acids\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated VLCFA reports the peroxisomal beta-oxidation block directly.\"}]}}], \"edges\": [{\"source\": \"Biallelic PEX13 Loss of Function\", \"target\": \"Disrupted PEX13-PEX14 Docking Complex\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted PEX13-PEX14 Docking Complex\", \"target\": \"Failure of PTS1 and PTS2 Receptor Docking\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of PTS1 and PTS2 Receptor Docking\", \"target\": \"Collapse of Peroxisomal Matrix Protein Import\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Collapse of Peroxisomal Matrix Protein Import\", \"target\": \"Accumulation of Very-Long-Chain and Branched-Chain Fatty Acids\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Collapse of Peroxisomal Matrix Protein Import\", \"target\": \"Plasmalogen Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Collapse of Peroxisomal Matrix Protein Import\", \"target\": \"Secondary Mitochondrial Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Peroxisomal and mitochondrial beta-oxidation are metabolically coupled and the two organelles share fission machinery, but which of those links carries the effect in PEX13 deficiency is not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Collapse of Peroxisomal Matrix Protein Import\", \"target\": \"Pexophagy of Import-Incompetent Peroxisomes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Import failure leaves ubiquitinated PEX5 on the membrane and raises peroxisomal reactive oxygen species, and both signals induce pexophagy. Shown in edited cells and zebrafish, not in patients.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Accumulation of Very-Long-Chain and Branched-Chain Fatty Acids\", \"target\": \"Progressive Hepatic Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accumulation of Very-Long-Chain and Branched-Chain Fatty Acids\", \"target\": \"Adrenocortical Insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accumulation of Very-Long-Chain and Branched-Chain Fatty Acids\", \"target\": \"Impaired Neuronal Migration and Neurogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Peroxisomal failure demonstrably disrupts cortical migration, but which accumulating substrate or missing lipid does it is not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Plasmalogen Deficiency\", \"target\": \"Impaired Neuronal Migration and Neurogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Secondary Mitochondrial Dysfunction\", \"target\": \"Impaired Neuronal Migration and Neurogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neuronal Migration and Neurogenesis\", \"target\": \"Severe Neurodevelopmental Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Supportive and Symptomatic Management\", \"target\": \"Severe Neurodevelopmental Impairment\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Cholic Acid\", \"target\": \"Accumulation of Very-Long-Chain and Branched-Chain Fatty Acids\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Cholic Acid\", \"target\": \"Progressive Hepatic Injury\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Adrenal Replacement Therapy\", \"target\": \"Adrenocortical Insufficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Anti-Seizure Medication\", \"target\": \"Impaired Neuronal Migration and Neurogenesis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Pex13-null mouse (ubiquitous Cre)\", \"target\": \"Failure of PTS1 and PTS2 Receptor Docking\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces the import block for both cargo classes, confirming that the docking peroxin is required for PTS1 and PTS2 routes alike.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The model is a null. Most human PEX13 alleles - including the recurrent p.Arg294Trp - are missense and may retain partial docking function, so the null does not model the residual-function biology that separates 11A from 11B.\"}, {\"source\": \"Pex13-null mouse (ubiquitous Cre)\", \"target\": \"Severe Neurodevelopmental Impairment\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces the clinical syndrome, including the perinatal lethality that defines the severe end of the spectrum.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Death is neonatal, so the postnatal course seen in longer-surviving human infants - the sensory loss, the progressive white-matter disease, the developmental regression - cannot be observed in this model. The brain-restricted conditional was made for that reason.\"}, {\"source\": \"Pex13-null mouse (ubiquitous Cre)\", \"target\": \"Impaired Neuronal Migration and Neurogenesis\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces the cortical migration defect that is otherwise inferred from human neuropathology.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Mouse cortical development is lissencephalic, so the polymicrogyria seen in human ZSD has no direct counterpart; disordered lamination is the closest available readout.\"}, {\"source\": \"Brain-restricted Pex13 conditional mouse (Nestin-Cre)\", \"target\": \"Impaired Neuronal Migration and Neurogenesis\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces impaired cerebellar development - fissure and cortical layer formation, granule cell migration, Purkinje cell layer development - with astrogliosis and microgliosis, and separately impaired proliferation and maturation of neural progenitors from E12.5.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Peroxisomal function is intact outside the brain, so this model cannot address the hepatic, adrenal or renal disease, and the systemic metabolic milieu of a real patient is absent. Notably VLCFA are normal in the mutant brain, so any phenotype here is attributable to the plasmalogen arm and to local peroxisomal failure rather than to circulating VLCFA.\"}, {\"source\": \"Brain-restricted Pex13 conditional mouse (Nestin-Cre)\", \"target\": \"Secondary Mitochondrial Dysfunction\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Cerebellar neurons from this line show mitochondrial dysfunction with elevated reactive oxygen species and MnSOD, together with increased apoptosis. The same line also shows an expanded and morphologically altered mitochondrial population in the intact brain, with oxidative damage to neuronal lipid and DNA, so the finding is not confined to culture.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"What the model does not settle is direction. Antioxidant treatment rescues mitochondrial superoxide and membrane depolarization in PEX13-deficient fibroblasts, but that rescue has not been run in neurons and carries no survival endpoint, so nothing yet shows that correcting the mitochondrial phenotype prevents the neuronal death.\"}, {\"source\": \"Brain-restricted Pex13 conditional mouse (Nestin-Cre)\", \"target\": \"Plasmalogen Deficiency\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Plasmalogens fall in the mutant brain, so the deficiency arm is reproduced.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Only one arm of the biochemical signature is present - VLCFA are normal - so this model reproduces the plasmalogen lesion without the accumulation lesion that accompanies it in patients.\"}, {\"source\": \"Accumulation of Very-Long-Chain and Branched-Chain Fatty Acids\", \"target\": \"Very-long-chain fatty acids\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated VLCFA reports the peroxisomal beta-oxidation block directly.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Accumulation of Very-Long-Chain and Branched-Chain Fatty Acids\", \"target\": \"Phytanic acid\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated phytanic acid reports the peroxisomal alpha-oxidation block.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Accumulation of Very-Long-Chain and Branched-Chain Fatty Acids\", \"target\": \"C26:0-lysophosphatidylcholine\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated dried-blood-spot C26:0-lysoPC reports peroxisomal beta-oxidation failure.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Plasmalogen Deficiency\", \"target\": \"Plasmalogens\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Reduced plasmalogens report failed peroxisomal ether lipid synthesis.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6780,13 +6981,11 @@ This pathophysiological event involves cortical cell of adrenal gland (CL:000209
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Metabolism<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Musculoskeletal<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Musculoskeletal<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Nervous System<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Nervous System<span class="pill-count">(7)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Growth<span class="pill-count">(2)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-11">Other<span class="pill-count">(3)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6831,6 +7030,9 @@ This clinical feature is Decreased liver function (HP:0001410). HP:0001410 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6845,6 +7047,7 @@ This clinical feature is Decreased liver function (HP:0001410). HP:0001410 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6901,6 +7104,9 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6915,6 +7121,7 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6980,6 +7187,9 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6994,6 +7204,7 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7059,6 +7270,9 @@ This clinical feature is Adrenal insufficiency (HP:0000846). HP:0000846 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7073,6 +7287,7 @@ This clinical feature is Adrenal insufficiency (HP:0000846). HP:0000846 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7138,6 +7353,9 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7152,6 +7370,7 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7217,6 +7436,9 @@ This clinical feature is Renal cyst (HP:0000107). HP:0000107 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7231,6 +7453,7 @@ This clinical feature is Renal cyst (HP:0000107). HP:0000107 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7298,6 +7521,9 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7312,6 +7538,7 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7336,6 +7563,7 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7403,6 +7631,9 @@ This clinical feature is Elevated circulating hepatic transaminase concentration
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7417,6 +7648,7 @@ This clinical feature is Elevated circulating hepatic transaminase concentration
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7449,7 +7681,7 @@ This clinical feature is Elevated circulating hepatic transaminase concentration
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-severe-neonatal-hypotonia" data-dismech-node="Severe Neonatal Hypotonia" data-dismech-type="phenotype">
@@ -7502,6 +7734,9 @@ This clinical feature is Generalized hypotonia (HP:0001290), qualified as severi
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7516,6 +7751,7 @@ This clinical feature is Generalized hypotonia (HP:0001290), qualified as severi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7540,6 +7776,7 @@ This clinical feature is Generalized hypotonia (HP:0001290), qualified as severi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7614,6 +7851,9 @@ This clinical feature is Spasticity (HP:0001257), qualified as course progressiv
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7628,6 +7868,7 @@ This clinical feature is Spasticity (HP:0001257), qualified as course progressiv
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7654,14 +7895,162 @@ This clinical feature is Spasticity (HP:0001257), qualified as course progressiv
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-epiphyseal-stippling" data-dismech-node="Epiphyseal Stippling" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Epiphyseal Stippling
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010655" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0010655</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Epiphyseal stippling (HP:0010655). HP:0010655 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301621" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301621" target="_blank">PMID:20301621</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"neuronal migration defects associated with neonatal-onset seizures, renal cysts, and bony stippling"</div>
+
+
+                <div class="evidence-explanation">PARTIAL because the sentence is spectrum-wide, and it is truncated before &#34;[chondrodysplasia punctata]&#34; because the reference validator strips bracketed text.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
             <details class="phenotype-category-group" id="pheno-cat-9">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">5</span>
+                    <span class="cat-count">7</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-neonatal-seizures" data-dismech-node="Neonatal Seizures" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Neonatal Seizures
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0032807" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0032807</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Neonatal seizure (HP:0032807). HP:0032807 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37962062" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37962062" target="_blank">PMID:37962062</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The patient had severe hypotonia, seizures, hepatic dysfunction, failure to thrive, and dysmorphic features."</div>
+
+
+                <div class="evidence-explanation">Seizures in a molecularly confirmed severe PEX13 case.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-developmental-regression" data-dismech-node="Developmental Regression" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -7679,15 +8068,18 @@ This clinical feature is Spasticity (HP:0001257), qualified as course progressiv
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002376" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0002376</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002376" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0002376</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7707,6 +8099,7 @@ This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7749,15 +8142,18 @@ This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002415" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0002415</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002415" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0002415</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Leukodystrophy (HP:0002415). HP:0002415 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7777,6 +8173,7 @@ This clinical feature is Leukodystrophy (HP:0002415). HP:0002415 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7819,15 +8216,18 @@ This clinical feature is Leukodystrophy (HP:0002415). HP:0002415 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002126" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0002126</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002126" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0002126</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Polymicrogyria (HP:0002126). HP:0002126 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7850,6 +8250,7 @@ This clinical feature is Polymicrogyria (HP:0002126). HP:0002126 is a phenotype 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7858,6 +8259,80 @@ This clinical feature is Polymicrogyria (HP:0002126). HP:0002126 is a phenotype 
 
 
                 <div class="evidence-explanation">The imaging finding in a PEX13 patient; the report describes it as polymicrogyria-like, so the binding is to the closest structural HPO term.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cns-hypomyelination" data-dismech-node="CNS Hypomyelination" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        CNS Hypomyelination
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003429" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0003429</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is CNS hypomyelination (HP:0003429). HP:0003429 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35854306" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35854306" target="_blank">PMID:35854306</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Brain MRI revealed diffuse hypomyelination with abnormal confluent FLAIR hyperintense signal abnormality, particularly involving the cerebellar white matter."</div>
+
+
+                <div class="evidence-explanation">The imaging finding in a PEX13 patient.</div>
 
 
 
@@ -7889,15 +8364,18 @@ This clinical feature is Polymicrogyria (HP:0002126). HP:0002126 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7917,6 +8395,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7959,15 +8438,18 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001272" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0001272</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001272" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0001272</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7987,6 +8469,7 @@ This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8038,15 +8521,18 @@ This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0001508</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0001508</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8066,6 +8552,7 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8108,15 +8595,18 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001511" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0001511</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001511" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0001511</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intrauterine growth retardation (HP:0001511). HP:0001511 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8139,6 +8629,7 @@ This clinical feature is Intrauterine growth retardation (HP:0001511). HP:000151
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8147,225 +8638,6 @@ This clinical feature is Intrauterine growth retardation (HP:0001511). HP:000151
 
 
                 <div class="evidence-explanation">PARTIAL because the observation is in the Pex13-null mouse rather than in PEX13 patients.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-11">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">3</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-neonatal-seizures" data-dismech-node="Neonatal Seizures" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Neonatal Seizures
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0032807" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0032807</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Neonatal seizure (HP:0032807). HP:0032807 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:37962062" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37962062" target="_blank">PMID:37962062</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The patient had severe hypotonia, seizures, hepatic dysfunction, failure to thrive, and dysmorphic features."</div>
-
-
-                <div class="evidence-explanation">Seizures in a molecularly confirmed severe PEX13 case.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-cns-hypomyelination" data-dismech-node="CNS Hypomyelination" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        CNS Hypomyelination
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003429" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0003429</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is CNS hypomyelination (HP:0003429). HP:0003429 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:35854306" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35854306" target="_blank">PMID:35854306</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Brain MRI revealed diffuse hypomyelination with abnormal confluent FLAIR hyperintense signal abnormality, particularly involving the cerebellar white matter."</div>
-
-
-                <div class="evidence-explanation">The imaging finding in a PEX13 patient.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-epiphyseal-stippling" data-dismech-node="Epiphyseal Stippling" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Epiphyseal Stippling
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010655" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0010655</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Epiphyseal stippling (HP:0010655). HP:0010655 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20301621" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301621" target="_blank">PMID:20301621</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"neuronal migration defects associated with neonatal-onset seizures, renal cysts, and bony stippling"</div>
-
-
-                <div class="evidence-explanation">PARTIAL because the sentence is spectrum-wide, and it is truncated before &#34;[chondrodysplasia punctata]&#34; because the reference validator strips bracketed text.</div>
 
 
 
@@ -8453,6 +8725,9 @@ This disease-associated gene is PEX13 (hgnc:8855). hgnc:8855 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -8467,6 +8742,7 @@ This disease-associated gene is PEX13 (hgnc:8855). hgnc:8855 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8494,6 +8770,7 @@ This disease-associated gene is PEX13 (hgnc:8855). hgnc:8855 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8515,6 +8792,7 @@ This disease-associated gene is PEX13 (hgnc:8855). hgnc:8855 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8599,6 +8877,31 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">There is no treatment for the biogenesis defect. Management is entirely symptomatic - gastrostomy feeding, anti-seizure medication, hearing aids, cataract surgery, fat-soluble vitamin and cholic acid supplementation, adrenal replacement. None of it restores peroxisomal import, and the congenital brain malformation is fixed before birth.</div>
 
 
@@ -8638,6 +8941,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8723,6 +9027,31 @@ This treatment uses cholic acid (CHEBI:16359). CHEBI:16359 is a therapeutic agen
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Oral cholic acid restores feedback inhibition of endogenous bile acid synthesis, so the hepatotoxic C27 intermediates that peroxisome-deficient hepatocytes cannot process stop accumulating. It is the only FDA-approved therapy for Zellweger spectrum disease and the only intervention in this entry that acts on a curated mechanism node rather than on a consequence. The trial evidence is spectrum-wide; no PEX13 patient has been reported on it, so its use here is by extension from the shared biochemical lesion.</div>
 
 
@@ -8778,6 +9107,7 @@ This treatment uses cholic acid (CHEBI:16359). CHEBI:16359 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8802,6 +9132,7 @@ This treatment uses cholic acid (CHEBI:16359). CHEBI:16359 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8823,6 +9154,7 @@ This treatment uses cholic acid (CHEBI:16359). CHEBI:16359 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8908,6 +9240,31 @@ This treatment uses hydrocortisone, annotated with cortisol (CHEBI:17650). CHEBI
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Glucocorticoid replacement where adrenal insufficiency is documented. GeneReviews asks for ACTH and cortisol by age one and annually thereafter, because the insufficiency is often subclinical when it starts. The screening and the treating are deliberately separate steps: cortisone carries its own harms - growth suppression, osteoporosis - so the recommendation is to screen everyone and treat only those with a demonstrated insufficiency on Synacthen testing, not to supplement on suspicion.</div>
 
 
@@ -8950,6 +9307,7 @@ This treatment uses hydrocortisone, annotated with cortisol (CHEBI:17650). CHEBI
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8971,6 +9329,7 @@ This treatment uses hydrocortisone, annotated with cortisol (CHEBI:17650). CHEBI
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9056,6 +9415,31 @@ This treatment uses anticonvulsant agent (NCIT:C264). NCIT:C264 is a therapeutic
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Seizure control in an epilepsy that arises from a fixed cortical malformation, so the aim is symptomatic control rather than modification of the underlying lesion.</div>
 
 
@@ -9095,6 +9479,7 @@ This treatment uses anticonvulsant agent (NCIT:C264). NCIT:C264 is a therapeutic
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9180,6 +9565,31 @@ This treatment uses docosahexaenoic acid, annotated with all-cis-docosa-4,7,10,1
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">DHA is one of the lipids peroxisome-deficient cells cannot make, so replacing it is a mechanistically obvious idea. It does not work. A randomised, double-blind, placebo-controlled trial in peroxisome assembly disorders found no benefit in biochemistry, electroretinogram or growth. It is curated here as a refuted therapy rather than omitted, because the rationale is intuitive enough that it keeps being proposed. It carries no `target_mechanisms` link deliberately: every available `treatment_effect` value asserts an effect on the node, and the trial&#39;s finding is that there is none.</div>
 
 
@@ -9204,6 +9614,7 @@ This treatment uses docosahexaenoic acid, annotated with all-cis-docosa-4,7,10,1
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9225,6 +9636,7 @@ This treatment uses docosahexaenoic acid, annotated with all-cis-docosa-4,7,10,1
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -9316,6 +9728,7 @@ This treatment uses docosahexaenoic acid, annotated with all-cis-docosa-4,7,10,1
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9355,6 +9768,7 @@ This treatment uses docosahexaenoic acid, annotated with all-cis-docosa-4,7,10,1
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9428,6 +9842,7 @@ This treatment uses docosahexaenoic acid, annotated with all-cis-docosa-4,7,10,1
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9512,6 +9927,7 @@ This treatment uses docosahexaenoic acid, annotated with all-cis-docosa-4,7,10,1
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9551,6 +9967,7 @@ This treatment uses docosahexaenoic acid, annotated with all-cis-docosa-4,7,10,1
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9624,6 +10041,7 @@ This treatment uses docosahexaenoic acid, annotated with all-cis-docosa-4,7,10,1
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9734,6 +10152,7 @@ This treatment uses docosahexaenoic acid, annotated with all-cis-docosa-4,7,10,1
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9821,6 +10240,7 @@ This treatment uses docosahexaenoic acid, annotated with all-cis-docosa-4,7,10,1
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9842,6 +10262,7 @@ This treatment uses docosahexaenoic acid, annotated with all-cis-docosa-4,7,10,1
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9932,6 +10353,7 @@ This treatment uses docosahexaenoic acid, annotated with all-cis-docosa-4,7,10,1
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10003,6 +10425,7 @@ This treatment uses docosahexaenoic acid, annotated with all-cis-docosa-4,7,10,1
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10086,6 +10509,7 @@ This treatment uses docosahexaenoic acid, annotated with all-cis-docosa-4,7,10,1
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10229,6 +10653,7 @@ This treatment uses docosahexaenoic acid, annotated with all-cis-docosa-4,7,10,1
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10268,6 +10693,7 @@ This treatment uses docosahexaenoic acid, annotated with all-cis-docosa-4,7,10,1
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10344,6 +10770,7 @@ This treatment uses docosahexaenoic acid, annotated with all-cis-docosa-4,7,10,1
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10431,6 +10858,7 @@ This treatment uses docosahexaenoic acid, annotated with all-cis-docosa-4,7,10,1
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10480,6 +10908,7 @@ This treatment uses docosahexaenoic acid, annotated with all-cis-docosa-4,7,10,1
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10607,6 +11036,7 @@ This treatment uses docosahexaenoic acid, annotated with all-cis-docosa-4,7,10,1
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10666,6 +11096,7 @@ This treatment uses docosahexaenoic acid, annotated with all-cis-docosa-4,7,10,1
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10705,6 +11136,7 @@ This treatment uses docosahexaenoic acid, annotated with all-cis-docosa-4,7,10,1
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10784,6 +11216,7 @@ This treatment uses docosahexaenoic acid, annotated with all-cis-docosa-4,7,10,1
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10840,6 +11273,7 @@ This treatment uses docosahexaenoic acid, annotated with all-cis-docosa-4,7,10,1
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10929,6 +11363,7 @@ This treatment uses docosahexaenoic acid, annotated with all-cis-docosa-4,7,10,1
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10981,6 +11416,7 @@ This treatment uses docosahexaenoic acid, annotated with all-cis-docosa-4,7,10,1
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -11002,6 +11438,7 @@ This treatment uses docosahexaenoic acid, annotated with all-cis-docosa-4,7,10,1
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13494,6 +13931,42 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Scope and naming. Two numbering systems collide on this disease and neither is a severity grade. &#34;11&#34; is the OMIM PEX-series index for PEX13; &#34;13&#34; and &#34;H&#34; are the two complementation groups assigned by cell fusion in different laboratories before the gene was cloned. The A/B suffix is the severity split, and this entry curates the A end. The KB now holds Peroxisome Biogenesis Disorder 1B (PEX1), 3A (PEX12), 4B (PEX6) and 11A (PEX13), spanning two severity tiers across four peroxins - three of which act in receptor recycling and one, this one, in docking.
+Why this is not a duplicate of PBD3A. The two entries share their downstream half almost exactly, because import failure converges regardless of which step broke. They differ in the upstream three nodes: PEX12 is a RING-finger subunit of the retrotranslocation channel that exports PEX5, while PEX13 is the SH3 docking peroxin that receives it. The pathograph reflects that, and the interpretation discussion states what does and does not follow from the distinction.
+GeneReviews. The chapter is written for the Zellweger spectrum as a whole rather than for PEX13, so evidence items quoting it are graded PARTIAL wherever the quoted sentence is spectrum-wide rather than reported in a PEX13 case. All four sections are mined.
+Evidence thinness. PEX13 is among the rarest ZSD genes - about twenty variants worldwide - so several human phenotype claims rest on a single molecularly confirmed case report rather than on a cohort. Where the only available evidence is from the Pex13-null mouse it is graded MODEL_ORGANISM and PARTIAL, and no human phenotype in this entry rests on mouse evidence alone.
+Bracketed quotes. The GeneReviews snippet for epiphyseal stippling stops short of the site it describes because the sentence embeds &#34;[chondrodysplasia punctata]&#34; and &#34;patella[e]&#34;, and the reference validator strips bracketed text, so a span crossing a bracket cannot match the cache.
+Deep research. Generated by `just research-disorder falcon` with `--fallback`; falcon was not configured in this environment, so the run fell back to `claude_code` and the report is `research/Peroxisome_Biogenesis_Disorder_11A_Zellweger-deep-research-claude_code.md` (`fell_back: true`, `requested_provider: falcon` in its frontmatter). Its reference validation is clean - 49/49 resolved, none off topic. Its term validation flagged no unresolved CURIEs, but several of the identifiers it offered are named as different terms by the ontology, and two of those would have been substantive errors if copied: HP:0034512, offered for elevated VLCFA, is *Transitional-cell carcinoma of the ureter*, and HP:0000934, offered for chondrodysplasia punctata, is *Chondrocalcinosis*. Neither is bound here; epiphyseal stippling uses HP:0010655 instead.
+Pexophagy. An earlier draft of this entry left PEX13&#39;s autophagy role out on the grounds that nothing connected it to the disease. Review of the claim issue surfaced PMID:36541703, which does connect it: PEX13 *loss* - the disease lesion, not an engineered gain - releases pexophagy through ubiquitinated PEX5 and peroxisomal reactive oxygen species, in edited cells and in zebrafish. It is curated as a PROVISIONAL node with a HUMAN_MODEL_MISMATCH discussion rather than as an established mechanism, because no measurement in a patient ties it to a clinical feature. The earlier virophagy/pexophagy paper (PMID:27827795) is not cited as evidence; it concerns PEX13&#39;s role in selective autophagy generally rather than the consequence of losing it.
+Phenotypes left out, and the standard applied. Review suggested apnea, elevated hepatic transaminases and lissencephaly, all of which appear in the HPO annotation set for OMIM:614883. That annotation set is not a source this KB can quote from, so each was checked against the cached references instead. Elevated transaminases has a spectrum-wide sentence in PMID:26627182 and is now curated, graded PARTIAL on the same footing as Adrenal Insufficiency. Apnea and lissencephaly have no such sentence in any cached reference and remain out; they are real candidates and should be added when a citable source is found, rather than bound to a snippet that does not say them. The threshold is therefore the same across all of these - a quotable sentence, spectrum-wide accepted with PARTIAL - rather than stricter for some than others, which an earlier version of this note did not make clear.
+Not curated. The research report surfaced NCT03856866, a hydroxychloroquine trial built on the pexophagy rationale above, as a candidate treatment; reading the registration shows it is restricted to peroxisome biogenesis disorders caused by PEX1, PEX6 or PEX26, so it does not belong on a PEX13 entry and is not curated here.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Peroxisome Biogenesis Disorder 11A (Zellweger)</strong> · 2026-08-29T00:41:53Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Peroxisome_Biogenesis_Disorder_11A_Zellweger/2026-08-29T004153Z-claude-code-3cbb94.yaml">View source</a></p>
+                        <p class="research-review-text">Created the PEX13-related severe (Zellweger-end) entry for MONDO:0013949, the fourth per-PEX-gene entry in the KB after PBD1B (PEX1), 3A (PEX12) and 4B (PEX6). Modeled on the PBD3A entry&#39;s structure but with a deliberately different upstream pathograph: PEX13 is the SH3-domain docking peroxin that receives cargo-loaded PEX5/PEX7, so the first three nodes are a docking-step lesion rather than the retrotranslocation/recycling lesion the other three loci share; downstream nodes converge on the shared biogenesis phenotype.
+
+PEX13-specific content: cargo-class selectivity of the homooligomerisation defect (Krause 2013, PMID:23716570), the recurrent p.Arg294Trp allele and its predicted destabilisation of the PEX13/PEX14 module (Borgia 2022, PMID:35854306), a PROVISIONAL secondary-mitochondrial-dysfunction node, and a three-tier allele model (null / oligomerisation-disrupting / hypomorphic) that maps onto the 11A vs 11B split via Shimozawa 1999 (PMID:10332040). Two Pex13 mouse models carry modeled_mechanisms: the ubiquitous null (PMID:12897163) and the brain-restricted conditional (PMID:20959636, PMID:29187321), the latter PARTIALLY_RECAPITULATES for plasmalogen deficiency because VLCFA are normal in that model.
+
+DHA supplementation is curated as a REFUTE treatment from the Paker 2010 randomised trial (PMID:20805528), with no target_mechanisms link because every available treatment_effect value would assert an effect the trial found absent. The cholic acid entry carries the Berendse 2016 advanced-liver-disease hepatotoxicity caution (PMID:27469511).
+
+Deep research: `just research-disorder falcon` with --fallback. Falcon was not configured in this environment, so the run fell back to claude_code and the report is research/Peroxisome_Biogenesis_Disorder_11A_Zellweger-deep-research-claude_code.md, recording fell_back and requested_provider in its frontmatter. Its reference validation was clean (49/49 resolved, none off topic). Its term validation flagged no unresolved CURIEs, but two identifiers it offered would have been substantive errors if copied: HP:0034512, offered for elevated VLCFA, is Transitional-cell carcinoma of the ureter, and HP:0000934, offered for chondrodysplasia punctata, is Chondrocalcinosis. Neither is bound. NCT03856866 was surfaced as a candidate treatment but its registration restricts it to PEX1/PEX6/PEX26, so it was excluded.
+
+GeneReviews PMID:20301621 is tagged and mined across all four abstract sections (Clinical Characteristics, Diagnosis/Testing, Management, Genetic Counseling).
+
+Validated with just validate-disorders (schema, terms, 86/86 snippets verified against cached references), plus check-duplicate-keys, check-entity-refs, check-folded-hyphens, check-snippet-length, check-title-snippets, check-snippet-grading, check-environmental-evidence. Compliance 87.3% (the PBD3A sibling is 77.8%).
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -467,6 +468,18 @@
         .tag-component {
             background: #f0fdf4;
             color: #166534;
+        }
+
+        /* Same values as disorder.html.j2 so a treatment chip looks identical
+           whether it is read on a disorder page or on a module page. */
+        .tag-treatment {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .tag-gene {
+            background: #dbeafe;
+            color: #1e40af;
         }
 
         .tag-role {
@@ -1044,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1059,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1113,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1126,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1284,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1294,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1335,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1541,6 +1590,9 @@
 
     
     
+
+    
+    
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -1585,7 +1637,7 @@
                 
                 <span class="badge badge-category">Module</span>
                 <span class="badge badge-module">neural_progenitor_centrosome_spindle_dysfunction</span>
-                <span class="badge badge-count">9 disorders</span>
+                <span class="badge badge-count">10 disorders</span>
                 
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 6</a>
                 
@@ -2231,11 +2283,13 @@ This mechanism module involves dysregulated cerebral cortex development (GO:0021
 
         
 
+        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
                 <h2 class="card-title">Used By Disorder Entries</h2>
-                <span class="card-count">9</span>
+                <span class="card-count">10</span>
             </div>
             
             <div class="crosslink-list">
@@ -2334,6 +2388,31 @@ This mechanism module involves dysregulated cerebral cortex development (GO:0021
                         , 
                         
                         Reduced Cortical Neuron Output and Postnatal Microcephaly → Abnormal Cortical Neuron Output and Gyration
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Intellectual_Disability_X-linked_102.html">Intellectual Disability X-linked 102</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Altered Neural Progenitor Cell Cycle and Neurogenic Division → Abnormal Progenitor Division and Fate Choice
+                        
+                        
+                        , 
+                        
+                        Neural Stem and Progenitor Pool Depletion → Progenitor Pool Distortion
+                        
+                        
+                        , 
+                        
+                        Aberrant Cortical Neuron Output and Cortical Malformation → Abnormal Cortical Neuron Output and Gyration
                         
                         
                     </span>
@@ -2484,11 +2563,13 @@ This mechanism module involves dysregulated cerebral cortex development (GO:0021
             
             <div class="item-box anchor-target" id="module-pathophysiology-centrosome-and-mitotic-spindle-perturbation" data-dismech-node="Centrosome and Mitotic Spindle Perturbation" data-dismech-type="pathophysiology">
                 <div class="item-name">Centrosome and Mitotic Spindle Perturbation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Genetic, chromosomal, or viral perturbations disrupt the centrosome, centriole, mitotic spindle, or microtubule-severing apparatus used by neural progenitors and radial glia. Representative mechanisms include NDE1 centrosome/spindle defects, LIS1-NDEL1-dynein spindle orientation defects, WDR62 spindle-pole localization defects, ASPM spindle microtubule assembly defects, and KATNB1/katanin-dependent microtubule remodeling defects.</div>
                 
@@ -2753,11 +2834,13 @@ This pathophysiological event involves dysregulated microtubule cytoskeleton org
             
             <div class="item-box anchor-target" id="module-pathophysiology-abnormal-progenitor-division-and-fate-choice" data-dismech-node="Abnormal Progenitor Division and Fate Choice" data-dismech-type="pathophysiology">
                 <div class="item-name">Abnormal Progenitor Division and Fate Choice</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Centrosome/spindle perturbation alters radial-glial and neural-progenitor mitotic progression, cleavage orientation, symmetric versus asymmetric division, and fate specification. Depending on the gene and developmental context, this can reduce progenitor self-renewal, cause premature neuronal differentiation, or delay/arrest the cell cycle.</div>
                 
@@ -2960,6 +3043,13 @@ This pathophysiological event involves dysregulated asymmetric cell division (GO
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Intellectual_Disability_X-linked_102.html">Intellectual Disability X-linked 102</a>
+                            
+                            <span class="crosslink-desc">as Altered Neural Progenitor Cell Cycle and Neurogenic Division</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/KATNB1-related_Cortical_Malformation.html">KATNB1-related Cortical Malformation</a>
                             
                             <span class="crosslink-desc">as Abnormal Asymmetric Neural Progenitor Division</span>
@@ -3001,11 +3091,13 @@ This pathophysiological event involves dysregulated asymmetric cell division (GO
             
             <div class="item-box anchor-target" id="module-pathophysiology-progenitor-pool-distortion" data-dismech-node="Progenitor Pool Distortion" data-dismech-type="pathophysiology">
                 <div class="item-name">Progenitor Pool Distortion</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Abnormal division, fate choice, cell-cycle progression, or apoptosis changes the size, position, and composition of the cortical progenitor pool. The common state is not always simple depletion: some branches cause premature differentiation or cell death, some mislocalize progenitors, and reduced apoptosis can produce megalencephaly or excessive/inappropriate cell survival.</div>
                 
@@ -3241,6 +3333,13 @@ This pathophysiological event involves dysregulated neurogenesis (GO:0022008). G
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Intellectual_Disability_X-linked_102.html">Intellectual Disability X-linked 102</a>
+                            
+                            <span class="crosslink-desc">as Neural Stem and Progenitor Pool Depletion</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/NDE1-related_Microcephaly-Lissencephaly.html">NDE1-related Microcephaly-Lissencephaly</a>
                             
                             <span class="crosslink-desc">as Progenitor Pool Depletion and Microlissencephaly</span>
@@ -3275,11 +3374,13 @@ This pathophysiological event involves dysregulated neurogenesis (GO:0022008). G
             
             <div class="item-box anchor-target" id="module-pathophysiology-programmed-cell-death-imbalance-branch" data-dismech-node="Programmed Cell Death Imbalance Branch" data-dismech-type="pathophysiology">
                 <div class="item-name">Programmed Cell Death Imbalance Branch</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Some cortical malformations arise because programmed cell death is misregulated rather than because progenitors are simply depleted. CRADD loss reduces caspase-2-mediated apoptosis and is associated with megalencephaly with thin lissencephaly, whereas viral or mitotic-stress branches can increase cell death and reduce the progenitor pool.</div>
                 
@@ -3439,11 +3540,13 @@ This pathophysiological event involves dysregulated maintenance of cell number (
             
             <div class="item-box anchor-target" id="module-pathophysiology-viral-progenitor-cytopathy-branch" data-dismech-node="Viral Progenitor Cytopathy Branch" data-dismech-type="pathophysiology">
                 <div class="item-name">Viral Progenitor Cytopathy Branch</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Viral infection can phenocopy parts of the genetic progenitor centrosome-spindle module by targeting proliferating neural progenitors, disrupting centrosomes or mitosis, inducing premature differentiation or cell death, and reducing cortical output. This branch should be used for congenital infection entries such as congenital Zika syndrome, not for inherited centrosome disorders.</div>
                 
@@ -3648,11 +3751,13 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
             
             <div class="item-box anchor-target" id="module-pathophysiology-abnormal-cortical-neuron-output-and-gyration" data-dismech-node="Abnormal Cortical Neuron Output and Gyration" data-dismech-type="pathophysiology">
                 <div class="item-name">Abnormal Cortical Neuron Output and Gyration</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">outcome</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Progenitor-pool distortion changes the number, timing, and spatial allocation of cortical neurons, producing reduced cortical neuron output, small or overgrown cortex depending on branch direction, simplified gyral pattern, microlissencephaly, pachygyria, polymicrogyria-like malformation, thin lissencephaly, or cortical thinning.</div>
                 
@@ -3780,6 +3885,13 @@ This pathophysiological event involves dysregulated cerebral cortex development 
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Intellectual_Disability_X-linked_102.html">Intellectual Disability X-linked 102</a>
+                            
+                            <span class="crosslink-desc">as Aberrant Cortical Neuron Output and Cortical Malformation</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/TUBB_TUBB5-related_Microcephaly.html">TUBB/TUBB5-related Microcephaly</a>
                             
                             <span class="crosslink-desc">as Microcephaly and Structural Brain Abnormalities</span>
@@ -3794,6 +3906,9 @@ This pathophysiological event involves dysregulated cerebral cortex development 
             </div>
             
         </div>
+        
+
+        
         
 
         <footer class="page-footer">

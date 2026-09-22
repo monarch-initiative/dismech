@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,18 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4236,6 +4313,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4257,6 +4335,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4327,6 +4406,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4512,6 +4592,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4533,6 +4614,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4657,6 +4739,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4691,6 +4774,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-odc1-c-terminal-truncating-variant" data-dismech-node="ODC1 C-Terminal Truncating Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">ODC1 C-Terminal Truncating Variant</div>
+
 
                 <div class="item-desc">A de novo heterozygous variant at the 3-prime end of ODC1 introduces a premature stop codon in the last exon, removing the carboxy-terminal residues of ornithine decarboxylase. The variants cluster in this region across reported patients, and the index allele c.1342A&gt;T removes the last 14 amino acids.</div>
 
@@ -4747,6 +4831,74 @@ This pathophysiological event involves abnormal ODC1 (hgnc:8109). hgnc:8109 is a
 
 
 
+    <div class="item-meta">
+        <span class="tag tag-classification">Genetic context</span>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        ODC1
+
+
+    <a href="https://bioregistry.io/hgnc:8109" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:8109</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this genetic context concerns this gene
+This genetic context concerns ODC1 (hgnc:8109). hgnc:8109 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        <span class="tag tag-classification">allele_type: nonsense</span>
+
+
+        <span class="tag tag-classification">variant_origin: DE_NOVO</span>
+
+
+
+
+        <span class="tag tag-classification">zygosity: HETEROZYGOUS</span>
+
+
+
+        <span class="tag tag-classification">functional_impact_category: GAIN_OF_FUNCTION</span>
+
+    </div>
+
+
+
+
+    <div class="context-detail">De novo heterozygous nonsense variants in the last exon of ODC1. Recorded as GAIN_OF_FUNCTION: the C-terminally truncated enzyme remains catalytically active and escapes antizyme-mediated proteasomal turnover, so the lesion increases ODC protein and activity rather than removing it.</div>
+
+
+
 
 
 
@@ -4776,7 +4928,7 @@ This pathophysiological event involves abnormal ODC1 (hgnc:8109). hgnc:8109 is a
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (4 references)
+            Show evidence (5 references)
         </summary>
         <div class="evidence-list">
 
@@ -4788,6 +4940,7 @@ This pathophysiological event involves abnormal ODC1 (hgnc:8109). hgnc:8109 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4815,6 +4968,7 @@ This pathophysiological event involves abnormal ODC1 (hgnc:8109). hgnc:8109 is a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4839,6 +4993,7 @@ This pathophysiological event involves abnormal ODC1 (hgnc:8109). hgnc:8109 is a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4853,7 +5008,7 @@ This pathophysiological event involves abnormal ODC1 (hgnc:8109). hgnc:8109 is a
             </div>
 
 
-            <div class="evidence-more">+ 1 more reference</div>
+            <div class="evidence-more">+ 2 more references</div>
 
         </div>
     </details>
@@ -4863,6 +5018,7 @@ This pathophysiological event involves abnormal ODC1 (hgnc:8109). hgnc:8109 is a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-escape-from-antizyme-mediated-proteasomal-degradation" data-dismech-node="Escape from Antizyme-Mediated Proteasomal Degradation" data-dismech-type="pathophysiology">
                 <div class="item-name">Escape from Antizyme-Mediated Proteasomal Degradation</div>
+
 
                 <div class="item-desc">Wild-type ODC is one of the shortest-lived mammalian proteins because its C-terminus acts as a degron for ubiquitin-independent, antizyme-dependent proteasomal degradation. The truncated BABS enzyme cannot be cleared by this route, so it escapes normal turnover. This is a stability defect, not a catalytic defect.</div>
 
@@ -4885,11 +5041,11 @@ This pathophysiological event involves abnormal ODC1 (hgnc:8109). hgnc:8109 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0010499" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0010499</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0010499" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0010499</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased proteasomal ubiquitin-independent protein catabolic process (GO:0010499). GO:0010499 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4954,6 +5110,7 @@ This pathophysiological event involves decreased proteasomal ubiquitin-independe
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4978,6 +5135,7 @@ This pathophysiological event involves decreased proteasomal ubiquitin-independe
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4999,6 +5157,7 @@ This pathophysiological event involves decreased proteasomal ubiquitin-independe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5027,6 +5186,7 @@ This pathophysiological event involves decreased proteasomal ubiquitin-independe
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-odc-protein-accumulation" data-dismech-node="ODC Protein Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">ODC Protein Accumulation</div>
 
+
                 <div class="item-desc">Stabilised ODC protein accumulates to large excess in patient cells, demonstrated in primary dermal fibroblasts and in red blood cells.</div>
 
 
@@ -5041,11 +5201,11 @@ This pathophysiological event involves decreased proteasomal ubiquitin-independe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000057</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5071,11 +5231,11 @@ This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000232</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000232</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5143,6 +5303,7 @@ This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5164,6 +5325,7 @@ This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5190,6 +5352,7 @@ This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-elevated-odc-enzyme-activity" data-dismech-node="Elevated ODC Enzyme Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Elevated ODC Enzyme Activity</div>
 
+
                 <div class="item-desc">Cellular ornithine decarboxylase activity is raised by one to two orders of magnitude, 12-17-fold in patient fibroblasts and 125-137-fold in patient red blood cells. ODC is the first, rate-limiting step of polyamine biosynthesis, so this is the point at which pathway flux is deregulated.</div>
 
 
@@ -5211,11 +5374,11 @@ This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006596" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0006596</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006596" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0006596</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased polyamine biosynthetic process (GO:0006596). GO:0006596 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5250,11 +5413,11 @@ This pathophysiological event involves increased polyamine biosynthetic process 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0004586" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0004586</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0004586" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0004586</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
 Relation: this pathophysiological event involves this molecular function
 This pathophysiological event involves increased ornithine decarboxylase activity (GO:0004586). GO:0004586 is a molecular function from the Gene Ontology.</span>
                     </span>
@@ -5326,6 +5489,7 @@ This pathophysiological event involves increased ornithine decarboxylase activit
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5347,6 +5511,7 @@ This pathophysiological event involves increased ornithine decarboxylase activit
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5374,6 +5539,7 @@ This pathophysiological event involves increased ornithine decarboxylase activit
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5396,6 +5562,7 @@ This pathophysiological event involves increased ornithine decarboxylase activit
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-putrescine-accumulation" data-dismech-node="Putrescine Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Putrescine Accumulation</div>
+
 
                 <div class="item-desc">Putrescine, the immediate product of ODC, accumulates in patient cells. It is the proximate biochemical lesion of BABS and the target of eflornithine therapy.</div>
 
@@ -5465,6 +5632,7 @@ This pathophysiological event involves increased ornithine decarboxylase activit
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5486,6 +5654,7 @@ This pathophysiological event involves increased ornithine decarboxylase activit
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5513,6 +5682,7 @@ This pathophysiological event involves increased ornithine decarboxylase activit
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5537,6 +5707,7 @@ This pathophysiological event involves increased ornithine decarboxylase activit
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ornithine-substrate-depletion" data-dismech-node="Ornithine Substrate Depletion" data-dismech-type="pathophysiology">
                 <div class="item-name">Ornithine Substrate Depletion</div>
+
 
                 <div class="item-desc">Plasma ornithine sat below the 2.5th percentile of a paediatric reference cohort before treatment in the first treated patient and normalised on eflornithine, consistent with excess consumption by the overactive enzyme.</div>
 
@@ -5575,6 +5746,7 @@ This pathophysiological event involves increased ornithine decarboxylase activit
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5596,6 +5768,7 @@ This pathophysiological event involves increased ornithine decarboxylase activit
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5621,6 +5794,7 @@ This pathophysiological event involves increased ornithine decarboxylase activit
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-elevated-n-acetylputrescine" data-dismech-node="Elevated N-Acetylputrescine" data-dismech-type="pathophysiology">
                 <div class="item-name">Elevated N-Acetylputrescine</div>
+
 
                 <div class="item-desc">N-acetylputrescine is the clinically measurable signature of the accumulated putrescine pool and is the metabolite that makes metabolomic profiling diagnostically suggestive of BABS. Other polyamine levels may be normal.</div>
 
@@ -5659,6 +5833,7 @@ This pathophysiological event involves increased ornithine decarboxylase activit
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5680,6 +5855,7 @@ This pathophysiological event involves increased ornithine decarboxylase activit
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5706,6 +5882,7 @@ This pathophysiological event involves increased ornithine decarboxylase activit
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hair-follicle-dysfunction-with-bulge-stem-cell-recruitment" data-dismech-node="Hair Follicle Dysfunction with Bulge Stem Cell Recruitment" data-dismech-type="pathophysiology">
                 <div class="item-name">Hair Follicle Dysfunction with Bulge Stem Cell Recruitment</div>
 
+
                 <div class="item-desc">Excess ODC activity in outer root sheath keratinocytes disrupts the hair cycle. In the C-terminally-truncated-ODC mouse the first hair cycle is normal and hair is then lost completely, matching the human natural history of hair present at birth followed by shedding.</div>
 
 
@@ -5720,11 +5897,11 @@ This pathophysiological event involves increased ornithine decarboxylase activit
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002561" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0002561</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002561" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0002561</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves outer root sheath cell (CL:0002561). CL:0002561 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5761,11 +5938,11 @@ This pathophysiological event involves outer root sheath cell (CL:0002561). CL:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042633" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0042633</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042633" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0042633</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal hair cycle (GO:0042633). GO:0042633 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5830,6 +6007,7 @@ This pathophysiological event involves abnormal hair cycle (GO:0042633). GO:0042
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5851,6 +6029,7 @@ This pathophysiological event involves abnormal hair cycle (GO:0042633). GO:0042
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5876,6 +6055,7 @@ This pathophysiological event involves abnormal hair cycle (GO:0042633). GO:0042
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-follicular-cyst-formation" data-dismech-node="Follicular Cyst Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Follicular Cyst Formation</div>
+
 
                 <div class="item-desc">Recurrent follicular cysts form on the scalp, neck and back, beginning as small maculopapular pustules and enlarging to several centimetres, sometimes requiring surgical removal.</div>
 
@@ -5914,6 +6094,7 @@ This pathophysiological event involves abnormal hair cycle (GO:0042633). GO:0042
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5935,6 +6116,7 @@ This pathophysiological event involves abnormal hair cycle (GO:0042633). GO:0042
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5961,6 +6143,7 @@ This pathophysiological event involves abnormal hair cycle (GO:0042633). GO:0042
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-neural-progenitor-proliferation" data-dismech-node="Dysregulated Neural Progenitor Proliferation" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysregulated Neural Progenitor Proliferation</div>
 
+
                 <div class="item-desc">ODC1 expression during fetal brain development and in cerebral organoids associates with neural progenitor cell proliferation, and gain-of-function variants are proposed to produce neural over-proliferation. This node is the weakest link in the chain: the human neurodevelopmental phenotype is not yet mechanistically connected to a measured progenitor abnormality in BABS patient tissue.</div>
 
 
@@ -5975,11 +6158,11 @@ This pathophysiological event involves abnormal hair cycle (GO:0042633). GO:0042
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0011020" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0011020</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0011020" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0011020</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves neural progenitor cell (CL:0011020). CL:0011020 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -6016,11 +6199,11 @@ This pathophysiological event involves neural progenitor cell (CL:0011020). CL:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0061351" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0061351</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0061351" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0061351</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal neural precursor cell proliferation (GO:0061351). GO:0061351 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -6085,6 +6268,7 @@ This pathophysiological event involves abnormal neural precursor cell proliferat
 
 
 
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -6107,6 +6291,7 @@ This pathophysiological event involves abnormal neural precursor cell proliferat
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-abnormal-brain-development" data-dismech-node="Abnormal Brain Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Abnormal Brain Development</div>
+
 
                 <div class="item-desc">Structural neuroimaging findings are variable and inconsistent across patients, and include white matter abnormalities, prominent Virchow-Robin spaces, periventricular and subependymal cysts, and corpus callosum abnormalities. Absolute or relative macrocephaly is common.</div>
 
@@ -6145,6 +6330,7 @@ This pathophysiological event involves abnormal neural precursor cell proliferat
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6166,6 +6352,7 @@ This pathophysiological event involves abnormal neural precursor cell proliferat
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6214,7 +6401,7 @@ This pathophysiological event involves abnormal neural precursor cell proliferat
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Brain Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Structural neuroimaging findings are variable and inconsistent across patients, and include white matter abnormalities, prominent Virchow-Robin spaces, periventricular and subependymal cysts, and corpus callosum abnormalities. Absolute or relative macrocephaly is common.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Dysregulated Neural Progenitor Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ODC1 expression during fetal brain development and in cerebral organoids associates with neural progenitor cell proliferation, and gain-of-function variants are proposed to produce neural over-proliferation. This node is the weakest link in the chain: the human neurodevelopmental phenotype is not yet mechanistically connected to a measured progenitor abnormality in BABS patient tissue.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neural progenitor cell\"], \"biological_processes\": [\"neural precursor cell proliferation\"]}}, {\"id\": \"Eflornithine (difluoromethylornithine, DFMO)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Eflornithine is an irreversible ODC inhibitor and the mechanism-matched targeted therapy for BABS. It was repurposed from its existing indications (West African trypanosomiasis, paediatric neuroblastoma maintenance, and hirsutism) and first given to a BABS patient under a single-patient FDA Investigational New Drug application, 16 months after the syndrome was first published. The index regimen was an oral solution given by gastrostomy tube at 500 mg/m2 twice daily, escalated to 750 and then 1000 mg/m2 twice daily, alongside a low-polyamine diet. Reported outcomes include hair regrowth beginning with the eyebrows at one month, immediate cessation of follicular cyst formation, increased muscle bulk and tone, acquisition of head control, unsupported sitting and self-feeding, and normalisation of cerebral white matter signal with resolution of subependymal cysts on MRI. Eflornithine is not an FDA-approved treatment for BABS and remains a compassionate-use therapy. Paediatric dosing and safety were taken from the neuroblastoma maintenance literature rather than from any BABS trial.\", \"meta\": {\"evidence_count\": 10, \"therapeutic_agents\": [\"eflornithine\"]}}, {\"id\": \"Elevated N-Acetylputrescine\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"N-acetylputrescine is the clinically measurable signature of the accumulated putrescine pool and is the metabolite that makes metabolomic profiling diagnostically suggestive of BABS. Other polyamine levels may be normal.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Elevated ODC Enzyme Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cellular ornithine decarboxylase activity is raised by one to two orders of magnitude, 12-17-fold in patient fibroblasts and 125-137-fold in patient red blood cells. ODC is the first, rate-limiting step of polyamine biosynthesis, so this is the point at which pathway flux is deregulated.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"polyamine biosynthetic process\"], \"molecular_functions\": [\"ornithine decarboxylase activity\"]}}, {\"id\": \"Escape from Antizyme-Mediated Proteasomal Degradation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Wild-type ODC is one of the shortest-lived mammalian proteins because its C-terminus acts as a degron for ubiquitin-independent, antizyme-dependent proteasomal degradation. The truncated BABS enzyme cannot be cleared by this route, so it escapes normal turnover. This is a stability defect, not a catalytic defect.\", \"meta\": {\"evidence_count\": 7, \"biological_processes\": [\"proteasomal ubiquitin-independent protein catabolic process\"]}}, {\"id\": \"Follicular Cyst Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Recurrent follicular cysts form on the scalp, neck and back, beginning as small maculopapular pustules and enlarging to several centimetres, sometimes requiring surgical removal.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Hair Follicle Dysfunction with Bulge Stem Cell Recruitment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Excess ODC activity in outer root sheath keratinocytes disrupts the hair cycle. In the C-terminally-truncated-ODC mouse the first hair cycle is normal and hair is then lost completely, matching the human natural history of hair present at birth followed by shedding.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"outer root sheath cell\"], \"biological_processes\": [\"hair cycle\"]}}, {\"id\": \"Low-polyamine diet\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dietary restriction of polyamines was given alongside eflornithine in the index treated patient. It has never been tested as monotherapy in BABS, and the review literature raises dietary intervention and gut-flora-directed antibiotics only as candidate approaches to lowering putrescine.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"ODC Protein Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Stabilised ODC protein accumulates to large excess in patient cells, demonstrated in primary dermal fibroblasts and in red blood cells.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"fibroblast\", \"erythrocyte\"]}}, {\"id\": \"ODC1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 7, \"genes\": [\"ODC1\"], \"gene_terms\": [{\"label\": \"ODC1\", \"id\": \"hgnc:8109\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"DE_NOVO\"}}, {\"id\": \"ODC1 C-Terminal Truncating Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A de novo heterozygous variant at the 3-prime end of ODC1 introduces a premature stop codon in the last exon, removing the carboxy-terminal residues of ornithine decarboxylase. The variants cluster in this region across reported patients, and the index allele c.1342A\u003eT removes the last 14 amino acids.\", \"meta\": {\"evidence_count\": 4, \"genes\": [\"ODC1\"], \"gene_terms\": [{\"label\": \"ODC1\", \"id\": \"hgnc:8109\", \"modifier\": \"ABNORMAL\"}]}}, {\"id\": \"Ornithine Substrate Depletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Plasma ornithine sat below the 2.5th percentile of a paediatric reference cohort before treatment in the first treated patient and normalised on eflornithine, consistent with excess consumption by the overactive enzyme.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Putrescine Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Putrescine, the immediate product of ODC, accumulates in patient cells. It is the proximate biochemical lesion of BABS and the target of eflornithine therapy.\", \"meta\": {\"evidence_count\": 4}}], \"edges\": [{\"source\": \"ODC1 C-Terminal Truncating Variant\", \"target\": \"Escape from Antizyme-Mediated Proteasomal Degradation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the C-terminal degron removes the signal that normally targets ODC for ubiquitin-independent proteasomal turnover.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Escape from Antizyme-Mediated Proteasomal Degradation\", \"target\": \"ODC Protein Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A protein that cannot be degraded accumulates in the cell.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ODC Protein Accumulation\", \"target\": \"Elevated ODC Enzyme Activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Because the accumulated protein retains catalytic competence, more enzyme means proportionally more activity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Elevated ODC Enzyme Activity\", \"target\": \"Putrescine Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ODC converts ornithine to putrescine; excess enzyme activity drives putrescine accumulation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Elevated ODC Enzyme Activity\", \"target\": \"Ornithine Substrate Depletion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained excess flux through the decarboxylation step draws down the ornithine pool.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Putrescine Accumulation\", \"target\": \"Elevated N-Acetylputrescine\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excess putrescine is acetylated, and it is the acetylated species that is measurable on clinical metabolomic profiling.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Putrescine Accumulation\", \"target\": \"Hair Follicle Dysfunction with Bulge Stem Cell Recruitment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Elevated follicular polyamines disrupt the hair cycle and recruit bulge stem cells out of quiescence.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Putrescine Accumulation\", \"target\": \"Dysregulated Neural Progenitor Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ODC1 expression tracks neural progenitor proliferation in fetal brain and cerebral organoids; gain of function is proposed to drive over-proliferation. The steps between the raised polyamine pool and the progenitor phenotype are not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hair Follicle Dysfunction with Bulge Stem Cell Recruitment\", \"target\": \"Follicular Cyst Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hair follicles that cannot complete the cycle give rise to dermal follicular cysts.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated Neural Progenitor Proliferation\", \"target\": \"Abnormal Brain Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disturbed progenitor proliferation is the proposed route to the structural and functional brain abnormalities, but the intermediates are unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Eflornithine (difluoromethylornithine, DFMO)\", \"target\": \"Elevated ODC Enzyme Activity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Eflornithine (difluoromethylornithine, DFMO)\", \"target\": \"Putrescine Accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Eflornithine (difluoromethylornithine, DFMO)\", \"target\": \"Hair Follicle Dysfunction with Bulge Stem Cell Recruitment\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Low-polyamine diet\", \"target\": \"Putrescine Accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"ODC1\", \"target\": \"ODC1 C-Terminal Truncating Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Brain Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Structural neuroimaging findings are variable and inconsistent across patients, and include white matter abnormalities, prominent Virchow-Robin spaces, periventricular and subependymal cysts, and corpus callosum abnormalities. Absolute or relative macrocephaly is common.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Dysregulated Neural Progenitor Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ODC1 expression during fetal brain development and in cerebral organoids associates with neural progenitor cell proliferation, and gain-of-function variants are proposed to produce neural over-proliferation. This node is the weakest link in the chain: the human neurodevelopmental phenotype is not yet mechanistically connected to a measured progenitor abnormality in BABS patient tissue.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neural progenitor cell\"], \"biological_processes\": [\"neural precursor cell proliferation\"]}}, {\"id\": \"Eflornithine (difluoromethylornithine, DFMO)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Eflornithine is an irreversible ODC inhibitor and the mechanism-matched targeted therapy for BABS. It was repurposed from its existing indications (West African trypanosomiasis, paediatric neuroblastoma maintenance, and hirsutism) and first given to a BABS patient under a single-patient FDA Investigational New Drug application, 16 months after the syndrome was first published. The index regimen was an oral solution given by gastrostomy tube at 500 mg/m2 twice daily, escalated to 750 and then 1000 mg/m2 twice daily, alongside a low-polyamine diet. Reported outcomes include hair regrowth beginning with the eyebrows at one month, immediate cessation of follicular cyst formation, increased muscle bulk and tone, acquisition of head control, unsupported sitting and self-feeding, and normalisation of cerebral white matter signal with resolution of subependymal cysts on MRI. Eflornithine is not an FDA-approved treatment for BABS and remains a compassionate-use therapy. Paediatric dosing and safety were taken from the neuroblastoma maintenance literature rather than from any BABS trial.\", \"meta\": {\"evidence_count\": 10, \"therapeutic_agents\": [\"eflornithine\"]}}, {\"id\": \"Elevated N-Acetylputrescine\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"N-acetylputrescine is the clinically measurable signature of the accumulated putrescine pool and is the metabolite that makes metabolomic profiling diagnostically suggestive of BABS. Other polyamine levels may be normal.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Elevated ODC Enzyme Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cellular ornithine decarboxylase activity is raised by one to two orders of magnitude, 12-17-fold in patient fibroblasts and 125-137-fold in patient red blood cells. ODC is the first, rate-limiting step of polyamine biosynthesis, so this is the point at which pathway flux is deregulated.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"polyamine biosynthetic process\"], \"molecular_functions\": [\"ornithine decarboxylase activity\"]}}, {\"id\": \"Escape from Antizyme-Mediated Proteasomal Degradation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Wild-type ODC is one of the shortest-lived mammalian proteins because its C-terminus acts as a degron for ubiquitin-independent, antizyme-dependent proteasomal degradation. The truncated BABS enzyme cannot be cleared by this route, so it escapes normal turnover. This is a stability defect, not a catalytic defect.\", \"meta\": {\"evidence_count\": 7, \"biological_processes\": [\"proteasomal ubiquitin-independent protein catabolic process\"]}}, {\"id\": \"Follicular Cyst Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Recurrent follicular cysts form on the scalp, neck and back, beginning as small maculopapular pustules and enlarging to several centimetres, sometimes requiring surgical removal.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Hair Follicle Dysfunction with Bulge Stem Cell Recruitment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Excess ODC activity in outer root sheath keratinocytes disrupts the hair cycle. In the C-terminally-truncated-ODC mouse the first hair cycle is normal and hair is then lost completely, matching the human natural history of hair present at birth followed by shedding.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"outer root sheath cell\"], \"biological_processes\": [\"hair cycle\"]}}, {\"id\": \"Low-polyamine diet\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dietary restriction of polyamines was given alongside eflornithine in the index treated patient. It has never been tested as monotherapy in BABS, and the review literature raises dietary intervention and gut-flora-directed antibiotics only as candidate approaches to lowering putrescine.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"ODC Protein Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Stabilised ODC protein accumulates to large excess in patient cells, demonstrated in primary dermal fibroblasts and in red blood cells.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"fibroblast\", \"erythrocyte\"]}}, {\"id\": \"ODC1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 7, \"genes\": [\"ODC1\"], \"gene_terms\": [{\"label\": \"ODC1\", \"id\": \"hgnc:8109\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"DE_NOVO\"}}, {\"id\": \"ODC1 C-Terminal Truncating Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A de novo heterozygous variant at the 3-prime end of ODC1 introduces a premature stop codon in the last exon, removing the carboxy-terminal residues of ornithine decarboxylase. The variants cluster in this region across reported patients, and the index allele c.1342A\u003eT removes the last 14 amino acids.\", \"meta\": {\"evidence_count\": 5, \"genes\": [\"ODC1\"], \"gene_terms\": [{\"label\": \"ODC1\", \"id\": \"hgnc:8109\", \"modifier\": \"ABNORMAL\"}], \"genetic_context\": {\"allele_type\": \"nonsense\", \"variant_origin\": \"DE_NOVO\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"GAIN_OF_FUNCTION\", \"description\": \"De novo heterozygous nonsense variants in the last exon of ODC1. Recorded as GAIN_OF_FUNCTION: the C-terminally truncated enzyme remains catalytically active and escapes antizyme-mediated proteasomal turnover, so the lesion increases ODC protein and activity rather than removing it.\", \"gene_terms\": [{\"label\": \"ODC1\", \"id\": \"hgnc:8109\"}]}}}, {\"id\": \"Ornithine Substrate Depletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Plasma ornithine sat below the 2.5th percentile of a paediatric reference cohort before treatment in the first treated patient and normalised on eflornithine, consistent with excess consumption by the overactive enzyme.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Putrescine Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Putrescine, the immediate product of ODC, accumulates in patient cells. It is the proximate biochemical lesion of BABS and the target of eflornithine therapy.\", \"meta\": {\"evidence_count\": 4}}], \"edges\": [{\"source\": \"ODC1 C-Terminal Truncating Variant\", \"target\": \"Escape from Antizyme-Mediated Proteasomal Degradation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the C-terminal degron removes the signal that normally targets ODC for ubiquitin-independent proteasomal turnover.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Escape from Antizyme-Mediated Proteasomal Degradation\", \"target\": \"ODC Protein Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A protein that cannot be degraded accumulates in the cell.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ODC Protein Accumulation\", \"target\": \"Elevated ODC Enzyme Activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Because the accumulated protein retains catalytic competence, more enzyme means proportionally more activity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Elevated ODC Enzyme Activity\", \"target\": \"Putrescine Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ODC converts ornithine to putrescine; excess enzyme activity drives putrescine accumulation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Elevated ODC Enzyme Activity\", \"target\": \"Ornithine Substrate Depletion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained excess flux through the decarboxylation step draws down the ornithine pool.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Putrescine Accumulation\", \"target\": \"Elevated N-Acetylputrescine\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excess putrescine is acetylated, and it is the acetylated species that is measurable on clinical metabolomic profiling.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Putrescine Accumulation\", \"target\": \"Hair Follicle Dysfunction with Bulge Stem Cell Recruitment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Elevated follicular polyamines disrupt the hair cycle and recruit bulge stem cells out of quiescence.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Putrescine Accumulation\", \"target\": \"Dysregulated Neural Progenitor Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ODC1 expression tracks neural progenitor proliferation in fetal brain and cerebral organoids; gain of function is proposed to drive over-proliferation. The steps between the raised polyamine pool and the progenitor phenotype are not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hair Follicle Dysfunction with Bulge Stem Cell Recruitment\", \"target\": \"Follicular Cyst Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hair follicles that cannot complete the cycle give rise to dermal follicular cysts.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated Neural Progenitor Proliferation\", \"target\": \"Abnormal Brain Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disturbed progenitor proliferation is the proposed route to the structural and functional brain abnormalities, but the intermediates are unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Eflornithine (difluoromethylornithine, DFMO)\", \"target\": \"Elevated ODC Enzyme Activity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Eflornithine (difluoromethylornithine, DFMO)\", \"target\": \"Putrescine Accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Eflornithine (difluoromethylornithine, DFMO)\", \"target\": \"Hair Follicle Dysfunction with Bulge Stem Cell Recruitment\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Low-polyamine diet\", \"target\": \"Putrescine Accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"ODC1\", \"target\": \"ODC1 C-Terminal Truncating Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6233,25 +6420,23 @@ This pathophysiological event involves abnormal neural precursor cell proliferat
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Ear<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Eye<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Eye<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Head and Neck<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Head and Neck<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Integument<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Integument<span class="pill-count">(4)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Musculoskeletal<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Nervous System<span class="pill-count">(6)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Nervous System<span class="pill-count">(7)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Growth<span class="pill-count">(2)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Other<span class="pill-count">(5)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6261,7 +6446,7 @@ This pathophysiological event involves abnormal neural precursor cell proliferat
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-heart-morphology" data-dismech-node="Abnormal heart morphology" data-dismech-type="phenotype">
@@ -6278,15 +6463,18 @@ This pathophysiological event involves abnormal neural precursor cell proliferat
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001627</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001627</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6309,6 +6497,7 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6317,6 +6506,78 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
 
 
                 <div class="evidence-explanation">Congenital heart defects are named among the manifestations requiring standard treatment.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dilation-of-virchow-robin-spaces" data-dismech-node="Dilation of Virchow-Robin spaces" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Dilation of Virchow-Robin spaces
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012520" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0012520</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dilation of Virchow-Robin spaces (HP:0012520). HP:0012520 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30475435" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30475435" target="_blank">PMID:30475435</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Neuroimaging variably demonstrates white matter abnormalities, prominent Virchow-Robin spaces, periventricular cysts, and abnormalities of the corpus callosum."</div>
+
+
+                <div class="evidence-explanation">Names prominent Virchow-Robin spaces among the neuroimaging findings.</div>
 
 
 
@@ -6355,15 +6616,18 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0011968</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0011968</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6383,6 +6647,7 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6407,6 +6672,7 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6447,15 +6713,18 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002019" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0002019</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002019" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002019</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6475,6 +6744,7 @@ This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6526,15 +6796,18 @@ This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000405" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000405</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000405" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000405</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6554,6 +6827,7 @@ This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6594,15 +6868,18 @@ This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000407</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000407</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6622,6 +6899,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6646,6 +6924,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6678,7 +6957,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-strabismus" data-dismech-node="Strabismus" data-dismech-type="phenotype">
@@ -6695,15 +6974,18 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000486</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000486</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6723,6 +7005,7 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6749,14 +7032,183 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormality-of-refraction" data-dismech-node="Abnormality of refraction" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Abnormality of refraction
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000539" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000539</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormality of refraction (HP:0000539). HP:0000539 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36007106" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36007106" target="_blank">PMID:36007106</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Feeding therapy with a low threshold for a clinical feeding evaluation and/or gastrostomy tube placement; nutritional intervention for those with obesity; stool softeners, prokinetics, osmotic agents or laxatives for constipation; standard treatment for epilepsy, developmental delay /..."</div>
+
+
+                <div class="evidence-explanation">Refractive error is named among the manifestations requiring standard treatment.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
             <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-absent-eyebrow" data-dismech-node="Absent eyebrow" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Absent eyebrow
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002223" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002223</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Absent eyebrow (HP:0002223). HP:0002223 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34282722" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34282722" target="_blank">PMID:34282722</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"One month into treatment, hair growth was noted, with eyebrows appearing first"</div>
+
+
+                <div class="evidence-explanation">Eyebrow regrowth on treatment implies the pre-treatment absence of eyebrows in this genotyped patient.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36443247" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36443247" target="_blank">PMID:36443247</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In both patients, treatment with difluoromethylornithine has resulted in improved dermatologic signs, including regrowth of eyebrow and scalp hair and cessation of recurrent follicular cyst development."</div>
+
+
+                <div class="evidence-explanation">Two further genotyped patients in whom eyebrow hair was absent and regrew on treatment.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-macrocephaly" data-dismech-node="Macrocephaly" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6772,15 +7224,18 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000256" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000256</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000256" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000256</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6800,6 +7255,7 @@ This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6824,6 +7280,7 @@ This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6866,15 +7323,18 @@ This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001999</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001999</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6894,6 +7354,7 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6918,6 +7379,7 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6950,7 +7412,7 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Integument
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">4</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-alopecia" data-dismech-node="Alopecia" data-dismech-type="phenotype">
@@ -6969,15 +7431,18 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001596" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001596</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001596" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001596</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Alopecia (HP:0001596). HP:0001596 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6997,6 +7462,7 @@ This clinical feature is Alopecia (HP:0001596). HP:0001596 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7024,6 +7490,7 @@ This clinical feature is Alopecia (HP:0001596). HP:0001596 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7045,6 +7512,7 @@ This clinical feature is Alopecia (HP:0001596). HP:0001596 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7073,6 +7541,103 @@ This clinical feature is Alopecia (HP:0001596). HP:0001596 is a phenotype from t
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-nail-growth" data-dismech-node="Abnormal nail growth" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Abnormal nail growth
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030807" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0030807</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Accelerated nail growth, annotated with Abnormal nail growth (HP:0030807). HP:0030807 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41925768" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41925768" target="_blank">PMID:41925768</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Similar to the phenotypic abnormalities observed in K6/ODC transgenic mice, human patients with this ODC mutation also displayed alopecia, accelerated nail growth and skin cysts"</div>
+
+
+                <div class="evidence-explanation">A review states that BABS patients, like the transgenic mice, show accelerated nail growth.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:7671221" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/7671221" target="_blank">PMID:7671221</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Effects observed include development of dermal follicular cysts, excessive skin wrinkling, enhanced nail growth, alopecia, and spontaneous tumor development."</div>
+
+
+                <div class="evidence-explanation">The corresponding mouse observation, recorded separately so the human and model evidence are not conflated.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
                 <div class="item-box phenotype-box anchor-target" id="phenotype-capillary-malformation" data-dismech-node="Capillary malformation" data-dismech-type="phenotype">
                     <div class="item-name">
                         Capillary malformation
@@ -7087,15 +7652,18 @@ This clinical feature is Alopecia (HP:0001596). HP:0001596 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025104" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0025104</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0025104" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0025104</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Capillary malformation (HP:0025104). HP:0025104 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7115,6 +7683,7 @@ This clinical feature is Capillary malformation (HP:0025104). HP:0025104 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7155,15 +7724,18 @@ This clinical feature is Capillary malformation (HP:0025104). HP:0025104 is a ph
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0200040" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0200040</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0200040" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0200040</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Follicular cyst, annotated with Epidermoid cyst (HP:0200040). HP:0200040 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7183,6 +7755,7 @@ This clinical feature is Follicular cyst, annotated with Epidermoid cyst (HP:020
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7210,6 +7783,7 @@ This clinical feature is Follicular cyst, annotated with Epidermoid cyst (HP:020
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7231,6 +7805,7 @@ This clinical feature is Follicular cyst, annotated with Epidermoid cyst (HP:020
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7282,15 +7857,18 @@ This clinical feature is Follicular cyst, annotated with Epidermoid cyst (HP:020
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001252</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7310,6 +7888,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7334,6 +7913,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7374,15 +7954,18 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001257</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001257</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7402,6 +7985,7 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7434,7 +8018,7 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">6</span>
+                    <span class="cat-count">7</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-global-developmental-delay" data-dismech-node="Global developmental delay" data-dismech-type="phenotype">
@@ -7453,15 +8037,18 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7481,6 +8068,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7508,6 +8096,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7529,6 +8118,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7569,15 +8159,18 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000729</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000729</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7597,6 +8190,7 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7621,6 +8215,7 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7661,15 +8256,18 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007018" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0007018</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007018" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0007018</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). HP:0007018 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7689,6 +8287,7 @@ This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7731,15 +8330,18 @@ This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7759,6 +8361,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7783,6 +8386,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7823,15 +8427,18 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002500" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0002500</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002500" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0002500</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal cerebral white matter morphology (HP:0002500). HP:0002500 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7851,6 +8458,7 @@ This clinical feature is Abnormal cerebral white matter morphology (HP:0002500).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7878,6 +8486,7 @@ This clinical feature is Abnormal cerebral white matter morphology (HP:0002500).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7886,6 +8495,103 @@ This clinical feature is Abnormal cerebral white matter morphology (HP:0002500).
 
 
                 <div class="evidence-explanation">Patient-level neonatal MRI documentation of the white matter abnormality.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-subependymal-cysts" data-dismech-node="Subependymal cysts" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Subependymal cysts
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002416" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0002416</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Subependymal cysts (HP:0002416). HP:0002416 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34282722" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34282722" target="_blank">PMID:34282722</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A neonatal brain MRI showed abnormal cerebral white matter and subependymal cysts"</div>
+
+
+                <div class="evidence-explanation">Documents subependymal cysts on the neonatal MRI of a genotyped patient.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30475435" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30475435" target="_blank">PMID:30475435</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Neuroimaging variably demonstrates white matter abnormalities, prominent Virchow-Robin spaces, periventricular cysts, and abnormalities of the corpus callosum."</div>
+
+
+                <div class="evidence-explanation">Marked PARTIAL because this cohort describes the cysts as periventricular rather than specifically subependymal.</div>
 
 
 
@@ -7915,15 +8621,18 @@ This clinical feature is Abnormal cerebral white matter morphology (HP:0002500).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001273" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001273</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001273" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001273</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal corpus callosum morphology (HP:0001273). HP:0001273 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7943,6 +8652,7 @@ This clinical feature is Abnormal corpus callosum morphology (HP:0001273). HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7994,15 +8704,18 @@ This clinical feature is Abnormal corpus callosum morphology (HP:0001273). HP:00
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001548" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001548</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001548" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0001548</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Overgrowth (HP:0001548). HP:0001548 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8022,6 +8735,7 @@ This clinical feature is Overgrowth (HP:0001548). HP:0001548 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8046,6 +8760,7 @@ This clinical feature is Overgrowth (HP:0001548). HP:0001548 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8086,15 +8801,18 @@ This clinical feature is Overgrowth (HP:0001548). HP:0001548 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001513</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0001513</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8114,6 +8832,7 @@ This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8125,427 +8844,6 @@ This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from th
 
 
                 <div class="evidence-explanation">GeneReviews management explicitly provides for nutritional intervention in those with obesity.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-10">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">5</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-absent-eyebrow" data-dismech-node="Absent eyebrow" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Absent eyebrow
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002223" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0002223</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Absent eyebrow (HP:0002223). HP:0002223 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:34282722" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34282722" target="_blank">PMID:34282722</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"One month into treatment, hair growth was noted, with eyebrows appearing first"</div>
-
-
-                <div class="evidence-explanation">Eyebrow regrowth on treatment implies the pre-treatment absence of eyebrows in this genotyped patient.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:36443247" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36443247" target="_blank">PMID:36443247</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"In both patients, treatment with difluoromethylornithine has resulted in improved dermatologic signs, including regrowth of eyebrow and scalp hair and cessation of recurrent follicular cyst development."</div>
-
-
-                <div class="evidence-explanation">Two further genotyped patients in whom eyebrow hair was absent and regrew on treatment.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-nail-growth" data-dismech-node="Abnormal nail growth" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Abnormal nail growth
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030807" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0030807</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Accelerated nail growth, annotated with Abnormal nail growth (HP:0030807). HP:0030807 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:41925768" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41925768" target="_blank">PMID:41925768</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Similar to the phenotypic abnormalities observed in K6/ODC transgenic mice, human patients with this ODC mutation also displayed alopecia, accelerated nail growth and skin cysts"</div>
-
-
-                <div class="evidence-explanation">A review states that BABS patients, like the transgenic mice, show accelerated nail growth.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:7671221" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/7671221" target="_blank">PMID:7671221</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Effects observed include development of dermal follicular cysts, excessive skin wrinkling, enhanced nail growth, alopecia, and spontaneous tumor development."</div>
-
-
-                <div class="evidence-explanation">The corresponding mouse observation, recorded separately so the human and model evidence are not conflated.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormality-of-refraction" data-dismech-node="Abnormality of refraction" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Abnormality of refraction
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000539" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0000539</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Abnormality of refraction (HP:0000539). HP:0000539 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:36007106" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36007106" target="_blank">PMID:36007106</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Feeding therapy with a low threshold for a clinical feeding evaluation and/or gastrostomy tube placement; nutritional intervention for those with obesity; stool softeners, prokinetics, osmotic agents or laxatives for constipation; standard treatment for epilepsy, developmental delay /..."</div>
-
-
-                <div class="evidence-explanation">Refractive error is named among the manifestations requiring standard treatment.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-dilation-of-virchow-robin-spaces" data-dismech-node="Dilation of Virchow-Robin spaces" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Dilation of Virchow-Robin spaces
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012520" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0012520</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Dilation of Virchow-Robin spaces (HP:0012520). HP:0012520 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:30475435" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30475435" target="_blank">PMID:30475435</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Neuroimaging variably demonstrates white matter abnormalities, prominent Virchow-Robin spaces, periventricular cysts, and abnormalities of the corpus callosum."</div>
-
-
-                <div class="evidence-explanation">Names prominent Virchow-Robin spaces among the neuroimaging findings.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-subependymal-cysts" data-dismech-node="Subependymal cysts" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Subependymal cysts
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002416" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0002416</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Subependymal cysts (HP:0002416). HP:0002416 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:34282722" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34282722" target="_blank">PMID:34282722</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"A neonatal brain MRI showed abnormal cerebral white matter and subependymal cysts"</div>
-
-
-                <div class="evidence-explanation">Documents subependymal cysts on the neonatal MRI of a genotyped patient.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:30475435" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30475435" target="_blank">PMID:30475435</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Neuroimaging variably demonstrates white matter abnormalities, prominent Virchow-Robin spaces, periventricular cysts, and abnormalities of the corpus callosum."</div>
-
-
-                <div class="evidence-explanation">Marked PARTIAL because this cohort describes the cysts as periventricular rather than specifically subependymal.</div>
 
 
 
@@ -8618,10 +8916,10 @@ This clinical feature is Subependymal cysts (HP:0002416). HP:0002416 is a phenot
                         Gene: ODC1
 
 
-    <a href="https://bioregistry.io/hgnc:8109" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-37">hgnc:8109</a>
+    <a href="https://bioregistry.io/hgnc:8109" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-38">hgnc:8109</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is ODC1 (hgnc:8109). hgnc:8109 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -8633,6 +8931,9 @@ This disease-associated gene is ODC1 (hgnc:8109). hgnc:8109 is a gene from the H
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: DE_NOVO</span>
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -8660,6 +8961,7 @@ This disease-associated gene is ODC1 (hgnc:8109). hgnc:8109 is a gene from the H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8684,6 +8986,7 @@ This disease-associated gene is ODC1 (hgnc:8109). hgnc:8109 is a gene from the H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8705,6 +9008,7 @@ This disease-associated gene is ODC1 (hgnc:8109). hgnc:8109 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8757,7 +9061,7 @@ This disease-associated gene is ODC1 (hgnc:8109). hgnc:8109 is a gene from the H
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8798,16 +9102,41 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_41948" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-39">CHEBI:41948</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_41948" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-40">CHEBI:41948</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses eflornithine (CHEBI:41948). CHEBI:41948 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
 
 
 
@@ -8841,6 +9170,7 @@ This treatment uses eflornithine (CHEBI:41948). CHEBI:41948 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8891,6 +9221,7 @@ This treatment uses eflornithine (CHEBI:41948). CHEBI:41948 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8938,6 +9269,7 @@ This treatment uses eflornithine (CHEBI:41948). CHEBI:41948 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8981,6 +9313,7 @@ This treatment uses eflornithine (CHEBI:41948). CHEBI:41948 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9005,6 +9338,7 @@ This treatment uses eflornithine (CHEBI:41948). CHEBI:41948 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9026,6 +9360,7 @@ This treatment uses eflornithine (CHEBI:41948). CHEBI:41948 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9059,7 +9394,7 @@ This treatment uses eflornithine (CHEBI:41948). CHEBI:41948 is a therapeutic age
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">Dietary Intervention<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">Dietary Intervention<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Dietary Intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -9086,6 +9421,31 @@ This treatment is Dietary Intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -9121,6 +9481,7 @@ This treatment is Dietary Intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9167,6 +9528,7 @@ This treatment is Dietary Intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9195,7 +9557,7 @@ This treatment is Dietary Intervention (NCIT:C15447). NCIT:C15447 is a clinical 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">Supportive Care<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-42">Supportive Care<span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -9227,6 +9589,31 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Standard multidisciplinary care for the individual manifestations: feeding therapy with a low threshold for gastrostomy placement, nutritional intervention for obesity, a constipation ladder of stool softeners, prokinetics, osmotic agents and laxatives, and standard treatment for epilepsy, developmental delay and intellectual disability, refractive error, strabismus, hearing loss, follicular cysts and congenital heart defects.</div>
 
 
@@ -9251,6 +9638,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9272,6 +9660,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9303,7 +9692,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-42">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-43">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -9335,6 +9724,31 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">BABS is autosomal dominant and typically de novo, so the recurrence risk to other family members is presumed low. Once the familial ODC1 variant is known, prenatal and preimplantation genetic testing are possible.</div>
 
 
@@ -9356,6 +9770,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9423,6 +9838,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9447,6 +9863,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9468,6 +9885,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9520,6 +9938,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -9541,6 +9960,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9590,6 +10010,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9661,6 +10082,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9682,6 +10104,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9741,6 +10164,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9762,6 +10186,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9818,6 +10243,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9895,6 +10321,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9919,6 +10346,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9940,6 +10368,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10054,6 +10483,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10078,6 +10508,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10099,6 +10530,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10182,6 +10614,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10203,6 +10636,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10287,6 +10721,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10308,6 +10743,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10336,12 +10772,11 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
             <div class="item-box differential-box anchor-target" id="differential-diagnosis-deoxyhypusine-synthase-dhps-deficiency">
                 <div class="item-name">
 
-                    <span class="missing-disease-name" title="No DisMech page yet for this disease">Deoxyhypusine synthase (DHPS) deficiency</span>
-                    <span class="curation-gap-badge">Not Yet Curated</span>
+                    <a class="item-name-link" href="Deoxyhypusine_Synthase_Deficiency.html">Deoxyhypusine synthase (DHPS) deficiency</a>
 
 
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/MONDO_0032775" target="_blank" class="missing-ontology-link">
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0032775" target="_blank">
                             MONDO:0032775
                         </a>
                     </span>
@@ -10389,6 +10824,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10473,6 +10909,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10549,6 +10986,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -10573,6 +11011,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -10594,6 +11033,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10694,6 +11134,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10718,6 +11159,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10739,6 +11181,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10819,6 +11262,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10840,6 +11284,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11245,6 +11690,21 @@ pathophysiology:
       id: hgnc:8109
       label: ODC1
     modifier: ABNORMAL
+  genetic_context:
+    gene:
+      preferred_term: ODC1
+      term:
+        id: hgnc:8109
+        label: ODC1
+    allele_type: nonsense
+    variant_origin: DE_NOVO
+    zygosity: HETEROZYGOUS
+    functional_impact_category: GAIN_OF_FUNCTION
+    description: &gt;-
+      De novo heterozygous nonsense variants in the last exon of ODC1. Recorded as
+      GAIN_OF_FUNCTION: the C-terminally truncated enzyme remains catalytically active
+      and escapes antizyme-mediated proteasomal turnover, so the lesion increases ODC
+      protein and activity rather than removing it.
   evidence:
   - reference: PMID:37469105
     reference_title: Bachmann-Bupp syndrome and treatment.
@@ -11280,6 +11740,14 @@ pathophysiology:
     explanation: &gt;-
       States that C-terminal truncation is an invariant feature of the BABS
       allele spectrum.
+  - reference: PMID:30475435
+    reference_title: &#34;Gain-of-function variants in the ODC1 gene cause a syndromic neurodevelopmental disorder associated with macrocephaly, alopecia, dysmorphic features, and neuroimaging abnormalities.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;In this report, we present four patients with a distinct neurometabolic disorder associated with de novo heterozygous, gain-of-function variants in the ODC1 gene.&#34;
+    explanation: &gt;-
+      The founding case series classifies the causal ODC1 alleles as de novo,
+      heterozygous and gain-of-function, which is the functional impact recorded here.
   downstream:
   - target: Escape from Antizyme-Mediated Proteasomal Degradation
     description: &gt;-
@@ -13704,6 +14172,48 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Scope, provenance and named-entity-confusion notes for this entry.
+
+(1) GeneReviews baseline. A GeneReviews chapter exists (PMID:36007106, &#34;Bachmann-Bupp Syndrome&#34;, Bupp, Michael, VanSickle, Rajasekaran and Bachmann, 2022 Aug 25) and was used as the mandatory phenotype baseline. Every clinical feature named in its Clinical Characteristics paragraph is represented in the phenotypes block: the distinctive alopecia, global developmental delay in the moderate to severe range, hypotonia, nonspecific dysmorphic features, behavioural abnormalities (autism spectrum disorder and attention-deficit/hyperactivity disorder are curated as two separate phenotype entries), feeding difficulties, the birth-hair-then-clump-loss natural history, and the rare findings of later-childhood seizures and conductive hearing loss. Features named only in its Management paragraph (obesity, constipation, refractive error, strabismus, follicular cysts, congenital heart defects) are also curated, sourced to that same paragraph. Nothing in the GeneReviews abstract is knowingly omitted. The cached record is the structured PubMed abstract, not the full chapter body, so features present only in the chapter body may still be missing.
+
+(2) Named-entity-confusion discipline - this is the central risk for ODC1. ODC1 is a heavily studied oncology and polyamine-pharmacology gene, and the overwhelming majority of its literature is cancer biology, DFMO chemoprevention or basic polyamine metabolism with no bearing on this neurodevelopmental disorder. Every citation in this entry was checked to be either (a) about genotyped human BABS patients, (b) the disease-specific review literature from the International Center for Polyamine Disorders, or (c) the C-terminally-truncated-ODC animal model that is the accepted mechanistic model of this exact lesion. No chemoprevention trial (colorectal adenoma, skin cancer) and no neuroblastoma efficacy trial is cited as evidence for a BABS claim; the neuroblastoma literature is referred to only where the BABS papers themselves invoke it as the source of the paediatric dose and safety data, and that is stated explicitly in the eflornithine treatment entry rather than cited directly.
+
+(3) The direction-of-effect trap. BABS is a GAIN-of-function disorder. ODC1 knockout and loss-of-function data must not be imported as if they modelled the patient state, and none is. The one loss-of-function observation that is curated (the ODC G84R hypomorph in PMID:33806076) is deliberately modelled as a differential-diagnosis entry and as a contrast, never as support for a BABS mechanism, because the same paper reports that the two directions have opposite predicted consequences for neural progenitors: gain-of-function with over-proliferation and loss-of-function with depletion. Likewise the mouse evidence used here is the K6/ODC transgenic, which carries a premature stop codon producing a carboxyl-truncated, stabilised ODC - the same class of lesion as the human variants - and not an Odc1 null.
+
+(4) Mouse-model fidelity and its limits. The K6/ODC mouse (PMID:8618048, reviewed in PMID:41925768) reproduces the alopecia and follicular cysts and their reversal with DFMO, and was the direct basis for the drug-repurposing decision. It is a keratin-6-promoter-driven, skin-restricted transgenic, whereas BABS patients express the truncated enzyme in every tissue, so it models only the cutaneous arm. All neurodevelopmental claims in this entry therefore rest on human evidence, and the mouse evidence carries evidence_source MODEL_ORGANISM and is confined to the hair-follicle and follicular-cyst nodes.
+
+(5) Frequency derivation. Frequency bands are recorded on only five phenotypes and are omitted everywhere else. The five that carry a band are derived from GeneReviews qualitative language using the standard prose-to-FrequencyEnum mapping: features the chapter says the syndrome &#34;is characterized by&#34; (alopecia, global developmental delay, hypotonia) take VERY_FREQUENT, and features it explicitly calls &#34;rare findings&#34; (later-onset seizures, conductive hearing loss) take VERY_RARE. No numeric denominator underlies these bands. The published case denominators are tiny and inconsistent: PMID:30475435 reported four patients, PMID:30239107 one, PMID:34477286 four more, PMID:37092498 two more, and PMID:34282722 described the cohort as &#34;less than 10 known cases&#34;. The deep-research report surfaced a per-feature frequency table (n=9) from the body of the GeneReviews chapter, giving alopecia 9/9, dysmorphic features 9/9, developmental delay 8/8, hypotonia 8/8, macrocephaly 6/9 and seizures 1/8. Those numbers are consistent with the bands recorded here, but the cached PubMed record for PMID:36007106 contains only the structured abstract, so the table itself could not be verified byte-exactly and its numbers are therefore NOT asserted as evidence anywhere in this entry. A future curator with access to the full chapter should be able to upgrade these bands to denominator-backed ones.
+
+(5a) Two phenotypes that the deep-research report supports but this entry does NOT curate, because no cached abstract contains a quotable sentence for them. Polyhydramnios (reported at 55-80% of pregnancies) and the HPO annotation set for OMIM:619075 (hypertelorism, high forehead, sparse eyelashes, cryptorchidism, ptosis and others) are both real and both well-attested in the sources the report cites, but grepping every cached reference used by this entry for &#34;polyhydramnios&#34; returns zero hits, and the HPOA annotations are database records rather than quotable abstract text. They are omitted rather than sourced to a citation that does not contain them. This is a recorded gap, not a claim that the evidence does not exist.
+
+(6) Prevalence derivation. No population-based rate has ever been published. The prevalence record therefore uses the qualitative ULTRA_RARE tier with the case-count denominators recorded in its notes. The counts themselves conflict across sources and are not summed into a single asserted total.
+
+(7) No structured-source (ORPHA:544488, CGGV, CGDS) citation is included. Neither an ORPHA_544488 nor any ClinGen cache file for ODC1 is present in references_cache, and generating one would require a data MANIFEST bump, which is blocked by the stale, un-refreshable pins tracked in #7622. The structured-source citation is skipped rather than fabricated.
+
+(8) Two claims that are true in the literature but are NOT asserted here for lack of a quotable BABS-specific source. First, an exact number of reported BABS patients: the sources disagree and none of the cached abstracts states a current cumulative total, so no total is asserted. Second, an oncology surveillance recommendation: PMID:30475435 raises cancer surveillance only as a suggestion (&#34;cancer surveillance may be important in this disorder&#34;) and the GeneReviews surveillance paragraph does not include tumour screening, so this is curated as a discussion item and an explicitly hedged treatment note rather than as a recommendation.
+
+(9) Prenatal presentation. PMID:41931584 reports a prenatally diagnosed BABS fetus with macrocephaly and a ventricular septal defect. That record has no abstract in PubMed - fetching it yields only a bibliographic header with no quotable body - so it is not cited for any evidence item and its cache file is deliberately not committed. The congenital heart defect phenotype is instead sourced to the GeneReviews management paragraph, which does list congenital heart defects. The same applies to PMID:34318586 (LSS hypotrichosis families), which also has no abstract; the LSS differential is therefore sourced to PMID:30723320 instead.
+
+(10) Scope of differential_diagnoses. Six differentials are modelled. The four other recognised polyaminopathies (Snyder-Robinson syndrome, Faundes-Banka syndrome, DHPS deficiency and DOHH disorder) are bound to MONDO terms, because PMID:41410504 explicitly groups all five as one family that &#34;share many similar clinical phenotypes&#34; - which is exactly the setting in which evidence gets misattributed. Each is discriminated by its gene, its direction of effect and its position in the polyamine pathway. LSS-related alopecia-intellectual disability syndrome 4 is bound as the closest mimic outside the pathway, discriminated on congenital versus non-congenital alopecia. The sixth, the ODC1 loss-of-function/hypomorphic neurological phenotype, is left UNBOUND: it is the single most dangerous confusion for this entry because it involves the same gene, but it has no OMIM entry and no MONDO term of its own, so binding it to any existing term would be a fabrication. Note that MONDO:0800159 (disorder of polyamine metabolism) and MONDO:0100500 (Mendelian neurodevelopmental disorder) are this entry&#39;s own asserted superclasses and are therefore deliberately absent from the differential list. Four further differentials named in the GeneReviews differential table and relayed by the deep-research report (CHD3 / Snijders Blok-Campeau syndrome, DCAF17 / Woodhouse-Sakati syndrome, PAK1 / IDDMSSD and PTEN / Cowden syndrome) are NOT modelled here, because that table lives in the chapter body and not in the cached abstract, so no verbatim discriminating sentence is available for any of them from a reference this entry cites. They are named here so the next curator knows where to look rather than having to rediscover them.
+
+(11) Provenance of this entry. The deep-research provider was claude_code, run via `just research-disorder claude_code Bachmann-Bupp_Syndrome` on 2026-08-01 (report at research/Bachmann-Bupp_Syndrome-deep-research-claude_code.md; 8 web searches, 77 turns, 38 citations). The report was read in full and treated as leads rather than ground truth: every PMID it supplied was fetched with `just fetch-reference` and every snippet used here was copy-pasted from the cached file. Claims the report made that could not be verified against a cached abstract - the GeneReviews frequency table, the GeneReviews differential table, the cumulative case counts of 12 published / 18 worldwide across eight countries, polyhydramnios frequencies, ClinVar accessions and the full variant table - are recorded in these notes as leads and are not asserted as evidence anywhere in the entry.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Bachmann-Bupp_Syndrome</strong> · 2026-08-01T14:40:36Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Bachmann-Bupp_Syndrome/2026-08-01T144036Z-claude-code-e765d0.yaml">View source</a></p>
+                        <p class="research-review-text">Created kb/disorders/Bachmann-Bupp_Syndrome.yaml for Bachmann-Bupp syndrome (MONDO:0033642, ODC1 / hgnc:8109). Preflight re-run with &#39;uv run runoak -i sqlite:obo:mondo info MONDO:0033642 -O obo&#39; confirmed RO:0004003 -&gt; HGNC:8109 ODC1. Deep research provider: claude_code (just research-disorder claude_code Bachmann-Bupp_Syndrome; 18 min, 8 web searches, 77 turns, 38 citations), report committed at research/Bachmann-Bupp_Syndrome-deep-research-claude_code.md and read in full; every PMID it supplied was independently fetched and every snippet copy-pasted from the cached abstract. GeneReviews baseline PMID:36007106 fetched, tagged, and cross-checked feature by feature against the phenotypes block. Curated: 11-node single-root connected pathophysiology DAG (ODC1 C-terminal truncation -&gt; escape from antizyme-mediated ubiquitin-independent 26S proteasomal degradation -&gt; ODC protein accumulation -&gt; elevated enzyme activity -&gt; putrescine accumulation -&gt; N-acetylputrescine elevation / hair follicle dysfunction with bulge stem cell recruitment -&gt; follicular cysts / dysregulated neural progenitor proliferation -&gt; abnormal brain development, plus an ornithine substrate depletion branch); 24 phenotypes with HPO bindings; 3 biochemical markers; genetic section with the gain-of-function variant class and an explicit loss-of-function contrast; 4 treatments led by eflornithine/DFMO with treated-patient outcomes; 3 diagnostic modalities; 2 animal models including the Odc1 knockout curated as a negative control; 2 discussions (HUMAN_MODEL_MISMATCH on the skin-restricted K6/ODC model and its tumour phenotype, KNOWLEDGE_GAP on the neonatal treatment window); 6 differential diagnoses, 5 MONDO-bound (Snyder-Robinson, Faundes-Banka, DHPS deficiency, DOHH disorder, LSS-related alopecia-intellectual disability syndrome 4) and 1 deliberately unbound (the ODC1 loss-of-function neurological phenotype, which has no MONDO term). Validation: &#39;just validate&#39; clean (schema, terms, references); scripts/check_snippets_verbatim.py 159/159 verified, 0 failed; scripts/check_folded_hyphens.py OK; &#39;just compliance&#39; 97.7 percent global / 98.0 percent weighted.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -15539,7 +16049,7 @@ spermidine + dcSAM --[SMS]--&gt; spermine
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Bachmann-Bupp Syndrome", "mondoId": "MONDO:0033642", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Bachmann-Bupp_Syndrome", "yamlRevision": "9bb074978985"};
+        const OS_CONFIG = {"diseaseName": "Bachmann-Bupp Syndrome", "mondoId": "MONDO:0033642", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Bachmann-Bupp_Syndrome", "yamlRevision": "019d2f7753e4"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

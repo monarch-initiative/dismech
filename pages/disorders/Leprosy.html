@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3756,6 +3821,18 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -4047,6 +4124,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mycobacterial-rna-polymerase-rifampicin-target" data-dismech-node="Mycobacterial RNA Polymerase (Rifampicin Target)" data-dismech-type="pathophysiology">
                 <div class="item-name">Mycobacterial RNA Polymerase (Rifampicin Target)</div>
 
+
                 <div class="item-desc">Mycobacterium leprae depends on DNA-dependent RNA polymerase for transcription. Rifampicin, the most potent bactericidal component of multidrug therapy, binds the RpoB beta subunit and blocks RNA elongation. Because a single rpoB mutation confers high-level resistance, rifampicin is always given with dapsone and clofazimine — the rationale for combination MDT.</div>
 
 
@@ -4118,6 +4196,7 @@ This pathophysiological event involves DNA-Templated Transcription (GO:0006351).
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4140,6 +4219,7 @@ This pathophysiological event involves DNA-Templated Transcription (GO:0006351).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mycobacterial-tetrahydrofolate-synthesis-dapsone-dhps-target" data-dismech-node="Mycobacterial Tetrahydrofolate Synthesis (Dapsone/DHPS Target)" data-dismech-type="pathophysiology">
                 <div class="item-name">Mycobacterial Tetrahydrofolate Synthesis (Dapsone/DHPS Target)</div>
+
 
                 <div class="item-desc">Dapsone, a sulfone, inhibits dihydropteroate synthase (DHPS) in the M. leprae de novo folate pathway, the same enzyme targeted by sulfonamides. Blocking THF synthesis is bacteriostatic and contributes the second arm of multidrug therapy alongside rifampicin.</div>
 
@@ -4212,6 +4292,7 @@ This pathophysiological event involves Tetrahydrofolate Biosynthetic Process (GO
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4234,6 +4315,7 @@ This pathophysiological event involves Tetrahydrofolate Biosynthetic Process (GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-intracellular-residence-in-macrophages-and-schwann-cells-cell-penetrant-drug-requirement" data-dismech-node="Intracellular Residence in Macrophages and Schwann Cells (Cell-Penetrant Drug Requirement)" data-dismech-type="pathophysiology">
                 <div class="item-name">Intracellular Residence in Macrophages and Schwann Cells (Cell-Penetrant Drug Requirement)</div>
+
 
                 <div class="item-desc">M. leprae is an obligate intracellular pathogen that survives within macrophages and Schwann cells. Effective therapy requires agents that reach the intracellular organism; rifampicin and dapsone penetrate host cells, whereas cell-wall-active beta-lactams are not used — the lifestyle gating that constrains drug choice.</div>
 
@@ -4306,6 +4388,7 @@ This pathophysiological event involves Biological Process Involved in Interactio
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4328,6 +4411,7 @@ This pathophysiological event involves Biological Process Involved in Interactio
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-skin-and-peripheral-nerve-involvement" data-dismech-node="Skin and peripheral nerve involvement" data-dismech-type="pathophysiology">
                 <div class="item-name">Skin and peripheral nerve involvement</div>
+
 
                 <div class="item-desc">The pathogen primarily affects skin and peripheral nerves.</div>
 
@@ -4366,6 +4450,7 @@ This pathophysiological event involves Biological Process Involved in Interactio
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"The pathogen primarily affects the skin and peripheral nervous system."</div>
@@ -4386,6 +4471,7 @@ This pathophysiological event involves Biological Process Involved in Interactio
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-peripheral-nerve-affinity" data-dismech-node="Peripheral nerve affinity" data-dismech-type="pathophysiology">
                 <div class="item-name">Peripheral nerve affinity</div>
+
 
                 <div class="item-desc">M. leprae shows affinity for peripheral nerves leading to neuropathy.</div>
 
@@ -4424,6 +4510,7 @@ This pathophysiological event involves Biological Process Involved in Interactio
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"The bacteria have affinity to the peripheral nerves and are likely to cause neuropathy."</div>
@@ -4444,6 +4531,7 @@ This pathophysiological event involves Biological Process Involved in Interactio
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-m-leprae-adhesion-to-schwann-cells-via-laminin-dystroglycan" data-dismech-node="M. leprae Adhesion to Schwann Cells via Laminin-Dystroglycan" data-dismech-type="pathophysiology">
                 <div class="item-name">M. leprae Adhesion to Schwann Cells via Laminin-Dystroglycan</div>
+
 
                 <div class="item-desc">M. leprae targets the peripheral nerve by binding the basal-lamina protein laminin-alpha2, which bridges the bacterium to the alpha/beta-dystroglycan complex on the Schwann cell surface. This receptor-mediated adhesion mediates neural invasion and Schwann cell injury, the molecular basis of the peripheral neuropathy that defines leprosy.</div>
 
@@ -4565,6 +4653,7 @@ This pathophysiological event involves Adhesion of symbiont to host cell (GO:004
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4587,6 +4676,7 @@ This pathophysiological event involves Adhesion of symbiont to host cell (GO:004
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-host-t-cell-response-determines-the-tuberculoid-lepromatous-spectrum" data-dismech-node="Host T Cell Response Determines the Tuberculoid-Lepromatous Spectrum" data-dismech-type="pathophysiology">
                 <div class="item-name">Host T Cell Response Determines the Tuberculoid-Lepromatous Spectrum</div>
+
 
                 <div class="item-desc">The clinical form of leprosy is set by the quality of the host T cell response. A Th1-polarized, strong cell-mediated response restricts the bacilli, producing the paucibacillary tuberculoid pole; a predominant Th2/humoral response fails to contain the organism, producing the multibacillary lepromatous pole, with unstable borderline forms in between.</div>
 
@@ -4753,6 +4843,7 @@ This pathophysiological event involves Type 2 immune response (GO:0042092). GO:0
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4774,6 +4865,7 @@ This pathophysiological event involves Type 2 immune response (GO:0042092). GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4801,6 +4893,7 @@ This pathophysiological event involves Type 2 immune response (GO:0042092). GO:0
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4823,6 +4916,7 @@ This pathophysiological event involves Type 2 immune response (GO:0042092). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-enhanced-cell-mediated-immunity-in-type-1-reaction" data-dismech-node="Enhanced Cell-Mediated Immunity in Type 1 Reaction" data-dismech-type="pathophysiology">
                 <div class="item-name">Enhanced Cell-Mediated Immunity in Type 1 Reaction</div>
+
 
                 <div class="item-desc">Aberrant upregulation of T cell-mediated immune responses against M. leprae antigens that initiates Type 1 (reversal) leprosy reactions.</div>
 
@@ -4948,6 +5042,7 @@ This pathophysiological event involves increased T cell mediated immunity (GO:00
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Type 1 leprosy reaction is a delayed-type hypersensitivity response due to enhanced cell-mediated immunity"</div>
@@ -4968,6 +5063,7 @@ This pathophysiological event involves increased T cell mediated immunity (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-type-1-delayed-type-hypersensitivity-response" data-dismech-node="Type 1 Delayed-Type Hypersensitivity Response" data-dismech-type="pathophysiology">
                 <div class="item-name">Type 1 Delayed-Type Hypersensitivity Response</div>
+
 
                 <div class="item-desc">Type IV (cell-mediated, delayed) hypersensitivity reaction against M. leprae antigens that produces acute inflammation in established leprosy lesions and peripheral nerves.</div>
 
@@ -5131,6 +5227,7 @@ This pathophysiological event involves increased Inflammatory response (GO:00069
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Type 1 leprosy reaction is a delayed-type hypersensitivity response"</div>
@@ -5151,6 +5248,7 @@ This pathophysiological event involves increased Inflammatory response (GO:00069
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-immune-complex-formation-in-type-2-reaction" data-dismech-node="Immune-Complex Formation in Type 2 Reaction" data-dismech-type="pathophysiology">
                 <div class="item-name">Immune-Complex Formation in Type 2 Reaction</div>
+
 
                 <div class="item-desc">Antigen-antibody (immune-complex) mediated type III hypersensitivity response to M. leprae antigens that drives Erythema Nodosum Leprosum and its systemic manifestations.</div>
 
@@ -5272,6 +5370,7 @@ This pathophysiological event involves increased Inflammatory response (GO:00069
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Type 2 reaction is an immune-complex mediated phenomenon"</div>
@@ -5292,6 +5391,7 @@ This pathophysiological event involves increased Inflammatory response (GO:00069
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-endothelial-cell-injury-in-lucio-phenomenon" data-dismech-node="Endothelial Cell Injury in Lucio Phenomenon" data-dismech-type="pathophysiology">
                 <div class="item-name">Endothelial Cell Injury in Lucio Phenomenon</div>
+
 
                 <div class="item-desc">Direct injury and apoptosis of small-vessel endothelial cells in the skin that underlies the vascular pathology of the Lucio phenomenon (Type 3 leprosy reaction).</div>
 
@@ -5417,6 +5517,7 @@ This pathophysiological event involves increased Endothelial cell apoptotic proc
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Lucio phenomenon, which is due to endothelial cell injury"</div>
@@ -5437,6 +5538,7 @@ This pathophysiological event involves increased Endothelial cell apoptotic proc
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cutaneous-vascular-necrosis-in-lucio-phenomenon" data-dismech-node="Cutaneous Vascular Necrosis in Lucio Phenomenon" data-dismech-type="pathophysiology">
                 <div class="item-name">Cutaneous Vascular Necrosis in Lucio Phenomenon</div>
+
 
                 <div class="item-desc">Ischemic necrosis and ulceration of skin secondary to endothelial injury and small-vessel occlusion in the Lucio phenomenon, manifesting as tender purpura on the extremities that becomes necrotic and ulcerated.</div>
 
@@ -5562,6 +5664,7 @@ This pathophysiological event involves increased Inflammatory response (GO:00069
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"presents with tender purpura on the extremities which becomes necrotic and ulcerated"</div>
@@ -5630,9 +5733,7 @@ This pathophysiological event involves increased Inflammatory response (GO:00069
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Integument<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5675,6 +5776,9 @@ This clinical feature is Purpura (HP:0000979). HP:0000979 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5689,6 +5793,7 @@ This clinical feature is Purpura (HP:0000979). HP:0000979 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5752,6 +5857,9 @@ This clinical feature is Erythema nodosum (HP:0012219). HP:0012219 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5766,6 +5874,7 @@ This clinical feature is Erythema nodosum (HP:0012219). HP:0012219 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5829,6 +5938,9 @@ This clinical feature is Localized skin lesion (HP:0011355). HP:0011355 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5843,6 +5955,7 @@ This clinical feature is Localized skin lesion (HP:0011355). HP:0011355 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5873,7 +5986,7 @@ This clinical feature is Localized skin lesion (HP:0011355). HP:0011355 is a phe
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-peripheral-neuropathy" data-dismech-node="Peripheral neuropathy" data-dismech-type="phenotype">
@@ -5906,6 +6019,9 @@ This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5920,6 +6036,7 @@ This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5943,15 +6060,6 @@ This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phe
 
 
                 </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-loss-of-sensation-in-skin-lesions" data-dismech-node="Loss of sensation in skin lesions" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -5985,6 +6093,9 @@ This clinical feature is Loss of sensation in skin lesions, annotated with Hypoe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5999,6 +6110,7 @@ This clinical feature is Loss of sensation in skin lesions, annotated with Hypoe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6169,6 +6281,31 @@ This treatment uses clofazimine (CHEBI:3749). CHEBI:3749 is a therapeutic agent 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Multidrug therapy includes rifampicin, dapsone, and clofazimine for multibacillary disease.</div>
 
 
@@ -6234,6 +6371,7 @@ This treatment uses clofazimine (CHEBI:3749). CHEBI:3749 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6318,6 +6456,20 @@ This treatment uses prednisone (CHEBI:8382). CHEBI:8382 is a therapeutic agent f
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Corticosteroids, particularly prednisone, are used to suppress the delayed-type hypersensitivity response in Type 1 (reversal) leprosy reactions, typically administered over 6 months or less.</div>
 
 
@@ -6357,6 +6509,7 @@ This treatment uses prednisone (CHEBI:8382). CHEBI:8382 is a therapeutic agent f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6441,6 +6594,20 @@ This treatment uses thalidomide (CHEBI:9513). CHEBI:9513 is a therapeutic agent 
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Thalidomide is the most effective agent for treating Type 2 leprosy reactions (Erythema Nodosum Leprosum), either as monotherapy or in combination with corticosteroids. It acts as a TNF-alpha inhibitor and prevents recurrence of ENL.</div>
 
 
@@ -6483,6 +6650,7 @@ This treatment uses thalidomide (CHEBI:9513). CHEBI:9513 is a therapeutic agent 
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Thalidomide, an inhibitor of tumor necrosis factor a, is the best known agent for short-term treatment of ENL skin manifestations, as well as postremission maintenance therapy to prevent recurrence. For this indication, it is effective as monotherapy and as part of combination therapy with..."</div>
@@ -6502,6 +6670,7 @@ This treatment uses thalidomide (CHEBI:9513). CHEBI:9513 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6620,6 +6789,20 @@ This treatment uses clofazimine (CHEBI:3749). CHEBI:3749 is a therapeutic agent 
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Thalidomide combined with multidrug therapy is used to manage Lucio phenomenon, the most severe leprosy reaction characterized by necrotizing vascular lesions. Aggressive antimicrobial therapy and thalidomide provide better control of type 3 reactions.</div>
 
 
@@ -6659,6 +6842,7 @@ This treatment uses clofazimine (CHEBI:3749). CHEBI:3749 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6778,6 +6962,7 @@ This treatment uses clofazimine (CHEBI:3749). CHEBI:3749 is a therapeutic agent 
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Leprosy is a chronic infectious disease caused by Mycobacterium (M.) leprae."</div>
@@ -6831,6 +7016,7 @@ This treatment uses clofazimine (CHEBI:3749). CHEBI:3749 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7950,6 +8136,7 @@ datasets:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8018,6 +8205,7 @@ datasets:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8092,6 +8280,7 @@ datasets:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8160,6 +8349,7 @@ datasets:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8271,6 +8461,7 @@ datasets:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8339,6 +8530,7 @@ datasets:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8413,6 +8605,7 @@ datasets:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8481,6 +8674,7 @@ datasets:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8555,6 +8749,7 @@ datasets:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8623,6 +8818,7 @@ datasets:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8697,6 +8893,7 @@ datasets:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8768,6 +8965,7 @@ datasets:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8836,6 +9034,7 @@ datasets:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8947,6 +9146,8 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

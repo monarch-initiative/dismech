@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3756,6 +3821,18 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -4021,6 +4098,14 @@
 
 
 
+            <a class="stat-link" href="#references">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📚</div>
+                <div class="stat-value">3</div>
+                <div class="stat-label">References</div>
+            </div>
+            </a>
+
 
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
@@ -4034,6 +4119,125 @@
         </div>
 
         <!-- Classifications -->
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
+                <h2 class="card-title">Classifications</h2>
+            </div>
+
+
+
+
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="Placed with the immune disorders: a Mendelian inborn error of the ISGF3 arm of interferon immunity whose clinical burden is severe viral infection (with a secondary hyperinflammatory arm), following the placement of the sibling ISGF3 defect entry (STAT2 Deficiency).">IMMUNE RHEUMATOLOGIC</span>
+
+
+                    <span class="tag tag-classification" title="A biallelic Mendelian disorder of a single gene (IRF9, relationship_type CAUSATIVE), so it also belongs in Harrison&#39;s genetics Part, matching the placement of the sibling ISGF3 defect entry (STAT2 Deficiency) and of CD16 Deficiency, the third entry compared in #11879. All three now carry the tag: the Part records the disorder&#39;s nosological kind rather than grading how settled its gene-disease relationship is, which is why CD16 carries it despite a DISPUTED relationship_type.">GENETICS ENVIRONMENT DISEASE</span>
+
+                </div>
+
+            </div>
+
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">IUIS Category</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="IUIS 2022 phenotypic classification Table 6 (defects in intrinsic and innate immunity), section 3 (Predisposition to Severe Viral Infection): the &#34;IRF9 deficiency&#34; row (IRF9, AR, OMIM column 147574* - the IRF9 gene record), describing loss of IRF9- and ISGF3-dependent type I and III interferon responses.">innate immunity defect</span>
+
+                </div>
+
+            </div>
+
+        </div>
+
 
 
         <!-- Mappings -->
@@ -4098,6 +4302,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4273,6 +4478,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4294,6 +4500,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4369,6 +4576,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4390,6 +4598,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4427,6 +4636,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-irf9-loss-of-function" data-dismech-node="Biallelic IRF9 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic IRF9 Loss of Function</div>
+
 
                 <div class="item-desc">Homozygous or compound heterozygous loss-of-function variants in IRF9 abolish functional IRF9 protein. IRF9 is the DNA-binding component of ISGF3 and is not shared with any other interferon-responsive complex, so its loss removes exactly one signalling arm rather than degrading interferon signalling generally.</div>
 
@@ -4488,6 +4698,8 @@ This pathophysiological event involves IRF9 (hgnc:6131). hgnc:6131 is a gene fro
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4500,6 +4712,9 @@ This pathophysiological event involves IRF9 (hgnc:6131). hgnc:6131 is a gene fro
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4545,6 +4760,7 @@ This pathophysiological event involves IRF9 (hgnc:6131). hgnc:6131 is a gene fro
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4567,6 +4783,7 @@ This pathophysiological event involves IRF9 (hgnc:6131). hgnc:6131 is a gene fro
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-isgf3-trimer-assembly" data-dismech-node="Failure of ISGF3 Trimer Assembly" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of ISGF3 Trimer Assembly</div>
+
 
                 <div class="item-desc">Without IRF9 the STAT1/STAT2/IRF9 trimer cannot form in response to type I interferon, while STAT1 homodimers (gamma-activated factor, GAF) still assemble normally. This is the discriminating molecular finding on functional testing and the reason the immunodeficiency is selective: the type II interferon arm, which signals through GAF, is intact.</div>
 
@@ -4683,6 +4900,7 @@ This pathophysiological event involves decreased type I interferon-mediated sign
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4705,6 +4923,7 @@ This pathophysiological event involves decreased type I interferon-mediated sign
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-narrowed-interferon-stimulated-gene-induction" data-dismech-node="Narrowed Interferon-Stimulated Gene Induction" data-dismech-type="pathophysiology">
                 <div class="item-name">Narrowed Interferon-Stimulated Gene Induction</div>
+
 
                 <div class="item-desc">The transcriptional response to type I interferon is much narrower than normal, though not absent - a residual subset of interferon-stimulated gene transcripts is still induced. That residue matters clinically: it is the most plausible reason the patient controls many common viruses normally and fails only against particular ones, and it is why this entry does not model the defect as an all-or-nothing loss of antiviral immunity.</div>
 
@@ -4814,6 +5033,7 @@ This pathophysiological event involves decreased response to type I interferon (
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4836,6 +5056,7 @@ This pathophysiological event involves decreased response to type I interferon (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-uncontrolled-replication-of-respiratory-viruses" data-dismech-node="Uncontrolled Replication of Respiratory Viruses" data-dismech-type="pathophysiology">
                 <div class="item-name">Uncontrolled Replication of Respiratory Viruses</div>
+
 
                 <div class="item-desc">Patient cells fail to restrict influenza A virus, parainfluenza virus and respiratory syncytial virus in vitro, and the defect is rescued by wild-type IRF9 while silencing IRF9 in control cells reproduces it. That reciprocal experiment is what makes this a causal claim rather than an association.</div>
 
@@ -4925,6 +5146,7 @@ This pathophysiological event involves decreased defense response to virus (GO:0
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4947,6 +5169,7 @@ This pathophysiological event involves decreased defense response to virus (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-severe-viral-pneumonitis" data-dismech-node="Severe Viral Pneumonitis" data-dismech-type="pathophysiology">
                 <div class="item-name">Severe Viral Pneumonitis</div>
+
 
                 <div class="item-desc">The clinical endpoint of the antiviral arm: severe, sometimes life-threatening lower respiratory tract viral disease, presenting in the index patient as influenza A pneumonitis at two years of age. Notably the same child controlled respiratory viruses other than influenza A in vivo, so the in-vitro failure against PIV and RSV did not translate into clinical disease from those agents.</div>
 
@@ -4998,6 +5221,7 @@ This pathophysiological event involves decreased defense response to virus (GO:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5020,6 +5244,7 @@ This pathophysiological event involves decreased defense response to virus (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-usp18-negative-feedback-on-interferon-receptor-signalling" data-dismech-node="Failure of USP18 Negative Feedback on Interferon Receptor Signalling" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of USP18 Negative Feedback on Interferon Receptor Signalling</div>
+
 
                 <div class="item-desc">ISGF3 loss suppresses but does not abrogate type I interferon receptor signalling. Because USP18 and other negative regulators are themselves ISGF3-induced, their induction fails and receptor signalling becomes abnormally prolonged. This is the mechanistic bridge to the inflammatory arm and resolves what otherwise looks like a contradiction - a patient who cannot mount an interferon response yet suffers interferon-driven inflammation.</div>
 
@@ -5143,6 +5368,7 @@ This pathophysiological event involves increased type I interferon-mediated sign
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5165,6 +5391,7 @@ This pathophysiological event involves increased type I interferon-mediated sign
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-interferon-gamma-like-late-transcriptional-output" data-dismech-node="Interferon-Gamma-Like Late Transcriptional Output" data-dismech-type="pathophysiology">
                 <div class="item-name">Interferon-Gamma-Like Late Transcriptional Output</div>
+
 
                 <div class="item-desc">In IRF9- or STAT2-deficient cells the late transcriptional response to type I interferon comes to mimic the effect of interferon-gamma. This is a measured cellular switch, kept separate from the clinical syndrome downstream so that the hedge in the literature sits on the edge it actually qualifies rather than on the observation itself.</div>
 
@@ -5254,6 +5481,7 @@ This pathophysiological event involves increased type I interferon-mediated sign
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5276,6 +5504,7 @@ This pathophysiological event involves increased type I interferon-mediated sign
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hyperinflammation-and-haemophagocytic-lymphohistiocytosis" data-dismech-node="Hyperinflammation and Haemophagocytic Lymphohistiocytosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Hyperinflammation and Haemophagocytic Lymphohistiocytosis</div>
+
 
                 <div class="item-desc">The clinical inflammatory syndrome accompanying virus susceptibility. Modelled downstream of the transcriptional switch rather than bundled with it, because the causal link between the two is proposed rather than demonstrated - and that is a claim about this edge, not about either node.</div>
 
@@ -5365,6 +5594,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5386,6 +5616,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5453,15 +5684,98 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Immune<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Immune<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
 
 
             <details class="phenotype-category-group" id="pheno-cat-1">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Blood
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-haemophagocytosis-and-hyperinflammation" data-dismech-node="Haemophagocytosis and Hyperinflammation" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Haemophagocytosis and Hyperinflammation
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Hemophagocytosis</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012156" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0012156</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hemophagocytosis (HP:0012156). HP:0012156 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35182547" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35182547" target="_blank">PMID:35182547</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Inflammatory phenomena such as hyperinflammation or hemophagocytic lymphohistiocytosis are a frequent yet paradoxical accompaniment to virus susceptibility in patients with impairment of type I interferon (IFN-I) signaling caused by deficiency of signal transducer and activator of transcription..."</div>
+
+
+                <div class="evidence-explanation">States that the inflammatory phenotype accompanies virus susceptibility in IRF9 deficiency. Note the sentence groups IRF9 with STAT2, so it is evidence for the class rather than for IRF9 alone.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Immune
@@ -5482,10 +5796,10 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002090" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0002090</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002090" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0002090</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pneumonia (HP:0002090), qualified as severity severe. HP:0002090 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5514,6 +5828,9 @@ This clinical feature is Pneumonia (HP:0002090), qualified as severity severe. H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5531,6 +5848,7 @@ This clinical feature is Pneumonia (HP:0002090), qualified as severity severe. H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5539,85 +5857,6 @@ This clinical feature is Pneumonia (HP:0002090), qualified as severity severe. H
 
 
                 <div class="evidence-explanation">The presenting phenotype in the index patient. No frequency is recorded because the published cohort is a handful of kindreds.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-haemophagocytosis-and-hyperinflammation" data-dismech-node="Haemophagocytosis and Hyperinflammation" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Haemophagocytosis and Hyperinflammation
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Hemophagocytosis</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012156" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0012156</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hemophagocytosis (HP:0012156). HP:0012156 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:35182547" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35182547" target="_blank">PMID:35182547</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Inflammatory phenomena such as hyperinflammation or hemophagocytic lymphohistiocytosis are a frequent yet paradoxical accompaniment to virus susceptibility in patients with impairment of type I interferon (IFN-I) signaling caused by deficiency of signal transducer and activator of transcription..."</div>
-
-
-                <div class="evidence-explanation">States that the inflammatory phenotype accompanies virus susceptibility in IRF9 deficiency. Note the sentence groups IRF9 with STAT2, so it is evidence for the class rather than for IRF9 alone.</div>
 
 
 
@@ -5703,6 +5942,9 @@ This disease-associated gene is IRF9 (hgnc:6131). hgnc:6131 is a gene from the H
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive inheritance</span>
@@ -5725,6 +5967,7 @@ This disease-associated gene is IRF9 (hgnc:6131). hgnc:6131 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5761,6 +6004,12 @@ This disease-associated gene is IRF9 (hgnc:6131). hgnc:6131 is a gene from the H
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Homozygous in the index patient. Alters the last nucleotide of exon 7 and abolishes ISGF3 activation and ISGF3-dependent interferon stimulated gene induction on stimulation with IFN-alpha2.</div>
 
 
@@ -5785,6 +6034,7 @@ This disease-associated gene is IRF9 (hgnc:6131). hgnc:6131 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5821,6 +6071,46 @@ This disease-associated gene is IRF9 (hgnc:6131). hgnc:6131 is a gene from the H
 
 
         <!-- Registry / external-database assertions recorded at the disease level -->
+
+        <div class="card" id="external-assertions">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🗃️</div>
+                <h2 class="card-title">External Assertions</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="external-assertion-omim-immunodeficiency-65-record">
+
+
+    <div class="item-name">OMIM immunodeficiency 65 record</div>
+
+    <div class="item-meta">
+
+        <span class="tag" style="background: #e0f2fe; color: #0369a1;">OMIM</span>
+
+
+        <span class="tag" style="background: #f1f5f9; color: #475569;">disease record</span>
+
+
+
+
+
+        <a class="curie-chip" href="https://omim.org/entry/618648" target="_blank" rel="noopener noreferrer" title="Open OMIM:618648">OMIM:618648</a>
+
+
+    </div>
+
+    <div class="item-desc">OMIM&#39;s phenotype record for this disease. MONDO:0032848 carries it as a database cross-reference and an exact match, so the two identifiers name the same concept rather than merely adjacent ones.</div>
+
+
+
+
+
+
+
+            </div>
+
+        </div>
 
 
         <!-- Medical actions -->
@@ -5894,6 +6184,31 @@ This treatment uses monoclonal antibody (NCIT:C20401). NCIT:C20401 is a therapeu
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Monoclonal antibody</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Casirivimab and imdevimab given to the IRF9-deficient index patient on day 2 of symptomatic SARS-CoV-2 infection, with viraemia and clinical manifestations resolving by days 3 and 4. This is the one published treatment success specific to this genotype, and it is mechanistically the point of the entry: passive antibody neutralisation works precisely because it bypasses ISGF3 entirely, in a patient for whom interferon therapy was predicted to fail.</div>
 
 
@@ -5936,6 +6251,7 @@ This treatment uses monoclonal antibody (NCIT:C20401). NCIT:C20401 is a therapeu
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5957,6 +6273,7 @@ This treatment uses monoclonal antibody (NCIT:C20401). NCIT:C20401 is a therapeu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6021,6 +6338,31 @@ This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C12133
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Intravenous immunoglobulin every three weeks, given to the index patient since her influenza episode. Reported alongside annual influenza vaccination as having considerably improved her clinical status, with no further severe viral illness. The two interventions were given together, so neither can be credited alone.</div>
 
 
@@ -6060,6 +6402,7 @@ This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C12133
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6132,6 +6475,7 @@ This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C12133
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6336,6 +6680,7 @@ This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C12133
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6375,6 +6720,7 @@ This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C12133
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6461,6 +6807,43 @@ disease_term:
   term:
     id: MONDO:0032848
     label: immunodeficiency 65, susceptibility to viral infections
+classifications:
+  harrisons_chapter:
+  - classification_value: IMMUNE_RHEUMATOLOGIC
+    notes: &gt;-
+      Placed with the immune disorders: a Mendelian inborn error of the ISGF3
+      arm of interferon immunity whose clinical burden is severe viral
+      infection (with a secondary hyperinflammatory arm), following the
+      placement of the sibling ISGF3 defect entry (STAT2 Deficiency).
+  - classification_value: GENETICS_ENVIRONMENT_DISEASE
+    notes: &gt;-
+      A biallelic Mendelian disorder of a single gene (IRF9, relationship_type
+      CAUSATIVE), so it also belongs in Harrison&#39;s genetics Part, matching the
+      placement of the sibling ISGF3 defect entry (STAT2 Deficiency) and of
+      CD16 Deficiency, the third entry compared in #11879. All three now carry
+      the tag: the Part records the disorder&#39;s nosological kind rather than
+      grading how settled its gene-disease relationship is, which is why CD16
+      carries it despite a DISPUTED relationship_type.
+  iuis_category:
+    classification_value: innate immunity defect
+    notes: &gt;-
+      IUIS 2022 phenotypic classification Table 6 (defects in intrinsic and
+      innate immunity), section 3 (Predisposition to Severe Viral Infection):
+      the &#34;IRF9 deficiency&#34; row (IRF9, AR, OMIM column 147574* - the IRF9 gene
+      record), describing loss of IRF9- and ISGF3-dependent type I and III
+      interferon responses.
+    evidence:
+    - reference: PMID:35748970
+      reference_title: &#34;Human Inborn Errors of Immunity: 2022 Update on the Classification from the International Union of Immunological Societies Expert Committee.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;IRF9 deficiency IRF9 AR 147574*&#34;
+      explanation: &gt;-
+        The IRF9 row of IUIS 2022 Table 6, section 3 (Predisposition to Severe
+        Viral Infection). Quoted at the row-identity fragment because the
+        typeset table text merges the affected-cells and affected-function
+        columns mid-word immediately after it (&#34;cellsI RF9- and
+        ISGF3-dependent&#34;), corrupting the remainder of the row.
 notes: &gt;-
   Evidence-base caveat, stated up front because it governs how every frequency
   and phenotype claim in this entry should be read. IMD65 has been reported in
@@ -6477,6 +6860,30 @@ notes: &gt;-
   side). They are kept as separate entries because the causal gene differs; the
   shared node is stated in both rather than cross-referenced, following the
   project&#39;s non-DRY convention for conserved mechanisms.
+
+  Scope of the references block. references: is the three published human
+  IRF9-deficiency reports, not an index of everything this entry cites. Two
+  further references appear only in evidence items - PMID:9078371, the murine
+  p48/ISGF3-gamma knockout, and PMID:38781720, a type III interferon review -
+  because neither is a report of the disease. Add a paper here only if it
+  describes IRF9 deficiency in a patient.
+references:
+- reference: PMID:30143481
+  title: &#34;Life-threatening influenza pneumonitis in a child with inherited IRF9 deficiency.&#34;
+- reference: PMID:34702736
+  title: &#34;Monoclonal antibody-mediated neutralization of SARS-CoV-2 in an IRF9-deficient child.&#34;
+- reference: PMID:35182547
+  title: &#34;Aberrant inflammatory responses to type I interferon in STAT2 or IRF9 deficiency.&#34;
+external_assertions:
+  - name: OMIM immunodeficiency 65 record
+    source: OMIM
+    assertion_type: disease_record
+    external_id: OMIM:618648
+    url: https://omim.org/entry/618648
+    description: &gt;-
+      OMIM&#39;s phenotype record for this disease. MONDO:0032848 carries it as a
+      database cross-reference and an exact match, so the two identifiers name
+      the same concept rather than merely adjacent ones.
 inheritance:
   - name: Autosomal recessive inheritance
     inheritance_term:
@@ -7183,12 +7590,84 @@ animal_models:
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
 
+            <div class="grouped-section anchor-target" id="references">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">References</h3>
+                    <span class="card-count">3</span>
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/30143481" target="_blank">PMID:30143481</a>
+                            </div>
+
+                            <div class="reference-title">Life-threatening influenza pneumonitis in a child with inherited IRF9 deficiency.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/34702736" target="_blank">PMID:34702736</a>
+                            </div>
+
+                            <div class="reference-title">Monoclonal antibody-mediated neutralization of SARS-CoV-2 in an IRF9-deficient child.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/35182547" target="_blank">PMID:35182547</a>
+                            </div>
+
+                            <div class="reference-title">Aberrant inflammatory responses to type I interferon in STAT2 or IRF9 deficiency.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+            </div>
+
 
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Immunodeficiency 65 (IRF9 Deficiency)</strong> · 2026-08-27T23:36:51Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Immunodeficiency_65_IRF9_Deficiency/2026-08-27T233651Z-claude-code-5954ad.yaml">View source</a></p>
+                        <p class="research-review-text">New Disease entry for MONDO:0032848, curated from a claude_code deep-research report at research/Immunodeficiency_65_IRF9_Deficiency-deep-research-claude_code.md. The report resolved 8 of 8 references with confabulation_rate 0.0, but only 4 of 8 scored on topic and 8 references is a thin base, so every claim in this entry was anchored to a primary paper read from the reference cache rather than taken from the report narrative. The report also gave the causal gene as HGNC:6398; that CURIE is KPNA5. The entry uses hgnc:6131, verified by OAK, and records the correction in the genetic block notes so it is not silently repeated. Pathophysiology is a seven-node chain with two arms from one lesion: an antiviral arm running biallelic IRF9 loss to failed ISGF3 assembly to narrowed ISG induction to uncontrolled respiratory virus replication to severe pneumonitis, and an inflammatory arm running the same ISGF3 failure to loss of USP18 negative feedback to prolonged IFNAR signalling and an interferon-gamma-like late transcriptional output. The two arms sharing one upstream node is the point of the entry. No phenotype carries a frequency value: the published cohort is a handful of kindreds and per-phenotype frequencies cannot be computed from that denominator, which is stated in the top-level notes. One evidence item is graded PARTIAL because its source says likely contributes. A KNOWLEDGE_GAP discussion records why no separate type III interferon node was modelled, citing the IL10RB observation that isolated type III unresponsiveness produces no overt viral disease. Validated with just validate, just validate-terms, just count-verified-snippets at 14 of 14, just check-entity-refs and just check-duplicate-keys.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -7630,7 +8109,7 @@ animal_models:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Immunodeficiency 65 (IRF9 Deficiency)", "mondoId": "MONDO:0032848", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Immunodeficiency_65_IRF9_Deficiency", "yamlRevision": "ba03e85e1e95"};
+        const OS_CONFIG = {"diseaseName": "Immunodeficiency 65 (IRF9 Deficiency)", "mondoId": "MONDO:0032848", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Immunodeficiency_65_IRF9_Deficiency", "yamlRevision": "d99f1a1fa5f6"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

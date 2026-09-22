@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3756,6 +3821,18 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -4047,6 +4124,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ostiomeatal-complex-obstruction" data-dismech-node="Ostiomeatal Complex Obstruction" data-dismech-type="pathophysiology">
                 <div class="item-name">Ostiomeatal Complex Obstruction</div>
 
+
                 <div class="item-desc">Functional occlusion of the maxillary infundibulum / ostiomeatal complex (OMC) initiates the SSS cascade. Obstruction may be idiopathic (anatomic variants such as uncinate process lateralization, septal deviation toward the affected side, or concha bullosa), iatrogenic/post-traumatic (mucociliary disruption from prior orbital or sinus surgery, midface fracture, malpositioned orbital floor implant), or rarely systemic (granulomatous sinonasal destruction in GPA). The obstruction is classically silent — the maxillary sinus does not produce inflammatory sinonasal symptoms — because complete outflow blockade prevents expression of typical mucopurulent rhinosinusitis.</div>
 
 
@@ -4137,6 +4215,7 @@ This pathophysiological event occurs in uncinate process of ethmoid (UBERON:0010
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4158,6 +4237,7 @@ This pathophysiological event occurs in uncinate process of ethmoid (UBERON:0010
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4185,6 +4265,7 @@ This pathophysiological event occurs in uncinate process of ethmoid (UBERON:0010
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4209,6 +4290,7 @@ This pathophysiological event occurs in uncinate process of ethmoid (UBERON:0010
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sinus-hypoventilation-and-negative-pressure" data-dismech-node="Sinus Hypoventilation and Negative Pressure" data-dismech-type="pathophysiology">
                 <div class="item-name">Sinus Hypoventilation and Negative Pressure</div>
+
 
                 <div class="item-desc">With outflow occluded, the trapped maxillary gas is resorbed by the sinus mucosa, generating a sustained subatmospheric pressure analogous to middle-ear atelectasis from Eustachian tube dysfunction. The negative pressure is the central mechanical driver that distinguishes SSS from simple maxillary hypoplasia and that propagates downstream wall remodeling.</div>
 
@@ -4342,6 +4424,7 @@ This pathophysiological event occurs in mucosa of maxillary sinus (UBERON:000502
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4363,6 +4446,7 @@ This pathophysiological event occurs in mucosa of maxillary sinus (UBERON:000502
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4388,6 +4472,7 @@ This pathophysiological event occurs in mucosa of maxillary sinus (UBERON:000502
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mucociliary-stasis-and-mucus-retention" data-dismech-node="Mucociliary Stasis and Mucus Retention" data-dismech-type="pathophysiology">
                 <div class="item-name">Mucociliary Stasis and Mucus Retention</div>
+
 
                 <div class="item-desc">Loss of ciliary clearance and accumulation of static mucus opacifies the sinus on imaging and reinforces obstruction. Although classical SSS is &#34;silent&#34; because complete blockade prevents purulent rhinosinusitis, rare variants present without opacification when residual aeration persists, demonstrating that mucus retention is contributory rather than obligatory.</div>
 
@@ -4594,6 +4679,7 @@ This pathophysiological event occurs in mucosa of maxillary sinus (UBERON:000502
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4615,6 +4701,7 @@ This pathophysiological event occurs in mucosa of maxillary sinus (UBERON:000502
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4640,6 +4727,7 @@ This pathophysiological event occurs in mucosa of maxillary sinus (UBERON:000502
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-negative-pressure-bone-remodeling" data-dismech-node="Negative-Pressure Bone Remodeling" data-dismech-type="pathophysiology">
                 <div class="item-name">Negative-Pressure Bone Remodeling</div>
+
 
                 <div class="item-desc">Sustained subatmospheric pressure combined with proposed subclinical inflammation activates osteoclast-mediated bone resorption and osteoblast-mediated remodeling of the thin bony walls of the maxillary sinus, particularly the orbital floor (sinus roof). The result is osteopenia, demineralization, focal dehiscence, and inward bowing of the sinus walls. Histologic data are sparse and stage-dependent; osteoclast activity is implicated mechanistically but may be undetectable in late, quiescent specimens.</div>
 
@@ -4875,6 +4963,7 @@ This pathophysiological event occurs in orbit of skull (UBERON:0001697). UBERON:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4896,6 +4985,7 @@ This pathophysiological event occurs in orbit of skull (UBERON:0001697). UBERON:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4923,6 +5013,7 @@ This pathophysiological event occurs in orbit of skull (UBERON:0001697). UBERON:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4945,6 +5036,7 @@ This pathophysiological event occurs in orbit of skull (UBERON:0001697). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-maxillary-sinus-atelectasis" data-dismech-node="Maxillary Sinus Atelectasis" data-dismech-type="pathophysiology">
                 <div class="item-name">Maxillary Sinus Atelectasis</div>
+
 
                 <div class="item-desc">Progressive volume loss and concentric inward bowing of all four maxillary sinus walls — anterior (canine fossa), posterolateral (towards the pterygopalatine fossa), medial (towards the nasal cavity), and superior (orbital floor). Volumetric studies show roughly a third reduction in maxillary sinus volume relative to the contralateral side (mean 8.9 mL difference; ~29% volume loss in opacification-negative cases). Wall retraction enlarges adjacent compartments, including the pterygopalatine fossa and tuber maxillae.</div>
 
@@ -5044,6 +5136,7 @@ This pathophysiological event occurs in maxilla (UBERON:0002397). UBERON:0002397
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5065,6 +5158,7 @@ This pathophysiological event occurs in maxilla (UBERON:0002397). UBERON:0002397
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5092,6 +5186,7 @@ This pathophysiological event occurs in maxilla (UBERON:0002397). UBERON:0002397
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5116,6 +5211,7 @@ This pathophysiological event occurs in maxilla (UBERON:0002397). UBERON:0002397
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pterygopalatine-fossa-expansion" data-dismech-node="Pterygopalatine Fossa Expansion" data-dismech-type="pathophysiology">
                 <div class="item-name">Pterygopalatine Fossa Expansion</div>
+
 
                 <div class="item-desc">Posterolateral retraction of the maxillary sinus enlarges the adjacent pterygopalatine fossa and elevates the tuber maxillae, an under-recognised secondary anatomic consequence of SSS that is relevant for surgical planning because the surgeon may inadvertently enter these expanded spaces during endoscopic dissection.</div>
 
@@ -5175,6 +5271,7 @@ This pathophysiological event occurs in maxilla (UBERON:0002397). UBERON:0002397
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5197,6 +5294,7 @@ This pathophysiological event occurs in maxilla (UBERON:0002397). UBERON:0002397
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-orbital-floor-resorption-and-descent" data-dismech-node="Orbital Floor Resorption and Descent" data-dismech-type="pathophysiology">
                 <div class="item-name">Orbital Floor Resorption and Descent</div>
+
 
                 <div class="item-desc">The weakened and retracting maxillary sinus roof (which forms the orbital floor) progressively descends into the atelectatic sinus, often with focal dehiscence. Bone resorption and remodeling increase orbital volume and allow the orbital fat and inferior rectus to herniate inferiorly. The resulting expansion of the bony orbit is the immediate cause of the cardinal phenotypes of SSS — enophthalmos, hypoglobus, and superior sulcus deepening — and is the proximal target of orbital reconstruction. Dynamic studies show the orbital floor can re-elevate after sinus re-aeration, supporting causal coupling to negative pressure.</div>
 
@@ -5345,6 +5443,7 @@ This pathophysiological event occurs in maxilla (UBERON:0002397). UBERON:0002397
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5369,6 +5468,7 @@ This pathophysiological event occurs in maxilla (UBERON:0002397). UBERON:0002397
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5390,6 +5490,7 @@ This pathophysiological event occurs in maxilla (UBERON:0002397). UBERON:0002397
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5459,11 +5560,11 @@ This pathophysiological event occurs in maxilla (UBERON:0002397). UBERON:0002397
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Eye<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Eye<span class="pill-count">(4)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Head and Neck<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Head and Neck<span class="pill-count">(4)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5473,7 +5574,7 @@ This pathophysiological event occurs in maxilla (UBERON:0002397). UBERON:0002397
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">4</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-enophthalmos" data-dismech-node="Enophthalmos" data-dismech-type="phenotype">
@@ -5508,6 +5609,9 @@ This clinical feature is Enophthalmos, annotated with Deeply set eye (HP:0000490
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (5 references)
@@ -5522,6 +5626,7 @@ This clinical feature is Enophthalmos, annotated with Deeply set eye (HP:0000490
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5549,6 +5654,7 @@ This clinical feature is Enophthalmos, annotated with Deeply set eye (HP:0000490
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5570,6 +5676,7 @@ This clinical feature is Enophthalmos, annotated with Deeply set eye (HP:0000490
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5598,6 +5705,132 @@ This clinical feature is Enophthalmos, annotated with Deeply set eye (HP:0000490
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypoglobus" data-dismech-node="Hypoglobus" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hypoglobus
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Vertical orbital dystopia</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030867" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0030867</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypoglobus, annotated with Vertical orbital dystopia (HP:0030867). HP:0030867 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:8152774" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/8152774" target="_blank">PMID:8152774</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Spontaneous enophthalmos and hypoglobus, in the absence of other symptoms and unrelated to trauma or surgery"</div>
+
+
+                <div class="evidence-explanation">Hypoglobus is described alongside enophthalmos as a presenting feature in the original description.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40929629" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40929629" target="_blank">PMID:40929629</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The most common presenting signs were enophthalmos (48.5%), hypoglobus (37.1%), and diplopia (11.4%)."</div>
+
+
+                <div class="evidence-explanation">Quantifies hypoglobus frequency at 37.1% of presenting cases in a 35-patient cohort, supporting &#34;frequent&#34; classification.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39600263" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39600263" target="_blank">PMID:39600263</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Silent sinus syndrome (SSS) is a rare condition involving idiopathic maxillary sinus underdevelopment, orbital floor resorption, enophthalmos, and hypoglobus."</div>
+
+
+                <div class="evidence-explanation">Confirms hypoglobus as a defining feature, including in pediatric presentations.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
                 <div class="item-box phenotype-box anchor-target" id="phenotype-diplopia" data-dismech-node="Diplopia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Diplopia
@@ -5614,15 +5847,18 @@ This clinical feature is Enophthalmos, annotated with Deeply set eye (HP:0000490
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000651" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000651</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000651" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000651</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Diplopia (HP:0000651). HP:0000651 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5642,6 +5878,7 @@ This clinical feature is Diplopia (HP:0000651). HP:0000651 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5666,6 +5903,7 @@ This clinical feature is Diplopia (HP:0000651). HP:0000651 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5708,15 +5946,18 @@ This clinical feature is Diplopia (HP:0000651). HP:0000651 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000508</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000508</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5736,6 +5977,7 @@ This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5768,7 +6010,7 @@ This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">4</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-facial-asymmetry" data-dismech-node="Facial Asymmetry" data-dismech-type="phenotype">
@@ -5787,15 +6029,18 @@ This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000324" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000324</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000324" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000324</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Facial asymmetry (HP:0000324). HP:0000324 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5815,6 +6060,7 @@ This clinical feature is Facial asymmetry (HP:0000324). HP:0000324 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5857,15 +6103,18 @@ This clinical feature is Facial asymmetry (HP:0000324). HP:0000324 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000272" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000272</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000272" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000272</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Malar flattening (HP:0000272). HP:0000272 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5888,6 +6137,7 @@ This clinical feature is Malar flattening (HP:0000272). HP:0000272 is a phenotyp
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5904,154 +6154,6 @@ This clinical feature is Malar flattening (HP:0000272). HP:0000272 is a phenotyp
 
         </div>
     </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">4</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hypoglobus" data-dismech-node="Hypoglobus" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hypoglobus
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Vertical orbital dystopia</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030867" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0030867</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hypoglobus, annotated with Vertical orbital dystopia (HP:0030867). HP:0030867 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (3 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:8152774" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/8152774" target="_blank">PMID:8152774</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Spontaneous enophthalmos and hypoglobus, in the absence of other symptoms and unrelated to trauma or surgery"</div>
-
-
-                <div class="evidence-explanation">Hypoglobus is described alongside enophthalmos as a presenting feature in the original description.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:40929629" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40929629" target="_blank">PMID:40929629</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The most common presenting signs were enophthalmos (48.5%), hypoglobus (37.1%), and diplopia (11.4%)."</div>
-
-
-                <div class="evidence-explanation">Quantifies hypoglobus frequency at 37.1% of presenting cases in a 35-patient cohort, supporting &#34;frequent&#34; classification.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:39600263" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39600263" target="_blank">PMID:39600263</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Silent sinus syndrome (SSS) is a rare condition involving idiopathic maxillary sinus underdevelopment, orbital floor resorption, enophthalmos, and hypoglobus."</div>
-
-
-                <div class="evidence-explanation">Confirms hypoglobus as a defining feature, including in pediatric presentations.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-superior-sulcus-deformity" data-dismech-node="Superior Sulcus Deformity" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Superior Sulcus Deformity
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-                    </div>
-
-
-
-
 
 
 
@@ -6091,6 +6193,9 @@ This clinical feature is Opacified paranasal sinuses (HP:0034494). HP:0034494 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6105,6 +6210,7 @@ This clinical feature is Opacified paranasal sinuses (HP:0034494). HP:0034494 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6129,6 +6235,7 @@ This clinical feature is Opacified paranasal sinuses (HP:0034494). HP:0034494 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6187,6 +6294,9 @@ This clinical feature is Paranasal sinus hypoplasia (HP:0006784). HP:0006784 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6201,6 +6311,7 @@ This clinical feature is Paranasal sinus hypoplasia (HP:0006784). HP:0006784 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6228,6 +6339,7 @@ This clinical feature is Paranasal sinus hypoplasia (HP:0006784). HP:0006784 is 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6244,6 +6356,37 @@ This clinical feature is Paranasal sinus hypoplasia (HP:0006784). HP:0006784 is 
 
         </div>
     </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Other
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-superior-sulcus-deformity" data-dismech-node="Superior Sulcus Deformity" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Superior Sulcus Deformity
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+                    </div>
+
+
+
+
+
+
+
 
 
 
@@ -6309,6 +6452,9 @@ This clinical feature is Paranasal sinus hypoplasia (HP:0006784). HP:0006784 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6323,6 +6469,7 @@ This clinical feature is Paranasal sinus hypoplasia (HP:0006784). HP:0006784 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6406,6 +6553,20 @@ This treatment is endoscopic sinus surgery (NCIT:C157836). NCIT:C157836 is a cli
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Endoscopic uncinectomy and maxillary antrostomy to restore sinus ventilation and equalize pressure. This addresses the underlying cause by relieving ostial obstruction.</div>
 
 
@@ -6430,6 +6591,7 @@ This treatment is endoscopic sinus surgery (NCIT:C157836). NCIT:C157836 is a cli
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6451,6 +6613,7 @@ This treatment is endoscopic sinus surgery (NCIT:C157836). NCIT:C157836 is a cli
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6515,6 +6678,20 @@ This treatment is orbital floor reconstruction, annotated with Eye Socket Recons
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Surgical repair of the orbital floor using implants or grafts to correct enophthalmos when spontaneous resolution does not occur after sinus surgery. May be performed simultaneously with or staged after FESS.</div>
 
 
@@ -6536,6 +6713,7 @@ This treatment is orbital floor reconstruction, annotated with Eye Socket Recons
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6601,6 +6779,7 @@ This treatment is orbital floor reconstruction, annotated with Eye Socket Recons
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6622,6 +6801,7 @@ This treatment is orbital floor reconstruction, annotated with Eye Socket Recons
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6676,6 +6856,7 @@ This treatment is orbital floor reconstruction, annotated with Eye Socket Recons
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6697,6 +6878,7 @@ This treatment is orbital floor reconstruction, annotated with Eye Socket Recons
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6777,6 +6959,7 @@ This environmental factor is surgical procedure exposure, annotated with exposur
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6798,6 +6981,7 @@ This environmental factor is surgical procedure exposure, annotated with exposur
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6852,6 +7036,7 @@ This environmental factor is surgical procedure exposure, annotated with exposur
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6898,6 +7083,7 @@ This environmental factor is surgical procedure exposure, annotated with exposur
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6955,6 +7141,7 @@ This environmental factor is surgical procedure exposure, annotated with exposur
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7003,6 +7190,7 @@ This environmental factor is surgical procedure exposure, annotated with exposur
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7112,6 +7300,7 @@ This environmental factor is surgical procedure exposure, annotated with exposur
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7133,6 +7322,7 @@ This environmental factor is surgical procedure exposure, annotated with exposur
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7243,6 +7433,7 @@ This environmental factor is surgical procedure exposure, annotated with exposur
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7308,6 +7499,7 @@ This environmental factor is surgical procedure exposure, annotated with exposur
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7355,6 +7547,7 @@ This environmental factor is surgical procedure exposure, annotated with exposur
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7426,6 +7619,7 @@ This environmental factor is surgical procedure exposure, annotated with exposur
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7447,6 +7641,7 @@ This environmental factor is surgical procedure exposure, annotated with exposur
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8818,6 +9013,8 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
