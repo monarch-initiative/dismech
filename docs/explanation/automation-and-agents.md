@@ -18,6 +18,38 @@ skip to [Review states and merge state](#review-states-and-merge-state).
 
 ---
 
+## Agent traces in Langfuse
+
+All 14 Claude workflows send session traces to Langfuse using the
+[Claude Observability Plugin](https://github.com/langfuse/Claude-Observability-Plugin).
+This includes the scanners, PR review and shepherd, editorial review,
+compliance, mention responders, and issue triage, summarization, and deduplication.
+The plugin records prompts, model generations, token usage, and tool inputs and
+outputs from the Claude transcript. Captured text is subject to the plugin's
+size limits; a trace is not a guarantee of an unabridged tool result.
+
+The workflows use the same repository secrets as PR Shepherd:
+`LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, and `LANGFUSE_BASE_URL`.
+These should point to the ai4curation **all-traces** project. The
+`ALLTRACES_LANGFUSE_*` prefix used in local environments is not the GitHub
+secret name. Keys are passed through the environment of the agent step;
+missing keys disable the hook's export. Each runner installs `uv` so the hook
+can load its Python dependencies.
+
+`CC_LANGFUSE_TRACE_TAGS` identifies the repository, workflow file stem, run ID,
+run attempt, and job. For example, filter on `workflow:curation-scanner` to
+inspect that scanner; the `run:<id>` tag maps to
+`https://github.com/monarch-initiative/dismech/actions/runs/<id>`.
+The upstream Claude action installs the plugin through its marketplace inputs.
+The CLI-based mention responder and local Claude action install it before
+starting the agent.
+
+PR Shepherd keeps `show_full_output: false`. Other workflows retain their
+existing GitHub log and artifact settings while Langfuse coverage is established.
+Retiring their direct collection in agent-watcher is a separate cutover after
+verifying traces from successful runs. Native traces include the checkout's
+`cwd` metadata for the watcher/archive's repository selection.
+
 ## The stance: agent-forward, with a human *window* rather than a sign-off
 
 [Design decision §7](design-decisions.md) states it: DisMech is **agent-forward**.
