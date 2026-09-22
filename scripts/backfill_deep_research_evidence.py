@@ -19,6 +19,7 @@ from typing import Any
 from ruamel.yaml import YAML
 from ruamel.yaml.comments import CommentedMap, CommentedSeq
 
+from dismech.doi_cache_case import is_doi_reference, resolve_doi_cache_path
 from dismech.yaml_io import safe_load
 
 CITATION_FILE_RE = re.compile(r"^(?P<name>.+)-deep-research-[^.]+\.md\.citations\.md$")
@@ -351,7 +352,14 @@ def collect_existing_refs(node: Any, out: set[str]) -> None:
 
 def cache_path_for_ref(reference: str, references_cache_dir: str) -> Path:
     safe = reference.replace(":", "_").replace("/", "_")
-    return Path(references_cache_dir) / f"{safe}.md"
+    path = Path(references_cache_dir) / f"{safe}.md"
+    # ``canonical_ref`` lowercases DOIs, but a DOI cached as ``DOI_10.1172_JCI89626.md``
+    # must still be found here -- otherwise the missing-file branch runs
+    # ``just fetch-reference`` on the lowercase spelling for a paper that is
+    # already cached (#9112).
+    if is_doi_reference(reference):
+        return resolve_doi_cache_path(path)
+    return path
 
 
 def parse_cache_title(cache_path: Path) -> str | None:

@@ -1,0 +1,246 @@
+schema_version: "1.0"
+provider: openscientist
+assessor: claude-code
+source_report: ../openscientist.md
+hypothesis_id: gwas_loci_lesional_expression
+assessed_at: "2026-09-06T19:05:00Z"
+overall_verdict: PARTIALLY_SUPPORTED
+summary: >-
+  The provider retrieved GSE65914 and the GPL570 annotation, aggregated
+  probes to gene level, and ran the prespecified lesional-versus-control
+  contrast for 13 GWAS-locus genes in each subtype and pooled, plus the
+  TLR1-TLR2 correlation analysis. The result splits cleanly along the
+  immune/pigmentation axis: every immune locus gene is higher in lesional
+  skin (TLR2 log2FC +1.91, d = 4.0; HLA-DRA +1.45; IRF1 +1.41; HLA-DQA1,
+  HLA-DQB1, HLA-DRB1, TLR1 all about +1.0 to +1.25; BTNL2 +0.19; all BH
+  q < 0.05 across 52 tests), IL13 and pooled IRF4 are unchanged, and the
+  pigmentation loci are flat or modestly down (HERC2 -0.20, OCA2 -0.56).
+  TLR1 and TLR2 are strongly co-induced (Spearman rho 0.69 across all
+  samples) but their coupling is no stronger within rosacea than within
+  controls (0.35 vs 0.52, Fisher p = 0.47). That supports the hypothesis
+  for the immune loci, refutes the lesional-expression route for the
+  pigmentation loci, and reads the TLR1-TLR2 axis as turned up rather
+  than rewired. Bulk tissue cannot separate infiltration from per-cell
+  regulation, and expression change does not tie the risk alleles to the
+  transcripts, which needs eQTL/colocalization. Provenance is the one
+  hard problem: the provider's report never contains the bare
+  ANALYSIS_STATUS: SUCCEEDED line the execution contract requires, so the
+  run is invalid as a provider execution claim even though the assessor
+  independently replayed all three output tables byte-identically. The
+  analysis is therefore classified PARTIAL, not SUCCEEDED, and the marker
+  was not added by the assessor.
+artifacts:
+  - openscientist-assessment-by-claude-code.yaml
+artifact_root: ../openscientist_artifacts
+data_sources:
+  - data_source_id: geo-gse65914
+    source_type: PUBLIC_DATASET
+    name: Th1/Th17 Immune Response in Rosacea
+    identifier: geo:GSE65914
+    uri: https://ftp.ncbi.nlm.nih.gov/geo/series/GSE65nnn/GSE65914/matrix/GSE65914_series_matrix.txt.gz
+    retrieved_at: "2026-09-06T18:25:00Z"
+    access_status: ACCESSED
+    cohort: 20 healthy control, 14 ETR, 12 PPR and 12 PhR facial biopsy arrays (two replicate arrays per subject)
+    organism: Homo sapiens
+    tissue: facial skin biopsy
+    assay: Affymetrix HG-U133 Plus 2.0 microarray (GPL570), RMA-normalized log2 values as supplied
+    source_artifacts:
+      - ../openscientist_artifacts/samples.csv
+      - ../openscientist_artifacts/methods.md
+    notes: >-
+      Series matrix sha256 70566f61... and byte count recorded in
+      MANIFEST.yaml; raw download lives under the gitignored raw/
+      directory and was re-obtained from the provider job's artifacts zip
+      for the assessor replay. Directly relevant: the entry's primary
+      human biopsy dataset, spanning all three cutaneous subtypes.
+  - data_source_id: geo-gpl570-annotation
+    source_type: PUBLIC_DATASET
+    name: GPL570 platform annotation (Affymetrix HG-U133 Plus 2.0)
+    identifier: geo:GPL570
+    uri: https://ftp.ncbi.nlm.nih.gov/geo/platforms/GPLnnn/GPL570/annot/GPL570.annot.gz
+    retrieved_at: "2026-09-06T18:25:00Z"
+    access_status: ACCESSED
+    assay: probe-to-gene-symbol mapping via the curated Gene symbol column
+    source_artifacts:
+      - ../openscientist_artifacts/methods.md
+      - ../openscientist_artifacts/MANIFEST.yaml
+    notes: >-
+      Annotation sha256 d7cd4435... recorded in MANIFEST.yaml; per-gene
+      probe counts are in the n_probes column of gene_results.csv. Probe counts
+      per gene range from 1 (BTNL2, IL13) to 10 (HLA-DQB1); single-probe
+      genes are the ones whose calls are most sensitive to mapping.
+analyses:
+  - analysis_id: gse65914-gwas-loci-contrasts
+    status: PARTIAL
+    auditability: REPRODUCIBLE
+    method: >-
+      Gene-level expression as the mean of mapped probes on the supplied
+      log2 scale; per-gene Welch two-sample t-test lesional vs control for
+      each subtype and for pooled rosacea; Benjamini-Hochberg across all
+      52 gene-by-comparison tests jointly; Cohen's d with pooled SD;
+      Spearman TLR1-TLR2 across all samples and within rosacea and control
+      with a Fisher r-to-z difference test.
+    comparison: >-
+      ETR (14), PPR (12), PhR (12) and pooled rosacea (38) arrays each vs
+      control (20); TLR1-TLR2 correlation in 58, 38 and 20 arrays.
+    input_data_source_ids:
+      - geo-gse65914
+      - geo-gpl570-annotation
+    software:
+      - software_name: python
+        software_version: "3.12.13"
+      - software_name: numpy
+        software_version: "2.3.5"
+      - software_name: pandas
+        software_version: "3.0.3"
+      - software_name: scipy
+        software_version: "1.17.1"
+      - software_name: statsmodels
+        software_version: "0.14.6"
+    parameters:
+      - "target genes: HLA-DRA, BTNL2, HLA-DRB1, HLA-DQB1, HLA-DQA1, IL13, IRF1, TLR1, TLR2, IRF4 (immune); HERC2, OCA2, SLC45A2 (pigmentation)"
+      - "group labels: exact GSE65914 characteristics for Healthy volunteer, ETR, PPR, PhR; all 58 arrays included"
+      - "probe aggregation: arithmetic mean of mapped probes per gene, no re-transform"
+      - "multiple testing: BH over all 52 gene-by-comparison tests jointly"
+      - "replicate arrays per subject treated as independent observations"
+      - "float rounding: 10 decimal places for deterministic output"
+    code_artifacts:
+      - ../openscientist_artifacts/analysis.py
+    environment_artifact: ../openscientist_artifacts/environment.txt
+    output_artifacts:
+      - ../openscientist_artifacts/gene_results.csv
+      - ../openscientist_artifacts/tlr_correlation.csv
+      - ../openscientist_artifacts/samples.csv
+      - ../openscientist_artifacts/comparison.md
+      - ../openscientist_artifacts/replay/gene_results.csv
+      - ../openscientist_artifacts/replay/tlr_correlation.csv
+      - ../openscientist_artifacts/replay/samples.csv
+    status_reason: >-
+      The computation is fully auditable: committed code, environment and
+      checksummed outputs, provider replay copies, and an assessor replay
+      in an isolated environment with the pinned versions that regenerated
+      samples.csv, gene_results.csv and tlr_correlation.csv
+      byte-identically against the manifest checksums. The status is
+      PARTIAL rather than SUCCEEDED because the provider's report does not
+      contain the exact ANALYSIS_STATUS: SUCCEEDED line that
+      templates/hypothesis_dataset_analysis.md requires (the only
+      occurrences are the template's own backticked instructions), so
+      just validate-hypothesis-analysis-run fails on the marker and the
+      run is invalid as a provider execution claim; the assessor did not
+      add the marker. As with the other runs, the client download had
+      dropped MANIFEST.yaml, analysis.py and environment.txt, which were
+      restored from the job's artifacts zip, and the manifest inputs were
+      given canonical_url/local_path/identifier/retrieved_at duplicates
+      and a provider field, recorded in assessor_corrections with the
+      pre-correction sha256 (44b8c360...). No analysis bytes changed.
+    limitations: >-
+      Each subject contributes two arrays, so array-level p-values are
+      anticonservative; no subject-level sensitivity analysis was run for
+      this hypothesis. Bulk tissue cannot distinguish immune-cell
+      infiltration from per-cell transcriptional change, which matters
+      most for the MHC class II and TLR genes. Expression change does not
+      connect the GWAS risk alleles to the transcripts; eQTL or
+      colocalization would be needed. The correlation-difference test is
+      power-limited. Single-probe genes (BTNL2, IL13) depend entirely on
+      one probe's behaviour.
+claims:
+  - claim_id: immune-loci-up-in-lesional-skin
+    statement: >-
+      The immune GWAS-locus genes (HLA-DRA, HLA-DRB1, HLA-DQB1, HLA-DQA1,
+      BTNL2, IRF1, TLR1, TLR2) are up-regulated in lesional rosacea skin
+      across subtypes and pooled.
+    disposition: QUALIFIED
+    report_quote: >-
+      These are large effect sizes — several with Cohen's d well above 2 — indicating the upregulation is not a marginal statistical artifact but a dominant feature of the lesional transcriptome.
+    rationale: >-
+      Reproduced by the assessor replay. Qualified rather than retained
+      only because the run's execution claim is contract-invalid (missing
+      status marker) and because bulk expression of MHC class II and TLR
+      genes is at least partly a composition effect of immune infiltration,
+      which the report itself notes; the direction is robust and matches
+      independent protein-level evidence for TLR2 (PMID:29330632).
+    citations:
+      - PMID:29330632
+    analysis_ids:
+      - gse65914-gwas-loci-contrasts
+  - claim_id: pigmentation-loci-not-up
+    statement: >-
+      The pigmentation loci HERC2, OCA2 and SLC45A2 are not up-regulated in
+      lesional skin; HERC2 and OCA2 are modestly lower.
+    disposition: QUALIFIED
+    report_quote: >-
+      the lesional-expression mechanism captures the immune arm of rosacea genetics but does not explain the pigmentation-associated GWAS signals
+    rationale: >-
+      Reproduced by the assessor replay. This is the informative negative
+      of the run: the hypothesis's lesional-expression route does not hold
+      for the pigmentation loci, consistent with those loci acting through
+      constitutive phototype rather than lesional transcription. Qualified
+      for the same contract reason as above, and because the report
+      correctly limits the reading to this specific mechanism.
+    analysis_ids:
+      - gse65914-gwas-loci-contrasts
+  - claim_id: tlr1-tlr2-coinduced-not-rewired
+    statement: >-
+      TLR1 and TLR2 are co-elevated and correlated across samples, but the
+      strength of their correlation does not differ between rosacea and
+      control.
+    disposition: QUALIFIED
+    report_quote: >-
+      In other words, the TLR1–TLR2 axis is turned **up**, not **rewired**.
+    rationale: >-
+      Reproduced by the assessor replay (rho 0.69 all, 0.35 rosacea, 0.52
+      control, Fisher p = 0.47). The co-induction is the new observation
+      relevant to the TLR1 risk locus flagged in the entry; the
+      no-difference result is a null in modest groups and does not exclude
+      a subtle change. Qualified for the contract reason above.
+    analysis_ids:
+      - gse65914-gwas-loci-contrasts
+  - claim_id: il13-irf4-unchanged
+    statement: >-
+      IL13 and pooled IRF4 show no lesional expression change despite being
+      GWAS loci.
+    disposition: QUALIFIED
+    report_quote: >-
+      Their inclusion in the target list reflects their GWAS annotation rather than a guaranteed lesional signal, and reporting them as null is part of honoring the "report every gene whether or not it reaches significance" requirement.
+    rationale: >-
+      Reproduced by the assessor replay. IL13 rests on a single probe, and
+      the IL13 signal relevant to rosacea may lie in ILC2-derived cytokine
+      rather than bulk transcript; IRF4 is a pigmentation-and-immune locus
+      whose lesional expression need not change. Qualified for the
+      contract reason above.
+    analysis_ids:
+      - gse65914-gwas-loci-contrasts
+  - claim_id: tlr2-protein-elevation-independent
+    statement: >-
+      Independent immunohistochemistry confirms higher TLR2 protein in
+      rosacea skin than in normal controls.
+    disposition: RETAINED
+    report_quote: >-
+      Expression of TLR2, TLR4 and iNOS was higher in rosacea samples than in normal skin controls.
+    rationale: >-
+      Verified against the cached abstract of PMID:29330632. This is
+      post-lock literature context correctly lineage-marked by the report,
+      and it corroborates the direction of the computed TLR2 result at the
+      protein level. The two other post-lock quotes (PMID:25047092,
+      PMID:34352786) were also verified against their abstracts.
+    citations:
+      - PMID:29330632
+      - PMID:25047092
+      - PMID:34352786
+  - claim_id: replication-recorded-as-succeeded
+    statement: >-
+      The replication is recorded as SUCCEEDED.
+    disposition: REJECTED
+    report_quote: >-
+      so the replication is recorded as **SUCCEEDED**.
+    rationale: >-
+      The prose says so and MANIFEST.yaml says status: SUCCEEDED, but the
+      execution contract requires the exact line ANALYSIS_STATUS: SUCCEEDED
+      in the report and it is absent; a report from this template without
+      the marker is invalid by policy. The computation itself is sound and
+      was independently reproduced, which is why the analysis is PARTIAL
+      with REPRODUCIBLE auditability rather than FAILED. A provider rerun
+      or attestation that adds the marker would let the gate pass without
+      any change to the bundle.
+    analysis_ids:
+      - gse65914-gwas-loci-contrasts

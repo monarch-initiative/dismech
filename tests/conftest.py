@@ -25,18 +25,20 @@ unavailable." warning. That is a changed rendered result that nothing asserts on
 So the stub answers only for the adapter strings in `STRICT_HIERARCHIES` and
 delegates every other string to the real factory.
 
-Delegation rather than returning `None`, deliberately. `None` looks tempting —
-those call sites handle it, and it would keep the suite off every real database.
-But it is not a no-op either: it makes `_exact_mondo_descendant_terms` take its
-`adapter is None` branch, and `test_render_all_groupings_builds_index_from_grouping_yaml`
-asserts on a coverage string that branch does not emit. A fixture whose job is to
+Delegation rather than returning `None`, deliberately: a fixture whose job is to
 neutralise the *hierarchy* lookups should leave every other lookup exactly as it
-was, so it delegates. That costs the fast suite nothing measurable: the 75 s/page
-problem was the ICD10CM/NCIT `hierarchical_parents` walks, and the MONDO calls
-behind this factory are `lru_cache`d and few.
+was. What that delegation used to cost is the point of issue #11299 — reaching
+the real factory for `sqlite:obo:mondo` made semsql fetch a 588 MB build, with no
+error and no log line, on any runner that rendered a grouping. That is no longer
+this fixture's problem to solve: `render._mondo_adapter` now asks
+`oak_db.local_build_present` first and returns `None` when the build is absent,
+so the delegated call is free on a machine that has no mondo.db and honest on one
+that does.
 """
 
 from __future__ import annotations
+
+import os
 
 import pytest
 
@@ -117,6 +119,7 @@ def stub_oak_hierarchy(request, monkeypatch):
         for target in (
             render._resolve_hierarchy_path,
             render._get_oak_adapter,
+            render._mondo_adapter,
             render._cached_mondo_descendants,
             render._cached_mondo_label,
             hierarchy_cache.load_hierarchy_cache,
@@ -144,3 +147,19 @@ def stub_oak_hierarchy(request, monkeypatch):
     yield
 
     clear_caches()
+
+
+@pytest.fixture(scope="module")
+def preserve_kb_cache_environment():
+    """Restore the cache setting after tests call CLI entry points in-process.
+
+    CLI main() functions can call default_off(), which writes os.environ
+    directly. Module scope restores the original value after all function-level
+    monkeypatch fixtures have finished, including when the setting was absent.
+    """
+    before = os.environ.get("DISMECH_KB_CACHE")
+    yield
+    if before is None:
+        os.environ.pop("DISMECH_KB_CACHE", None)
+    else:
+        os.environ["DISMECH_KB_CACHE"] = before

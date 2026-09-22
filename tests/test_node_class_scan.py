@@ -19,7 +19,7 @@ from dismech.node_class_scan import (
 )
 
 ROOT = Path(__file__).parent.parent
-SEED = ROOT / "docs" / "superpowers" / "pathograph_node_class_go_seed.tsv"
+SEED = ROOT / "kb" / "node_classes" / "pathograph_node_class_go_seed.tsv"
 
 # GO:0006915 apoptotic process -> CELLULAR HIGH; GO:0006325 chromatin
 # organization -> GENOMIC HIGH; GO:0006954 inflammatory response -> TISSUE LOW.

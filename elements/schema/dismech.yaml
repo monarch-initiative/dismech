@@ -13,6 +13,7 @@ imports:
 - classifications/iuis_immunodeficiency
 - classifications/channelopathies
 - classifications/phenotype_category
+- classifications/coarse_phenotype_terms
 - classifications/icimd
 - classifications/isds_skeletal_nosology
 - classifications/nih_research_priorities
@@ -90,6 +91,9 @@ prefixes:
   sepio:
     prefix_prefix: sepio
     prefix_reference: https://w3id.org/sepio-model/
+  cito:
+    prefix_prefix: cito
+    prefix_reference: http://purl.org/spar/cito/
   xsd:
     prefix_prefix: xsd
     prefix_reference: http://www.w3.org/2001/XMLSchema#
@@ -132,6 +136,9 @@ prefixes:
   mgnify:
     prefix_prefix: mgnify
     prefix_reference: https://www.ebi.ac.uk/metagenomics/studies/
+  immport:
+    prefix_prefix: immport
+    prefix_reference: https://www.immport.org/shared/study/
   hca:
     prefix_prefix: hca
     prefix_reference: https://data.humancellatlas.org/explore/projects/
@@ -565,6 +572,80 @@ enums:
         text: UNKNOWN
         description: Directness has not yet been assessed
         title: Unknown
+  QuoteRoleEnum:
+    name: QuoteRoleEnum
+    definition_uri: https://w3id.org/monarch-initiative/dismech/QuoteRoleEnum
+    description: 'Where the quoted sentence sits in the cited publication''s own argument:
+      a finding that publication produced, something it restates from elsewhere, or
+      its synthesis of a literature it did not generate.'
+    comments:
+    - 'This is a fact about the cited document, not a judgement about the claim, and
+      not a strength grade. It is orthogonal to all three existing evidence axes and
+      composes with each of them: `supports` is direction, `directness` is inferential
+      distance, `evidence_source` is study type. A sentence can be BACKGROUND and
+      still be DIRECT, SUPPORT and HUMAN_CLINICAL -- that combination is precisely
+      the case issue #10262 was filed about.'
+    - 'The motivating case (#10262): a chick-embryo study whose introduction states
+      the human clinical picture, quoted for that human fact. Grading it MODEL_ORGANISM
+      asserts a chick measured human perinatal mortality; grading it HUMAN_CLINICAL
+      asserts a study type the paper never ran; the OTHER that review settled on says
+      nothing at all. With `quote_role` the item is HUMAN_CLINICAL + BACKGROUND, which
+      is both true and queryable -- `evidence_source` grades the evidence the quoted
+      text describes, and `quote_role` records that the citing paper is not where
+      it came from.'
+    - 'Every value takes a `close_mappings` to CiTO rather than an `exact_mappings`,
+      because the two vocabularies describe different ends of the same citation. A
+      CiTO property types the *citing* entity''s use of a reference; `quote_role`
+      records where the sentence sits inside the *cited* document. They correlate
+      and they come apart: a dismech item quoting an introduction sentence as support
+      for a KB claim is `citesAsEvidence` from the citing side while its `quote_role`
+      is BACKGROUND. Asserting `exact_mappings` would claim an equivalence that does
+      not hold in that case, so all three are close matches and the mapping stays
+      usable for an exporter without overstating it.'
+    - Deliberately has no UNKNOWN value, unlike DirectnessEnum. Absent already means
+      "nobody has assessed this", which is the honest state of every evidence item
+      predating the slot; a second spelling of the same thing would only invite curators
+      to fill one in. CLAUDE.md gives the same instruction for `directness`, where
+      UNKNOWN is a legacy value.
+    - 'Partly derivable, which is the test docs/explanation/evidence-model.md sets
+      for an authored slot ("strength stays derived, not authored"): where a reference''s
+      cached body carries NLM structured-abstract section labels, locating the snippet
+      between two of them decides the zone without inference. `just list-background-citations`
+      reports that derivation as a worklist. It is a worklist and not an autofill:
+      it places roughly a quarter of PMID-cited snippets (the rest are quoted from
+      full-text prose that carries no labels), a structured BACKGROUND: paragraph
+      routinely closes with the authors'' own framing, and the same line dismech-terms
+      draws for ontology-term suggestions applies here.'
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    permissible_values:
+      PRIMARY_RESULT:
+        text: PRIMARY_RESULT
+        description: The quoted text reports an observation, measurement, analysis,
+          or conclusion the cited publication itself produced.
+        title: Primary result
+        close_mappings:
+        - cito:citesAsEvidence
+      BACKGROUND:
+        text: BACKGROUND
+        description: The quoted text restates something established elsewhere -- an
+          introduction, a background or framing sentence, a motivation for the work
+          -- rather than a finding of the cited publication.
+        title: Background
+        close_mappings:
+        - cito:obtainsBackgroundFrom
+      REVIEW_SYNTHESIS:
+        text: REVIEW_SYNTHESIS
+        description: 'The quoted text is the cited publication''s synthesis of work
+          it did not itself perform: a review, commentary, editorial, or consensus
+          or guideline statement summarizing a literature.'
+        title: Review synthesis
+        comments:
+        - The furthest of the three from its CiTO neighbour. `citesAsAuthority` is
+          the nearest property but carries an "uncontested authority" reading that
+          REVIEW_SYNTHESIS does not assert -- the value records what kind of document
+          the sentence sits in, not how much weight to give it.
+        close_mappings:
+        - cito:citesAsAuthority
   EvidenceSourceEnum:
     name: EvidenceSourceEnum
     definition_uri: https://w3id.org/monarch-initiative/dismech/EvidenceSourceEnum
@@ -1322,6 +1403,63 @@ enums:
           sequestration, competitive inhibition, etc.). For mutation-driven LOF, use
           GeneticContext.functional_impact_category: LOSS_OF_FUNCTION.'
         title: Loss of function
+  CoarseBindingBasisEnum:
+    name: CoarseBindingBasisEnum
+    definition_uri: https://w3id.org/monarch-initiative/dismech/CoarseBindingBasisEnum
+    description: Why a descriptor is deliberately bound to a coarse, organ-system-level
+      ontology term rather than a specific finding. Required by `just check-coarse-phenotypes`
+      on any phenotype bound to one of the top-level HPO organ-system terms (the PhenotypeCategoryEnum
+      meanings, the direct children of HP:0000118), which name a facet bucket rather
+      than a clinical finding. The point is NOT to reward narrow terms -- manufacturing
+      a specificity the source does not support is a worse defect than a coarse binding.
+      The point is that a coarse binding should say which of these situations it is
+      in, so the unexplained one (the curator who stopped early) is distinguishable
+      from the three legitimate ones.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    permissible_values:
+      VARIABLE_SPECTRUM:
+        text: VARIABLE_SPECTRUM
+        description: Involvement of this system is real and recurrent, but its form
+          varies between patients with no characteristic finding to bind -- pleiotropy
+          and variable expressivity, where enumerating every case would be arbitrary.
+          The node's content is the organ-system involvement itself, typically with
+          an aggregate frequency the source measured at that level. Like SOURCE_UNSPECIFIED
+          this is a bare declaration with no companion slot. If the specific findings
+          ARE known and evidenced, they are ordinary `phenotypes` entries with their
+          own terms and evidence -- curate them that way rather than listing them
+          inside this binding.
+        title: Variable spectrum
+      SOURCE_UNSPECIFIED:
+        text: SOURCE_UNSPECIFIED
+        description: The cited source characterizes the finding no further ("ocular
+          involvement", "congenital heart defect" with no named lesion), so a narrower
+          term would assert something the evidence does not. The evidence snippet
+          is the proof, so this value needs no companion slot.
+        title: Source unspecified
+      NO_HPO_TERM:
+        text: NO_HPO_TERM
+        description: The claim is more specific than any available ontology term,
+          and the coarse parent is the best honest anchor. `preferred_term` carries
+          the specificity the ontology lacks and must differ from the bound label;
+          record any term request in `term_gap`.
+        title: No suitable ontology term
+      PATHOGRAPH_HUB:
+        text: PATHOGRAPH_HUB
+        description: 'The node is a deliberately unqualified convergence point in
+          the causal graph: a mechanism disrupts a system, and the system-level disruption
+          is where several specific findings converge. It is defined by its INCOMING
+          edges -- at least one causal edge in the same entry must target it. It takes
+          no `frequency`, and the reason is narrower than "no clinical claim": a hub
+          does assert that the system is involved, and carries evidence for that assertion
+          like any other phenotype. What it cannot carry is a rate, because an unqualified
+          system-level node names no finding whose occurrence could be counted --
+          the frequency belongs to each specific finding beside it. Do NOT connect
+          it to the specific findings with `sequelae`, which is a causal edge: a coloboma
+          is not caused by an eye abnormality, it is one. Those findings are ordinary
+          `phenotypes` entries in their own right. Distinct from a pathophysiology
+          node such as "disrupted eye development", which binds GO and asserts a process;
+          a hub binds HP and asserts a system-level outcome. The two may sit in sequence.'
+        title: Pathograph hub
   DietaryModificationActionEnum:
     name: DietaryModificationActionEnum
     definition_uri: https://w3id.org/monarch-initiative/dismech/DietaryModificationActionEnum
@@ -2338,6 +2476,11 @@ enums:
         description: Multi-omics profiling of genetic perturbations (e.g., CRISPR
           knockout combined with transcriptomic, chromatin accessibility, and cellular
           phenotyping)
+      IMAGING:
+        text: IMAGING
+        description: Image collection or image-derived morphometric dataset (e.g.,
+          micro-CT embryo phenotyping series, MRI cohorts, histology image repositories
+          such as IMPC embryo imaging, IDR, or TCIA)
   ExperimentalModelTypeEnum:
     name: ExperimentalModelTypeEnum
     definition_uri: https://w3id.org/monarch-initiative/dismech/ExperimentalModelTypeEnum
@@ -2837,7 +2980,8 @@ enums:
     name: ImagingModalityEnum
     definition_uri: https://w3id.org/monarch-initiative/dismech/ImagingModalityEnum
     description: In-vivo medical imaging modality by which an ImagingFinding is detected.
-      Meanings bind to the NCI Thesaurus Diagnostic Imaging branch.
+      Meanings bind to the NCI Thesaurus Diagnostic Imaging branch where NCIT has
+      a term for the modality; MICRO_CT and OTHER carry none.
     from_schema: https://w3id.org/monarch-initiative/dismech
     permissible_values:
       MRI:
@@ -2856,6 +3000,31 @@ enums:
         description: X-ray computed tomography
         meaning: NCIT:C17204
         title: Computed Tomography
+      MICRO_CT:
+        text: MICRO_CT
+        description: In-vivo X-ray computed tomography acquired at micrometer-scale
+          voxel resolution, as used for live small-animal scanning and for high-resolution
+          peripheral quantitative CT of human bone microarchitecture
+        title: Micro-Computed Tomography
+        comments:
+        - Ex vivo micro-CT, including contrast-enhanced (diceCT) scanning of fixed
+          embryos and the registration-based whole-embryo morphometry built on it,
+          is a model or specimen readout rather than an ImagingFinding, which design
+          decision 9 scopes to in-vivo imaging. Record it as an ExperimentalReadout
+          on a model link (with an IMAGING dataset where the images are deposited),
+          not under this value.
+        - 'NCIT has no dedicated micro-CT term: no child of Computed Tomography (NCIT:C17204)
+          names it, and a label or synonym search finds only High Resolution Computed
+          Tomography (a clinical thin-slice technique) and High Resolution Peripheral
+          Quantitative Computed Tomography (NCIT:C169101, a bone-specific application).
+          This value therefore carries no NCIT meaning. The Measurement Method Ontology
+          term MMO:0000570 (micro-computed tomography) names the concept exactly.'
+        - 'Human HR-pQCT is grouped under this value deliberately, even though NCIT:C169101
+          codes that specific technique: micrometer voxel scale is the property the
+          modality axis is tracking, and a separate HR_PQCT value would serve a single
+          technique in one organ system. A curator who needs the technique itself
+          queryable can carry it in the finding''s description or bind NCIT:C169101
+          as a qualifier.'
       PET:
         text: PET
         description: Positron emission tomography (e.g., FDG-PET, amyloid-PET)
@@ -3266,21 +3435,25 @@ enums:
       OTHER:
         text: OTHER
         description: Chemistry not covered by the above categories
-  OligonucleotideConjugationEnum:
-    name: OligonucleotideConjugationEnum
-    definition_uri: https://w3id.org/monarch-initiative/dismech/OligonucleotideConjugationEnum
-    description: 'Targeting ligand covalently attached to a therapeutic oligonucleotide
-      to direct tissue uptake or improve pharmacokinetics. Distinct from delivery_platform,
-      which records whether the oligonucleotide is carried by a conjugate at all as
-      opposed to a nanoparticle, a viral vector, or nothing: an unconjugated oligonucleotide
-      may still be formulated in a lipid nanoparticle (e.g., patisiran).'
+  TargetingLigandEnum:
+    name: TargetingLigandEnum
+    definition_uri: https://w3id.org/monarch-initiative/dismech/TargetingLigandEnum
+    description: 'Targeting ligand attached to a therapeutic agent, or to the carrier
+      particle that holds it, to direct tissue or cell uptake or to improve pharmacokinetics.
+      Distinct from delivery_platform, which records what carries the agent at all
+      as opposed to a nanoparticle, a viral vector, or nothing. The two axes are orthogonal
+      in both directions: an unconjugated oligonucleotide may still be formulated
+      in a lipid nanoparticle (e.g., patisiran), and a nanoparticle may itself carry
+      a ligand on its surface (e.g., an antibody-coated mRNA lipid nanoparticle).'
     from_schema: https://w3id.org/monarch-initiative/dismech
     aliases:
+    - OligonucleotideConjugationEnum
     - AsoConjugationEnum
     permissible_values:
       UNCONJUGATED:
         text: UNCONJUGATED
-        description: No targeting conjugate (naked ASO)
+        description: No targeting ligand - a naked ASO, or a carrier particle with
+          an unmodified surface
       GALNAC:
         text: GALNAC
         description: Tri-antennary N-acetylgalactosamine conjugate for hepatocyte
@@ -3297,23 +3470,37 @@ enums:
         description: Cell-penetrating or targeting peptide conjugate
       ANTIBODY:
         text: ANTIBODY
-        description: Antibody-oligonucleotide conjugate (AOC) for receptor-targeted
-          delivery
+        description: Antibody or antibody fragment as the targeting ligand - an antibody-oligonucleotide
+          conjugate (AOC), or an antibody coupled to the surface of a carrier particle
+          for receptor-targeted delivery
+      MANNOSE:
+        text: MANNOSE
+        description: Mannose or a mannosylated surface directing uptake via the macrophage
+          mannose receptor (MRC1/CD206)
+        title: Mannose / mannosylated
+        comments:
+        - Left unmapped, like every value here except GALNAC. CHEBI:37684 (mannose)
+          names the sugar rather than its use as a targeting ligand, and the enum's
+          other ligand classes (lipid, peptide, antibody) have no ontology term for
+          the targeting role either.
       OTHER:
         text: OTHER
-        description: Conjugate not covered by the above categories
-  OligonucleotideDeliveryPlatformEnum:
-    name: OligonucleotideDeliveryPlatformEnum
-    definition_uri: https://w3id.org/monarch-initiative/dismech/OligonucleotideDeliveryPlatformEnum
-    description: 'How a therapeutic oligonucleotide is carried to its target tissue.
-      This is the delivery strategy, not the targeting ligand (see conjugation) and
-      not the route of administration: it is what solves the stability, cellular-uptake,
+        description: Targeting ligand not covered by the above categories
+  DeliveryPlatformEnum:
+    name: DeliveryPlatformEnum
+    definition_uri: https://w3id.org/monarch-initiative/dismech/DeliveryPlatformEnum
+    description: 'How a treatment''s active agent is carried to its target tissue.
+      This is the delivery strategy, not the targeting ligand (see targeting_ligand)
+      and not the route of administration: it is what solves the stability, cellular-uptake,
       and endosomal-escape problem for a given drug. The distinction is clinically
       load-bearing - patisiran and vutrisiran silence the same transcript, but the
       lipid-nanoparticle formulation is dosed intravenously every three weeks with
       premedication, while the GalNAc conjugate is dosed subcutaneously every three
-      months without it.'
+      months without it. The same axis separates two formulations of one small molecule:
+      conventional and albumin-bound paclitaxel share an agent and differ in carrier.'
     from_schema: https://w3id.org/monarch-initiative/dismech
+    aliases:
+    - OligonucleotideDeliveryPlatformEnum
     permissible_values:
       UNFORMULATED:
         text: UNFORMULATED
@@ -3324,18 +3511,36 @@ enums:
       CONJUGATE:
         text: CONJUGATE
         description: Covalently conjugated to a targeting ligand that drives receptor-mediated
-          uptake; the specific ligand is recorded in conjugation (e.g., GalNAc for
-          hepatocyte ASGR1 uptake)
+          uptake; the specific ligand is recorded in targeting_ligand (e.g., GalNAc
+          for hepatocyte ASGR1 uptake)
         title: Ligand conjugate
       LIPID_NANOPARTICLE:
         text: LIPID_NANOPARTICLE
         description: Encapsulated in an ionizable-lipid nanoparticle that protects
           the payload and destabilizes the endosomal membrane on acidification (e.g.,
-          patisiran)
+          patisiran, mRNA therapeutics). Distinct from LIPOSOME - the ionizable lipid
+          is what releases a nucleic-acid payload from the endosome
         title: Lipid nanoparticle (LNP)
+      LIPOSOME:
+        text: LIPOSOME
+        description: Encapsulated in a phospholipid bilayer vesicle, commonly PEGylated
+          for circulation time, altering biodistribution and toxicity of an already
+          cell-permeant agent rather than solving endosomal escape (e.g., liposomal
+          doxorubicin, liposomal irinotecan, liposomal amphotericin B)
+        title: Liposome
       POLYMER_NANOPARTICLE:
         text: POLYMER_NANOPARTICLE
         description: Encapsulated in a polymeric or dendrimer nanoparticle
+      PROTEIN_NANOPARTICLE:
+        text: PROTEIN_NANOPARTICLE
+        description: Bound to or assembled with a carrier protein, usually albumin,
+          to solubilize a hydrophobic agent without a synthetic surfactant (e.g.,
+          nab-paclitaxel, nab-sirolimus)
+        title: Protein nanoparticle (albumin-bound)
+      INORGANIC_NANOPARTICLE:
+        text: INORGANIC_NANOPARTICLE
+        description: Carried on an inorganic core such as iron oxide, gold, or hafnium
+          oxide
       VIRAL_VECTOR:
         text: VIRAL_VECTOR
         description: Delivered by an engineered viral vector (e.g., AAV-expressed
@@ -3943,7 +4148,20 @@ enums:
           (https://www.ncbi.nlm.nih.gov/books/NBK1116/). GeneReviews are expert-authored,
           peer-reviewed summaries updated on a rolling basis; they are the gold-standard
           narrative resource for rare Mendelian disease phenotyping and management.
+          A GeneReviews chapter is the mandatory phenotype baseline for a Mendelian
+          entry (`just check-genereviews` reports whether one exists).
         title: GeneReviews
+      StatPearls:
+        text: StatPearls
+        description: 'Reference is a StatPearls chapter published in the NCBI Bookshelf
+          (https://www.ncbi.nlm.nih.gov/books/NBK430685/). StatPearls is a point-of-care
+          clinical reference spanning all of medicine, written by volunteer clinicians
+          under a lighter editorial process than GeneReviews and framed as a continuing-education
+          activity. A chapter is citable for orientation and its PubMed abstract is
+          quotable, but it is not an expert-curated baseline: a StatPearls chapter
+          never substitutes for a GeneReviews chapter, and its absence is never a
+          gap.'
+        title: StatPearls
   GeneSetRelationshipEnum:
     name: GeneSetRelationshipEnum
     definition_uri: https://w3id.org/monarch-initiative/dismech/GeneSetRelationshipEnum
@@ -4662,6 +4880,206 @@ enums:
         description: Benign or malignant neoplasms (tumors)
         meaning: HP:0002664
         title: Neoplasm
+  CoarsePhenotypeTermEnum:
+    name: CoarsePhenotypeTermEnum
+    definition_uri: https://w3id.org/monarch-initiative/dismech/CoarsePhenotypeTermEnum
+    description: "The second tier of coarse phenotype terms: HPO terms below the 23\
+      \ organ-system roots (PhenotypeCategoryEnum) that still name a body system,\
+      \ a whole organ, or a gross body region rather than a clinical finding. The\
+      \ guard treats this set and PhenotypeCategoryEnum's meanings as one list.\n\n\
+      THIS IS A HAND-CURATED LIST AND MUST NEVER BECOME A RULE. The tier is not uniform,\
+      \ and a depth, subsumption or naming-pattern rule over it would be wrong in\
+      \ both directions. HPO names 360 distinct \"Abnormal*\" terms used in this knowledge\
+      \ base, and the most-used ones are the ones a pattern would most confidently\
+      \ mis-flag.\n\nInclusion rule: the term names (a) a body system, (b) a whole\
+      \ organ, or (c) a gross body region, and asserts nothing about what is wrong\
+      \ with it. The morphology/physiology split terms directly under such a root\
+      \ are included with it, since they divide the bucket without narrowing it.\n\
+      \nDeliberately EXCLUDED, with the reason, because each doubles as an established\
+      \ clinical finding at exactly that grain:\n\n- HP:0001627 Abnormal heart morphology\
+      \ (149 uses) carries \"Congenital\n  heart defect\" as an EXACT synonym and\
+      \ is the correct binding for a paper\n  that reports CHD without naming a lesion.\n\
+      \n- HP:0001999 Abnormal facial shape (177) is dysmorphic facies, a real\n  summary\
+      \ finding in dysmorphology.\n\n- HP:0012443 Abnormal brain morphology (26) and\
+      \ HP:0002500 Abnormal\n  cerebral white matter morphology (48) are what a radiologist\
+      \ reports off\n  an MRI.\n\n- HP:0012332 Abnormal autonomic nervous system physiology\
+      \ (30) is\n  dysautonomia.\n\n- HP:0000164 Abnormality of the dentition (36)\
+      \ is \"dental anomalies\", a\n  reported syndromic feature.\n\n\nLeft out as\
+      \ genuinely undecided rather than judged: HP:0000504 Abnormality of vision,\
+      \ HP:0000925 Abnormality of the vertebral column, HP:0002926 Abnormality of\
+      \ thyroid physiology, HP:0002270 Abnormality of the autonomic nervous system.\
+      \ Each is arguably a bucket and arguably a finding; a wrong entry here costs\
+      \ a curator a false positive, so they wait for someone with an argument.\n\n\
+      Adding a value is a schema pull request with that argument attached. Each value's\
+      \ `description` must be the term's exact canonical HPO label, so `just validate-terms-schema`\
+      \ verifies the whole list against the ontology."
+    from_schema: https://w3id.org/monarch-initiative/dismech/classifications/coarse_phenotype_terms
+    permissible_values:
+      KIDNEY:
+        text: KIDNEY
+        description: Abnormality of the kidney
+        meaning: HP:0000077
+        title: Kidney
+      RENAL_MORPHOLOGY:
+        text: RENAL_MORPHOLOGY
+        description: Abnormal renal morphology
+        meaning: HP:0012210
+        title: Renal morphology
+      RENAL_PHYSIOLOGY:
+        text: RENAL_PHYSIOLOGY
+        description: Abnormal renal physiology
+        meaning: HP:0012211
+        title: Renal physiology
+      URINARY_SYSTEM:
+        text: URINARY_SYSTEM
+        description: Abnormality of the urinary system
+        meaning: HP:0000079
+        title: Urinary system
+      GENITAL_SYSTEM:
+        text: GENITAL_SYSTEM
+        description: Abnormality of the genital system
+        meaning: HP:0000078
+        title: Genital system
+      REPRODUCTIVE_SYSTEM_PHYSIOLOGY:
+        text: REPRODUCTIVE_SYSTEM_PHYSIOLOGY
+        description: Abnormality of reproductive system physiology
+        meaning: HP:0000080
+        title: Reproductive system physiology
+      FEMALE_GENITALIA:
+        text: FEMALE_GENITALIA
+        description: Abnormality of the female genitalia
+        meaning: HP:0010460
+        title: Female genitalia
+      MALE_GENITALIA:
+        text: MALE_GENITALIA
+        description: Abnormality of the male genitalia
+        meaning: HP:0010461
+        title: Male genitalia
+      GASTROINTESTINAL_TRACT:
+        text: GASTROINTESTINAL_TRACT
+        description: Abnormality of the gastrointestinal tract
+        meaning: HP:0011024
+        title: Gastrointestinal tract
+      GASTROINTESTINAL_TRACT_MORPHOLOGY:
+        text: GASTROINTESTINAL_TRACT_MORPHOLOGY
+        description: Abnormal gastrointestinal tract morphology
+        meaning: HP:0012718
+        title: Gastrointestinal tract morphology
+      LIVER:
+        text: LIVER
+        description: Abnormality of the liver
+        meaning: HP:0001392
+        title: Liver
+      LIVER_PHYSIOLOGY:
+        text: LIVER_PHYSIOLOGY
+        description: Abnormal liver physiology
+        meaning: HP:0031865
+        title: Liver physiology
+      PANCREAS:
+        text: PANCREAS
+        description: Abnormality of the pancreas
+        meaning: HP:0001732
+        title: Pancreas
+      SKELETAL_SYSTEM:
+        text: SKELETAL_SYSTEM
+        description: Abnormality of the skeletal system
+        meaning: HP:0000924
+        title: Skeletal system
+      SKELETAL_MORPHOLOGY:
+        text: SKELETAL_MORPHOLOGY
+        description: Abnormal skeletal morphology
+        meaning: HP:0011842
+        title: Skeletal morphology
+      MUSCULOSKELETAL_PHYSIOLOGY:
+        text: MUSCULOSKELETAL_PHYSIOLOGY
+        description: Abnormal musculoskeletal physiology
+        meaning: HP:0011843
+        title: Musculoskeletal physiology
+      EYE_MORPHOLOGY:
+        text: EYE_MORPHOLOGY
+        description: Abnormal eye morphology
+        meaning: HP:0012372
+        title: Eye morphology
+      EYE_PHYSIOLOGY:
+        text: EYE_PHYSIOLOGY
+        description: Abnormal eye physiology
+        meaning: HP:0012373
+        title: Eye physiology
+      NERVOUS_SYSTEM_MORPHOLOGY:
+        text: NERVOUS_SYSTEM_MORPHOLOGY
+        description: Abnormal nervous system morphology
+        meaning: HP:0012639
+        title: Nervous system morphology
+      NERVOUS_SYSTEM_PHYSIOLOGY:
+        text: NERVOUS_SYSTEM_PHYSIOLOGY
+        description: Abnormal nervous system physiology
+        meaning: HP:0012638
+        title: Nervous system physiology
+      CENTRAL_NERVOUS_SYSTEM_MORPHOLOGY:
+        text: CENTRAL_NERVOUS_SYSTEM_MORPHOLOGY
+        description: Morphological central nervous system abnormality
+        meaning: HP:0002011
+        title: Central nervous system morphology
+      SKIN:
+        text: SKIN
+        description: Abnormality of the skin
+        meaning: HP:0000951
+        title: Skin
+      SKIN_MORPHOLOGY:
+        text: SKIN_MORPHOLOGY
+        description: Abnormal skin morphology
+        meaning: HP:0011121
+        title: Skin morphology
+      EAR_MORPHOLOGY:
+        text: EAR_MORPHOLOGY
+        description: Abnormal ear morphology
+        meaning: HP:0031703
+        title: Ear morphology
+      EAR_PHYSIOLOGY:
+        text: EAR_PHYSIOLOGY
+        description: Abnormal ear physiology
+        meaning: HP:0031704
+        title: Ear physiology
+      CARDIOVASCULAR_SYSTEM_MORPHOLOGY:
+        text: CARDIOVASCULAR_SYSTEM_MORPHOLOGY
+        description: Abnormal cardiovascular system morphology
+        meaning: HP:0030680
+        title: Cardiovascular system morphology
+      RESPIRATORY_SYSTEM_PHYSIOLOGY:
+        text: RESPIRATORY_SYSTEM_PHYSIOLOGY
+        description: Abnormal respiratory system physiology
+        meaning: HP:0002795
+        title: Respiratory system physiology
+      IMMUNE_SYSTEM_PHYSIOLOGY:
+        text: IMMUNE_SYSTEM_PHYSIOLOGY
+        description: Abnormality of immune system physiology
+        meaning: HP:0010978
+        title: Immune system physiology
+      CONNECTIVE_TISSUE:
+        text: CONNECTIVE_TISSUE
+        description: Abnormality of connective tissue
+        meaning: HP:0003549
+        title: Connective tissue
+      FACE:
+        text: FACE
+        description: Abnormality of the face
+        meaning: HP:0000271
+        title: Face
+      UPPER_LIMB:
+        text: UPPER_LIMB
+        description: Abnormality of the upper limb
+        meaning: HP:0002817
+        title: Upper limb
+      LOWER_LIMB:
+        text: LOWER_LIMB
+        description: Abnormality of the lower limb
+        meaning: HP:0002814
+        title: Lower limb
+      HAND:
+        text: HAND
+        description: Abnormality of the hand
+        meaning: HP:0001155
+        title: Hand
   ICIMDEnum:
     name: ICIMDEnum
     definition_uri: https://w3id.org/monarch-initiative/dismech/ICIMDEnum
@@ -8189,6 +8607,7 @@ slots:
     - AgentLifeCycleStage
     - AnimalModel
     - Treatment
+    - DeliverySystem
     - InfectiousAgent
     - Transmission
     - Assay
@@ -8487,6 +8906,7 @@ slots:
     - AgentLifeCycleStage
     - AnimalModel
     - Treatment
+    - DeliverySystem
     - InfectiousAgent
     - Transmission
     - Diagnosis
@@ -8618,6 +9038,29 @@ slots:
     domain_of:
     - EvidenceItem
     range: DirectnessEnum
+  quote_role:
+    name: quote_role
+    definition_uri: https://w3id.org/monarch-initiative/dismech/quote_role
+    description: 'Where the quoted sentence sits in the cited publication''s own argument
+      -- a result that publication produced, background it restates from elsewhere,
+      or its synthesis of a literature. Optional: absent means no one has assessed
+      it, which is the state of most of the knowledge base.'
+    comments:
+    - 'Records provenance of the *finding*, where `reference` records provenance of
+      the *sentence*. Those are different objects, and the model represented them
+      identically until issue #10262.'
+    - 'Judge it from the quoted text and the cached reference body, never from the
+      reference''s MeSH terms or publication type alone: a human cohort study has
+      an introduction too, and an animal study can report a patient series. `just
+      list-background-citations` builds the worklist; the call stays a curator''s.'
+    examples:
+    - value: BACKGROUND
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:quote_role
+    owner: EvidenceItem
+    domain_of:
+    - EvidenceItem
+    range: QuoteRoleEnum
   evidence_source:
     name: evidence_source
     definition_uri: https://w3id.org/monarch-initiative/dismech/evidence_source
@@ -8804,8 +9247,9 @@ slots:
     name: tags
     definition_uri: https://w3id.org/monarch-initiative/dismech/tags
     description: Authoritative-source tags for a reference (e.g. GeneReviews). Populated
-      programmatically by scripts/tag_references.py; use `just tag-references` to
-      refresh.
+      programmatically by scripts/tag_references.py, which decides membership from
+      the committed Bookshelf index (`cache/bookshelf/`); use `just tag-references`
+      to refresh.
     from_schema: https://w3id.org/monarch-initiative/dismech
     slot_uri: dismech:tags
     owner: PublicationReference
@@ -9143,6 +9587,7 @@ slots:
     - AgentLifeCycleStage
     - AnimalModel
     - Treatment
+    - DeliverySystem
     - Transmission
     - Diagnosis
     - ClassificationAssignment
@@ -9590,6 +10035,32 @@ slots:
     range: PhenotypeDescriptor
     inlined: true
     inlined_as_list: true
+  coarse_binding_basis:
+    name: coarse_binding_basis
+    definition_uri: https://w3id.org/monarch-initiative/dismech/coarse_binding_basis
+    description: Why this descriptor is deliberately bound to a coarse, organ-system-level
+      term rather than a specific finding. Required on any phenotype bound to a top-level
+      HPO organ-system term (see CoarseBindingBasisEnum and `just check-coarse-phenotypes`);
+      permitted, and companion-checked, on any binding a curator judges coarse.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:coarse_binding_basis
+    owner: PhenotypeDescriptor
+    domain_of:
+    - PhenotypeDescriptor
+    range: CoarseBindingBasisEnum
+  term_gap:
+    name: term_gap
+    definition_uri: https://w3id.org/monarch-initiative/dismech/term_gap
+    description: The ontology gap behind a NO_HPO_TERM binding -- ideally a term-request
+      URL, otherwise a short note on what was searched and what is missing. Turns
+      a permanent gap into a lead, in the same spirit as the "searched, found nothing"
+      record an uncitable exposure carries.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:term_gap
+    owner: PhenotypeDescriptor
+    domain_of:
+    - PhenotypeDescriptor
+    range: string
   inheritance_term:
     name: inheritance_term
     definition_uri: https://w3id.org/monarch-initiative/dismech/inheritance_term
@@ -11947,6 +12418,25 @@ slots:
     range: OligonucleotideDetail
     inlined: true
     inlined_as_list: true
+  delivery_system:
+    name: delivery_system
+    definition_uri: https://w3id.org/monarch-initiative/dismech/delivery_system
+    description: 'Structured detail of how this treatment''s active agent reaches
+      its target: the formulation platform, any targeting ligand on the carrier, the
+      receptor that ligand binds, and the cell type the carrier is aimed at. Populate
+      for any modality whose carrier is part of the therapeutic identity - an mRNA
+      lipid nanoparticle, an albumin-bound or liposomal small molecule, an AAV vector
+      - not only for oligonucleotides. Supersedes the delivery_platform and conjugation
+      slots nested in oligonucleotide_details, which remain valid for entries authored
+      before this slot existed.'
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:delivery_system
+    owner: Treatment
+    domain_of:
+    - Treatment
+    range: DeliverySystem
+    inlined: true
+    inlined_as_list: true
   aso_details:
     name: aso_details
     definition_uri: https://w3id.org/monarch-initiative/dismech/aso_details
@@ -12045,25 +12535,79 @@ slots:
   conjugation:
     name: conjugation
     definition_uri: https://w3id.org/monarch-initiative/dismech/conjugation
-    description: Targeting ligand covalently attached to a therapeutic oligonucleotide
+    description: Deprecated alias of targeting_ligand, retained so entries authored
+      before the slot was generalized continue to validate.
+    deprecated: Renamed to targeting_ligand, which describes a ligand coupled to a
+      carrier particle as well as one conjugated directly to an oligonucleotide. Existing
+      entries carrying conjugation remain valid; do not populate it on new treatments.
     from_schema: https://w3id.org/monarch-initiative/dismech
     slot_uri: dismech:conjugation
     owner: OligonucleotideDetail
     domain_of:
     - OligonucleotideDetail
-    range: OligonucleotideConjugationEnum
+    range: TargetingLigandEnum
+  targeting_ligand:
+    name: targeting_ligand
+    definition_uri: https://w3id.org/monarch-initiative/dismech/targeting_ligand
+    description: 'Targeting ligand attached to the active agent, or to the carrier
+      particle holding it, to direct uptake by a particular tissue or cell type. Orthogonal
+      to delivery_platform: an unconjugated agent may still travel in a nanoparticle,
+      and a nanoparticle may carry a ligand on its surface.'
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:targeting_ligand
+    owner: DeliverySystem
+    domain_of:
+    - OligonucleotideDetail
+    - DeliverySystem
+    range: TargetingLigandEnum
+  targeting_receptor:
+    name: targeting_receptor
+    definition_uri: https://w3id.org/monarch-initiative/dismech/targeting_receptor
+    description: The cell-surface receptor or antigen that the targeting ligand binds,
+      bindable to HGNC (e.g., ASGR1 for a GalNAc conjugate, TREM2 for an anti-TREM2-coated
+      nanoparticle). Record the receptor here and the ligand's chemical class in targeting_ligand
+      - they are different facts, and a receptor may be reachable by more than one
+      ligand.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:targeting_receptor
+    owner: DeliverySystem
+    domain_of:
+    - DeliverySystem
+    range: GeneDescriptor
+    inlined: true
+    inlined_as_list: true
+  target_cell_types:
+    name: target_cell_types
+    definition_uri: https://w3id.org/monarch-initiative/dismech/target_cell_types
+    description: 'The cell type(s) a targeted delivery system is aimed at, bindable
+      to CL. This is the carrier''s intended destination, which is not always the
+      cell the disease mechanism runs in: a macrophage-targeted particle may be aimed
+      at reprogramming the macrophage rather than at the tumor cell beside it.'
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:target_cell_types
+    owner: DeliverySystem
+    domain_of:
+    - DeliverySystem
+    range: CellTypeDescriptor
+    multivalued: true
+    inlined: true
+    inlined_as_list: true
   delivery_platform:
     name: delivery_platform
     definition_uri: https://w3id.org/monarch-initiative/dismech/delivery_platform
-    description: 'How the oligonucleotide is carried to its target tissue - unformulated,
-      ligand conjugate, lipid nanoparticle, viral vector. Orthogonal to conjugation:
-      an unconjugated oligonucleotide may still be delivered in a nanoparticle.'
+    description: 'How the active agent is carried to its target tissue - unformulated,
+      ligand conjugate, lipid nanoparticle, liposome, albumin-bound particle, viral
+      vector. Orthogonal to targeting_ligand: an unconjugated agent may still be delivered
+      in a nanoparticle. Prefer the Treatment-level delivery_system block, which carries
+      this slot alongside the targeting detail; the copy nested in oligonucleotide_details
+      predates it and stays valid.'
     from_schema: https://w3id.org/monarch-initiative/dismech
     slot_uri: dismech:delivery_platform
-    owner: OligonucleotideDetail
+    owner: DeliverySystem
     domain_of:
     - OligonucleotideDetail
-    range: OligonucleotideDeliveryPlatformEnum
+    - DeliverySystem
+    range: DeliveryPlatformEnum
   dosing_interval:
     name: dosing_interval
     definition_uri: https://w3id.org/monarch-initiative/dismech/dosing_interval
@@ -18695,6 +19239,8 @@ classes:
     definition_uri: https://w3id.org/monarch-initiative/dismech/PhenotypeDescriptor
     description: A descriptor for phenotypes, bindable to Human Phenotype Ontology
       (HP)
+    comments:
+    - A binding to a top-level HPO organ-system term must say why via coarse_binding_basis
     from_schema: https://w3id.org/monarch-initiative/dismech
     is_a: Descriptor
     slots:
@@ -18709,6 +19255,8 @@ classes:
     - clinical_course
     - severity
     - qualifiers
+    - coarse_binding_basis
+    - term_gap
     - PhenotypeDescriptor_term
     slot_usage:
       term:
@@ -19524,6 +20072,7 @@ classes:
     - reference_title
     - supports
     - directness
+    - quote_role
     - evidence_source
     - snippet
     - explanation
@@ -20719,6 +21268,7 @@ classes:
     - treatment_term
     - regimen_term
     - therapeutic_modality
+    - delivery_system
     - oligonucleotide_details
     - aso_details
     - dosing_interval
@@ -20744,7 +21294,15 @@ classes:
       is ANTISENSE_OLIGONUCLEOTIDE or SIRNA. Single-stranded ASOs and double-stranded
       siRNAs share this class deliberately - they differ in effector (RNase H1 versus
       Argonaute-2) but are the same programmable platform, described by the same target,
-      chemistry, and delivery attributes.'
+      chemistry, and delivery attributes.
+
+      The carrier attributes here (delivery_platform, targeting_ligand, and the deprecated
+      conjugation) predate the Treatment-level delivery_system block and are retained
+      so entries authored before it continue to validate. New treatments record the
+      carrier in delivery_system; this class keeps the mechanism, RNA target, exon,
+      and backbone chemistry, which are genuinely specific to base-pairing therapeutics.
+      just check-delivery-system reports entries still using the nested slots and
+      gates on a value recorded in both places.'
     from_schema: https://w3id.org/monarch-initiative/dismech
     aliases:
     - AntisenseOligonucleotideDetail
@@ -20754,11 +21312,46 @@ classes:
     - target_transcript
     - target_exon
     - oligonucleotide_chemistry
+    - targeting_ligand
     - conjugation
     - delivery_platform
     - aso_mechanism
     - aso_chemistry
     class_uri: dismech:OligonucleotideDetail
+  DeliverySystem:
+    name: DeliverySystem
+    definition_uri: https://w3id.org/monarch-initiative/dismech/DeliverySystem
+    description: 'How a treatment''s active agent is carried to its target - the formulation
+      platform, any targeting ligand on the carrier, the receptor that ligand binds,
+      and the cell type the carrier is aimed at. Attach via the delivery_system slot
+      on a Treatment of any modality: the carrier is a property of the formulation,
+      not of the payload chemistry, so an mRNA lipid nanoparticle, an albumin-bound
+      small molecule, a liposomal cytotoxic, and a GalNAc-conjugated siRNA are all
+      described here by the same four attributes.
+
+      Two facts that used to be inexpressible are the reason this class exists. A
+      carrier could only be recorded inside oligonucleotide_details, so no non-oligonucleotide
+      formulation had a home for it - nab-sirolimus and liposomal irinotecan were
+      curated with the carrier visible only in free-text prose. And there was nowhere
+      to say what a targeted particle is aimed at, which is the whole claim of a receptor-targeted
+      nanomedicine: an anti-TREM2-coated mRNA lipid nanoparticle is aimed at tumor-associated
+      macrophages, and that is a citable, falsifiable statement about the delivery
+      system rather than about the drug.
+
+      The targeting slots are optional and an untargeted carrier is a normal record:
+      a PEGylated liposome relies on passive accumulation and has no ligand, no receptor,
+      and no target cell type. Leave them absent rather than asserting a target the
+      formulation does not have.'
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slots:
+    - delivery_platform
+    - targeting_ligand
+    - targeting_receptor
+    - target_cell_types
+    - description
+    - evidence
+    - notes
+    class_uri: dismech:DeliverySystem
   InfectiousAgent:
     name: InfectiousAgent
     definition_uri: https://w3id.org/monarch-initiative/dismech/InfectiousAgent
@@ -21956,6 +22549,6 @@ classes:
 metamodel_version: 1.7.0
 source_file: dismech.yaml
 source_file_date: '2025-01-01T00:00:00'
-source_file_size: 322720
+source_file_size: 343286
 generation_date: '2025-01-01T00:00:00'
 
