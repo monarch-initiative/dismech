@@ -15,30 +15,14 @@ sys.modules[_SPEC.name] = policy
 _SPEC.loader.exec_module(policy)
 
 
-@pytest.mark.parametrize(
-    "raw",
-    [
-        "ai4c-agent",
-        "AI4C-Agent",
-        "app/ai4c-agent",
-        "ai4c-agent[bot]",
-        {"login": "app/ai4c-agent"},
-    ],
-)
-def test_ai4c_login_spellings_normalize(raw):
-    assert policy.normalize_login(raw) == "ai4c-agent"
-
-
-@pytest.mark.parametrize(
-    "raw,expected",
-    [
-        ("app/claude", "claude"),
-        ("github-actions[bot]", "github-actions"),
-        ("dragon-ai-agent", "dragon-ai-agent"),
-    ],
-)
-def test_other_known_agent_logins_normalize(raw, expected):
-    assert policy.normalize_login(raw) == expected
+AUTHORS = [
+    {"login": "cmungall", "is_bot": False},
+    {"login": "claude", "is_bot": False},
+    {"login": "dragon-ai-agent", "is_bot": False},
+    {"login": "app/ai4c-agent", "is_bot": True},
+    {"login": "unknown-bot[bot]", "is_bot": True},
+    None,
+]
 
 
 def make_pr(**overrides):
@@ -65,25 +49,20 @@ def test_agent_candidates_include_drafts():
     assert policy.agent_candidate_decision(make_pr(isDraft=True)).eligible
 
 
-def test_human_claude_branch_is_not_an_author_override():
-    decision = policy.agent_candidate_decision(
-        make_pr(author={"login": "cmungall", "is_bot": False}, headRefName="claude/fix")
-    )
-    assert not decision.eligible
-
-
-def test_human_account_named_claude_is_not_mistaken_for_the_bot():
-    decision = policy.agent_candidate_decision(
-        make_pr(author={"login": "claude", "is_bot": False})
-    )
-    assert not decision.eligible
-    assert "verified Bot identity" in decision.reason
-
-
-def test_known_machine_user_is_allowed_without_bot_type():
+@pytest.mark.parametrize("author", AUTHORS)
+@pytest.mark.parametrize("branch", ["claude/fix", "codex/fix", "fix-tests"])
+def test_unassigned_prs_are_eligible_regardless_of_author_or_branch_prefix(
+    author, branch
+):
     assert policy.agent_candidate_decision(
-        make_pr(author={"login": "dragon-ai-agent", "is_bot": False})
+        make_pr(author=author, headRefName=branch)
     ).eligible
+
+
+def test_missing_author_does_not_prevent_recovery():
+    pr = make_pr()
+    del pr["author"]
+    assert policy.agent_candidate_decision(pr).eligible
 
 
 @pytest.mark.parametrize("overrides", [{"state": "CLOSED"}, {"state": None}])
@@ -96,17 +75,30 @@ def test_agent_candidates_require_main_base(base):
     assert not policy.agent_candidate_decision(make_pr(baseRefName=base)).eligible
 
 
-def test_assigned_pr_is_a_hold_for_the_agent_lane():
+@pytest.mark.parametrize("author", AUTHORS)
+def test_assigned_pr_is_a_hold_for_every_author(author):
     decision = policy.agent_candidate_decision(
-        make_pr(assignees=[{"login": "cmungall"}])
+        make_pr(author=author, assignees=[{"login": "cmungall"}])
     )
     assert not decision.eligible
     assert "assigned to cmungall" in decision.reason
 
 
-def test_generated_lane_is_excluded_for_every_author():
+@pytest.mark.parametrize("assignees", [None, {}, "", False])
+def test_unknown_assignment_is_not_treated_as_unassigned(assignees):
+    assert not policy.agent_candidate_decision(make_pr(assignees=assignees)).eligible
+
+
+def test_missing_assignment_is_not_treated_as_unassigned():
+    pr = make_pr()
+    del pr["assignees"]
+    assert not policy.agent_candidate_decision(pr).eligible
+
+
+@pytest.mark.parametrize("author", AUTHORS)
+def test_generated_lane_is_excluded_for_every_author(author):
     decision = policy.agent_candidate_decision(
-        make_pr(headRefName="auto/generate-pages")
+        make_pr(author=author, headRefName="auto/generate-pages")
     )
     assert not decision.eligible
 
@@ -118,8 +110,10 @@ def test_other_automated_lanes_are_also_excluded():
     assert not decision.eligible
 
 
+@pytest.mark.parametrize("author", AUTHORS)
 def test_scan_candidates_are_ranked_bounded_and_leave_ready_work_to_controller(
     monkeypatch,
+    author,
 ):
     prs = [
         make_pr(
@@ -148,6 +142,8 @@ def test_scan_candidates_are_ranked_bounded_and_leave_ready_work_to_controller(
             mergeable="MERGEABLE",
         ),
     ]
+    for pr in prs:
+        pr["author"] = author
     calls = []
 
     def fake_gh_json(args):
@@ -283,3 +279,27 @@ def test_specific_candidate_uses_same_state_and_base_guards(monkeypatch):
     fields = calls[0][calls[0].index("--json") + 1]
     assert "state" in fields
     assert "baseRefName" in fields
+
+
+@pytest.mark.parametrize("specific_pr", [None, 9263])
+def test_abandoned_human_pr_is_selected_after_assignment_is_released(
+    monkeypatch, specific_pr
+):
+    pr = make_pr(
+        number=9263,
+        author={"login": "cmungall", "is_bot": False},
+        headRefName="codex/alzheimer-dadd-digital-twin",
+        updatedAt="2026-08-23T22:12:42Z",
+        reviewDecision="APPROVED",
+        mergeable="CONFLICTING",
+        assignees=[{"login": "cmungall"}],
+    )
+
+    def fake_gh_json(args):
+        assert args[:2] == ["pr", "view" if specific_pr else "list"]
+        return pr if specific_pr else [pr]
+
+    monkeypatch.setattr(policy, "_gh_json", fake_gh_json)
+    assert policy.list_agent_candidates("o/r", specific_pr=specific_pr) == []
+    pr["assignees"] = []
+    assert policy.list_agent_candidates("o/r", specific_pr=specific_pr) == [pr]

@@ -4039,13 +4039,18 @@ assignments alone when history is incomplete or unavailable. Manual inputs
 `dry_run`, `pr_number`, and `max_assignment_actions` (default 10; 0 disables) apply.
 
 Unassignment clears only the assignment hold. Review requirements, conflict and
-CI checks, and the repair jobs' author restrictions still apply. See
+CI checks, and the repair jobs' remaining lifecycle and branch-ownership guards
+still apply. Otherwise eligible PRs can be repaired regardless of author. See
 [assignment inactivity](docs/explanation/automation-and-agents.md#inactive-pr-assignments).
 
 ### Shepherd repair scope and generated-cache conflicts
 
 The shepherd tends eligible abandoned code, tests, schema, workflow, and
-documentation PRs as well as curation. Python is in scope. Unresolved review
+documentation PRs as well as curation, regardless of whether a human or bot
+authored them. Repair eligibility requires an open PR targeting `main`, no
+assignees, and a head outside the separately managed `auto/` lanes. The agent
+checks recent activity and discussion to avoid duplicating an ongoing repair;
+there is no fixed PR-age cutoff for repair. Python is in scope. Unresolved review
 feedback comes first; an approved clean branch is the merge controller's work,
 even when it is behind main. Do not refresh a branch merely for freshness.
 
@@ -4059,8 +4064,9 @@ Reference markdown and other generated formats remain shepherd work; never
 resolve a generated directory wholesale by taking one side. A deterministic
 refusal does not authorize abandoning the PR.
 
-The job uses the agent's existing author/assignment guards. Manual inputs
-`max_cache_repairs` (default 3; 0 disables), `dry_run`, and `pr_number` control it.
+The job uses the agent's assignment and lifecycle guards regardless of author.
+Manual inputs `max_cache_repairs` (default 3; 0 disables), `dry_run`, and
+`pr_number` control it.
 See [the repair contract](docs/explanation/automation-and-agents.md#tending-abandoned-prs-and-repairing-cache-conflicts).
 
 ### Deterministic auto-merge of ready PRs
@@ -4084,11 +4090,11 @@ author, human or agent** — once it is simultaneously:
 
 Nothing is judged; the predicate is applied to GitHub-reported state, so a run's
 outcome is reproducible from the API response alone. This is separate from the
-LLM agent job in the same workflow, whose guardrails still forbid it from
-*editing* human-authored PRs. The jobs never share a runner, and the controller
-mints a separate write token that is not exposed to the LLM runner. The LLM's
-own App token still has contents-write capability for branch repair, so its
-no-merge rule is prompt-enforced rather than a GitHub permission boundary;
+LLM agent job in the same workflow, which repairs eligible unassigned PRs from
+any author but cannot merge or approve them. The jobs never share a runner, and
+the controller mints a separate write token that is not exposed to the LLM
+runner. The LLM's own App token still has contents-write capability for branch
+repair, so its no-merge rule is prompt-enforced rather than a GitHub permission boundary;
 enforcing that boundary requires a separate identity, broker, or ruleset. The
 sweep itself only merges already-approved work.
 

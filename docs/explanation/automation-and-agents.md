@@ -112,8 +112,8 @@ PRs: `curation-scanner`, `literature-scan`, `preprint-scan`,
 
 **PR lifecycle** — `claude-code-review` (automated review on every PR),
 `post-review-agent` (acts on editorial review comments), `pr-shepherd` (unsticks
-stalled bot-authored PRs, repairs additive cache conflicts, and deterministically
-merges ready PRs through one common closing controller).
+stalled unassigned PRs by any author, repairs additive cache conflicts, and
+deterministically merges ready PRs through one common closing controller).
 
 **Interactive agents** — `claude.yml` and `dragon-ai.yml` respond to `@`-mentions
 on issues, PRs, and review comments (`dragon-ai.yml` is summoned as `@ai4c-agent`;
@@ -409,8 +409,9 @@ The summary distinguishes assigned PRs found, PRs inspected, actions, deferrals,
 and errors. Changed or incomplete histories are reported as deferrals without
 failing the job. API and other unexpected failures fail the job; CLI errors
 include the exit code without exposing command arguments or response bodies.
-Releasing an assignment does not close or merge the PR, change reviews, or
-override the repair jobs' separate author restrictions.
+Releasing an assignment does not close or merge the PR or change reviews. It
+makes an otherwise eligible PR available for repair regardless of its author;
+the repair jobs' remaining lifecycle and branch-ownership guards still apply.
 
 ### Tending abandoned PRs and repairing cache conflicts
 
@@ -424,12 +425,13 @@ approved red/blocked PRs and missing reviews. Within each group it considers
 the oldest updated PR first. An approved, clean branch belongs to the closer
 even when behind main; freshness alone must not trigger another push and review.
 
-The agent-tending shortlist is authorized by verified author identity, not by a
-head-branch naming convention. In particular, a human-authored `claude/` branch
-does not become agent-tendable, while an allowlisted bot-authored PR may use any
-head name outside the separately managed `auto/` lanes. This deliberately
-replaces the older `claude/` prefix heuristic with the boundary the guardrail
-actually means: never modify a human-authored PR.
+Author identity does not affect repair eligibility. The shepherd may repair
+unassigned PRs from humans or bots, including a human-authored `claude/` branch.
+The shortlist requires an open PR targeting `main` with no assignees and a head
+outside the separately managed `auto/` lanes. The agent inspects recent activity
+and discussion before acting so it does not duplicate an ongoing repair; there
+is no fixed PR-age cutoff for repair. Earlier comments refusing human-authored
+work do not block recovery.
 
 That tending restriction is intentionally narrower than deterministic merge
 eligibility. The LLM lane may decline to edit an assigned or `auto/` PR while
@@ -439,10 +441,10 @@ authority and merge eligibility are separate policies.
 The independent `repair-caches` job runs trusted main code before the agent
 shortlist is built, including during controller-only hourly runs. Its default
 budget is three repairs, adjustable with `max_cache_repairs`; `0` disables it.
-`dry_run` and `pr_number` apply to this job too. It observes the same verified
-author and assignment guards as the agent, rejects fork heads, and defers while
-checks reported on the PR are unfinished. It never marks ready, approves, or
-merges a PR into main.
+`dry_run` and `pr_number` apply to this job too. It observes the same assignment
+and lifecycle guards as the agent regardless of author, rejects fork heads,
+and defers while checks reported on the PR are unfinished. It never marks ready,
+approves, or merges a PR into main.
 
 Agent tending waits for this run's cache job. Cache sweeps serialize with
 `cancel-in-progress: false`, so an earlier sweep can add queueing time before
@@ -470,7 +472,7 @@ same path in the sole ancestor and both tips, and case-colliding results are
 rejected. Only after the entire plan succeeds can it create a two-parent merge
 commit, with the original PR head first and the inspected main tip second.
 
-Before publication it rechecks author, assignment, state, branch, head, checks,
+Before publication it rechecks assignment, state, branch, head, checks,
 and main. Publication uses an explicit expected-head lease **and** verifies
 that the new commit fast-forwards that head. The lease is compare-and-swap;
 the ancestry check forbids history rewriting. This also rejects a concurrent

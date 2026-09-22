@@ -13,6 +13,13 @@ import yaml
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 import repair_generated_cache_conflicts as repair
 
+BOT_AUTHOR = {"login": "ai4c-agent[bot]", "is_bot": True}
+HUMAN_AUTHOR = {"login": "contributor", "is_bot": False}
+ACTIVE_AUTHORS = [
+    pytest.param(BOT_AUTHOR, id="known-bot"),
+    pytest.param(HUMAN_AUTHOR, id="human"),
+]
+
 
 def git(path, *args):
     return subprocess.run(
@@ -20,19 +27,19 @@ def git(path, *args):
     ).stdout.strip()
 
 
-def eligible(head):
+def eligible(head, **overrides):
     return {
         "number": 12,
         "state": "OPEN",
         "baseRefName": "main",
         "headRefName": "repair-me",
         "headRefOid": head,
-        "author": {"login": "ai4c-agent[bot]", "is_bot": True},
+        "author": BOT_AUTHOR,
         "assignees": [],
         "isCrossRepository": False,
         "mergeable": "CONFLICTING",
         "statusCheckRollup": [],
-    }
+    } | overrides
 
 
 @pytest.fixture
@@ -90,9 +97,24 @@ def publication(tmp_path, monkeypatch):
     return RemoteRepo(local), remote, head, base, ancestor, concurrent
 
 
-def test_publication_keeps_both_parents_and_does_not_change_local_branch(publication):
+@pytest.mark.parametrize(
+    "author",
+    ACTIVE_AUTHORS
+    + [
+        pytest.param({"login": "other-tool[bot]", "is_bot": True}, id="unknown-bot"),
+        pytest.param(None, id="deleted-author"),
+        pytest.param({}, id="unknown-author"),
+    ],
+)
+def test_publication_keeps_both_parents_and_does_not_change_local_branch(
+    publication, monkeypatch, author
+):
     repo, remote, head, base, _, _ = publication
+    monkeypatch.setattr(repair, "current_pr", lambda *_: eligible(head, author=author))
     before = git(repo.path, "rev-parse", "HEAD")
+    local_branch = git(repo.path, "symbolic-ref", "HEAD")
+    remote_branches = git(remote, "for-each-ref", "--format=%(refname)", "refs/heads")
+    remote_main = git(remote, "rev-parse", "refs/heads/main")
     outcome = repair.repair_one(repo, "owner/repo", 12, dry_run=False)
     tip = git(remote, "rev-parse", "refs/heads/repair-me")
     assert git(remote, "rev-list", "--parents", "-n", "1", tip).split() == [
@@ -100,13 +122,25 @@ def test_publication_keeps_both_parents_and_does_not_change_local_branch(publica
         head,
         base,
     ]
+    git(remote, "merge-base", "--is-ancestor", head, tip)
+    git(remote, "merge-base", "--is-ancestor", base, tip)
     assert git(repo.path, "rev-parse", "HEAD") == before
+    assert git(repo.path, "symbolic-ref", "HEAD") == local_branch
+    assert (
+        git(remote, "for-each-ref", "--format=%(refname)", "refs/heads")
+        == remote_branches
+    )
+    assert git(remote, "rev-parse", "refs/heads/main") == remote_main
     assert outcome.startswith("REPAIRED")
 
 
 @pytest.mark.parametrize("race", ["advance", "rewind", "delete"])
-def test_racing_remote_ref_cannot_be_overwritten(publication, race):
-    repo, remote, _, _, ancestor, concurrent = publication
+@pytest.mark.parametrize("author", ACTIVE_AUTHORS)
+def test_racing_remote_ref_cannot_be_overwritten(
+    publication, monkeypatch, race, author
+):
+    repo, remote, head, _, ancestor, concurrent = publication
+    monkeypatch.setattr(repair, "current_pr", lambda *_: eligible(head, author=author))
     repo.race = race
     with pytest.raises(subprocess.CalledProcessError):
         repair.repair_one(repo, "owner/repo", 12, dry_run=False)
@@ -126,14 +160,17 @@ def test_racing_remote_ref_cannot_be_overwritten(publication, race):
 @pytest.mark.parametrize(
     "change", ["head", "assignment", "base", "branch", "closed", "fork", "checks"]
 )
-def test_rechecks_mutation_guards_before_publishing(publication, monkeypatch, change):
+@pytest.mark.parametrize("author", ACTIVE_AUTHORS)
+def test_rechecks_mutation_guards_before_publishing(
+    publication, monkeypatch, change, author
+):
     repo, remote, head, base, _, concurrent = publication
     calls = 0
 
     def current(*_):
         nonlocal calls
         calls += 1
-        pr = eligible(head)
+        pr = eligible(head, author=author)
         if calls > 1:
             if change == "head":
                 pr["headRefOid"] = concurrent
@@ -157,18 +194,27 @@ def test_rechecks_mutation_guards_before_publishing(publication, monkeypatch, ch
     )
     with pytest.raises(repair.UnsafeMerge):
         repair.repair_one(repo, "owner/repo", 12, dry_run=False)
+    assert calls == 2, "repair must reach the final guard before refusing the update"
     assert repo.pushes == 0
     assert git(remote, "rev-parse", "refs/heads/repair-me") == head
 
 
-def test_dry_run_never_needs_writer_or_publishes(publication, monkeypatch):
+@pytest.mark.parametrize("author", ACTIVE_AUTHORS)
+def test_dry_run_never_needs_writer_or_publishes(publication, monkeypatch, author):
     repo, remote, head, *_ = publication
+    monkeypatch.setattr(repair, "current_pr", lambda *_: eligible(head, author=author))
     monkeypatch.delenv("GH_CACHE_REPAIR_TOKEN")
     assert repair.repair_one(repo, "owner/repo", 12, dry_run=True).startswith(
         "WOULD REPAIR"
     )
     assert repo.pushes == 0
     assert git(remote, "rev-parse", "refs/heads/repair-me") == head
+
+
+def test_omitted_author_does_not_block_cache_repair():
+    pr = eligible("a" * 40)
+    pr.pop("author")
+    repair.repair_guard(pr)
 
 
 def test_discovery_env_strips_writer_and_git_overrides(monkeypatch):
