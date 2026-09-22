@@ -32,6 +32,7 @@ def make_pr(**overrides):
         "headRefName": "curation/example",
         "headRefOid": "head-7",
         "baseRefName": "main",
+        "isCrossRepository": False,
         "assignees": [],
         "isDraft": False,
         "state": "OPEN",
@@ -73,6 +74,45 @@ def test_agent_candidates_fail_closed_unless_open(overrides):
 @pytest.mark.parametrize("base", ["feature", None])
 def test_agent_candidates_require_main_base(base):
     assert not policy.agent_candidate_decision(make_pr(baseRefName=base)).eligible
+
+
+@pytest.mark.parametrize("cross_repository", [True, None, "false", 0])
+def test_fork_or_unknown_repository_is_ineligible(cross_repository):
+    decision = policy.agent_candidate_decision(
+        make_pr(isCrossRepository=cross_repository)
+    )
+    assert not decision.eligible
+    assert "head does not belong to this repository" in decision.reason
+
+
+def test_missing_repository_metadata_is_ineligible():
+    pr = make_pr()
+    del pr["isCrossRepository"]
+    assert not policy.agent_candidate_decision(pr).eligible
+
+
+@pytest.mark.parametrize("specific_pr", [None, 7])
+@pytest.mark.parametrize(
+    "metadata",
+    [{"isCrossRepository": value} for value in (True, None, "false", 0)] + [{}],
+)
+def test_forks_and_unknown_repositories_never_enter_shortlist(
+    monkeypatch, specific_pr, metadata
+):
+    pr = make_pr()
+    del pr["isCrossRepository"]
+    pr.update(metadata)
+    same_repo = make_pr(number=8)  # Identical branch names do not establish ownership.
+
+    def fake_gh_json(args):
+        assert args[:2] == ["pr", "view" if specific_pr else "list"]
+        fields = args[args.index("--json") + 1].split(",")
+        assert "isCrossRepository" in fields
+        return pr if specific_pr else [pr, same_repo]
+
+    monkeypatch.setattr(policy, "_gh_json", fake_gh_json)
+    selected = policy.list_agent_candidates("o/r", specific_pr=specific_pr)
+    assert selected == ([] if specific_pr else [same_repo])
 
 
 @pytest.mark.parametrize("author", AUTHORS)
@@ -171,6 +211,7 @@ def test_scan_candidates_are_ranked_bounded_and_leave_ready_work_to_controller(
     assert "baseRefOid" in list_fields
     assert "headRefOid" in list_fields
     assert "reviewDecision" in list_fields
+    assert "isCrossRepository" in list_fields
 
 
 def test_aligned_approved_red_pr_stays_in_agent_lane(monkeypatch):

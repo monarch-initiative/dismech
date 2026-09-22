@@ -174,6 +174,21 @@ def test_agent_repairs_unassigned_prs_regardless_of_author():
     assert "Separately managed automation PRs whose heads start with `auto/`" in prompt
 
 
+def test_agent_confirms_head_repository_before_executing_code_and_pushing():
+    job = workflow(SHEPHERD)["jobs"]["shepherd"]
+    prompt = step(job, "Run PR Shepherd")["with"]["prompt"]
+    assert "Fork heads and missing or" in prompt
+    assert "unknown head-repository metadata are ineligible" in prompt
+    checkout_guard = prompt.split("Before checking out a PR branch", 1)[1]
+    assert "or executing its code" in checkout_guard
+    assert "require `isCrossRepository == false`" in checkout_guard
+    assert "true, missing, or unknown, skip" in checkout_guard
+    push_guard = prompt.split("Before any push", 1)[1]
+    assert "Reconfirm `isCrossRepository == false`" in push_guard
+    assert "deterministic active-work hold" in prompt
+    assert "For unassigned PRs, assess ongoing work from recent activity" in prompt
+
+
 def test_scanner_no_longer_uses_draft_as_a_lifecycle_signal():
     text = (ROOT / ".github/workflows/curation-scanner.yml").read_text(encoding="utf-8")
     assert "Prefer draft PRs" not in text

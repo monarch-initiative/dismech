@@ -26,7 +26,7 @@ OID = re.compile(r"[0-9a-f]{40}(?:[0-9a-f]{24})?\Z")
 # in particular, the retired shared dataset cache must never be opened.
 PROTECTED_CACHE = re.compile(r"cache/[^/]+\.json\Z")
 FIELDS = (
-    "number,author,assignees,baseRefName,headRefName,headRefOid,"
+    "number,assignees,baseRefName,headRefName,headRefOid,"
     "isCrossRepository,state,mergeable,updatedAt"
 )
 

@@ -4048,10 +4048,14 @@ still apply. Otherwise eligible PRs can be repaired regardless of author. See
 The shepherd tends eligible abandoned code, tests, schema, workflow, and
 documentation PRs as well as curation, regardless of whether a human or bot
 authored them. Repair eligibility requires an open PR targeting `main`, no
-assignees, and a head outside the separately managed `auto/` lanes. The agent
-checks recent activity and discussion to avoid duplicating an ongoing repair;
-there is no fixed PR-age cutoff for repair. Python is in scope. Unresolved review
-feedback comes first; an approved clean branch is the merge controller's work,
+assignees, and a head in this repository outside the separately managed `auto/`
+lanes. `isCrossRepository` must be explicitly false; fork heads and missing or
+unknown head-repository metadata are excluded. Reconfirm this before checking
+out or executing PR code and before pushing. Assignment is the deterministic
+active-work hold. For unassigned PRs, the agent checks recent activity and
+discussion to avoid duplicating an ongoing repair; there is no fixed PR-age
+cutoff for repair. Python is in scope. Unresolved review feedback comes first;
+an approved clean branch is the merge controller's work,
 even when it is behind main. Do not refresh a branch merely for freshness.
 
 The separate `repair-caches` job handles additive conflicts in term and enum
@@ -4064,7 +4068,8 @@ Reference markdown and other generated formats remain shepherd work; never
 resolve a generated directory wholesale by taking one side. A deterministic
 refusal does not authorize abandoning the PR.
 
-The job uses the agent's assignment and lifecycle guards regardless of author.
+The job uses the agent's assignment, lifecycle, and head-repository guards
+regardless of author; `isCrossRepository` must be explicitly false.
 Manual inputs `max_cache_repairs` (default 3; 0 disables), `dry_run`, and
 `pr_number` control it.
 See [the repair contract](docs/explanation/automation-and-agents.md#tending-abandoned-prs-and-repairing-cache-conflicts).

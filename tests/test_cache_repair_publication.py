@@ -217,6 +217,32 @@ def test_omitted_author_does_not_block_cache_repair():
     repair.repair_guard(pr)
 
 
+def test_cache_discovery_excludes_fork_and_unknown_heads(monkeypatch):
+    same_repo = eligible("a" * 40)
+    prs = [same_repo]
+    for number, value in enumerate((True, None, "false", 0), start=20):
+        prs.append(eligible("b" * 40, number=number, isCrossRepository=value))
+    missing = eligible("c" * 40, number=24)
+    del missing["isCrossRepository"]
+    prs.append(missing)
+
+    def discover(*args):
+        assert args[:2] == ("pr", "list")
+        assert "isCrossRepository" in args[args.index("--json") + 1].split(",")
+        return prs
+
+    repaired = []
+
+    def repair_one(_local, _repo, number, **_kwargs):
+        repaired.append(number)
+        return "WOULD REPAIR"
+
+    monkeypatch.setattr(repair, "gh", discover)
+    monkeypatch.setattr(repair, "repair_one", repair_one)
+    assert repair.main(["--repo", "owner/repo", "--dry-run"]) == 0
+    assert repaired == [same_repo["number"]]
+
+
 def test_discovery_env_strips_writer_and_git_overrides(monkeypatch):
     monkeypatch.setenv("GH_TOKEN", "reader")
     monkeypatch.setenv("GH_CACHE_REPAIR_TOKEN", "writer")

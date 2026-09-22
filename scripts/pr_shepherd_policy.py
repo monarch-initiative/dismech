@@ -33,6 +33,8 @@ def agent_candidate_decision(pr: dict) -> Decision:
         return Decision(False, f"PR is not open (state={state or 'missing'})")
     if pr.get("baseRefName") != "main":
         return Decision(False, "base branch is not main")
+    if pr.get("isCrossRepository") is not False:
+        return Decision(False, "head does not belong to this repository")
     assignees = pr.get("assignees")
     if not isinstance(assignees, list):
         return Decision(False, "PR response omitted or malformed assignees")
@@ -144,8 +146,8 @@ def list_agent_candidates(
     if limit < 1:
         raise ValueError("candidate limit must be positive")
     fields = (
-        "number,author,baseRefName,headRefName,isDraft,state,reviewDecision,"
-        "updatedAt,baseRefOid,headRefOid,mergeable,assignees"
+        "number,baseRefName,headRefName,isDraft,state,reviewDecision,"
+        "updatedAt,baseRefOid,headRefOid,mergeable,assignees,isCrossRepository"
     )
     if specific_pr is not None:
         payload = _gh_json(

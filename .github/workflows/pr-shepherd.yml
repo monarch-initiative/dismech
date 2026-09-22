@@ -368,8 +368,10 @@ jobs:
             If a reference cache entry is needed, regenerate it with `just fetch-reference <ID>`.
 
             Candidate PRs:
-            - The deterministic policy step has selected open PRs targeting main, excluded
-              assigned PRs and separately managed automation branches, and selected CANDIDATE_PRS.
+            - The deterministic policy step has selected open PRs targeting main with heads in
+              this repository (`isCrossRepository == false`), excluded assigned PRs and separately
+              managed automation branches, and selected CANDIDATE_PRS. Fork heads and missing or
+              unknown head-repository metadata are ineligible.
               Author identity does not affect eligibility: human and bot authors are treated alike.
             - CANDIDATE_PRS is a bounded shortlist of at most 3 × MAX_PRS, ranked as:
               oldest changes requested, conflicts, approved red or blocked branches, then review
@@ -377,7 +379,8 @@ jobs:
               the deterministic merge job owns them. That job does not require a branch to
               contain current main; approved clean PRs need no freshness-only update.
             - Inspect and act only on PR numbers in CANDIDATE_PRS. If SPECIFIC_PR was supplied,
-              it appears there only when it passed the same assignment and lifecycle guards.
+              it appears there only when it passed the same assignment, head-repository, and
+              lifecycle guards.
             - Draft state is metadata, not an exclusion, priority, or hold signal. Treat a draft
               exactly like any other open PR while tending review feedback or branch state.
             - Separately managed automation PRs whose heads start with `auto/` have already
@@ -389,7 +392,8 @@ jobs:
 
             Gather enough context for each candidate before choosing:
             - PR metadata: author, draft state, base/head refs, head SHA, updated/created time,
-              reviewDecision, mergeStateStatus, statusCheckRollup, and labels.
+              isCrossRepository, assignees, reviewDecision, mergeStateStatus, statusCheckRollup,
+              and labels.
             - The current main SHA and PR head SHA. If a branch update is needed to resolve a
               blocker, determine freshness with GitHub's exact commit comparison
               (`repos/$REPO/compare/$MAIN_SHA...$HEAD_SHA`): the head contains main only when
@@ -425,6 +429,9 @@ jobs:
             shortlist until the budget is used or every candidate has been investigated.
 
             Repair scope and validation:
+            - Before checking out a PR branch or executing its code, re-read its metadata and
+              require `isCrossRepository == false`. If it is true, missing, or unknown, skip
+              the PR; do not check out or execute its code.
             - Address review feedback and reproducible CI failures in the files the repair
               requires, including Python under src/, scripts/, and tests/. Keep the change
               tied to the PR's intended behavior and the diagnosed failure; inspect callers
@@ -440,6 +447,7 @@ jobs:
               Never read, write, edit, or stage the frozen dataset-accession JSON cache.
             - Before any push, verify the remote head and assignment again. If the head moved,
               stop that push and re-inspect; never overwrite another contributor's work.
+              Reconfirm `isCrossRepository == false`; stop if that cannot be established.
               Review the final diff against main for unrelated deletions or stale reversions.
               Bundle the review fixes, necessary conflict repair, and validation in one push.
 
@@ -499,8 +507,8 @@ jobs:
             - Author identity never excludes a PR from repair. Human and bot-authored PRs follow
               the same assignment, lifecycle, validation, and history-preservation rules.
             - Never modify a PR that is assigned when you inspect it; assignment is the
-              repository's explicit human-claim/hold signal even if it was unassigned when
-              the shortlist was built.
+              deterministic active-work hold even if it was unassigned when the shortlist was
+              built. For unassigned PRs, assess ongoing work from recent activity and discussion.
             - Never create duplicate scanner work or assign `dragon-ai-agent` just to trigger work.
             - If you are unsure about a biological, clinical, ontology, or evidence fix, ask for
               clarification on the PR instead of guessing.

@@ -428,10 +428,14 @@ even when behind main; freshness alone must not trigger another push and review.
 Author identity does not affect repair eligibility. The shepherd may repair
 unassigned PRs from humans or bots, including a human-authored `claude/` branch.
 The shortlist requires an open PR targeting `main` with no assignees and a head
-outside the separately managed `auto/` lanes. The agent inspects recent activity
-and discussion before acting so it does not duplicate an ongoing repair; there
-is no fixed PR-age cutoff for repair. Earlier comments refusing human-authored
-work do not block recovery.
+in this repository, outside the separately managed `auto/` lanes. GitHub's
+`isCrossRepository` must be explicitly false; fork heads and missing or unknown
+head-repository metadata are excluded. The agent rechecks this before checking
+out or executing PR code and before pushing. Assignment is the deterministic
+active-work hold. For unassigned PRs, the agent assesses recent activity and
+discussion to avoid duplicating an ongoing repair; there is no fixed PR-age
+cutoff for repair. Earlier comments refusing human-authored work do not block
+recovery.
 
 That tending restriction is intentionally narrower than deterministic merge
 eligibility. The LLM lane may decline to edit an assigned or `auto/` PR while
@@ -441,10 +445,11 @@ authority and merge eligibility are separate policies.
 The independent `repair-caches` job runs trusted main code before the agent
 shortlist is built, including during controller-only hourly runs. Its default
 budget is three repairs, adjustable with `max_cache_repairs`; `0` disables it.
-`dry_run` and `pr_number` apply to this job too. It observes the same assignment
-and lifecycle guards as the agent regardless of author, rejects fork heads,
-and defers while checks reported on the PR are unfinished. It never marks ready,
-approves, or merges a PR into main.
+`dry_run` and `pr_number` apply to this job too. It observes the same assignment,
+lifecycle, and head-repository guards as the agent regardless of author:
+`isCrossRepository` must be explicitly false. It also defers while checks
+reported on the PR are unfinished. It never marks ready, approves, or merges a
+PR into main.
 
 Agent tending waits for this run's cache job. Cache sweeps serialize with
 `cancel-in-progress: false`, so an earlier sweep can add queueing time before
@@ -472,9 +477,9 @@ same path in the sole ancestor and both tips, and case-colliding results are
 rejected. Only after the entire plan succeeds can it create a two-parent merge
 commit, with the original PR head first and the inspected main tip second.
 
-Before publication it rechecks assignment, state, branch, head, checks,
-and main. Publication uses an explicit expected-head lease **and** verifies
-that the new commit fast-forwards that head. The lease is compare-and-swap;
+Before publication it rechecks assignment, state, branch, head repository and
+SHA, checks, and main. Publication uses an explicit expected-head lease **and**
+verifies that the new commit fast-forwards that head. The lease is compare-and-swap;
 the ancestry check forbids history rewriting. This also rejects a concurrent
 rewind or branch deletion, which an ordinary push would miss. Tests exercise
 forward-update, rewind, and deletion races against real disposable remotes.
