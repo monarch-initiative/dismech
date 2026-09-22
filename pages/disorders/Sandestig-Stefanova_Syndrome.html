@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4908,6 +4947,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-nup188-loss-of-function" data-dismech-node="Biallelic NUP188 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic NUP188 Loss of Function</div>
 
+
                 <div class="item-desc">Germline biallelic truncating variants in NUP188 - homozygous nonsense in consanguineous kindreds, compound heterozygous elsewhere. Every reported disease allele is predicted to truncate: nonsense, frameshift, and a canonical splice-acceptor variant. No missense allele has been shown to cause the syndrome, so this is a loss-of-function mechanism rather than a dominant-negative or gain-of-function one.</div>
 
 
@@ -4968,6 +5008,8 @@ This pathophysiological event involves NUP188 (hgnc:17859). hgnc:17859 is a gene
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4978,6 +5020,9 @@ This pathophysiological event involves NUP188 (hgnc:17859). hgnc:17859 is a gene
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Biallelic germline truncating NUP188 variants. A premature termination codon early in the 44-exon transcript is expected to trigger nonsense-mediated decay, and a splice-acceptor allele produced no detectable RT-PCR amplification in the proband.</div>
 
@@ -5075,6 +5120,7 @@ This pathophysiological event involves NUP188 (hgnc:17859). hgnc:17859 is a gene
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-absent-or-truncated-nup188-protein" data-dismech-node="Absent or Truncated NUP188 Protein" data-dismech-type="pathophysiology">
                 <div class="item-name">Absent or Truncated NUP188 Protein</div>
+
 
                 <div class="item-desc">Protein-level consequence of the truncating alleles, established directly rather than inferred: immunoblot and immunofluorescence of fibroblasts from two of the reported individuals showed either complete loss of NUP188 or a non-functional stump. This is the node from which the two competing mechanistic models diverge - one through the nuclear pore, one through the cilium base.</div>
 
@@ -5304,6 +5350,7 @@ This pathophysiological event involves NUP188 (hgnc:17859). hgnc:17859 is a gene
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nuclear-pore-complex-inner-ring-scaffold-defect" data-dismech-node="Nuclear Pore Complex Inner-Ring Scaffold Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Nuclear Pore Complex Inner-Ring Scaffold Defect</div>
 
+
                 <div class="item-desc">The nuclear pore complex is built from roughly thirty nucleoporins; the NUP93 subcomplex to which NUP188 belongs forms the inner ring of its scaffold. Complete loss of pore function is incompatible with cell viability, so a viable disease allele produces a partial structural defect rather than an absent pore.</div>
 
 
@@ -5511,6 +5558,7 @@ This pathophysiological event involves nuclear pore (GO:0005643). GO:0005643 is 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-nucleocytoplasmic-protein-import" data-dismech-node="Reduced Nucleocytoplasmic Protein Import" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Nucleocytoplasmic Protein Import</div>
+
 
                 <div class="item-desc">The one cellular lesion measured directly in patient material. Fibroblasts from affected individuals import protein into the nucleus less efficiently than control cells. The authors present it as a possible disease mechanism, and the step from a fibroblast transport deficit to the developmental malformations below is not itself demonstrated - the edges out of this node are therefore marked as having unknown intermediates.</div>
 
@@ -5855,6 +5903,7 @@ This pathophysiological event involves decreased nucleocytoplasmic transport (GO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-cilia-and-ciliary-base-nup188-function" data-dismech-node="Loss of Cilia and Ciliary-Base NUP188 Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Cilia and Ciliary-Base NUP188 Function</div>
 
+
                 <div class="item-desc">The alternative arm. NUP188 is found at the base of cilia as well as at the nuclear envelope, and depleting it costs cells their cilia while the nuclear pore keeps working. This node exists because it explains parts of the clinical picture the transport model handles poorly - the heart defects, the hydrocephalus, and the heterotaxy-like findings - but it has never been demonstrated in a patient with this syndrome.</div>
 
 
@@ -6100,6 +6149,7 @@ This pathophysiological event involves decreased cilium assembly (GO:0060271). G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-neuronal-dendrite-development" data-dismech-node="Impaired Neuronal Dendrite Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Neuronal Dendrite Development</div>
 
+
                 <div class="item-desc">Removing NUP188 in Drosophila produces aberrant dendrite tiling alongside motor deficits and seizure susceptibility. This is the only cellular account of the neurological phenotype offered so far, and it is an invertebrate one.</div>
 
 
@@ -6275,6 +6325,7 @@ This pathophysiological event involves decreased dendrite morphogenesis (GO:0048
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-deficient-cerebral-white-matter-development-and-myelination" data-dismech-node="Deficient Cerebral White Matter Development and Myelination" data-dismech-type="pathophysiology">
                 <div class="item-name">Deficient Cerebral White Matter Development and Myelination</div>
+
 
                 <div class="item-desc">Loss of periventricular white matter, a thin or hypoplastic corpus callosum and delayed myelination together form the imaging signature of the syndrome and are present in essentially every reported patient. Whether the primary failure is oligodendroglial or axonal has not been established in these patients, so this node is stated at tissue level.</div>
 
@@ -6481,6 +6532,7 @@ This pathophysiological event involves decreased myelination (GO:0042552). GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-encephalopathy-with-central-respiratory-control-failure" data-dismech-node="Progressive Encephalopathy with Central Respiratory Control Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Encephalopathy with Central Respiratory Control Failure</div>
 
+
                 <div class="item-desc">The clinical convergence point and the cause of death. Generalised hypotonia is present from birth, microcephaly is progressive, seizures appear, swallowing is lost, and central hypoventilation develops. The respiratory failure is central: no congenital pulmonary or tracheal disease has been found in any reported patient, so the lung is not the lesion.</div>
 
 
@@ -6634,6 +6686,7 @@ This pathophysiological event involves decreased myelination (GO:0042552). GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-lens-and-anterior-eye-development" data-dismech-node="Impaired Lens and Anterior Eye Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Lens and Anterior Eye Development</div>
 
+
                 <div class="item-desc">Congenital bilateral cataract with microphthalmia. Cataract is one of the two or three features that make the syndrome recognizable, and it was present in four of the six individuals in the defining series. No lens tissue from an affected individual has been examined, so the node asserts the developmental failure without specifying its cellular route - in particular, no crystallin aggregation has been demonstrated here.</div>
 
 
@@ -6717,6 +6770,7 @@ This pathophysiological event involves decreased myelination (GO:0042552). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-cardiac-morphogenesis" data-dismech-node="Disrupted Cardiac Morphogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Cardiac Morphogenesis</div>
+
 
                 <div class="item-desc">Congenital heart disease occurred in five of the six individuals of the defining series and in most patients reported since. The lesions are structurally heterogeneous - ventricular septal defect, bicuspid aortic valve, patent ductus arteriosus, partial anomalous pulmonary venous return, and in one patient tetralogy of Fallot - which is what a morphogenetic rather than a single-structure defect looks like.</div>
 
@@ -6880,6 +6934,7 @@ This pathophysiological event involves decreased myelination (GO:0042552). GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-prenatal-onset-ventriculomegaly-and-hydrocephalus" data-dismech-node="Prenatal-Onset Ventriculomegaly and Hydrocephalus" data-dismech-type="pathophysiology">
                 <div class="item-name">Prenatal-Onset Ventriculomegaly and Hydrocephalus</div>
 
+
                 <div class="item-desc">Ventricular enlargement begins before birth and is one of the key features of the syndrome. In most patients it stays as ventriculomegaly; in one it progressed to overt tetraventricular hydrocephalus requiring a shunt, and that report was careful to note that concurrent neonatal sepsis may have contributed, so whether progression to frank hydrocephalus belongs to the syndrome is not settled.</div>
 
 
@@ -6988,6 +7043,7 @@ This pathophysiological event involves decreased myelination (GO:0042552). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-craniofacial-and-distal-limb-morphogenesis" data-dismech-node="Impaired Craniofacial and Distal Limb Morphogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Craniofacial and Distal Limb Morphogenesis</div>
+
 
                 <div class="item-desc">A reproducible dysmorphic gestalt across unrelated families with different alleles: trigonocephaly from metopic ridging, small palpebral fissures, a wide nasal bridge and nose, micrognathia, palatal clefting or a high arched palate, and distal limb anomalies including camptodactyly, clinodactyly and rocker-bottom feet. That two unrelated index patients with different nonsense alleles looked alike is what made this a recognizable syndrome rather than a collection of malformations.</div>
 
@@ -7177,6 +7233,7 @@ This pathophysiological event involves decreased myelination (GO:0042552). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-prenatal-growth-restriction" data-dismech-node="Prenatal Growth Restriction" data-dismech-type="pathophysiology">
                 <div class="item-name">Prenatal Growth Restriction</div>
+
 
                 <div class="item-desc">Growth is restricted before birth. Affected infants are born small for gestational age, and intrauterine growth restriction has been seen on second-trimester ultrasound.</div>
 
@@ -10597,6 +10654,9 @@ This disease-associated gene is NUP188 (hgnc:17859). hgnc:17859 is a gene from t
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
@@ -10679,6 +10739,12 @@ This disease-associated gene is NUP188 (hgnc:17859). hgnc:17859 is a gene from t
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">The two alleles of the index patients: different homozygous nonsense variants in two unrelated girls whose phenotypes were nonetheless strikingly alike, which is what made the syndrome recognizable.</div>
 
 
@@ -10736,6 +10802,12 @@ This disease-associated gene is NUP188 (hgnc:17859). hgnc:17859 is a gene from t
         Compound heterozygous c.904_907delATTT p.(Ile302Valfs*7) and c.3144C&gt;G p.(Tyr1048Ter)
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">The Ashkenazi Jewish founder pair, shared by three individuals from two families. Both alleles are enriched in gnomAD&#39;s Ashkenazi Jewish population, and a targeted screen of 3,225 healthy Ashkenazi Jewish individuals confirmed the enrichment.</div>
@@ -10824,6 +10896,12 @@ This disease-associated gene is NUP188 (hgnc:17859). hgnc:17859 is a gene from t
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">The allele of the first reported male patient, from a consanguineous Turkish family; novel at the time of report, absent from gnomAD, ClinVar and dbSNP, and classified pathogenic on PVS1, PM2, PP3 and PP4.</div>
 
 
@@ -10883,6 +10961,12 @@ This disease-associated gene is NUP188 (hgnc:17859). hgnc:17859 is a gene from t
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">An early nonsense allele in exon 3 of 44, expected to trigger nonsense-mediated decay, in a consanguineous Turkish family with a second similarly affected child.</div>
 
 
@@ -10940,6 +11024,12 @@ This disease-associated gene is NUP188 (hgnc:17859). hgnc:17859 is a gene from t
         Homozygous c.1962-2A&gt;C splice acceptor variant
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">A canonical splice-acceptor allele in a Saudi patient. RT-PCR gave no detectable product in the proband while both parents showed two bands, which is direct transcript evidence that the allele abolishes the normal message.</div>

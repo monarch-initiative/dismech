@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4449,6 +4488,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-heterozygous-scn11a-gain-of-function-variant" data-dismech-node="Heterozygous SCN11A Gain-of-Function Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">Heterozygous SCN11A Gain-of-Function Variant</div>
 
+
                 <div class="item-desc">A germline missense variant in one SCN11A allele alters the NaV1.9 channel protein. The variant class matters: these are point substitutions that change gating, not alleles that remove the channel.</div>
 
 
@@ -4459,6 +4499,8 @@
 
     <div class="item-meta">
         <span class="tag tag-classification">Genetic context</span>
+
+
 
 
 
@@ -4478,6 +4520,9 @@
         <span class="tag tag-classification">functional_impact_category: GAIN_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4548,6 +4593,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hyperpolarized-nav1-9-activation-with-enlarged-window-current" data-dismech-node="Hyperpolarized NaV1.9 Activation with Enlarged Window Current" data-dismech-type="pathophysiology">
                 <div class="item-name">Hyperpolarized NaV1.9 Activation with Enlarged Window Current</div>
+
 
                 <div class="item-desc">The mutant channel opens at more negative potentials than wild type and carries a larger persistent or window current, so more channels are open near the resting potential. This is the whole biophysical lesion; everything downstream follows from it.</div>
 
@@ -4746,6 +4792,7 @@ This pathophysiological event involves plasma membrane (GO:0005886). GO:0005886 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-depolarized-resting-membrane-potential-in-nociceptors" data-dismech-node="Depolarized Resting Membrane Potential in Nociceptors" data-dismech-type="pathophysiology">
                 <div class="item-name">Depolarized Resting Membrane Potential in Nociceptors</div>
+
 
                 <div class="item-desc">Small-diameter dorsal root ganglion neurons sit closer to threshold than they should. NaV1.9 is the channel that normally sets this potential, which is why a gating change in it moves the resting potential rather than the action potential upstroke.</div>
 
@@ -4969,6 +5016,7 @@ This pathophysiological event involves increased membrane depolarization (GO:005
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nociceptor-hyperexcitability-with-reduced-firing-threshold" data-dismech-node="Nociceptor Hyperexcitability with Reduced Firing Threshold" data-dismech-type="pathophysiology">
                 <div class="item-name">Nociceptor Hyperexcitability with Reduced Firing Threshold</div>
+
 
                 <div class="item-desc">Nociceptors fire action potentials at lower stimulus intensities and at higher frequencies. Crucially the hyperexcitability persists at cold temperatures, where normal nociceptor firing is suppressed - which is the cellular explanation for a pain syndrome that is triggered by cold.</div>
 
@@ -5205,6 +5253,7 @@ This pathophysiological event occurs in dorsal root ganglion (UBERON:0000044). U
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ectopic-nociceptive-signalling-from-distal-limb-afferents" data-dismech-node="Ectopic Nociceptive Signalling from Distal Limb Afferents" data-dismech-type="pathophysiology">
                 <div class="item-name">Ectopic Nociceptive Signalling from Distal Limb Afferents</div>
 
+
                 <div class="item-desc">Amplified nociceptive traffic from afferents innervating the distal limbs, predominantly the lower limbs. Large-fibre function is spared - nerve conduction studies, imaging and inflammatory markers are normal, and there is no joint pathology - so the acute episode is a signalling abnormality. That does not mean the nerve is structurally intact: a small-fibre lesion is demonstrable on skin biopsy in some patients, and is curated separately as histopathology.</div>
 
 
@@ -5355,6 +5404,7 @@ This pathophysiological event occurs in hindlimb (UBERON:0002103). UBERON:000210
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-myenteric-neuron-hyperexcitability" data-dismech-node="Myenteric Neuron Hyperexcitability" data-dismech-type="pathophysiology">
                 <div class="item-name">Myenteric Neuron Hyperexcitability</div>
+
 
                 <div class="item-desc">A variant-dependent branch. NaV1.9 is preferentially expressed in myenteric neurons, and in at least one allele the enteric compartment is affected alongside the limbs, producing episodic abdominal pain and chronic constipation. Most reported patients have no gastrointestinal involvement.</div>
 
@@ -6284,6 +6334,9 @@ This disease-associated gene is SCN11A (hgnc:10583). hgnc:10583 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6356,6 +6409,12 @@ This disease-associated gene is SCN11A (hgnc:10583). hgnc:10583 is a gene from t
         p.Arg222His
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">The most frequently reported allele and a founder mutation in the Tohoku region of Japan, seen in seven of forty-eight families in the largest series.</div>
@@ -6441,6 +6500,12 @@ This disease-associated gene is SCN11A (hgnc:10583). hgnc:10583 is a gene from t
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">The second allele identified in the founding series, and the one modelled as a knock-in mouse.</div>
 
 
@@ -6522,6 +6587,12 @@ This disease-associated gene is SCN11A (hgnc:10583). hgnc:10583 is a gene from t
         p.Arg225Cys
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Reported in a four-generation Chinese family in which early-onset episodic pain co-segregated with adult-onset essential tremor.</div>
@@ -6607,6 +6678,12 @@ This disease-associated gene is SCN11A (hgnc:10583). hgnc:10583 is a gene from t
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Two novel alleles from the forty-two-family Japanese expansion series, each validated by an orthologous knock-in mouse.</div>
 
 
@@ -6688,6 +6765,12 @@ This disease-associated gene is SCN11A (hgnc:10583). hgnc:10583 is a gene from t
         p.Val1184Ala
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Identified by exome sequencing in a European case with cold-aggravated peripheral pain, and the allele on which the cold-resistant hyperexcitability mechanism was demonstrated.</div>
@@ -6773,6 +6856,12 @@ This disease-associated gene is SCN11A (hgnc:10583). hgnc:10583 is a gene from t
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Reported in a child with early-onset episodic pain in both legs together with episodic abdominal pain and chronic constipation, which is the allele linking the enteric branch of the phenotype to the channel.</div>
 
 
@@ -6854,6 +6943,12 @@ This disease-associated gene is SCN11A (hgnc:10583). hgnc:10583 is a gene from t
         p.Leu811Phe
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">A novel allele in a four-generation Japanese pedigree, and the more informative half of a residue that diverges by substitution: p.Leu811Phe causes episodic pain while p.Leu811Pro at the same residue causes congenital insensitivity to pain.</div>

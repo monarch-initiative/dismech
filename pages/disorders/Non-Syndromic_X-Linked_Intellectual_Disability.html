@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -5736,6 +5775,7 @@ This subtype is caused by variation in ARX (hgnc:18060). hgnc:18060 is a gene fr
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-x-linked-gene-disruption" data-dismech-node="X-Linked Gene Disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">X-Linked Gene Disruption</div>
 
+
                 <div class="item-desc">Rare germline loss-of-function, hypomorphic, repeat-expansion, or copy-number variants in any one of a large set of genes on the X chromosome remove or reduce the activity of the encoded product in the developing and mature brain. The class is clinically homogeneous but genetically heterogeneous: variants at many different loci converge on the same single clinical outcome, and each individual gene accounts for only a small fraction of cases. The X chromosome is disproportionately represented among intellectual-disability genes relative to its size.</div>
 
 
@@ -5862,6 +5902,7 @@ This subtype is caused by variation in ARX (hgnc:18060). hgnc:18060 is a gene fr
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hemizygous-male-expression-of-the-mutant-allele" data-dismech-node="Hemizygous Male Expression of the Mutant Allele" data-dismech-type="pathophysiology">
                 <div class="item-name">Hemizygous Male Expression of the Mutant Allele</div>
 
+
                 <div class="item-desc">Males carry one X chromosome, so a loss-of-function allele is expressed in every cell with no second copy to buffer it. Heterozygous females are mosaic, because random X-chromosome inactivation silences one X per cell, so the mutant allele is expressed in only a subset of cells; such carriers are typically unaffected or mildly affected, and in several subtypes completely skewed X-inactivation silences the mutant X entirely. This dosage asymmetry is the mechanistic basis of the male excess observed among people with intellectual disability, and the mosaicism is the principal obstacle to studying the circuit pathophysiology in females.</div>
 
 
@@ -5987,6 +6028,7 @@ This subtype is caused by variation in ARX (hgnc:18060). hgnc:18060 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-convergent-disruption-of-neuronal-function" data-dismech-node="Convergent Disruption of Neuronal Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Convergent Disruption of Neuronal Function</div>
+
 
                 <div class="item-desc">Although the causal genes do not share a single pathway, their products fall repeatedly into a limited set of themes that converge on the same functional endpoint: Rho GTPase signalling to the actin cytoskeleton (PAK3), Rab-dependent synaptic vesicle recycling (GDI1), proposed roles in excitatory synapse formation and neurite outgrowth (IL1RAPL1, TSPAN7 - both inferred rather than directly demonstrated in the cited reports), tRNA anticodon-loop modification and translational fidelity (FTSJ1), fatty-acid metabolism (ACSL4), Golgi/trans-Golgi-network pH regulation and glycosylation (SLC9A7), transcriptional activation (AFF2, silenced by the FRAXE repeat expansion), and telencephalic transcriptional control (ARX). Most of these arms act on synapse formation, maintenance, and plasticity, and synaptic convergence is the field&#39;s dominant framing of the class. It is not, however, established for all of them: the tRNA-modification (FTSJ1), fatty-acid (ACSL4), Golgi-pH (SLC9A7), and transcriptional (AFF2) arms have documented molecular and cellular consequences but no cited evidence of a synaptic endpoint, so the node is deliberately named for neuronal rather than synaptic function. What is shared across every arm is that convergence happens at the level of neuronal cell biology rather than through a common molecular pathway - which is why no single pathway-directed therapy addresses the class.</div>
 
@@ -6742,6 +6784,7 @@ This pathophysiological event involves decreased FMR2/AFF2-dependent transcripti
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-synaptic-plasticity-in-learning-and-memory-circuits" data-dismech-node="Impaired Synaptic Plasticity in Learning and Memory Circuits" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Synaptic Plasticity in Learning and Memory Circuits</div>
 
+
                 <div class="item-desc">The convergent synaptic lesion degrades activity-dependent plasticity in the hippocampal and cortical circuits that support learning and memory. Several causal genes are selectively or highly expressed in exactly these structures - IL1RAPL1 in the postnatal hippocampal memory system, PAK3 in postmitotic neurons of developing and postnatal cerebral cortex and hippocampus, TSPAN7 in cerebral cortex and hippocampus - which is the anatomical reason a diffuse molecular lesion produces a circumscribed cognitive phenotype.</div>
 
 
@@ -7011,6 +7054,7 @@ This pathophysiological event occurs in hippocampus, annotated with hippocampal 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-static-cognitive-impairment-without-structural-brain-malformation" data-dismech-node="Static Cognitive Impairment Without Structural Brain Malformation" data-dismech-type="pathophysiology">
                 <div class="item-name">Static Cognitive Impairment Without Structural Brain Malformation</div>
+
 
                 <div class="item-desc">The endpoint of the class: non-progressive impairment of intellectual functioning and adaptive behaviour in a brain that is structurally normal on imaging and free of any consistently reproducible dysmorphic, metabolic, or systemic sign. This is a mis-tuned rather than a mis-built or damaged circuit, which is why brain MRI is characteristically unremarkable and why - in the absence of any distinguishing feature - molecular testing rather than clinical recognition is the only route to a specific diagnosis. The class is conventionally described as static and non-progressive, with developmental regression arguing against the diagnosis; note that none of the evidence cited on this node speaks to temporal course, so the staticity claim rests on clinical convention rather than on a source quoted here.</div>
 
@@ -7616,6 +7660,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
             </div>
 
 
+
             <div class="context-notes">Seizures are a designated variable feature of this subtype, whose MONDO label is &#34;intellectual disability, X-linked, with or without seizures, ARX-related&#34; (MONDO:0010317). No frequency is recorded for the context: the label establishes that seizures vary within the subtype without quantifying them, and the only ARX-specific seizure quote available enumerates the syndromic ARX entities this entry excludes. The context exists so the subtype association survives structurally now that the phenotype itself is recorded at class level on cohort evidence.</div>
 
 
@@ -7789,6 +7834,9 @@ This disease-associated gene is IL1RAPL1 (hgnc:5996). hgnc:5996 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7857,6 +7905,9 @@ This disease-associated gene is PAK3 (hgnc:8592). hgnc:8592 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -7933,6 +7984,9 @@ This disease-associated gene is GDI1 (hgnc:4226). hgnc:4226 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8001,6 +8055,9 @@ This disease-associated gene is TSPAN7 (hgnc:11854). hgnc:11854 is a gene from t
 
 
                 </div>
+
+
+
 
 
 
@@ -8077,6 +8134,9 @@ This disease-associated gene is FTSJ1 (hgnc:13254). hgnc:13254 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8145,6 +8205,9 @@ This disease-associated gene is ACSL4 (hgnc:3571). hgnc:3571 is a gene from the 
 
 
                 </div>
+
+
+
 
 
 
@@ -8221,6 +8284,9 @@ This disease-associated gene is ARX (hgnc:18060). hgnc:18060 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8293,6 +8359,9 @@ This disease-associated gene is AFF2 (hgnc:3776). hgnc:3776 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8361,6 +8430,9 @@ This disease-associated gene is SLC9A7 (hgnc:17123). hgnc:17123 is a gene from t
 
 
                 </div>
+
+
+
 
 
 

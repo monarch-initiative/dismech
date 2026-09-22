@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4982,6 +5021,7 @@ The clinically most consequential complication is a developmental and epileptic 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dlg4-loss-of-function-and-psd-95-haploinsufficiency" data-dismech-node="DLG4 Loss of Function and PSD-95 Haploinsufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">DLG4 Loss of Function and PSD-95 Haploinsufficiency</div>
 
+
                 <div class="item-desc">A heterozygous protein-truncating variant (nonsense, frameshift, canonical splice-site) — or a synonymous, deep-intronic or missense variant that disrupts splicing or protein folding — halves the functional dose of PSD-95, the prototypic MAGUK scaffold of the excitatory postsynaptic density. The endpoint that is actually measured is reduced PSD-95 protein; the route to it is allele-dependent and should not be assumed. Truncating alleles in the body of the transcript are conventionally expected to be cleared by nonsense-mediated decay, but the one DLG4 allele for which this has been tested directly — the GK-domain frameshift V692Wfs*12 — escapes decay and still yields less protein, so degradation of the transcript is not a prerequisite for haploinsufficiency here. Any surviving protein product lacks one or more of the PDZ, SH3 and guanylate-kinase domains through which PSD-95 organizes the postsynaptic density. Because the paralogous DLG-MAGUKs do not compensate, the single remaining wild-type allele is insufficient; DLG4&#39;s position among the most loss-of-function-intolerant genes in the genome is the population-genetic footprint of that fact, not its cause.
 </div>
 
@@ -5068,6 +5108,8 @@ This genetic context concerns DLG4 (hgnc:2903). hgnc:2903 is a gene from the HUG
 
 
 
+
+
         <span class="tag tag-classification">allele_type: SNV</span>
 
 
@@ -5083,6 +5125,9 @@ This genetic context concerns DLG4 (hgnc:2903). hgnc:2903 is a gene from the HUG
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Heterozygous, predominantly de novo loss-of-function alleles; six missense variants in the founding cohort localize to conserved PDZ2, PDZ3 and GK domains and are predicted to destabilize the domain or alter its surface charge rather than to abolish a canonical PDZ binding pocket.</div>
 
@@ -5375,6 +5420,7 @@ This pathophysiological event involves Postsynaptic density (GO:0014069). GO:001
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-glutamate-receptor-anchoring-at-the-postsynaptic-density" data-dismech-node="Impaired Glutamate Receptor Anchoring at the Postsynaptic Density" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Glutamate Receptor Anchoring at the Postsynaptic Density</div>
+
 
                 <div class="item-desc">PSD-95 clusters in postsynaptic nanodomains where its PDZ1-2 supermodule binds the C-terminal PDZ-binding motifs of NMDA-receptor GluN2 subunits and of TARP/stargazin, the auxiliary subunit that tethers AMPA receptors, while PDZ3 binds neuroligin-1 and the LGI1-ADAM22 complex. Losing PSD-95 dose fragments the postsynaptic density, reduces its size, and destabilizes AMPA receptors at the synaptic membrane, increasing the proportion of &#34;silent&#34; synapses that carry NMDA receptors but no functional AMPA receptors. The NMDA-receptor current is not simply lost but qualitatively altered, decaying more slowly with a greater GluN2B contribution — a shift toward an immature receptor complement.
 </div>
@@ -5741,6 +5787,7 @@ This pathophysiological event involves Dendritic spine (GO:0043197). GO:0043197 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-functional-maturation-of-excitatory-synapses" data-dismech-node="Impaired Functional Maturation of Excitatory Synapses" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Functional Maturation of Excitatory Synapses</div>
 
+
                 <div class="item-desc">PSD-95 level is instructive, not merely permissive, for excitatory synapse maturation: raising it drives glutamatergic synapses to maturity, enhances presynaptic terminal maturation transsynaptically, and increases the number and size of dendritic spines. Halving it therefore leaves a developing cortex with fewer functionally mature excitatory synapses during the window of synaptogenesis.
 The maturation failure is functional and is explicitly dissociated from spine morphology, which is the single most important caveat on this node. In the complete knockout the functionally silent synapses sit on morphologically mature spines, and PSD-95 mutant mice show unaffected synaptic morphology — so this entry deliberately does not assert a dendritic-spine-development deficit, and a negative spine-imaging result in a DLG4 model or patient neuron would not count against the node.
 </div>
@@ -5976,6 +6023,7 @@ This pathophysiological event involves decreased Glutamate receptor signaling pa
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-excitatory-synaptic-plasticity-and-excitation-inhibition-imbalance" data-dismech-node="Impaired Excitatory Synaptic Plasticity and Excitation-Inhibition Imbalance" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Excitatory Synaptic Plasticity and Excitation-Inhibition Imbalance</div>
+
 
                 <div class="item-desc">PSD-95 couples the NMDA receptor to the machinery that decides whether a given firing pattern potentiates or depresses a synapse. Without it, the frequency-response function of NMDA-dependent long-term potentiation and depression is shifted, producing strikingly enhanced LTP across stimulation frequencies rather than a simple loss of plasticity — a bidirectional learning rule broken in the direction of over-potentiation. The excitation-inhibition framing is an inference rather than a measurement in this disorder: the studies cited here quantified glutamatergic transmission and plasticity only, and none of them measured GABAergic transmission alongside it. PSD-95 is confined to excitatory synapses, so a shifted set point is the expected consequence, but a comparable inhibitory deficit has not been excluded.
 </div>
@@ -6264,6 +6312,7 @@ This pathophysiological event involves decreased Glutamatergic synaptic transmis
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cortical-network-dysfunction-and-hyperexcitability" data-dismech-node="Cortical Network Dysfunction and Hyperexcitability" data-dismech-type="pathophysiology">
                 <div class="item-name">Cortical Network Dysfunction and Hyperexcitability</div>
 
+
                 <div class="item-desc">Aggregated synaptic deficits produce diffuse, bilateral cortical and hippocampal circuit dysfunction. Structural imaging is deliberately unhelpful here: brain MRI in individuals with pathogenic DLG4 variants shows abnormalities that are diverse and nonspecific, so the circuit lesion is functional rather than a visible malformation. In roughly half of individuals the shifted excitation-inhibition set point crosses into frank epileptogenesis, with a wide range of seizure types of which focal seizures are the most common.
 </div>
 
@@ -6512,6 +6561,7 @@ This pathophysiological event occurs in Hippocampal formation (UBERON:0002421). 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sleep-activated-epileptiform-encephalopathy-dee-swas-eses" data-dismech-node="Sleep-Activated Epileptiform Encephalopathy (DEE-SWAS/ESES)" data-dismech-type="pathophysiology">
                 <div class="item-name">Sleep-Activated Epileptiform Encephalopathy (DEE-SWAS/ESES)</div>
 
+
                 <div class="item-desc">In about a quarter of individuals with DLG4-related epilepsy, epileptiform activity is massively potentiated by slow-wave sleep, producing encephalopathy related to status epilepticus during slow-wave sleep (ESES) / developmental epileptic encephalopathy with spike-wave activation during sleep (DEE-SWAS). This is a distinct circuit state, not merely more seizures: the abnormality is near-continuous sleep-activated spike-wave, and because the driving activity occurs in sleep it is invisible to a routine awake EEG. Sleep or 24-hour EEG is therefore the specific investigation this node motivates.
 </div>
 
@@ -6652,6 +6702,7 @@ This pathophysiological event involves dysregulated Chemical synaptic transmissi
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-developmental-regression" data-dismech-node="Developmental Regression" data-dismech-type="pathophysiology">
                 <div class="item-name">Developmental Regression</div>
 
+
                 <div class="item-desc">Loss of previously acquired verbal and/or motor skills, which converts an otherwise largely static developmental disorder into an actively regressive one and is the strongest determinant of cognitive outcome.
 This node is deliberately separate from the sleep-activated encephalopathy that most often drives it, because the evidence decouples them in both directions: regression occurred in every individual with ESES/DEE-SWAS but also in some who never developed it, so it has a second route from cortical circuit dysfunction that does not pass through the sleep-activated state. Regression is also not confined to childhood — intellectual regression without motor delay has been reported at age two, and cognitive regression with progressive dystonia in adulthood.
 </div>
@@ -6754,6 +6805,7 @@ This node is deliberately separate from the sleep-activated encephalopathy that 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neurodevelopmental-phenotypic-output" data-dismech-node="Neurodevelopmental Phenotypic Output" data-dismech-type="pathophysiology">
                 <div class="item-name">Neurodevelopmental Phenotypic Output</div>
+
 
                 <div class="item-desc">The clinical convergence point of the synaptopathy: early-onset global developmental delay, intellectual disability that is most often mild to moderate, autism spectrum disorder and attention deficit-hyperactivity disorder, together with hypotonia, movement disorders and sleep disturbance. The overlap with other synaptic-dysfunction neurodevelopmental disorders is what motivated the &#34;synaptopathy&#34; designation in the first place, and is why the clinical gestalt alone cannot establish the diagnosis.
 </div>
@@ -9733,6 +9785,9 @@ This disease-associated gene is DLG4 (hgnc:2903). hgnc:2903 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -9844,6 +9899,7 @@ This disease-associated gene is DLG4 (hgnc:2903). hgnc:2903 is a gene from the H
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9863,11 +9919,17 @@ This variant is in DLG4 (hgnc:2903). hgnc:2903 is a gene from the HUGO Gene Nome
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">SNV</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A deep intronic variant identified by whole genome sequencing that generates two alternative DLG4 transcripts, one containing a pseudoexon; both are out-of-frame and predicted to truncate the protein. Notable because it is invisible to exome sequencing and because DLG4 mRNA proved detectable in peripheral blood, making an accessible-tissue RNA assay diagnostic.</div>
@@ -9930,6 +9992,7 @@ This variant is in DLG4 (hgnc:2903). hgnc:2903 is a gene from the HUGO Gene Nome
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9949,11 +10012,17 @@ This variant is in DLG4 (hgnc:2903). hgnc:2903 is a gene from the HUGO Gene Nome
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">SNV</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A synonymous variant with previously conflicting ClinVar interpretations, shown by RNA sequencing and RT-PCR to cause complete exon 9 skipping with a resulting frameshift and premature termination codon. Its origin was paternal germline mosaicism, detected by high-depth amplicon sequencing of sperm DNA.</div>
