@@ -138,7 +138,10 @@ committing.
 
 1. **Do not add the module to a static catalog, and in particular not to a list
    in `CLAUDE.md`.** There is no module registry there any more — it did not
-   scale and drifted behind `kb/modules/`, which is the source of truth.
+   scale and drifted behind `kb/modules/`, which is the source of truth. A
+   curated `ModuleCollection` is different: add a module to one only when a
+   published framework or explicit organizing principle supports that
+   membership; collections are not an inventory of every module.
    Discovery is `just list-modules` (or `ls kb/modules/`), which reads the module
    YAML directly, so choose a descriptive filename and keep the top-level `name`
    and `description` useful for repository search. What that makes load-bearing

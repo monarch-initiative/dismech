@@ -1,0 +1,1740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rosacea · Falcon · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Rosacea</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Rosacea</h1>
+                
+                <p class="report-subtitle">Disease Characteristics Research Template</p>
+                
+                
+                <div class="report-date">2026-09-06</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-edison">Falcon</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0006604" target="_blank" rel="noopener noreferrer">MONDO:0006604</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: Edison Scientific Literature</span>
+                    
+                    
+                    <span class="meta-chip">30 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <p>Question: You are an expert researcher providing comprehensive, well-cited information.</p>
+<p>Provide detailed information focusing on:
+1. Key concepts and definitions with current understanding
+2. Recent developments and latest research (prioritize 2023-2024 sources)
+3. Current applications and real-world implementations
+4. Expert opinions and analysis from authoritative sources
+5. Relevant statistics and data from recent studies</p>
+<p>Format as a comprehensive research report with proper citations. Include URLs and publication dates where available.
+Always prioritize recent, authoritative sources and provide specific citations for all major claims.</p>
+<h1>Disease Characteristics Research Template</h1>
+<h2>Target Disease</h2>
+<ul>
+<li><strong>Disease Name:</strong> Rosacea</li>
+<li><strong>MONDO ID:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0006604" target="_blank" rel="noopener noreferrer">MONDO:0006604</a> (if available)</li>
+<li><strong>Category:</strong> Complex</li>
+</ul>
+<h2>Research Objectives</h2>
+<p>Please provide a comprehensive research report on <strong>Rosacea</strong> covering all of the
+disease characteristics listed below. This report will be used to populate a disease knowledge
+base entry. Be thorough and cite primary literature (PMID preferred) for all claims.</p>
+<p>For each section, <strong>suggested databases/resources</strong> are listed. These are the first places
+you should search for information on each topic.</p>
+<hr />
+<h3>1. Disease Information</h3>
+<blockquote>
+<p><strong>Search first:</strong> OMIM, Orphanet, ICD-10/ICD-11, MeSH, PubMed</p>
+</blockquote>
+<ul>
+<li>What is the disease? Provide a concise overview.</li>
+<li>What are the key identifiers? (OMIM, Orphanet, ICD-10/ICD-11, MeSH, Mondo)</li>
+<li>What are the common synonyms and alternative names?</li>
+<li>Is the information derived from individual patients (e.g., EHR) or aggregated disease-level resources?</li>
+</ul>
+<h3>2. Etiology</h3>
+<ul>
+<li><strong>Disease Causal Factors</strong>: What are the primary causes? (genetic, environmental, infectious, mechanistic)</li>
+<li><strong>Risk Factors</strong>:<blockquote>
+<p><strong>Search first:</strong> PubMed, Cochrane Library, UpToDate, clinical guidelines, ClinVar, ClinGen, GWAS Catalog, PheGenI, CTD, CDC, WHO, epidemiological databases</p>
+</blockquote>
+</li>
+<li>Genetic risk factors (causal variants, susceptibility loci, modifier genes)</li>
+<li>Environmental risk factors (toxins, lifestyle, occupational exposures, age, sex, family history)</li>
+<li><strong>Protective Factors</strong>:<blockquote>
+<p><strong>Search first:</strong> PubMed, Cochrane Library, clinical trial databases, GWAS Catalog, gnomAD, WHO, CDC, nutrition databases</p>
+</blockquote>
+</li>
+<li>Genetic protective factors (protective variants, modifier alleles)</li>
+<li>Environmental protective factors (diet, lifestyle, exposures that reduce risk)</li>
+<li><strong>Gene-Environment Interactions</strong>: How do genetic and environmental factors interact to influence disease?<blockquote>
+<p><strong>Search first:</strong> CTD, PubMed, PheGenI, GxE databases</p>
+</blockquote>
+</li>
+</ul>
+<h3>3. Phenotypes</h3>
+<blockquote>
+<p><strong>Search first:</strong> HPO (Human Phenotype Ontology), OMIM, Orphanet, PubMed, clinicaltrials.gov, MedDRA, SNOMED CT, DECIPHER, LOINC</p>
+</blockquote>
+<p>For each phenotype, provide:
+- <strong>Phenotype type</strong>: symptoms, clinical signs, physical manifestations, behavioral changes, or laboratory abnormalities</p>
+<blockquote>
+<p>For symptoms/signs: HPO, OMIM, Orphanet, PubMed
+For behavioral changes: HPO, DSM, RDoC (Research Domain Criteria), PubMed
+For laboratory abnormalities: LOINC, SNOMED CT, LabTests Online, PubMed
+- <strong>Phenotype characteristics</strong>:
+<strong>Search first:</strong> OMIM, Orphanet, HPO, PubMed
+  - Age of symptom onset (neonatal, childhood, adult-onset, late-onset)
+  - Symptom severity (mild, moderate, severe, variable)
+  - Symptom progression (stable, progressive, episodic, fluctuating)
+  - Frequency among affected individuals (percentage or qualitative)
+- <strong>Quality of life impact</strong>: Effects on daily functioning and well-being (per-phenotype when possible)
+<strong>Search first:</strong> EQ-5D database, SF-36, WHO QOL databases, PubMed
+- Suggest HPO (Human Phenotype Ontology) terms for each phenotype</p>
+</blockquote>
+<h3>4. Genetic/Molecular Information</h3>
+<ul>
+<li><strong>Causal Genes</strong>: Gene mutations or chromosomal abnormalities responsible for disease (gene symbols, OMIM IDs)<blockquote>
+<p><strong>Search first:</strong> OMIM, ClinVar, HGMD, Ensembl, NCBI Gene</p>
+</blockquote>
+</li>
+<li><strong>Pathogenic Variants</strong>:</li>
+<li>Affected genes (gene symbols, HGNC IDs)
+    &gt; <strong>Search first:</strong> OMIM, NCBI Gene, Ensembl, HGNC, UniProt, GeneCards</li>
+<li>Variant classification (pathogenic, likely pathogenic, VUS per ACMG/AMP guidelines)
+    &gt; <strong>Search first:</strong> ClinVar, ClinGen, ACMG/AMP guidelines, VarSome</li>
+<li>Variant type/class (missense, frameshift, nonsense, splice-site, structural)</li>
+<li>Allele frequency in population databases
+    &gt; <strong>Search first:</strong> gnomAD, 1000 Genomes, ExAC, TOPMed, dbSNP</li>
+<li>Somatic vs germline origin
+    &gt; <strong>Search first:</strong> COSMIC (somatic), ClinVar, ICGC, TCGA</li>
+<li>Functional consequences (loss of function, gain of function, dominant negative)</li>
+<li><strong>Modifier Genes</strong>: Genes that modify disease severity or expression</li>
+<li><strong>Epigenetic Information</strong>: DNA methylation, histone modifications, chromatin changes affecting disease<blockquote>
+<p><strong>Search first:</strong> ENCODE, Roadmap Epigenomics, MethBase, DiseaseMeth</p>
+</blockquote>
+</li>
+<li><strong>Chromosomal Abnormalities</strong>: Large-scale genetic changes (aneuploidy, translocations, inversions)<blockquote>
+<p><strong>Search first:</strong> DECIPHER, ClinVar, ECARUCA, UCSC Genome Browser</p>
+</blockquote>
+</li>
+</ul>
+<h3>5. Environmental Information</h3>
+<ul>
+<li><strong>Environmental Factors</strong>: Non-genetic contributing factors (toxins, radiation, pollution, occupational exposure)<blockquote>
+<p><strong>Search first:</strong> CTD (Comparative Toxicogenomics Database), TOXNET, PubMed, EPA databases</p>
+</blockquote>
+</li>
+<li><strong>Lifestyle Factors</strong>: Behavioral factors (smoking, diet, exercise, alcohol consumption)<blockquote>
+<p><strong>Search first:</strong> CDC databases, WHO, PubMed, NHANES</p>
+</blockquote>
+</li>
+<li><strong>Infectious Agents</strong>: If applicable, pathogens causing or triggering disease (bacteria, viruses, fungi, parasites)<blockquote>
+<p><strong>Search first:</strong> NCBI Taxonomy, ViPR, BV-BRC, MicrobeDB, GIDEON</p>
+</blockquote>
+</li>
+</ul>
+<h3>6. Mechanism / Pathophysiology</h3>
+<p><strong>Present this section as an ordered causal chain first, then the detail below.</strong>
+Open with a numbered sequence of mechanistic steps running from the initiating
+lesion (mutation, exposure, infection) to the clinical manifestation, one step per
+line, each naming what it causes next. State the causal verb explicitly ("leads
+to", "results in") and say where a step is inferred rather than demonstrated.
+Where the mechanism branches, show the branch. The categories below are a
+checklist of what to cover within those steps, not the organizing structure —
+a step may draw on several of them, and a category may contribute to several
+steps.</p>
+<ul>
+<li><strong>Molecular Pathways</strong>: Specific signaling cascades or biochemical pathways involved (Wnt, MAPK, mTOR, PI3K-AKT, etc.)<blockquote>
+<p><strong>Search first:</strong> KEGG, Reactome, WikiPathways, PathBank, BioCyc</p>
+</blockquote>
+</li>
+<li><strong>Cellular Processes</strong>: Cell-level mechanisms (apoptosis, autophagy, cell cycle dysregulation, inflammation, etc.)<blockquote>
+<p><strong>Search first:</strong> Gene Ontology (GO), Reactome, KEGG, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Protein Dysfunction</strong>: How protein structure or function is altered (misfolding, aggregation, loss of function, gain of function)<blockquote>
+<p><strong>Search first:</strong> UniProt, PDB (Protein Data Bank), InterPro, Pfam, AlphaFold</p>
+</blockquote>
+</li>
+<li><strong>Metabolic Changes</strong>: Alterations in metabolic processes (energy metabolism, lipid metabolism, amino acid metabolism)<blockquote>
+<p><strong>Search first:</strong> KEGG, BioCyc, HMDB (Human Metabolome Database), BRENDA</p>
+</blockquote>
+</li>
+<li><strong>Immune System Involvement</strong>: Role of immune response (autoimmunity, immunodeficiency, chronic inflammation)<blockquote>
+<p><strong>Search first:</strong> ImmPort, Immunome Database, IEDB, Gene Ontology</p>
+</blockquote>
+</li>
+<li><strong>Tissue Damage Mechanisms</strong>: How tissues/ are injured (oxidative stress, ischemia, fibrosis, necrosis)<blockquote>
+<p><strong>Search first:</strong> PubMed, Gene Ontology, Reactome</p>
+</blockquote>
+</li>
+<li><strong>Biochemical Abnormalities</strong>: Specific molecular defects (enzyme deficiencies, receptor dysfunction, ion channel defects)<blockquote>
+<p><strong>Search first:</strong> BRENDA, UniProt, KEGG, OMIM, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Epigenetic Changes</strong>: DNA methylation, histone modifications affecting gene expression in disease<blockquote>
+<p><strong>Search first:</strong> ENCODE, Roadmap Epigenomics, MethBase, DiseaseMeth</p>
+</blockquote>
+</li>
+<li><strong>Molecular Profiling</strong> (if available):</li>
+<li>Transcriptomics/gene expression changes
+    &gt; <strong>Search first:</strong> GEO (Gene Expression Omnibus), ArrayExpress, GTEx, Human Cell Atlas, SRA</li>
+<li>Proteomics findings
+    &gt; <strong>Search first:</strong> PRIDE, ProteomeXchange, Human Protein Atlas, STRING, BioGRID</li>
+<li>Metabolomics signatures
+    &gt; <strong>Search first:</strong> MetaboLights, Metabolomics Workbench, HMDB, METLIN</li>
+<li>Lipidomics alterations
+    &gt; <strong>Search first:</strong> LIPID MAPS, SwissLipids, LipidHome, Metabolomics Workbench</li>
+<li>Genomic structural features
+    &gt; <strong>Search first:</strong> UCSC Genome Browser, Ensembl, NCBI, dbVar, DGV</li>
+<li><strong>Advanced Technologies</strong> (if applicable):</li>
+<li>Single-cell analysis findings (cell-type specific mechanisms, cellular heterogeneity)
+    &gt; <strong>Search first:</strong> Human Cell Atlas, Single Cell Portal, GEO, CELLxGENE</li>
+<li>Spatial transcriptomics findings
+    &gt; <strong>Search first:</strong> GEO, Spatial Research, Vizgen, 10x Genomics data</li>
+<li>Multi-omics integration results
+    &gt; <strong>Search first:</strong> TCGA, ICGC, cBioPortal, LinkedOmics, PubMed</li>
+<li>Functional genomics screens (CRISPR, RNAi)
+    &gt; <strong>Search first:</strong> DepMap, GenomeRNAi, PubMed, BioGRID ORCS</li>
+</ul>
+<p>For each mechanism, describe:
+- The causal chain from initial trigger to clinical manifestation
+- Which mechanisms are upstream vs downstream
+- What cell types and biological processes are involved
+- Suggest GO terms for biological processes and CL terms for cell types</p>
+<h3>7. Anatomical Structures Affected</h3>
+<ul>
+<li><strong>Organ Level</strong>:</li>
+<li>Primary organs directly affected</li>
+<li>Secondary organ involvement (complications, secondary effects)</li>
+<li>Body systems involved (cardiovascular, nervous, digestive, respiratory, endocrine, etc.)<blockquote>
+<p><strong>Search first:</strong> Uberon, FMA (Foundational Model of Anatomy), OMIM, HPO, ICD-11, MeSH, SNOMED CT</p>
+</blockquote>
+</li>
+<li><strong>Tissue and Cell Level</strong>:</li>
+<li>Specific tissue types affected (epithelial, connective, muscle, nervous)</li>
+<li>Specific cell populations targeted (with Cell Ontology terms)<blockquote>
+<p><strong>Search first:</strong> Uberon, Human Protein Atlas, Cell Ontology, Human Cell Atlas, CellMarker, PanglaoDB</p>
+</blockquote>
+</li>
+<li><strong>Subcellular Level</strong>:</li>
+<li>Cellular compartments involved (mitochondria, nucleus, ER, lysosomes) (with GO Cellular Component terms)<blockquote>
+<p><strong>Search first:</strong> Gene Ontology (Cellular Component), UniProt, Human Protein Atlas</p>
+</blockquote>
+</li>
+<li><strong>Localization</strong>:</li>
+<li>Specific anatomical sites (with UBERON terms)
+    &gt; <strong>Search first:</strong> FMA, Uberon, NeuroNames (for brain), SNOMED CT</li>
+<li>Lateralization (unilateral, bilateral, asymmetric)
+    &gt; <strong>Search first:</strong> HPO, clinical literature, imaging databases</li>
+</ul>
+<h3>8. Temporal Development</h3>
+<ul>
+<li><strong>Onset</strong>:</li>
+<li>Typical age of onset (congenital, pediatric, adult, geriatric)</li>
+<li>Onset pattern (acute, subacute, chronic, insidious)<blockquote>
+<p><strong>Search first:</strong> OMIM, Orphanet, HPO, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Progression</strong>:</li>
+<li>Disease stages (early, intermediate, advanced, end-stage)
+    &gt; <strong>Search first:</strong> Cancer Staging Manual (AJCC), WHO classifications, PubMed</li>
+<li>Progression rate (rapid, slow, variable)</li>
+<li>Disease course pattern (episodic, relapsing-remitting, progressive, stable)</li>
+<li>Disease duration (self-limited, chronic lifelong)<blockquote>
+<p><strong>Search first:</strong> Disease registries, longitudinal cohort databases, natural history studies, PubMed, Orphanet, OMIM</p>
+</blockquote>
+</li>
+<li><strong>Patterns</strong>:</li>
+<li>Remission patterns (spontaneous, treatment-induced)
+    &gt; <strong>Search first:</strong> Clinical trial databases, disease registries, PubMed</li>
+<li>Critical periods (time windows of vulnerability or opportunity for intervention)
+    &gt; <strong>Search first:</strong> PubMed, developmental biology databases, clinical guidelines</li>
+</ul>
+<h3>9. Inheritance and Population</h3>
+<ul>
+<li><strong>Epidemiology</strong>:</li>
+<li>Prevalence (cases per 100,000 at given time)</li>
+<li>Incidence (new cases per 100,000 per year)<blockquote>
+<p><strong>Search first:</strong> Orphanet, CDC, WHO, GBD (Global Burden of Disease), national registries, SEER, disease registries</p>
+</blockquote>
+</li>
+<li><strong>For Genetic Etiology</strong>:</li>
+<li>Inheritance pattern (AD, AR, X-linked, mitochondrial, multifactorial, polygenic)
+    &gt; <strong>Search first:</strong> OMIM, Orphanet, ClinVar, GTR (Genetic Testing Registry)</li>
+<li>Penetrance (complete, incomplete, age-dependent)
+    &gt; <strong>Search first:</strong> ClinVar, OMIM, PubMed, ClinGen</li>
+<li>Expressivity (variable, consistent)
+    &gt; <strong>Search first:</strong> OMIM, ClinVar, PubMed</li>
+<li>Genetic anticipation (increasing severity in successive generations)
+    &gt; <strong>Search first:</strong> OMIM, PubMed (especially for repeat expansion disorders)</li>
+<li>Germline mosaicism
+    &gt; <strong>Search first:</strong> ClinVar, OMIM, genetic counseling literature, PubMed</li>
+<li>Founder effects (population-specific mutations)
+    &gt; <strong>Search first:</strong> gnomAD, population genetics databases, PubMed</li>
+<li>Consanguinity role
+    &gt; <strong>Search first:</strong> OMIM, population studies, genetic counseling resources</li>
+<li>Carrier frequency
+    &gt; <strong>Search first:</strong> gnomAD, carrier screening databases, GeneReviews, GTR</li>
+<li><strong>Population Demographics</strong>:</li>
+<li>Affected populations (ethnic or demographic groups with higher prevalence)
+    &gt; <strong>Search first:</strong> gnomAD, 1000 Genomes, PAGE Study, PubMed, population registries</li>
+<li>Geographic distribution (endemic areas, regional variation)
+    &gt; <strong>Search first:</strong> WHO, CDC, GBD, Orphanet, geographic epidemiology databases</li>
+<li>Geographic distribution of specific variants</li>
+<li>Sex ratio (male:female)
+    &gt; <strong>Search first:</strong> Disease registries, OMIM, PubMed, epidemiological databases</li>
+<li>Age distribution of affected individuals
+    &gt; <strong>Search first:</strong> CDC, disease registries, SEER, Orphanet</li>
+</ul>
+<h3>10. Diagnostics</h3>
+<ul>
+<li><strong>Clinical Tests</strong>:</li>
+<li>Laboratory tests (blood, urine, tissue chemistry, specific enzyme assays)
+    &gt; <strong>Search first:</strong> LOINC, LabTests Online, PubMed</li>
+<li>Biomarkers (proteins, metabolites, genetic markers, circulating biomarkers)
+    &gt; <strong>Search first:</strong> FDA Biomarker List, BEST (Biomarkers, EndpointS, and other Tools), PubMed</li>
+<li>Imaging studies (X-ray, CT, MRI, PET, ultrasound)
+    &gt; <strong>Search first:</strong> RadLex, DICOM, Radiopaedia, imaging databases</li>
+<li>Functional tests (pulmonary function, cardiac stress tests)
+    &gt; <strong>Search first:</strong> LOINC, clinical guidelines, PubMed</li>
+<li>Electrophysiology (EEG, EMG, ECG, nerve conduction studies)
+    &gt; <strong>Search first:</strong> LOINC, clinical neurophysiology databases, PubMed</li>
+<li>Biopsy findings (histopathology, immunohistochemistry)
+    &gt; <strong>Search first:</strong> SNOMED CT, College of American Pathologists resources, PubMed</li>
+<li>Pathology findings (microscopic examination)
+    &gt; <strong>Search first:</strong> SNOMED CT, Digital Pathology databases, PubMed</li>
+<li><strong>Genetic Testing</strong>:<blockquote>
+<p><strong>Search first:</strong> GTR (Genetic Testing Registry), GeneReviews, ClinGen</p>
+</blockquote>
+</li>
+<li>Overview of recommended genetic testing approach</li>
+<li>Whole genome sequencing (WGS) utility
+    &gt; <strong>Search first:</strong> GTR, ClinVar, GEL (Genomics England), gnomAD</li>
+<li>Whole exome sequencing (WES) utility
+    &gt; <strong>Search first:</strong> GTR, ClinVar, OMIM, GeneMatcher</li>
+<li>Gene panels (which panels, which genes)
+    &gt; <strong>Search first:</strong> GTR, ClinVar, laboratory-specific databases</li>
+<li>Single gene testing
+    &gt; <strong>Search first:</strong> GTR, ClinVar, OMIM, GeneReviews</li>
+<li>Chromosomal microarray (CMA)
+    &gt; <strong>Search first:</strong> DECIPHER, ClinVar, dbVar, ECARUCA</li>
+<li>Karyotyping
+    &gt; <strong>Search first:</strong> Chromosome Abnormality Database, ClinVar, cytogenetics resources</li>
+<li>FISH
+    &gt; <strong>Search first:</strong> ClinVar, cytogenetics databases, PubMed</li>
+<li>Mitochondrial DNA testing
+    &gt; <strong>Search first:</strong> MITOMAP, MSeqDR, ClinVar, GTR</li>
+<li>Repeat expansion testing
+    &gt; <strong>Search first:</strong> GTR, ClinVar, repeat expansion databases, PubMed</li>
+<li><strong>Omics-Based Diagnostics</strong> (if applicable):</li>
+<li>RNA sequencing / transcriptomics
+    &gt; <strong>Search first:</strong> GEO, ArrayExpress, GTEx, RNA-seq databases</li>
+<li>Proteomics
+    &gt; <strong>Search first:</strong> PRIDE, ProteomeXchange, FDA Biomarker database</li>
+<li>Metabolomics
+    &gt; <strong>Search first:</strong> MetaboLights, Metabolomics Workbench, HMDB</li>
+<li>Epigenomics
+    &gt; <strong>Search first:</strong> GEO, ENCODE, Roadmap Epigenomics, MethBase</li>
+<li>Liquid biopsy
+    &gt; <strong>Search first:</strong> COSMIC, ClinVar, liquid biopsy databases, PubMed</li>
+<li><strong>Clinical Criteria</strong>:</li>
+<li>Standardized diagnostic criteria (DSM, ICD, society guidelines)
+    &gt; <strong>Search first:</strong> DSM-5, ICD-11, clinical society guidelines, UpToDate</li>
+<li>Differential diagnosis (other conditions to rule out, with distinguishing features)
+    &gt; <strong>Search first:</strong> DynaMed, UpToDate, clinical decision support systems</li>
+<li><strong>Screening</strong>:</li>
+<li>Screening methods for asymptomatic individuals (newborn screening, carrier screening, cascade screening)
+    &gt; <strong>Search first:</strong> ACMG recommendations, CDC newborn screening, GTR</li>
+</ul>
+<h3>11. Outcome/Prognosis</h3>
+<ul>
+<li><strong>Survival and Mortality</strong>:</li>
+<li>Survival rate (5-year, 10-year, overall)
+    &gt; <strong>Search first:</strong> SEER, cancer registries, disease-specific registries, PubMed</li>
+<li>Life expectancy (with and without treatment if applicable)
+    &gt; <strong>Search first:</strong> Orphanet, disease registries, actuarial databases, PubMed</li>
+<li>Mortality rate
+    &gt; <strong>Search first:</strong> CDC, WHO, GBD, national mortality databases</li>
+<li>Disease-specific mortality (deaths directly attributable to disease)
+    &gt; <strong>Search first:</strong> Disease registries, CDC Wonder, GBD, PubMed</li>
+<li><strong>Morbidity and Function</strong>:</li>
+<li>Morbidity (disease-related disability and health impacts)
+    &gt; <strong>Search first:</strong> GBD, WHO, disability databases, PubMed</li>
+<li>Disability outcomes (long-term functional impairments)
+    &gt; <strong>Search first:</strong> ICF (International Classification of Functioning), disability registries</li>
+<li>Quality of life measures (EQ-5D, SF-36, PROMIS, disease-specific tools)
+    &gt; <strong>Search first:</strong> EQ-5D database, SF-36, PROMIS, PubMed</li>
+<li><strong>Disease Course</strong>:</li>
+<li>Complications (secondary problems: infections, organ failure, etc.)
+    &gt; <strong>Search first:</strong> ICD codes, disease registries, clinical databases, PubMed</li>
+<li>Recovery potential (likelihood and extent of recovery, with vs without treatment)
+    &gt; <strong>Search first:</strong> Natural history studies, rehabilitation databases, PubMed</li>
+<li><strong>Prediction</strong>:</li>
+<li>Prognostic factors (age, disease severity, biomarkers, treatment response)
+    &gt; <strong>Search first:</strong> Prognostic models databases, clinical calculators, PubMed</li>
+<li>Prognostic biomarkers (molecular markers predicting disease course)
+    &gt; <strong>Search first:</strong> FDA Biomarker database, PubMed, cancer prognostic databases</li>
+</ul>
+<h3>12. Treatment</h3>
+<ul>
+<li><strong>Pharmacotherapy</strong>:</li>
+<li>Pharmacological treatments (drug names, drug classes, mechanisms of action)
+    &gt; <strong>Search first:</strong> DrugBank, RxNorm, ATC classification, DailyMed, FDA databases</li>
+<li>Pharmacogenomics (how genetic variants affect drug metabolism, efficacy, toxicity)
+    &gt; <strong>Search first:</strong> PharmGKB, CPIC (Clinical Pharmacogenetics), FDA Table of PGx Biomarkers</li>
+<li><strong>Advanced Therapeutics</strong>:</li>
+<li>Gene therapy (viral vectors, CRISPR, gene replacement, gene editing)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA gene therapy database, ASGCT resources</li>
+<li>Cell therapy (stem cell transplant, CAR-T, cellular therapeutics)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA cell therapy database, FACT standards</li>
+<li>RNA-based therapies (ASOs, siRNA, mRNA therapies)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA approvals, PubMed</li>
+<li>Targeted therapies (treatments directed at specific molecular targets)
+    &gt; <strong>Search first:</strong> My Cancer Genome, OncoKB, ClinicalTrials.gov, FDA approvals</li>
+<li>Immunotherapies (checkpoint inhibitors, monoclonal antibodies)
+    &gt; <strong>Search first:</strong> Cancer Immunotherapy Database, FDA approvals, ClinicalTrials.gov</li>
+<li><strong>Surgical and Interventional</strong>:</li>
+<li>Surgical interventions (types of surgery, timing, outcomes)
+    &gt; <strong>Search first:</strong> CPT codes, surgical registries, clinical guidelines, PubMed</li>
+<li><strong>Supportive and Rehabilitative</strong>:</li>
+<li>Supportive care (symptom management, pain control, nutrition)
+    &gt; <strong>Search first:</strong> Clinical guidelines, Cochrane Library, PubMed</li>
+<li>Rehabilitation (physical therapy, occupational therapy, speech therapy)
+    &gt; <strong>Search first:</strong> Rehabilitation medicine databases, clinical guidelines, PubMed</li>
+<li><strong>Experimental</strong>:</li>
+<li>Experimental treatments in clinical trials (with NCT identifiers if available)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, EU Clinical Trials Register, WHO ICTRP</li>
+<li><strong>Treatment Outcomes</strong>:</li>
+<li>Treatment response rates
+    &gt; <strong>Search first:</strong> Clinical trial databases, FDA reviews, systematic reviews, PubMed</li>
+<li>Side effects and adverse events
+    &gt; <strong>Search first:</strong> FDA Adverse Event Reporting System (FAERS), MedWatch, PubMed</li>
+<li><strong>Treatment Strategy</strong>:</li>
+<li>Treatment algorithms (clinical pathways, decision trees)
+    &gt; <strong>Search first:</strong> Clinical practice guidelines, NCCN Guidelines, UpToDate</li>
+<li>Combination therapies
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, treatment guidelines, PubMed</li>
+<li>Personalized medicine approaches (genotype-guided treatment)
+    &gt; <strong>Search first:</strong> My Cancer Genome, CIViC, PharmGKB, precision medicine databases</li>
+</ul>
+<p>For each treatment, suggest NCIT (NCI Thesaurus) clinical-intervention terms where applicable.</p>
+<h3>13. Prevention</h3>
+<ul>
+<li><strong>Prevention Levels</strong>:</li>
+<li>Primary prevention (preventing disease occurrence: vaccination, risk factor modification)
+    &gt; <strong>Search first:</strong> CDC, WHO, USPSTF recommendations, Cochrane Library</li>
+<li>Secondary prevention (early detection and treatment: screening programs, early intervention)
+    &gt; <strong>Search first:</strong> USPSTF, CDC screening guidelines, WHO</li>
+<li>Tertiary prevention (preventing complications in those with disease)
+    &gt; <strong>Search first:</strong> Clinical guidelines, disease management protocols, PubMed</li>
+<li><strong>Immunization</strong>: Vaccine strategies (if applicable)<blockquote>
+<p><strong>Search first:</strong> CDC vaccine schedules, WHO immunization, FDA vaccine database</p>
+</blockquote>
+</li>
+<li><strong>Screening and Early Detection</strong>:</li>
+<li>Screening programs (population-based: newborn screening, cancer screening)
+    &gt; <strong>Search first:</strong> CDC screening programs, USPSTF, cancer screening databases</li>
+<li>Genetic screening (carrier screening, preimplantation genetic diagnosis, prenatal testing)
+    &gt; <strong>Search first:</strong> ACMG recommendations, ACOG guidelines, GTR</li>
+<li>Risk stratification (identifying high-risk individuals for targeted prevention)
+    &gt; <strong>Search first:</strong> Risk prediction models, clinical calculators, PubMed</li>
+<li><strong>Behavioral Interventions</strong>: Lifestyle modifications to reduce risk<blockquote>
+<p><strong>Search first:</strong> CDC, WHO, behavioral intervention databases, Cochrane Library</p>
+</blockquote>
+</li>
+<li><strong>Counseling</strong>: Genetic counseling (risk assessment, family planning guidance)<blockquote>
+<p><strong>Search first:</strong> NSGC resources, ACMG guidelines, GeneReviews</p>
+</blockquote>
+</li>
+<li><strong>Public Health</strong>:</li>
+<li>Public health interventions (sanitation, vector control, health education)
+    &gt; <strong>Search first:</strong> CDC, WHO, public health databases, PubMed</li>
+<li>Environmental interventions (reducing environmental risk factors)
+    &gt; <strong>Search first:</strong> EPA databases, WHO environmental health, PubMed</li>
+<li><strong>Prophylaxis</strong>: Preventive medications or procedures<blockquote>
+<p><strong>Search first:</strong> Clinical guidelines, FDA approvals, PubMed</p>
+</blockquote>
+</li>
+</ul>
+<h3>14. Other Species / Natural Disease</h3>
+<ul>
+<li><strong>Taxonomy</strong>: Species affected (with NCBI Taxon identifiers)<blockquote>
+<p><strong>Search first:</strong> NCBI Taxonomy</p>
+</blockquote>
+</li>
+<li><strong>Breed</strong>: Specific breeds affected (with VBO identifiers if applicable)<blockquote>
+<p><strong>Search first:</strong> VBO (Vertebrate Breed Ontology)</p>
+</blockquote>
+</li>
+<li><strong>Gene</strong>: Orthologous genes in other species (with NCBI Gene IDs)<blockquote>
+<p><strong>Search first:</strong> NCBI Gene</p>
+</blockquote>
+</li>
+<li><strong>Natural Disease</strong>:</li>
+<li>Naturally occurring disease in other species (companion animals, wildlife)
+    &gt; <strong>Search first:</strong> OMIA (Online Mendelian Inheritance in Animals), VetCompass, PubMed</li>
+<li>Veterinary relevance and importance in animal health
+    &gt; <strong>Search first:</strong> OMIA, veterinary databases, PubMed</li>
+<li><strong>Comparative Biology</strong>:</li>
+<li>Comparative pathology (similarities and differences across species)
+    &gt; <strong>Search first:</strong> OMIA, comparative pathology databases, PubMed</li>
+<li>Evolutionary conservation of disease mechanisms
+    &gt; <strong>Search first:</strong> HomoloGene, OrthoMCL, Alliance of Genome Resources</li>
+<li><strong>Transmission</strong> (if applicable):</li>
+<li>Zoonotic potential
+    &gt; <strong>Search first:</strong> CDC zoonotic diseases, WHO zoonoses, GIDEON</li>
+<li>Cross-species susceptibility
+    &gt; <strong>Search first:</strong> NCBI Taxonomy, veterinary databases, PubMed</li>
+</ul>
+<h3>15. Model Organisms</h3>
+<ul>
+<li><strong>Model Types</strong>:</li>
+<li>Model organism type (mammalian, invertebrate, cellular, in vitro)
+    &gt; <strong>Search first:</strong> Alliance of Genome Resources, model organism databases</li>
+<li>Specific model systems (mouse, rat, zebrafish, Drosophila, C. elegans, yeast, cell lines, organoids, iPSCs)
+    &gt; <strong>Search first:</strong> MGI, RGD, ZFIN, FlyBase, WormBase, SGD, ATCC, Cellosaurus</li>
+<li>Induced models (drug treatment, surgical intervention, environmental manipulation)
+    &gt; <strong>Search first:</strong> MGI, model organism databases, PubMed</li>
+<li><strong>Genetic Models</strong>:</li>
+<li>Types available (knockout, knock-in, transgenic, conditional, humanized)
+    &gt; <strong>Search first:</strong> MGI, IMPC, KOMP, EuMMCR, IMSR</li>
+<li><strong>Model Characteristics</strong>:</li>
+<li>Phenotype recapitulation (how well model reproduces human disease features)
+    &gt; <strong>Search first:</strong> Model organism databases, comparative studies, PubMed</li>
+<li>Model limitations (aspects of human disease not captured)
+    &gt; <strong>Search first:</strong> Model organism databases, PubMed, review articles</li>
+<li><strong>Applications</strong>:</li>
+<li>Research applications (what aspects of disease can be studied)
+    &gt; <strong>Search first:</strong> Model organism databases, PubMed</li>
+<li><strong>Resources</strong>:</li>
+<li>Model databases
+    &gt; <strong>Search first:</strong> MGI, RGD, ZFIN, FlyBase, WormBase, IMSR, EMMA, MMRRC</li>
+</ul>
+<hr />
+<h2>Citation Requirements</h2>
+<ul>
+<li>Cite primary literature (PMID preferred) for all mechanistic and clinical claims</li>
+<li>Prioritize recent reviews and landmark papers</li>
+<li>Include direct quotes from abstracts where possible to support key statements</li>
+<li>Distinguish evidence source types: human clinical, model organism, in vitro, computational</li>
+</ul>
+<h2>Output Format</h2>
+<p>Structure your response as a comprehensive narrative organized by the sections above.
+For each section, provide:
+- Factual content with specific details (numbers, percentages, gene names, variant nomenclature)
+- Ontology term suggestions (HPO, GO, CL, UBERON, CHEBI, NCIT, MONDO) where applicable
+- Evidence citations with PMIDs
+- Direct quotes from abstracts to support key claims
+- Clear indication when information is not available or not applicable for this disease</p>
+<p>This report will be used to populate a disease knowledge base entry with:
+- Pathophysiology descriptions with causal chains
+- Gene/protein annotations (HGNC, GO terms)
+- Phenotype associations (HP terms) with frequencies
+- Cell type involvement (CL terms)
+- Anatomical locations (UBERON terms)
+- Chemical entities (CHEBI terms)
+- Treatment annotations (NCIT terms)
+- Evidence items with PMIDs and exact abstract quotes
+- Epidemiology, prognosis, diagnostic, and prevention information
+- Animal model descriptions with phenotype recapitulation details</p>
+<h1>Rosacea (<a href="http://purl.obolibrary.org/obo/MONDO_0006604" target="_blank" rel="noopener noreferrer">MONDO:0006604</a>): comprehensive disease-characteristics report</h1>
+<h2>Executive summary</h2>
+<p>Rosacea is a common, chronic, relapsing inflammatory disorder centered on the face and sometimes the eyes. Current expert practice treats it as a <strong>phenotype spectrum</strong>, not four mutually exclusive subtypes. The best-supported biological model is multifactorial: polygenic susceptibility and barrier vulnerability interact with ultraviolet radiation, heat, stress, dietary vasodilators, and cutaneous microbes; these inputs amplify innate immunity, neurovascular signaling, and tissue remodeling. No single causal gene, pathogenic Mendelian variant, validated molecular diagnostic test, or cure is established. A 2024 review estimates global prevalence at <strong>5.46%</strong>; onset is usually in middle-to-late adulthood, although any adult age and occasionally childhood can be affected. (<a href="#ref-nguyen2024rosaceapracticalguidance-pages-1-3">nguyen2024rosaceapracticalguidance pages 1-3</a>)</p>
+<p>The most important recent advance is a 2024 single-cell atlas of 131,243 facial-skin cells from nine women with rosacea and three controls. It implicated inflammatory fibroblasts, IFNγ-associated keratinocytes, endothelial and mural cells, Schwann cells, macrophage/dendritic cells, and type 1/17 and tissue-resident-memory T cells; fibroblast depletion or <strong>PTGDS</strong> knockdown and IFNγ blockade improved disease-like changes in mice. These findings expand the older keratinocyte–TLR2–KLK5–LL-37 model into a multicellular neuroimmune–vascular circuit. (<a href="#ref-chen2024singlecelltranscriptomicsreveals-pages-1-2">chen2024singlecelltranscriptomicsreveals pages 1-2</a>)</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Domain</th>
+<th>Knowledge-Base Assertion</th>
+<th>Suggested Ontology Terms/IDs</th>
+<th>Evidence Type</th>
+<th>Principal Source/Date/DOI</th>
+<th>Limitations</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Definition &amp; Epidemiology</strong></td>
+<td>Chronic inflammatory skin disorder primarily of the centrofacial/periocular regions. Estimated global prevalence ~5.46%, with slight female predominance.</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0006604" target="_blank" rel="noopener noreferrer">MONDO:0006604</a> (rosacea); <a href="http://purl.obolibrary.org/obo/UBERON_0001456" target="_blank" rel="noopener noreferrer">UBERON:0001456</a> (skin of face); <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" rel="noopener noreferrer">HP:0002716</a> (Erythema)</td>
+<td>Clinical Review</td>
+<td>Nguyen et al., Jan 2024, 10.2147/CCID.S391705 (<a href="#ref-nguyen2024rosaceapracticalguidance-pages-1-3">nguyen2024rosaceapracticalguidance pages 1-3</a>); Galluccio et al., Jan 2024, 10.3390/cosmetics11010011 (<a href="#ref-galluccio2024advancesinthe-pages-1-2">galluccio2024advancesinthe pages 1-2</a>)</td>
+<td>Global prevalence estimates vary highly by population and diagnostic criteria.</td>
+</tr>
+<tr>
+<td><strong>Phenotypes &amp; Diagnosis</strong></td>
+<td>Diagnosis requires fixed centrofacial erythema or phymatous changes OR 2+ major features (papules, pustules, flushing, telangiectasia, ocular signs). Transitions away from historic subtypes.</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0010783" target="_blank" rel="noopener noreferrer">HP:0010783</a> (Erythema); <a href="http://purl.obolibrary.org/obo/HP_0200034" target="_blank" rel="noopener noreferrer">HP:0200034</a> (Papule); <a href="http://purl.obolibrary.org/obo/HP_0200039" target="_blank" rel="noopener noreferrer">HP:0200039</a> (Pustule); <a href="http://purl.obolibrary.org/obo/HP_0001009" target="_blank" rel="noopener noreferrer">HP:0001009</a> (Telangiectasia); <a href="http://purl.obolibrary.org/obo/HP_0012737" target="_blank" rel="noopener noreferrer">HP:0012737</a> (Blepharoconjunctivitis)</td>
+<td>Consensus Guidelines; Systematic Review</td>
+<td>Tan et al., Feb 2017, 10.1111/bjd.15122 (<a href="#ref-tan2017updatingthediagnosis-pages-9-11">tan2017updatingthediagnosis pages 9-11</a>); van Zuuren et al., Mar 2019, 10.1111/bjd.17590 (<a href="#ref-zuuren2019interventionsforrosacea-pages-1-2">zuuren2019interventionsforrosacea pages 1-2</a>)</td>
+<td>Ocular diagnostic combinations rely on limited ophthalmologist consensus.</td>
+</tr>
+<tr>
+<td><strong>Genetics (Susceptibility)</strong></td>
+<td>Polygenic trait lacking monogenic causation. Genome-wide significant loci linked to immune/inflammatory and pigmentation pathways (HLA, IL13, IRF4, HERC2-OCA2, SLC45A2).</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0006955" target="_blank" rel="noopener noreferrer">GO:0006955</a> (immune response); <a href="http://purl.obolibrary.org/obo/GO_0043473" target="_blank" rel="noopener noreferrer">GO:0043473</a> (pigmentation)</td>
+<td>Human GWAS (73,265 European ancestry subjects)</td>
+<td>Aponte et al., May 2018, 10.1093/hmg/ddy184 (<a href="#ref-aponte2018assessmentofrosacea-pages-7-8">aponte2018assessmentofrosacea pages 7-8</a>)</td>
+<td>Primarily European ancestry cohorts; phenotype based on self-reported symptom questionnaires.</td>
+</tr>
+<tr>
+<td><strong>Etiology (Triggers)</strong></td>
+<td>Amplified innate immune and neurovascular responses triggered by UV, heat, stress, diet, and microbiota (Demodex folliculorum density is 5-7x higher in lesions).</td>
+<td>NCIT:C16259 (Demodex); <a href="http://purl.obolibrary.org/obo/GO_0045087" target="_blank" rel="noopener noreferrer">GO:0045087</a> (innate immune response); <a href="http://purl.obolibrary.org/obo/GO_0050954" target="_blank" rel="noopener noreferrer">GO:0050954</a> (sensory perception of mechanical stimulus)</td>
+<td>Narrative Review</td>
+<td>Galluccio et al., Jan 2024, 10.3390/cosmetics11010011 (<a href="#ref-galluccio2024advancesinthe-pages-2-4">galluccio2024advancesinthe pages 2-4</a>)</td>
+<td>Difficult to distinguish primary triggers from opportunistic overgrowth (e.g., Demodex).</td>
+</tr>
+<tr>
+<td><strong>Pathophysiology (Cellular)</strong></td>
+<td>ScRNA-seq reveals expansion of pro-inflammatory fibroblasts (primary source of inflammatory/vasodilatory signals), Schwann cells, endothelial cells, and macrophages. Mast cells also increased.</td>
+<td><a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" rel="noopener noreferrer">CL:0000057</a> (fibroblast); <a href="http://purl.obolibrary.org/obo/CL_0000097" target="_blank" rel="noopener noreferrer">CL:0000097</a> (mast cell); <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a> (macrophage); <a href="http://purl.obolibrary.org/obo/CL_0002573" target="_blank" rel="noopener noreferrer">CL:0002573</a> (Schwann cell)</td>
+<td>scRNA-seq (9 cases, 3 controls); Mouse validation</td>
+<td>Chen et al., Oct 2024, 10.1038/s41467-024-52946-7 (<a href="#ref-chen2024singlecelltranscriptomicsreveals-pages-1-2">chen2024singlecelltranscriptomicsreveals pages 1-2</a>)</td>
+<td>Small human sample size, all female, inherent compositional biases in skin digestion.</td>
+</tr>
+<tr>
+<td><strong>Pathophysiology (Molecular)</strong></td>
+<td>Primary causal chain: TLR2 activation -&gt; KLK5 induction -&gt; cleavage of cathelicidin to LL-37 -&gt; activation of PAR2, NF-kB, NLRP3 inflammasome, and angiogenesis.</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0002224" target="_blank" rel="noopener noreferrer">GO:0002224</a> (toll-like receptor signaling); <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" rel="noopener noreferrer">GO:0001525</a> (angiogenesis); <a href="http://purl.obolibrary.org/obo/GO_0032640" target="_blank" rel="noopener noreferrer">GO:0032640</a> (tumor necrosis factor production)</td>
+<td>Clinical Reviews</td>
+<td>Nguyen et al., Jan 2024, 10.2147/CCID.S391705 (<a href="#ref-nguyen2024rosaceapracticalguidance-pages-1-3">nguyen2024rosaceapracticalguidance pages 1-3</a>); Shi et al., Jun 2026, 10.2147/dddt.s608151 (<a href="#ref-shi2026neurohormonalimmunedysregulationin-pages-2-4">shi2026neurohormonalimmunedysregulationin pages 2-4</a>)</td>
+<td>Highly complex feedback loops blur upstream vs. downstream ordering.</td>
+</tr>
+<tr>
+<td><strong>Treatments</strong></td>
+<td>Phenotype-targeted approaches: Brimonidine (erythema); ivermectin, azelaic acid (papules/pustules); doxycycline 40mg MR, isotretinoin (systemic); laser/IPL (telangiectasia).</td>
+<td>NCIT:C61702 (Brimonidine); NCIT:C616 (Azelaic Acid); NCIT:C61868 (Ivermectin); NCIT:C480 (Doxycycline)</td>
+<td>Systematic Review (152 RCTs, 20,944 subjects)</td>
+<td>van Zuuren et al., Mar 2019, 10.1111/bjd.17590 (<a href="#ref-zuuren2019interventionsforrosacea-pages-1-2">zuuren2019interventionsforrosacea pages 1-2</a>)</td>
+<td>Few long-term or head-to-head active comparator trials available.</td>
+</tr>
+<tr>
+<td><strong>Experimental Models</strong></td>
+<td>Subcutaneous LL-37 injection in mice induces rosacea-like lesions (erythema, inflammation, collagen hyperplasia). Demodex-induced rabbit models also utilized.</td>
+<td>NCIT:C14251 (Mouse); NCIT:C14264 (Rabbit); <a href="http://purl.obolibrary.org/obo/HP_0000974" target="_blank" rel="noopener noreferrer">HP:0000974</a> (Hyperextensible skin - surrogate for collagen abnormalities)</td>
+<td>Animal experimental models</td>
+<td>Zhang et al., Mar 2023, 10.3390/cimb45040177 (<a href="#ref-zhang2023longtermadministrationof-pages-13-14">zhang2023longtermadministrationof pages 13-14</a>)</td>
+<td>Induced models mimic late-stage effector pathways, not spontaneous natural disease initiation.</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><em>Table: A structured overview of rosacea phenotypes, genetics, mechanisms, treatments, and models mapped to ontology concepts, designed for knowledge base integration.</em></p>
+<p><strong>Ontology caution:</strong> mappings below are suggestions for curation. Exact HPO/GO/CL/UBERON/NCIT identifiers should be checked against the current ontology release; rosacea-specific concepts are not always represented by exact HPO terms.</p>
+<hr />
+<h2>1. Disease information</h2>
+<h3>Definition and names</h3>
+<p>Rosacea is a chronic inflammatory dermatosis primarily affecting the <strong>centrofacial and periocular regions</strong>, characterized in varying combinations by transient flushing, persistent erythema, telangiectasia, inflammatory papules/pustules, phymatous tissue overgrowth, and ocular inflammation. Signs fluctuate and may coexist; therefore, the current ROSCO/National Rosacea Society framework documents individual phenotypes rather than forcing each patient into one subtype. (<a href="#ref-tan2017updatingthediagnosis-pages-9-11">tan2017updatingthediagnosis pages 9-11</a>, <a href="#ref-galluccio2024advancesinthe-pages-1-2">galluccio2024advancesinthe pages 1-2</a>, <a href="#ref-tan2018applyingthephenotype-pages-5-10">tan2018applyingthephenotype pages 5-10</a>)</p>
+<p>Common names include <strong>rosacea</strong>, <strong>acne rosacea</strong> (older and potentially misleading because comedones are absent), <strong>couperose</strong>, and phenotype labels such as erythematotelangiectatic, papulopustular, phymatous rosacea/rhinophyma, and ocular rosacea.</p>
+<h3>Identifiers</h3>
+<ul>
+<li><strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0006604" target="_blank" rel="noopener noreferrer">MONDO:0006604</a>.</li>
+<li><strong>ICD-10-CM:</strong> L71 (rosacea); L71.0 perioral dermatitis, L71.1 rhinophyma, L71.8 other rosacea, L71.9 unspecified rosacea. Perioral dermatitis is coded in the same family but is clinically distinct.</li>
+<li><strong>ICD-11:</strong> ED90.0, rosacea.</li>
+<li><strong>MeSH:</strong> Rosacea, commonly indexed as D012393.</li>
+<li><strong>OMIM/Orphanet:</strong> no dedicated Mendelian-disease entry is expected because ordinary rosacea is neither a monogenic nor rare disorder.</li>
+</ul>
+<p>This report synthesizes <strong>aggregated disease-level resources and published cohorts</strong>, not identifiable patient-level EHR data. Individual studies include questionnaires, clinician-diagnosed cohorts, biopsies, and clinical trials.</p>
+<hr />
+<h2>2. Etiology</h2>
+<h3>Causal and susceptibility factors</h3>
+<p>Rosacea has no singular proven cause. Current understanding invokes interacting genetic, immune, neurovascular, barrier, microbial, and environmental factors. Human genetic evidence establishes susceptibility rather than deterministic causation. A GWAS of <strong>73,265</strong> predominantly European-ancestry participants found genome-wide signals near <strong>IRF4, PSMB9–HLA-DMB, HERC2–OCA2, SLC45A2, IL13, NRXN3–DIO2, and OVOL1–SNX32</strong>; a clinician-diagnosis analysis included 2,618 cases and 20,334 controls. The pigmentation and immune loci plausibly help explain the association with lighter phototypes, but ancestry and self-reported symptoms limit generalizability. (<a href="#ref-aponte2018assessmentofrosacea-pages-7-8">aponte2018assessmentofrosacea pages 7-8</a>)</p>
+<p>Other reported candidates—HLA class II alleles and rare familial variants in <strong>LRRC4, SH3PXD2A</strong>, and <strong>SLC26A8</strong>—remain susceptibility observations, not ACMG-classified causal variants. No recognized pathogenic/likely pathogenic germline variant, somatic driver, chromosomal abnormality, or Mendelian inheritance pattern defines common rosacea. (<a href="#ref-galluccio2024advancesinthe-pages-2-4">galluccio2024advancesinthe pages 2-4</a>)</p>
+<h3>Environmental and lifestyle risk or flare factors</h3>
+<p>Frequently reported aggravators are ultraviolet exposure, hot or cold weather, abrupt temperature change, hot drinks, spicy/capsaicin-containing food, cinnamaldehyde- or histamine-containing food, alcohol, exercise, emotional stress, and irritating cosmetics. They are better established as <strong>flare triggers</strong> than as causes of incident disease. Heat, capsaicin, alcohol, and stress can activate TRP/neuropeptide and vasodilatory pathways. (<a href="#ref-galluccio2024advancesinthe-pages-2-4">galluccio2024advancesinthe pages 2-4</a>, <a href="#ref-nguyen2024rosaceapracticalguidance-pages-1-3">nguyen2024rosaceapracticalguidance pages 1-3</a>)</p>
+<p><strong>Demodex folliculorum</strong> density has been reported as approximately <strong>five- to sevenfold higher</strong> in rosacea biopsies, especially papulopustular and phymatous disease. Associated <em>Bacillus oleronius</em> and <em>Staphylococcus epidermidis</em> may stimulate neutrophilic inflammation. Demodex is therefore a plausible amplifier/trigger and therapeutic target, not a sufficient infectious cause: mites also inhabit normal skin, and rosacea is not classified as contagious. (<a href="#ref-galluccio2024advancesinthe-pages-2-4">galluccio2024advancesinthe pages 2-4</a>)</p>
+<h3>Protective factors and gene–environment interaction</h3>
+<p>No reproducible protective allele is clinically actionable. Environmental “protection” consists mainly of reducing individual triggers, daily broad-spectrum photoprotection, barrier-supportive moisturization, and gentle skin care. These reduce flares; evidence that they prevent first onset is lacking. A reasonable gene–environment model is that pigmentation/immune susceptibility loci alter UV response and inflammatory threshold, while UV, heat, microbes, and irritants push a predisposed neuroimmune–vascular system beyond that threshold. This integrated model is biologically plausible but has not been established by large prospective G×E studies. (<a href="#ref-galluccio2024advancesinthe-pages-2-4">galluccio2024advancesinthe pages 2-4</a>, <a href="#ref-aponte2018assessmentofrosacea-pages-7-8">aponte2018assessmentofrosacea pages 7-8</a>)</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type, course, frequency/severity</th>
+<th>Suggested ontology terms</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Persistent centrofacial erythema</td>
+<td>Diagnostic sign; fixed but can intensify episodically; severity variable</td>
+<td>facial erythema; HPO “Erythema”; UBERON facial skin</td>
+</tr>
+<tr>
+<td>Flushing/transient erythema</td>
+<td>Symptom/sign; episodic, trigger-associated</td>
+<td>HPO “Flushing”/episodic erythema</td>
+</tr>
+<tr>
+<td>Telangiectasia</td>
+<td>Physical sign; often persistent and slowly progressive</td>
+<td>HPO “Telangiectasia”</td>
+</tr>
+<tr>
+<td>Papules and pustules</td>
+<td>Inflammatory signs; episodic/relapsing; typically without comedones</td>
+<td>HPO “Papule,” “Pustule”</td>
+</tr>
+<tr>
+<td>Burning, stinging, pruritus, dryness</td>
+<td>Subjective symptoms; fluctuating; may indicate barrier/neurosensory dysfunction</td>
+<td>HPO “Pruritus,” “Dry skin,” pain/burning-sensation terms</td>
+</tr>
+<tr>
+<td>Edema</td>
+<td>Secondary sign; intermittent or persistent in severe disease</td>
+<td>HPO “Facial edema”</td>
+</tr>
+<tr>
+<td>Phyma, especially rhinophyma</td>
+<td>Tissue hypertrophy/fibrosis and sebaceous enlargement; slowly progressive; more common in men</td>
+<td>HPO “Rhinophyma” if available; tissue hypertrophy/fibrosis</td>
+</tr>
+<tr>
+<td>Ocular rosacea</td>
+<td>Dryness, foreign-body sensation, lid-margin telangiectasia, blepharitis, meibomian dysfunction, conjunctival injection; keratitis/scleritis are less common but sight-threatening</td>
+<td>HPO “Blepharitis,” “Conjunctival injection,” “Keratitis,” “Dry eye,” “Meibomian gland dysfunction”</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Persistent erythema is the central diagnostic phenotype. Papules, pustules, flushing, telangiectasia, and ocular involvement are major features; burning, stinging, edema, and dryness are secondary features. Historic erythematotelangiectatic and papulopustular patterns are the most frequent, while phyma is less common. (<a href="#ref-nguyen2024rosaceapracticalguidance-pages-1-3">nguyen2024rosaceapracticalguidance pages 1-3</a>, <a href="#ref-galluccio2024advancesinthe-pages-1-2">galluccio2024advancesinthe pages 1-2</a>)</p>
+<p>Onset is usually adult, often middle-to-late adulthood. Severity ranges from mild intermittent flushing to persistent inflammation, ocular injury, or disfiguring phyma. Reliable universal percentages for each phenotype are unavailable because older studies used mutually exclusive subtypes and heterogeneous definitions; this is precisely why consensus groups recommend feature-level registries. (<a href="#ref-tan2018applyingthephenotype-pages-5-10">tan2018applyingthephenotype pages 5-10</a>)</p>
+<h3>Quality of life</h3>
+<p>Because manifestations are visible and often uncomfortable, rosacea can impair self-esteem, social and occupational interaction, and well-being. Consensus experts recommend routinely assessing poor self-esteem, social isolation, anxiety, depression, treatment burden, cost, and lifestyle restriction. RosaQoL is disease-specific, but it omits some features and lacks a firmly established minimal clinically important difference. (<a href="#ref-tan2017updatingthediagnosis-pages-9-11">tan2017updatingthediagnosis pages 9-11</a>, <a href="#ref-tan2018applyingthephenotype-pages-5-10">tan2018applyingthephenotype pages 5-10</a>)</p>
+<hr />
+<h2>4. Genetic and molecular information</h2>
+<p>Rosacea is <strong>complex, multifactorial, and polygenic</strong>. There are no established causal genes with OMIM disease-gene assignments, no routine ClinVar pathogenic-variant interpretation, and no meaningful carrier frequency, penetrance, anticipation, consanguinity, founder-mutation, germline-mosaicism, or chromosomal-abnormality framework.</p>
+<p>The principal replicated biological categories from GWAS are:</p>
+<ul>
+<li><strong>Immune regulation:</strong> HLA region, <strong>IRF4, IL13, PSMB9/HLA-DMA/B</strong>.</li>
+<li><strong>Pigmentation/photobiology:</strong> <strong>HERC2/OCA2, SLC45A2, MC1R, IRF4</strong>.</li>
+<li><strong>Less-resolved regulatory loci:</strong> <strong>NRXN3/DIO2</strong> and <strong>OVOL1/SNX32</strong> regions. (<a href="#ref-aponte2018assessmentofrosacea-pages-7-8">aponte2018assessmentofrosacea pages 7-8</a>)</li>
+</ul>
+<p>Open Targets associates rosacea with MMP-family and adrenergic-receptor targets, and lists TLR1, IRF4, MC1R, ELOVL4, and SLC45A2 among disease-associated targets. These are mixed genetic, expression, and drug-mechanism associations and must not be interpreted as causal genes. (OpenTargets Search: rosacea)</p>
+<p>No validated rosacea-specific DNA methylation, histone, chromatin, or structural-variant signature is ready for clinical curation. Epigenetic and noncoding-RNA studies remain exploratory.</p>
+<hr />
+<h2>5. Environmental information</h2>
+<ul>
+<li><strong>Physical exposures:</strong> UV radiation, heat, cold, wind, and temperature transitions can provoke vasodilation, oxidative stress, barrier injury, and inflammatory signaling.</li>
+<li><strong>Lifestyle:</strong> alcohol, spicy or hot foods/drinks, vigorous exercise, stress, and irritating skin products are common patient-specific triggers. Smoking associations are inconsistent and should not be treated as protective.</li>
+<li><strong>Microorganisms:</strong> increased Demodex density and associated bacterial antigens can amplify inflammation; altered cutaneous microbiota is implicated, while gut dysbiosis, small-intestinal bacterial overgrowth, and <em>Helicobacter pylori</em> remain less certain and are not accepted routine diagnostic explanations.</li>
+<li><strong>Pollution/occupation:</strong> plausible irritant or oxidative contributors, but robust rosacea-specific causal estimates are lacking.</li>
+</ul>
+<p>The appropriate knowledge-base relationship is usually “aggravates/associated with,” not “causes.” (<a href="#ref-galluccio2024advancesinthe-pages-2-4">galluccio2024advancesinthe pages 2-4</a>, <a href="#ref-nguyen2024rosaceapracticalguidance-pages-1-3">nguyen2024rosaceapracticalguidance pages 1-3</a>)</p>
+<hr />
+<h2>6. Mechanism/pathophysiology</h2>
+<h3>Ordered causal chain</h3>
+<ol>
+<li><strong>Polygenic susceptibility plus barrier/neurovascular vulnerability leads to</strong> a lowered threshold for facial responses to UV, thermal, chemical, emotional, and microbial stimuli; this initiating architecture is supported epidemiologically but remains incompletely demonstrated.  </li>
+<li><strong>Triggers lead to</strong> keratinocyte and innate-sensor activation, including increased TLR2 signaling and TRP-channel activity.  </li>
+<li><strong>TLR2 activation leads to</strong> NF-κB inflammatory transcription and increased kallikrein-5 (<strong>KLK5</strong>) activity.  </li>
+<li><strong>KLK5 leads to</strong> abnormal processing of hCAP18/CAMP into bioactive <strong>LL-37</strong> fragments and can activate PAR2.  </li>
+<li><strong>LL-37 leads to</strong> chemotaxis, cytokine release, NLRP3/IL-1β activity, mast-cell degranulation, MMP activation, extracellular-matrix remodeling, and angiogenic signaling.  </li>
+<li><strong>Microbial branch:</strong> high Demodex/<em>B. oleronius</em> burden plus LL-37 leads to bacterial-DNA–peptide complexes, which activate plasmacytoid dendritic-cell type-I interferon; downstream IL-22/endothelial signaling is proposed to cause neovascularization.  </li>
+<li><strong>Neural branch:</strong> heat/capsaicin/stress activation of TRPV/TRPA channels leads to substance P and CGRP release, which results in vasodilation, burning/stinging, and neurogenic inflammation.  </li>
+<li><strong>Cellular-amplification branch:</strong> inflammatory fibroblasts, macrophage/DCs, mast cells, type 1/17 and resident-memory T cells, IFNγ-responsive keratinocytes, Schwann cells, and activated endothelial/mural cells form reciprocal cytokine and vasodilatory loops.  </li>
+<li><strong>These loops lead to</strong> transient flushing and persistent erythema/telangiectasia; neutrophilic inflammation leads to papules/pustules; chronic matrix remodeling and fibrosis can result in phyma; analogous eyelid/ocular-surface inflammation results in ocular rosacea. (<a href="#ref-galluccio2024advancesinthe-pages-2-4">galluccio2024advancesinthe pages 2-4</a>, <a href="#ref-nguyen2024rosaceapracticalguidance-pages-1-3">nguyen2024rosaceapracticalguidance pages 1-3</a>, <a href="#ref-chen2024singlecelltranscriptomicsreveals-pages-1-2">chen2024singlecelltranscriptomicsreveals pages 1-2</a>)</li>
+</ol>
+<h3>Pathway, cellular, and profiling detail</h3>
+<p>The most established molecular axis is <strong>TLR2–KLK5–CAMP/LL-37</strong>, with downstream NF-κB, JAK/STAT, mTORC1, MMP9, PAR2, and NLRP3 signaling. Mast-cell-deficient mice fail to develop the full erythema, telangiectasia, and inflammation induced in conventional models, supporting—but not proving in humans—a necessary amplification role. (<a href="#ref-galluccio2024advancesinthe-pages-2-4">galluccio2024advancesinthe pages 2-4</a>)</p>
+<p>The 2024 single-cell study sampled <strong>131,243 cells</strong> from lesional and nonlesional facial skin of nine women—three each with erythematotelangiectatic, papulopustular, and phymatous disease—and three healthy women. It found a rosacea-associated CD74-high keratinocyte state, IFNγ-mediated barrier damage, proinflammatory fibroblast expansion, increased endothelial, Schwann, macrophage/DC, type 1/17, and resident-memory T-cell populations, and impaired contraction programs in vascular mural cells. Fibroblasts emerged as a major source of inflammatory and vasodilatory signals; <strong>PTGDS</strong> knockdown or fibroblast depletion blocked disease-like changes in mice. The small, women-only cohort and tissue-dissociation/compositional biases require replication. (<a href="#ref-chen2024singlecelltranscriptomicsreveals-pages-1-2">chen2024singlecelltranscriptomicsreveals pages 1-2</a>)</p>
+<p>Integrated transcriptomic analysis identified 169 genes shared with acne and highlighted <strong>IL1B, PTPRC, CXCL8, MMP9, CCL4, CXCL10, CD163, CCR5, CXCR4</strong>, and <strong>TLR8</strong>, with increased γδ-T-cell signatures. These computational associations do not establish causality. (<a href="#ref-liang2024exploringtheassociation-pages-14-15">liang2024exploringtheassociation pages 14-15</a>)</p>
+<p>Suggested GO biological processes include innate immune response, TLR signaling, NF-κB signaling, inflammasome activation, cytokine production, leukocyte chemotaxis, angiogenesis, vasodilation, sensory perception of pain, extracellular-matrix organization, collagen deposition, and epidermal-barrier establishment. Suggested CL terms include keratinocyte, fibroblast, vascular endothelial cell, vascular smooth-muscle/mural cell, Schwann cell, mast cell, neutrophil, macrophage, dendritic cell/plasmacytoid DC, γδ T cell, Th1/Th17 cell, and tissue-resident-memory T cell.</p>
+<hr />
+<h2>7. Anatomical structures affected</h2>
+<p>The primary organ is skin, especially the <strong>cheeks, nose, chin, forehead, glabella, and central facial/periocular skin</strong>; distribution is commonly bilateral but not necessarily perfectly symmetric. Ocular involvement affects eyelid margins, meibomian glands, conjunctiva, tear film, and occasionally cornea/sclera. Phyma most often affects the nose (rhinophyma), but chin, forehead, ears, and eyelids may be affected. (<a href="#ref-galluccio2024advancesinthe-pages-1-2">galluccio2024advancesinthe pages 1-2</a>, <a href="#ref-zuuren2019interventionsforrosacea-pages-1-2">zuuren2019interventionsforrosacea pages 1-2</a>)</p>
+<p>Tissue/cell compartments include epidermal keratinocytes and stratum-corneum barrier; pilosebaceous follicles and sebaceous glands; dermal microvessels and perivascular tissue; dermal extracellular matrix; sensory nerves/Schwann cells; and infiltrating innate/adaptive immune cells. Relevant subcellular systems include plasma-membrane TLR/TRP receptors, cytosolic NLRP3 inflammasome, NF-κB/JAK-STAT/mTOR signaling machinery, secretory granules of mast cells, and extracellular protease/LL-37 compartments.</p>
+<p>Suggested UBERON concepts: skin of face, cheek, nose, forehead, chin, eyelid, conjunctiva, cornea, meibomian gland, sebaceous gland, hair follicle, epidermis, dermis, and cutaneous microvasculature.</p>
+<hr />
+<h2>8. Temporal development</h2>
+<p>Rosacea generally begins insidiously in adulthood with intermittent flushing/sensitivity, followed variably—not inevitably—by persistent erythema, telangiectasia, inflammatory lesions, ocular disease, or tissue hypertrophy. It is chronic and relapsing, with trigger-associated exacerbations and treatment-induced remissions. The old linear “stage progression” concept is not reliable: patients may present with isolated or mixed phenotypes, and one phenotype does not necessarily evolve into another. (<a href="#ref-nguyen2024rosaceapracticalguidance-pages-1-3">nguyen2024rosaceapracticalguidance pages 1-3</a>, <a href="#ref-tan2018applyingthephenotype-pages-5-10">tan2018applyingthephenotype pages 5-10</a>)</p>
+<p>Early treatment can suppress symptoms and may limit inflammatory remodeling, but no validated critical period prevents lifelong disease. Long-term maintenance is often required. Ocular warning features—pain, photophobia, visual change, marked redness, or suspected keratitis—constitute a time-sensitive referral window.</p>
+<hr />
+<h2>9. Inheritance and population</h2>
+<p>A 2024 synthesis estimates worldwide prevalence at <strong>5.46%</strong>, while another contemporary review uses approximately 5%; differences reflect sampling, geography, skin phototype, and diagnostic definition. Rosacea is reported more often in Northern European/fair-skinned populations, but it occurs in every skin color and can be underrecognized when erythema is less visually apparent. (<a href="#ref-nguyen2024rosaceapracticalguidance-pages-1-3">nguyen2024rosaceapracticalguidance pages 1-3</a>, <a href="#ref-galluccio2024advancesinthe-pages-1-2">galluccio2024advancesinthe pages 1-2</a>)</p>
+<p>Overall sex occurrence may be approximately equal or show modest female predominance depending on setting. Women more often seek care for erythema/inflammatory disease; phymatous disease is disproportionately male. Typical onset is middle-to-late adulthood. There is no Mendelian inheritance ratio, penetrance estimate, carrier state, anticipation, or founder variant. Familial aggregation and GWAS support polygenic heritability with variable expressivity strongly modified by exposures. (<a href="#ref-nguyen2024rosaceapracticalguidance-pages-1-3">nguyen2024rosaceapracticalguidance pages 1-3</a>, <a href="#ref-galluccio2024advancesinthe-pages-1-2">galluccio2024advancesinthe pages 1-2</a>, <a href="#ref-aponte2018assessmentofrosacea-pages-7-8">aponte2018assessmentofrosacea pages 7-8</a>)</p>
+<p>Reported incidence is much less certain than prevalence; a defensible universal cases-per-100,000/year estimate is not available from the retrieved evidence.</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>Clinical criteria</h3>
+<p>Diagnosis is clinical. Either <strong>persistent centrofacial erythema</strong> that periodically intensifies or <strong>phymatous change</strong> is independently diagnostic. Otherwise, at least two major features—papules/pustules, flushing, telangiectasia, or ocular manifestations—support diagnosis. Each feature should be graded independently and documented with patient-reported burden. (<a href="#ref-zuuren2019interventionsforrosacea-pages-1-2">zuuren2019interventionsforrosacea pages 1-2</a>, <a href="#ref-zuuren2019interventionsforrosacea-pages-2-3">zuuren2019interventionsforrosacea pages 2-3</a>)</p>
+<p>For ocular disease, ROSCO proposed either lid-margin telangiectasia plus interpalpebral conjunctival injection, or corneal abnormality plus scleral inflammation; this recommendation had limited ophthalmologist representation and is not a substitute for eye examination. (<a href="#ref-tan2017updatingthediagnosis-pages-9-11">tan2017updatingthediagnosis pages 9-11</a>)</p>
+<h3>Tests and pathology</h3>
+<p>There is no diagnostic blood, urine, enzyme, electrophysiologic, imaging, or genetic test. Dermoscopy can document linear vessels, follicular plugs/scales, and background erythema. Standardized skin-surface biopsy, scraping, microscopy, or PCR can quantify Demodex when demodicosis is suspected but is not mandatory for ordinary rosacea. Biopsy is reserved for atypical or treatment-refractory lesions.</p>
+<p>Histology is nonspecific and phenotype-dependent: dilated superficial vessels, perifollicular/perivascular lymphohistiocytic infiltrates, neutrophils in papulopustular lesions, solar elastosis, Demodex in follicles, sebaceous hyperplasia, and fibrosis in phyma. Molecular classifiers—such as transcriptomic models for neurogenic rosacea—remain research tools.</p>
+<h3>Differential diagnosis and screening</h3>
+<p>Important alternatives are acne vulgaris (comedones), seborrheic dermatitis (greasy scale), periorificial dermatitis, steroid-induced rosaceiform dermatitis, demodicosis, lupus erythematosus, dermatomyositis, allergic/irritant contact dermatitis, photodermatitis, sarcoidosis, carcinoid/mast-cell flushing disorders, and medication-induced flushing. There is no population, newborn, carrier, prenatal, or cascade-screening program.</p>
+<p>WGS, WES, panels, single-gene testing, CMA, karyotype, FISH, mtDNA, and repeat-expansion testing have <strong>no routine utility</strong> for typical rosacea.</p>
+<hr />
+<h2>11. Outcome and prognosis</h2>
+<p>Rosacea is not ordinarily life-shortening, and disease-specific mortality or reduced survival has not been demonstrated. Its burden is morbidity: discomfort, visible disfigurement, recurrent treatment, psychosocial distress, and occasionally ocular injury. Untreated phyma may become permanently deforming; severe keratitis can threaten vision. (<a href="#ref-tan2017updatingthediagnosis-pages-9-11">tan2017updatingthediagnosis pages 9-11</a>, <a href="#ref-galluccio2024advancesinthe-pages-1-2">galluccio2024advancesinthe pages 1-2</a>)</p>
+<p>Control is usually achievable, but cure is not. Prognosis depends on dominant phenotype, trigger burden, adherence, barrier care, Demodex burden, ocular involvement, and access to laser/surgical treatment. Persistent erythema and telangiectasia often respond less completely to anti-inflammatory drugs than papules/pustules. No validated molecular prognostic biomarker is available.</p>
+<hr />
+<h2>12. Treatment and current implementation</h2>
+<p>Treatment should target each active phenotype and combine modalities when necessary. The strongest synthesis retrieved included <strong>152 randomized studies and 20,944 participants</strong>. It found high-certainty evidence for brimonidine for temporary persistent erythema and azelaic acid or ivermectin for papules/pustules; moderate-to-high certainty supported doxycycline 40-mg modified release and isotretinoin, while laser/light evidence for erythema/telangiectasia was low-to-moderate and omega-3 evidence for ocular disease moderate. (<a href="#ref-zuuren2019interventionsforrosacea-pages-1-2">zuuren2019interventionsforrosacea pages 1-2</a>)</p>
+<h3>Phenotype-directed algorithm</h3>
+<ul>
+<li><strong>Universal care:</strong> gentle nonsoap cleanser, fragrance-free moisturizer/barrier repair, broad-spectrum SPF ≥30, individualized trigger diary/avoidance, camouflage cosmetics, and psychosocial assessment.</li>
+<li><strong>Papules/pustules:</strong> topical ivermectin 1%, azelaic acid 15–20%, metronidazole 0.75–1%, or newer microencapsulated benzoyl peroxide 5%; topical minocycline foam is another option. For moderate/severe disease, use subantimicrobial doxycycline 40 mg modified release; short antimicrobial-dose tetracycline courses or low-dose isotretinoin are selected alternatives.</li>
+<li><strong>Persistent erythema:</strong> brimonidine gel (α2-adrenergic agonist) or oxymetazoline cream (α1A agonist) provides reversible vasoconstriction. Counsel about irritation and paradoxical/rebound erythema, particularly with brimonidine.</li>
+<li><strong>Telangiectasia/fixed vascular erythema:</strong> pulsed-dye laser, KTP laser, or intense pulsed light; multiple sessions and maintenance may be required. Risks include pain, edema, purpura, pigment change, and scarring.</li>
+<li><strong>Phyma:</strong> ablative CO₂/Er:YAG laser, electrosurgery, dermabrasion, radiofrequency, or surgical debulking/contouring; medical therapy does not reverse established hypertrophy.</li>
+<li><strong>Ocular disease:</strong> lid hygiene, warm compresses, preservative-free lubricants, management of meibomian dysfunction, oral doxycycline where appropriate, and omega-3 in selected patients; ophthalmology referral for corneal disease, pain, photophobia, or visual change.</li>
+<li><strong>Neurogenic/refractory burning:</strong> evidence for gabapentinoids, antidepressants, β-blockers, botulinum toxin, or hydroxychloroquine is limited and off-label; specialist supervision is required.</li>
+</ul>
+<p>Suggested NCIT intervention concepts include azelaic acid, ivermectin, metronidazole, doxycycline, minocycline, isotretinoin, brimonidine, oxymetazoline, benzoyl peroxide, laser therapy, intense-pulsed-light therapy, and surgical debulking. Exact term identifiers should be release-validated.</p>
+<h3>Recent developments</h3>
+<p>Microencapsulated benzoyl peroxide 5% is a notable recent US approval for inflammatory lesions. Microencapsulation prolongs delivery to reduce the irritation historically associated with benzoyl peroxide; efficacy was detectable by week 2 and extension data reached 52 weeks, although comparative placement in guidelines still requires study. (<a href="#ref-galluccio2024advancesinthe-pages-1-2">galluccio2024advancesinthe pages 1-2</a>)</p>
+<p>Mechanism-targeted research includes IFNγ blockade, PTGDS/fibroblast targeting, mast-cell/MRGPRX2 inhibition, TRP/neuropeptide modulation, JAK/STAT and mTOR approaches, microbiome interventions, and anti-CGRP therapy. These are investigational rather than standard care. The evidence base still lacks enough long-term, head-to-head, cost-effectiveness, skin-of-color, and phyma trials. (<a href="#ref-tan2018applyingthephenotype-pages-5-10">tan2018applyingthephenotype pages 5-10</a>, <a href="#ref-chen2024singlecelltranscriptomicsreveals-pages-1-2">chen2024singlecelltranscriptomicsreveals pages 1-2</a>)</p>
+<p>No validated pharmacogenomic test, genotype-guided regimen, gene therapy, cell therapy, RNA therapy, or approved biologic immunotherapy exists.</p>
+<hr />
+<h2>13. Prevention</h2>
+<p>True primary prevention is unknown because etiology is multifactorial and no vaccine or prophylactic drug prevents onset. Practical prevention is predominantly secondary/tertiary:</p>
+<ol>
+<li>identify personal triggers rather than impose universal dietary restriction;</li>
+<li>use daily UV protection, shade, hats, and temperature moderation;</li>
+<li>maintain the epidermal barrier with gentle, nonirritating products;</li>
+<li>avoid unnecessary topical corticosteroids on the face;</li>
+<li>treat inflammatory or ocular manifestations early;</li>
+<li>monitor for Demodex overgrowth when follicular scale or refractory papulopustules are present;</li>
+<li>maintain effective therapy to reduce relapse; and</li>
+<li>provide early ophthalmology referral for warning symptoms.</li>
+</ol>
+<p>There is no role for genetic counseling for reproductive risk in ordinary rosacea beyond explaining multifactorial familial susceptibility. No public-health screening or immunization program applies.</p>
+<hr />
+<h2>14. Other species and natural disease</h2>
+<p>Naturally occurring <strong>human rosacea has no established exact veterinary counterpart</strong>. Dogs develop demodicosis—often due to species-specific <em>Demodex canis</em>—which is clinically and immunologically important but is not canine rosacea. Comparative value lies in host–mite immune tolerance, follicular inflammation, and acaricidal treatment, not in assuming identical disease. Demodex mites are normal residents in many mammals; in humans, higher density is associated with rosacea, whereas generalized canine demodicosis can be severe or fatal if untreated.</p>
+<p>A Demodex-induced rosacea-like model has been produced in Japanese rabbits by intradermal mite suspension. It generated erythematous papules, telangiectasia, foreign-body material, and progressively organized granuloma-like histology over four weeks. This is an induced model rather than spontaneous rabbit disease and particularly represents Demodex-positive inflammation. Suggested taxonomy: <em>Homo sapiens</em> NCBI Taxon 9606, <em>Mus musculus</em> 10090, <em>Oryctolagus cuniculus</em> 9986, and <em>Canis lupus familiaris</em> 9615.</p>
+<p>There is no zoonotic transmission of rosacea. Demodex species are substantially host-adapted; ordinary rosacea is neither communicable nor a veterinary public-health hazard.</p>
+<hr />
+<h2>15. Model organisms and experimental systems</h2>
+<h3>LL-37 mouse model</h3>
+<p>Repeated intradermal LL-37 in BALB/c mice produces erythema, leukocyte infiltration, epidermal/dermal thickening, and inflammatory mediators. Twenty-day administration caused lesion expansion for approximately 13 days followed by stabilization, with collagen deposition and increased α-SMA, TNF-α, vimentin, and COL1; unlike short exposure, lesions did not completely recover. This model is useful for TLR/LL-37, mast-cell, NLRP3, fibrosis, and candidate-drug studies but bypasses human initiation, facial neurovascular anatomy, chronic spontaneous relapse, and full ocular/phyma biology. (<a href="#ref-zhang2023longtermadministrationof-pages-13-14">zhang2023longtermadministrationof pages 13-14</a>)</p>
+<h3>2024 single-cell functional validation</h3>
+<p>The scRNA-seq study used murine interventions to show that IFNγ blockade improved barrier injury and rosacea-like inflammation, while fibroblast depletion or <strong>PTGDS</strong> knockdown inhibited disease development. This provides functional support for human atlas findings, but species differences and the small human discovery cohort prevent direct therapeutic extrapolation. (<a href="#ref-chen2024singlecelltranscriptomicsreveals-pages-1-2">chen2024singlecelltranscriptomicsreveals pages 1-2</a>)</p>
+<h3>Other systems</h3>
+<ul>
+<li><strong>Demodex-injected rabbit:</strong> best for mite-associated papules, telangiectasia, and granulomatous histology; artificial inoculation and species mismatch are major limitations.</li>
+<li><strong>Keratinocyte/reconstructed epidermis/ex-vivo human skin:</strong> useful for CAMP/LL-37, KLK5, cytokine, barrier, and topical-drug mechanisms; lacks intact vascular, neural, endocrine, and systemic immunity.</li>
+<li><strong>Human facial biopsies and bulk/single-cell transcriptomics:</strong> highest disease relevance for cell-state discovery but usually cross-sectional, small, and vulnerable to treatment, site, sex, phototype, and tissue-dissociation confounding.</li>
+<li><strong>Canine demodicosis:</strong> comparative natural host–mite immunology model, not a phenocopy of human rosacea.</li>
+</ul>
+<p>No universally satisfactory spontaneous genetic mouse, zebrafish, Drosophila, organoid, iPSC, or humanized model captures the entire disease. Consensus literature explicitly identifies the absence of a comprehensive model, registry, and tissue biobank as a major research barrier. (<a href="#ref-tan2018applyingthephenotype-pages-5-10">tan2018applyingthephenotype pages 5-10</a>)</p>
+<hr />
+<h2>Evidence-strength assessment and abstract quotations</h2>
+<p>The strongest evidence tiers are: phenotype criteria from international consensus; treatment efficacy from systematic review of RCTs; susceptibility from large human GWAS; and mechanism from convergent human tissue, single-cell, in-vitro/ex-vivo, and induced-animal studies. Causal confidence is lower for individual dietary factors, gut dysbiosis, <em>H. pylori</em>, rare familial variants, and computationally inferred biomarkers.</p>
+<p>Representative verbatim abstract statements from retrieved 2023–2024 sources are:</p>
+<blockquote>
+<p>“Rosacea is a complex inflammatory condition characterized by papulopustular lesions and erythema on the central face for which there is no cure.” — Tu et al., 2024, DOI 10.3389/fimmu.2024.1403798.</p>
+<p>“Among keratinocytes, a subpopulation characterized by IFNγ-mediated barrier function damage is found to be unique to rosacea lesions.” — Chen et al., 2024, DOI 10.1038/s41467-024-52946-7. (<a href="#ref-chen2024singlecelltranscriptomicsreveals-pages-1-2">chen2024singlecelltranscriptomicsreveals pages 1-2</a>)</p>
+<p>“The identified loci provide specificity of inflammatory mechanisms in rosacea, and identify potential pathways for therapeutic intervention.” — Aponte et al., 2018, DOI 10.1093/hmg/ddy184. (<a href="#ref-aponte2018assessmentofrosacea-pages-7-8">aponte2018assessmentofrosacea pages 7-8</a>)</p>
+<p>“A transition from a subtyping to a phenotyping approach in rosacea is underway, allowing individual patient management according to presenting features instead of categorization by predefined subtypes.” — ROSCO update, DOI 10.1111/bjd.18420.</p>
+</blockquote>
+<h3>Key source links and dates</h3>
+<ul>
+<li>Nguyen et al., <strong>23 January 2024</strong>, practical clinical review: <a href="https://doi.org/10.2147/CCID.S391705" target="_blank" rel="noopener noreferrer">https://doi.org/10.2147/CCID.S391705</a>. (<a href="#ref-nguyen2024rosaceapracticalguidance-pages-1-3">nguyen2024rosaceapracticalguidance pages 1-3</a>)</li>
+<li>Galluccio et al., <strong>17 January 2024</strong>, pathogenesis/treatment review: <a href="https://doi.org/10.3390/cosmetics11010011" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/cosmetics11010011</a>. (<a href="#ref-galluccio2024advancesinthe-pages-2-4">galluccio2024advancesinthe pages 2-4</a>, <a href="#ref-galluccio2024advancesinthe-pages-1-2">galluccio2024advancesinthe pages 1-2</a>)</li>
+<li>Chen et al., <strong>October 2024</strong>, primary single-cell study: <a href="https://doi.org/10.1038/s41467-024-52946-7" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41467-024-52946-7</a>. (<a href="#ref-chen2024singlecelltranscriptomicsreveals-pages-1-2">chen2024singlecelltranscriptomicsreveals pages 1-2</a>)</li>
+<li>Liang et al., <strong>February 2024</strong>, integrated transcriptomics: <a href="https://doi.org/10.1038/s41598-024-53453-x" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41598-024-53453-x</a>. (<a href="#ref-liang2024exploringtheassociation-pages-14-15">liang2024exploringtheassociation pages 14-15</a>)</li>
+<li>Tan et al., <strong>February 2017</strong>, ROSCO diagnosis consensus: <a href="https://doi.org/10.1111/bjd.15122" target="_blank" rel="noopener noreferrer">https://doi.org/10.1111/bjd.15122</a>. (<a href="#ref-tan2017updatingthediagnosis-pages-9-11">tan2017updatingthediagnosis pages 9-11</a>)</li>
+<li>van Zuuren et al., <strong>2019</strong>, 152-study intervention review: <a href="https://doi.org/10.1111/bjd.17590" target="_blank" rel="noopener noreferrer">https://doi.org/10.1111/bjd.17590</a>. (<a href="#ref-zuuren2019interventionsforrosacea-pages-1-2">zuuren2019interventionsforrosacea pages 1-2</a>, <a href="#ref-zuuren2019interventionsforrosacea-pages-2-3">zuuren2019interventionsforrosacea pages 2-3</a>)</li>
+<li>Aponte et al., <strong>May 2018</strong>, GWAS: <a href="https://doi.org/10.1093/hmg/ddy184" target="_blank" rel="noopener noreferrer">https://doi.org/10.1093/hmg/ddy184</a>. (<a href="#ref-aponte2018assessmentofrosacea-pages-7-8">aponte2018assessmentofrosacea pages 7-8</a>)</li>
+<li>Zhang et al., <strong>March 2023</strong>, prolonged LL-37 mouse model: <a href="https://doi.org/10.3390/cimb45040177" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/cimb45040177</a>. (<a href="#ref-zhang2023longtermadministrationof-pages-13-14">zhang2023longtermadministrationof pages 13-14</a>)</li>
+</ul>
+<p>PMIDs were not printed in the retrieved full-text metadata for most sources; DOI URLs are therefore supplied as the stable primary links rather than risking incorrect PMID assignment.</p>
+<p>References</p>
+<ol>
+<li>
+<p><a id="ref-nguyen2024rosaceapracticalguidance-pages-1-3"></a>(nguyen2024rosaceapracticalguidance pages 1-3): Cassidy Nguyen, Guilherme Kuceki, Michael Birdsall, Dev Ram Sahni, Vikram Sahni, and Christopher M Hull. Rosacea: practical guidance and challenges for clinical management. Clinical, Cosmetic and Investigational Dermatology, 17:175-190, Jan 2024. URL: <a href="https://doi.org/10.2147/ccid.s391705" target="_blank" rel="noopener noreferrer">https://doi.org/10.2147/ccid.s391705</a>, <a href="https://doi.org/10.2147/ccid.s391705" target="_blank" rel="noopener noreferrer">doi:10.2147/ccid.s391705</a>. This article has 44 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-chen2024singlecelltranscriptomicsreveals-pages-1-2"></a>(chen2024singlecelltranscriptomicsreveals pages 1-2): Mengting Chen, Li Yang, Peijie Zhou, Suoqin Jin, Zheng Wu, Zixin Tan, Wenqin Xiao, San Xu, Yan Zhu, Mei Wang, Dan Jian, Fangfen Liu, Yan Tang, Zhixiang Zhao, Yingxue Huang, Wei Shi, Hongfu Xie, Qing Nie, Ben Wang, Zhili Deng, and Ji Li. Single-cell transcriptomics reveals aberrant skin-resident cell populations and identifies fibroblasts as a determinant in rosacea. Nature Communications, Oct 2024. URL: <a href="https://doi.org/10.1038/s41467-024-52946-7" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41467-024-52946-7</a>, <a href="https://doi.org/10.1038/s41467-024-52946-7" target="_blank" rel="noopener noreferrer">doi:10.1038/s41467-024-52946-7</a>. This article has 24 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-galluccio2024advancesinthe-pages-1-2"></a>(galluccio2024advancesinthe pages 1-2): Giulia Galluccio, Martina D’Onghia, Dalma Malvaso, Laura Lazzeri, Elisa Cinotti, Giovanni Rubegni, Pietro Rubegni, and Laura Calabrese. Advances in the pathogenesis and treatment of rosacea: a phenotype-based therapeutic approach. Cosmetics, 11:11, Jan 2024. URL: <a href="https://doi.org/10.3390/cosmetics11010011" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/cosmetics11010011</a>, <a href="https://doi.org/10.3390/cosmetics11010011" target="_blank" rel="noopener noreferrer">doi:10.3390/cosmetics11010011</a>. This article has 31 citations.</p>
+</li>
+<li>
+<p><a id="ref-tan2017updatingthediagnosis-pages-9-11"></a>(tan2017updatingthediagnosis pages 9-11): J. Tan, L.M.C. Almeida, A. Bewley, B. Cribier, N.C. Dlova, R. Gallo, G. Kautz, M. Mannis, H.H. Oon, M. Rajagopalan, M. Steinhoff, D. Thiboutot, P. Troielli, G. Webster, Y. Wu, E.J. Zuuren, and M. Schaller. Updating the diagnosis, classification and assessment of rosacea: recommendations from the global rosacea consensus (rosco) panel. British Journal of Dermatology, 176:431-438, Feb 2017. URL: <a href="https://doi.org/10.1111/bjd.15122" target="_blank" rel="noopener noreferrer">https://doi.org/10.1111/bjd.15122</a>, <a href="https://doi.org/10.1111/bjd.15122" target="_blank" rel="noopener noreferrer">doi:10.1111/bjd.15122</a>. This article has 423 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-zuuren2019interventionsforrosacea-pages-1-2"></a>(zuuren2019interventionsforrosacea pages 1-2): E. J. Zuuren, Z. Fedorowicz, Jerry Tan, M. Linden, B. Arents, B. Carter, and L. Charland. Interventions for rosacea based on the phenotype approach: an updated systematic review including grade assessments. The British Journal of Dermatology, 181:65-79, Mar 2019. URL: <a href="https://doi.org/10.1111/bjd.17590" target="_blank" rel="noopener noreferrer">https://doi.org/10.1111/bjd.17590</a>, <a href="https://doi.org/10.1111/bjd.17590" target="_blank" rel="noopener noreferrer">doi:10.1111/bjd.17590</a>. This article has 208 citations.</p>
+</li>
+<li>
+<p><a id="ref-aponte2018assessmentofrosacea-pages-7-8"></a>(aponte2018assessmentofrosacea pages 7-8): Jennifer L Aponte, Mathias N Chiano, Laura M Yerges-Armstrong, David A Hinds, Chao Tian, Akanksha Gupta, Cong Guo, Dana J Fraser, Johannes M Freudenberg, Deepak K Rajpal, Margaret G Ehm, and Dawn M Waterworth. Assessment of rosacea symptom severity by genome-wide association study and expression analysis highlights immuno-inflammatory and skin pigmentation genes. Human Molecular Genetics, 27:2762-2772, May 2018. URL: <a href="https://doi.org/10.1093/hmg/ddy184" target="_blank" rel="noopener noreferrer">https://doi.org/10.1093/hmg/ddy184</a>, <a href="https://doi.org/10.1093/hmg/ddy184" target="_blank" rel="noopener noreferrer">doi:10.1093/hmg/ddy184</a>. This article has 60 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-galluccio2024advancesinthe-pages-2-4"></a>(galluccio2024advancesinthe pages 2-4): Giulia Galluccio, Martina D’Onghia, Dalma Malvaso, Laura Lazzeri, Elisa Cinotti, Giovanni Rubegni, Pietro Rubegni, and Laura Calabrese. Advances in the pathogenesis and treatment of rosacea: a phenotype-based therapeutic approach. Cosmetics, 11:11, Jan 2024. URL: <a href="https://doi.org/10.3390/cosmetics11010011" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/cosmetics11010011</a>, <a href="https://doi.org/10.3390/cosmetics11010011" target="_blank" rel="noopener noreferrer">doi:10.3390/cosmetics11010011</a>. This article has 31 citations.</p>
+</li>
+<li>
+<p><a id="ref-shi2026neurohormonalimmunedysregulationin-pages-2-4"></a>(shi2026neurohormonalimmunedysregulationin pages 2-4): Lei Shi, Siying Li, Xiaodong Yao, Zijian Zhang, Qinyi Dong, Han Zhang, Xinman Wang, Jiahao Bai, Huiyan Han, Xiaoyi Fu, Kailin Zheng, and Li-Li Liang. Neurohormonal-immune dysregulation in rosacea: emerging perspectives from the skin-gut-brain axis. Jun 2026. URL: <a href="https://doi.org/10.2147/dddt.s608151" target="_blank" rel="noopener noreferrer">https://doi.org/10.2147/dddt.s608151</a>, <a href="https://doi.org/10.2147/dddt.s608151" target="_blank" rel="noopener noreferrer">doi:10.2147/dddt.s608151</a>. This article has 0 citations.</p>
+</li>
+<li>
+<p><a id="ref-zhang2023longtermadministrationof-pages-13-14"></a>(zhang2023longtermadministrationof pages 13-14): Chuanxi Zhang, Yumeng Kang, Ziyan Zhang, Heliang Liu, Hong Xu, Wenchen Cai, Xuemin Gao, and Jie Yang. Long-term administration of ll-37 can induce irreversible rosacea-like lesion. Current Issues in Molecular Biology, 45:2703-2716, Mar 2023. URL: <a href="https://doi.org/10.3390/cimb45040177" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/cimb45040177</a>, <a href="https://doi.org/10.3390/cimb45040177" target="_blank" rel="noopener noreferrer">doi:10.3390/cimb45040177</a>. This article has 26 citations.</p>
+</li>
+<li>
+<p><a id="ref-tan2018applyingthephenotype-pages-5-10"></a>(tan2018applyingthephenotype pages 5-10): Jerry Tan, M. Berg, Richard L. Gallo, and J. Q. D. Rosso. Applying the phenotype approach for rosacea to practice and research. British Journal of Dermatology, 179:741-746, Jul 2018. URL: <a href="https://doi.org/10.1111/bjd.16815" target="_blank" rel="noopener noreferrer">https://doi.org/10.1111/bjd.16815</a>, <a href="https://doi.org/10.1111/bjd.16815" target="_blank" rel="noopener noreferrer">doi:10.1111/bjd.16815</a>. This article has 52 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-opentargets-search-rosacea"></a>(OpenTargets Search: rosacea): Open Targets Query (rosacea, 12 results). Buniello, A. et al. (2025). Open Targets Platform: facilitating therapeutic hypotheses building in drug discovery. Nucleic Acids Research.</p>
+</li>
+<li>
+<p><a id="ref-liang2024exploringtheassociation-pages-14-15"></a>(liang2024exploringtheassociation pages 14-15): Jingchen Liang, Ying Chen, Zihao Wang, Yawen Wang, Shengzhi Mu, Dewu Zhang, Weihui Zeng, and Zhao Wang. Exploring the association between rosacea and acne by integrated bioinformatics analysis. Scientific Reports, Feb 2024. URL: <a href="https://doi.org/10.1038/s41598-024-53453-x" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41598-024-53453-x</a>, <a href="https://doi.org/10.1038/s41598-024-53453-x" target="_blank" rel="noopener noreferrer">doi:10.1038/s41598-024-53453-x</a>. This article has 6 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-zuuren2019interventionsforrosacea-pages-2-3"></a>(zuuren2019interventionsforrosacea pages 2-3): E. J. Zuuren, Z. Fedorowicz, Jerry Tan, M. Linden, B. Arents, B. Carter, and L. Charland. Interventions for rosacea based on the phenotype approach: an updated systematic review including grade assessments. The British Journal of Dermatology, 181:65-79, Mar 2019. URL: <a href="https://doi.org/10.1111/bjd.17590" target="_blank" rel="noopener noreferrer">https://doi.org/10.1111/bjd.17590</a>, <a href="https://doi.org/10.1111/bjd.17590" target="_blank" rel="noopener noreferrer">doi:10.1111/bjd.17590</a>. This article has 208 citations.</p>
+</li>
+</ol>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Rosacea-deep-research-falcon_artifacts/artifact-00.md">Edison artifact artifact-00</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>13</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>13</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>13</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>27</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>27</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0006604</code> (4 mentions) - the report calls it "if available"; MONDO calls it <strong>rosacea</strong></li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Rosacea-asta.html">← Rosacea (Asta)</a>
+                
+                
+                <a href="Rosai-Dorfman_Disease-claude_code.html">Rosai-Dorfman Disease (Claude Code) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Rosacea.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Rosacea-deep-research-falcon.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <a href="Rosacea-asta.html"><span class="provider-pill provider-asta">Asta</span></a>
+                        
+                    </li>
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-edison" aria-current="page">Falcon</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

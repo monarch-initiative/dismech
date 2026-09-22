@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -467,6 +468,18 @@
         .tag-component {
             background: #f0fdf4;
             color: #166534;
+        }
+
+        /* Same values as disorder.html.j2 so a treatment chip looks identical
+           whether it is read on a disorder page or on a module page. */
+        .tag-treatment {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .tag-gene {
+            background: #dbeafe;
+            color: #1e40af;
         }
 
         .tag-role {
@@ -1044,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1059,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1113,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1126,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1284,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1294,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1335,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1537,6 +1586,9 @@
 
     
 
+    
+
+    
     
 
     
@@ -1880,6 +1932,26 @@ This mechanism module involves decreased Regulation of synaptic plasticity (GO:0
 
         
 
+        
+        <div class="card" id="module-collections">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4338ca;">⌘</div>
+                <h2 class="card-title">Module Collections</h2>
+                <span class="card-count">1</span>
+            </div>
+            <div class="crosslink-list">
+                
+                <div class="crosslink-item">
+                    <a href="../module-collections/Mechanisms_of_the_Epilepsies.html">Mechanisms of the Epilepsies</a>
+                    
+                    <span class="crosslink-desc">as Postsynaptic scaffold synaptopathy</span>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
@@ -2018,11 +2090,13 @@ This mechanism module involves decreased Regulation of synaptic plasticity (GO:0
             
             <div class="item-box anchor-target" id="module-pathophysiology-postsynaptic-scaffold-disruption" data-dismech-node="Postsynaptic Scaffold Disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">Postsynaptic Scaffold Disruption</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The proximal molecular lesion: loss of function (typically haploinsufficiency) of a postsynaptic-density scaffold or scaffold-regulatory protein at glutamatergic synapses. These proteins organize the PSD and couple membrane glutamate receptors (NMDA, AMPA) to downstream signaling and the actin cytoskeleton. Conforming entries substitute the disease gene and its specific molecular role (structural scaffold for SHANK3; postsynaptic Ras-GAP that maintains PSD organization for SYNGAP1).</div>
                 
@@ -2168,11 +2242,13 @@ This pathophysiological event involves Glutamate receptor signaling pathway (GO:
             
             <div class="item-box anchor-target" id="module-pathophysiology-excitatory-postsynaptic-structural-deficit" data-dismech-node="Excitatory Postsynaptic Structural Deficit" data-dismech-type="pathophysiology">
                 <div class="item-name">Excitatory Postsynaptic Structural Deficit</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Disruption of the scaffold reduces structural organization and maturation of the excitatory postsynaptic compartment: fewer structurally mature glutamatergic synapses, destabilized PSD architecture, and impaired localization or trafficking of AMPA/NMDA-type glutamate receptors.</div>
                 
@@ -2329,11 +2405,13 @@ This pathophysiological event involves decreased Postsynaptic density assembly (
             
             <div class="item-box anchor-target" id="module-pathophysiology-impaired-synaptic-plasticity-and-excitatory-inhibitory-imbalance" data-dismech-node="Impaired Synaptic Plasticity and Excitatory-Inhibitory Imbalance" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Synaptic Plasticity and Excitatory-Inhibitory Imbalance</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Reduced excitatory glutamatergic transmission and impaired activity-dependent plasticity shift the balance between excitation and inhibition. In some genotypes the structural deficit selectively reduces excitatory (not inhibitory) transmission; in others, dysregulated signaling locks synaptic plasticity into an abnormal state. The shared consequence is an altered E/I balance at the synaptic level.</div>
                 
@@ -2476,11 +2554,13 @@ This pathophysiological event involves decreased Regulation of synaptic plastici
             
             <div class="item-box anchor-target" id="module-pathophysiology-circuit-level-dysfunction" data-dismech-node="Circuit-Level Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Circuit-Level Dysfunction</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Synaptic deficits aggregate into circuit-level pathology: aberrant cortical or cortico-striatal circuit assembly, abnormal connectivity and oscillatory dynamics, and network-level hyper- or hypo-excitability. The specific circuit and anatomical locus are disease-dependent (e.g. cortico-striatal circuits in SHANK3 models; cortical circuit consolidation in SYNGAP1).</div>
                 
@@ -2595,11 +2675,13 @@ This pathophysiological event involves decreased Regulation of synaptic plastici
             
             <div class="item-box anchor-target" id="module-pathophysiology-neurodevelopmental-phenotypic-output" data-dismech-node="Neurodevelopmental Phenotypic Output" data-dismech-type="pathophysiology">
                 <div class="item-name">Neurodevelopmental Phenotypic Output</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The clinical convergence point: excitatory-synapse scaffold disruption produces a neurodevelopmental phenotype spanning autism spectrum disorder, intellectual disability, developmental delay, and/or epilepsy. The relative weighting of features is genotype- and circuit-dependent.</div>
                 
@@ -2658,6 +2740,9 @@ This pathophysiological event involves Glutamatergic neuron (CL:0000679). CL:000
             </div>
             
         </div>
+        
+
+        
         
 
         <footer class="page-footer">

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3756,6 +3821,18 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3798,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 19</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 30</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Raine%20Syndrome"
@@ -3968,7 +4045,7 @@
             <a class="stat-link" href="#discussions">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💬</div>
-                <div class="stat-value">1</div>
+                <div class="stat-value">3</div>
                 <div class="stat-label">Gaps</div>
             </div>
             </a>
@@ -3977,7 +4054,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">19</div>
+                <div class="stat-value">30</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4220,6 +4297,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4241,6 +4319,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4353,6 +4432,7 @@ This subtype is caused by variation in FAM20C (hgnc:22140). hgnc:22140 is a gene
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4435,6 +4515,7 @@ This subtype is caused by variation in FAM20C (hgnc:22140). hgnc:22140 is a gene
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4456,6 +4537,7 @@ This subtype is caused by variation in FAM20C (hgnc:22140). hgnc:22140 is a gene
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4495,7 +4577,7 @@ This subtype is caused by variation in FAM20C (hgnc:22140). hgnc:22140 is a gene
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">?</div>
                 <h2 class="card-title">Discussions and Knowledge Gaps</h2>
-                <span class="card-count">1</span>
+                <span class="card-count">3</span>
             </div>
 
             <div class="item-box discussion-box anchor-target" id="raine_osteosclerosis_vs_osteomalacia_model_mismatch">
@@ -4677,6 +4759,7 @@ This subtype is caused by variation in FAM20C (hgnc:22140). hgnc:22140 is a gene
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4701,6 +4784,7 @@ This subtype is caused by variation in FAM20C (hgnc:22140). hgnc:22140 is a gene
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4709,6 +4793,244 @@ This subtype is caused by variation in FAM20C (hgnc:22140). hgnc:22140 is a gene
 
 
                 <div class="evidence-explanation">States the model-human mismatch explicitly.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box discussion-box anchor-target" id="raine_neurosensory_mechanism_gap">
+                <div class="item-name">What mechanism links FAM20C loss to the neurodevelopmental delay, intellectual disability, seizures, microcephaly and hearing/vision involvement of Raine syndrome - are these downstream of intracranial calcification and periventricular brain injury, of dysregulated brain-expressed FAM20C substrates, or of independent processes?
+</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-discussion-kind">KNOWLEDGE GAP</span>
+
+
+
+                    <span class="entity-ref-chip">raine_neurosensory_mechanism_gap</span>
+
+                </div>
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Attached to</div>
+                    <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#phenotype-neurodevelopmental-delay">phenotypes#Neurodevelopmental delay</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#phenotype-seizures">phenotypes#Seizures</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#phenotype-intellectual-disability">phenotypes#Intellectual disability</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#phenotype-microcephaly">phenotypes#Microcephaly</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#phenotype-hearing-impairment">phenotypes#Hearing impairment</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#phenotype-visual-impairment">phenotypes#Visual impairment</a>
+
+
+
+                    </div>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 10px;">Intracranial calcification, periventricular gliosis, infarction and leukomalacia co-occur with the neurological phenotypes, but no cited source establishes a causal path from calcification or brain injury to seizures, developmental delay, intellectual disability or microcephaly, and the in silico literature explicitly states that FAM20C brain-target dysregulation is unstudied. The sensory involvement is mechanistically heterogeneous at the case level (severe bilateral hearing loss, auditory neuropathy spectrum disorder, conductive loss from glue ear, and a unilateral visual loss from central retinal artery occlusion), with no unifying mechanism proposed. These phenotypes are therefore left without causal edges rather than wired to the calcification node on inference alone.
+</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37240249" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37240249" target="_blank">PMID:37240249</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-COMPUTATIONAL">Computational</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Individuals with RNS can have developmental delay, intellectual disability, seizures, and structural brain defects, but little is known about FAM20C brain-target-protein dysregulation or about a potential pathogenesis associated with neurologic features."</div>
+
+
+                <div class="evidence-explanation">Explicitly states that the pathogenesis of the neurologic features is unknown.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32299476" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32299476" target="_blank">PMID:32299476</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Case I presented both severe bilateral hearing loss and a partial unilateral visual loss due to occlusion of the central retinal artery"</div>
+
+
+                <div class="evidence-explanation">Documents case-level sensory findings with disparate proximate causes and no disease-level mechanism.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box discussion-box anchor-target" id="raine_dysmorphic_feature_mechanism_gap">
+                <div class="item-name">Which developmental mechanisms produce the cleft palate, low-set ears, short distal phalanges, wormian bones and multisuture craniosynostosis of Raine syndrome - are they downstream of generalized over-ossification, of hypophosphorylated FAM20C substrates acting in craniofacial and limb development, or independent malformations?
+</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-discussion-kind">KNOWLEDGE GAP</span>
+
+
+
+                    <span class="entity-ref-chip">raine_dysmorphic_feature_mechanism_gap</span>
+
+                </div>
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Attached to</div>
+                    <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#phenotype-cleft-palate">phenotypes#Cleft palate</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#phenotype-low-set-ears">phenotypes#Low-set ears</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#phenotype-short-distal-phalanges">phenotypes#Short distal phalanges</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#phenotype-wormian-bones">phenotypes#Wormian bones</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#phenotype-craniosynostosis">phenotypes#Craniosynostosis</a>
+
+
+
+                    </div>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 10px;">These features are consistently documented, but the causal statement the literature offers for the craniofacial phenotype (increased ossification of the skull and facial bones) is made only for the facial features - forehead, proptosis, nasal bridge, midface. No cited source articulates a mechanism for palatal shelf fusion failure, ear position, phalangeal hypoplasia or wormian bones, and the multisuture craniosynostosis case report describes but does not explain premature suture fusion. Rather than extend the over-ossification edge to malformations it is not asserted for, these phenotypes are recorded as a mechanistic gap.
+</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24039075" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24039075" target="_blank">PMID:24039075</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In addition, he had wormian bones and pyriform aperture stenosis, features that are usually under diagnosed."</div>
+
+
+                <div class="evidence-explanation">Documents the minor skeletal features as observed findings without a mechanistic account.</div>
 
 
 
@@ -4735,6 +5057,7 @@ This subtype is caused by variation in FAM20C (hgnc:22140). hgnc:22140 is a gene
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-fam20c-golgi-casein-kinase-activity" data-dismech-node="Loss of FAM20C Golgi Casein Kinase Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of FAM20C Golgi Casein Kinase Activity</div>
+
 
                 <div class="item-desc">FAM20C is the Golgi casein kinase: an atypical, secretory-pathway protein kinase that localizes to the Golgi apparatus and phosphorylates serine residues within S-x-E/pS motifs of secreted proteins. Biallelic loss-of-function variants in FAM20C abolish or markedly reduce this kinase activity. Raine syndrome missense substitutions impair both Golgi localization and catalytic activity of the recombinant enzyme; a non-lethal splice-altering variant produces an in-frame insertion that mislocalizes the protein and reduces its secretion without disrupting dimerization.
 </div>
@@ -4941,6 +5264,7 @@ This pathophysiological event involves Golgi apparatus (GO:0005794). GO:0005794 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4962,6 +5286,7 @@ This pathophysiological event involves Golgi apparatus (GO:0005794). GO:0005794 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4989,6 +5314,7 @@ This pathophysiological event involves Golgi apparatus (GO:0005794). GO:0005794 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5013,6 +5339,7 @@ This pathophysiological event involves Golgi apparatus (GO:0005794). GO:0005794 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypophosphorylation-of-secreted-biomineralization-proteins" data-dismech-node="Hypophosphorylation of Secreted Biomineralization Proteins" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypophosphorylation of Secreted Biomineralization Proteins</div>
+
 
                 <div class="item-desc">FAM20C phosphorylates well over one hundred substrates in the secretory pathway, including the caseins and members of the SIBLING (small integrin-binding ligand, N-linked glycoprotein) family — DMP1, MEPE, osteopontin (SPP1), bone sialoprotein and DSPP — which regulate extracellular matrix biomineralization. Loss of FAM20C activity leaves these substrates hypophosphorylated, removing a key post-translational control on mineral nucleation and inhibition in bone and dental hard tissue.
 </div>
@@ -5309,6 +5636,7 @@ This pathophysiological event involves abnormal biomineral tissue development (G
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5330,6 +5658,7 @@ This pathophysiological event involves abnormal biomineral tissue development (G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5357,6 +5686,7 @@ This pathophysiological event involves abnormal biomineral tissue development (G
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5381,6 +5711,7 @@ This pathophysiological event involves abnormal biomineral tissue development (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-fgf23-and-renal-phosphate-wasting" data-dismech-node="Dysregulated FGF23 and Renal Phosphate Wasting" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysregulated FGF23 and Renal Phosphate Wasting</div>
+
 
                 <div class="item-desc">FAM20C directly phosphorylates FGF23 on Ser180 within its R176XXR179/S180AE subtilisin-like proprotein convertase motif; this phosphorylation blocks GalNAc-T3 O-glycosylation and promotes furin cleavage and inactivation of FGF23. FAM20C also sustains DMP1 expression, which suppresses FGF23 production. Loss of FAM20C therefore raises circulating intact, biologically active FGF23, causing renal phosphate wasting, hypophosphatemia, and FGF23-related hypophosphatemic rickets or osteomalacia — the dominant endocrine feature of the non-lethal form.
 </div>
@@ -5497,6 +5828,24 @@ This pathophysiological event involves abnormal phosphate ion homeostasis (GO:00
 
 	                        </div>
 
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hypophosphatemia</span>
+
+	                            <span class="crosslink-desc">Excess intact FGF23 drives renal phosphate wasting, lowering serum phosphate.
+</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hypophosphatemic rickets</span>
+
+	                            <span class="crosslink-desc">Chronic FGF23-driven phosphate wasting produces hypophosphatemic rickets, the dominant endocrine feature of the non-lethal form.
+</span>
+
+
+	                        </div>
+
 	                    </div>
 	                </div>
 
@@ -5516,6 +5865,7 @@ This pathophysiological event involves abnormal phosphate ion homeostasis (GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5540,6 +5890,7 @@ This pathophysiological event involves abnormal phosphate ion homeostasis (GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5568,6 +5919,7 @@ This pathophysiological event involves abnormal phosphate ion homeostasis (GO:00
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5592,6 +5944,7 @@ This pathophysiological event involves abnormal phosphate ion homeostasis (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-abnormal-bone-matrix-mineralization" data-dismech-node="Abnormal Bone Matrix Mineralization" data-dismech-type="pathophysiology">
                 <div class="item-name">Abnormal Bone Matrix Mineralization</div>
+
 
                 <div class="item-desc">The matrix-level lesion. Loss of FAM20C-dependent substrate phosphorylation, compounded by FGF23-driven hypophosphatemia, leaves bone matrix abnormally mineralized with disorganized, thickened collagen fibrils and a widened, disorganized growth plate. Critically, this is an UNDER-mineralization lesion: non-decalcified human histology after tetracycline labeling documented severe osteomalacia (not rickets), and knock-in mouse tibiae that look osteosclerotic on radiography show reduced mineral density and increased porosity on micro-CT. FAM20C additionally fine-tunes chondroitin sulfate 4-O/6-O sulfation, an activity lost with Raine syndrome mutations, providing a further route to dysregulated osteoblast biomineralization. The relationship between this osteomalacic matrix and the sclerotic radiographic appearance is the entry&#39;s principal open question (see discussions).
 </div>
@@ -5783,6 +6136,7 @@ This pathophysiological event involves abnormal ossification (GO:0001503). GO:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5804,6 +6158,7 @@ This pathophysiological event involves abnormal ossification (GO:0001503). GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5831,6 +6186,7 @@ This pathophysiological event involves abnormal ossification (GO:0001503). GO:00
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5855,6 +6211,7 @@ This pathophysiological event involves abnormal ossification (GO:0001503). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-generalized-osteosclerosis-and-periosteal-bone-formation" data-dismech-node="Generalized Osteosclerosis and Periosteal Bone Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Generalized Osteosclerosis and Periosteal Bone Formation</div>
+
 
                 <div class="item-desc">The radiographic readout of the abnormal matrix: a diffuse, marked increase in radiodensity of all bones, most striking at the skull base and long bones, together with periosteal new bone formation — the feature that distinguishes Raine syndrome from osteopetrosis and other sclerosing dysplasias. Modeled as a distinct node from the matrix lesion because the two dissociate: the sclerotic radiographic appearance overlies an osteomalacic, porous matrix, and osteosclerosis may be mild or absent in the non-lethal form.
 </div>
@@ -5935,6 +6292,24 @@ This pathophysiological event involves increased ossification (GO:0001503). GO:0
 
 	                        </div>
 
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Generalized osteosclerosis</span>
+
+	                            <span class="crosslink-desc">Summary edge: this node is the tissue-level process whose direct clinical readout is the generalized osteosclerosis phenotype.
+</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Periosteal bone formation</span>
+
+	                            <span class="crosslink-desc">Summary edge: periosteal new bone formation is the second radiographic readout of this process and the feature that distinguishes Raine syndrome from osteopetrosis.
+</span>
+
+
+	                        </div>
+
 	                    </div>
 	                </div>
 
@@ -5954,6 +6329,7 @@ This pathophysiological event involves increased ossification (GO:0001503). GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5981,6 +6357,7 @@ This pathophysiological event involves increased ossification (GO:0001503). GO:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6003,6 +6380,7 @@ This pathophysiological event involves increased ossification (GO:0001503). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-thoracic-hypoplasia-and-pulmonary-hypoplasia" data-dismech-node="Thoracic Hypoplasia and Pulmonary Hypoplasia" data-dismech-type="pathophysiology">
                 <div class="item-name">Thoracic Hypoplasia and Pulmonary Hypoplasia</div>
+
 
                 <div class="item-desc">A narrow, hypoplastic thorax restricts lung growth, producing pulmonary hypoplasia. This arm is mechanistically independent of the craniofacial arm; the two converge on neonatal respiratory failure.
 </div>
@@ -6036,6 +6414,15 @@ This pathophysiological event involves increased ossification (GO:0001503). GO:0
 
 	                        </div>
 
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Pulmonary hypoplasia</span>
+
+	                            <span class="crosslink-desc">Summary edge: restricted lung growth within the narrow thorax is the pulmonary hypoplasia phenotype itself.
+</span>
+
+
+	                        </div>
+
 	                    </div>
 	                </div>
 
@@ -6055,6 +6442,7 @@ This pathophysiological event involves increased ossification (GO:0001503). GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6081,6 +6469,7 @@ This pathophysiological event involves increased ossification (GO:0001503). GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neonatal-respiratory-failure" data-dismech-node="Neonatal Respiratory Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Neonatal Respiratory Failure</div>
 
+
                 <div class="item-desc">The convergent terminal node of the lethal form: upper-airway obstruction from choanal atresia/stenosis plus pulmonary hypoplasia from the narrow thorax produce severe respiratory distress from birth, the usual proximate cause of death within days to weeks.
 </div>
 
@@ -6100,6 +6489,22 @@ This pathophysiological event involves increased ossification (GO:0001503). GO:0
 
 
 
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Neonatal respiratory distress</span>
+
+	                            <span class="crosslink-desc">Summary edge: this organism-level failure presents clinically as severe neonatal respiratory distress from birth.
+</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
 
 
     <details class="evidence-details">
@@ -6116,6 +6521,7 @@ This pathophysiological event involves increased ossification (GO:0001503). GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6143,6 +6549,7 @@ This pathophysiological event involves increased ossification (GO:0001503). GO:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6165,6 +6572,7 @@ This pathophysiological event involves increased ossification (GO:0001503). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-craniofacial-skeletal-overgrowth" data-dismech-node="Craniofacial Skeletal Overgrowth" data-dismech-type="pathophysiology">
                 <div class="item-name">Craniofacial Skeletal Overgrowth</div>
+
 
                 <div class="item-desc">The dysplasia predominantly affects craniofacial development. Increased ossification of the skull and facial bones underlies the characteristic facies — narrow prominent forehead, severe proptosis, underdeveloped midface, depressed nasal bridge and short nose — and in the most severe cases multisuture craniosynostosis. Severe midface hypoplasia in turn produces choanal atresia or stenosis, obstructing the neonatal upper airway.
 </div>
@@ -6236,6 +6644,42 @@ This pathophysiological event involves increased ossification (GO:0001503). GO:0
 
 	                        </div>
 
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Proptosis (exophthalmos)</span>
+
+	                            <span class="crosslink-desc">Increased ossification of the skull and facial bones shallows the orbits, producing the severe proptosis.
+</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Midface hypoplasia</span>
+
+	                            <span class="crosslink-desc">Over-ossified facial bones fail to develop normally, leaving the midface underdeveloped.
+</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Depressed nasal bridge</span>
+
+	                            <span class="crosslink-desc">The same craniofacial over-ossification underlies the depressed nasal bridge and short, hypoplastic nose.
+</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Choanal atresia or stenosis</span>
+
+	                            <span class="crosslink-desc">Severe midface hypoplasia narrows or occludes the posterior nasal apertures, producing choanal atresia or stenosis.
+</span>
+
+
+	                        </div>
+
 	                    </div>
 	                </div>
 
@@ -6255,6 +6699,7 @@ This pathophysiological event involves increased ossification (GO:0001503). GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6282,6 +6727,7 @@ This pathophysiological event involves increased ossification (GO:0001503). GO:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6303,6 +6749,7 @@ This pathophysiological event involves increased ossification (GO:0001503). GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6329,6 +6776,7 @@ This pathophysiological event involves increased ossification (GO:0001503). GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ectopic-intracranial-and-soft-tissue-calcification" data-dismech-node="Ectopic Intracranial and Soft Tissue Calcification" data-dismech-type="pathophysiology">
                 <div class="item-name">Ectopic Intracranial and Soft Tissue Calcification</div>
 
+
                 <div class="item-desc">Ectopic mineral is deposited outside the skeleton. The leading hypothesis is that loss of FAM20C-dependent phosphorylation of mineralization-INHIBITING secreted substrates removes a brake on mineral nucleation, but this has been demonstrated biochemically rather than at ectopic sites in patients, and a parallel in silico analysis proposes distinct brain-expressed FAM20C targets; the mechanism should be read as provisional. Intracranial calcifications are a cardinal feature, typically periventricular and involving basal ganglia and corpus callosum, and are accompanied in severe cases by periventricular gliosis, infarction, hemorrhage and leukomalacia. Brain-specific deletion of Fam20c in mice produces cerebral calcification without skeletal or dental defects, indicating that local loss of FAM20C function within the brain is sufficient. Ectopic calcification also occurs in soft tissue and solid organs in longer-surviving patients.
 </div>
 
@@ -6348,6 +6796,31 @@ This pathophysiological event involves increased ossification (GO:0001503). GO:0
 
 
 
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Intracranial calcification</span>
+
+	                            <span class="crosslink-desc">Summary edge: ectopic mineral deposition within the brain is the intracranial calcification phenotype, typically periventricular and involving the basal ganglia and corpus callosum.
+</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Ectopic soft tissue and solid organ calcification</span>
+
+	                            <span class="crosslink-desc">Summary edge: the same ectopic mineralization process deposits mineral in soft tissue and solid organs of longer-surviving patients.
+</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
 
 
     <details class="evidence-details">
@@ -6364,6 +6837,7 @@ This pathophysiological event involves increased ossification (GO:0001503). GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6391,6 +6865,7 @@ This pathophysiological event involves increased ossification (GO:0001503). GO:0
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6412,6 +6887,7 @@ This pathophysiological event involves increased ossification (GO:0001503). GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6439,6 +6915,7 @@ This pathophysiological event involves increased ossification (GO:0001503). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dental-hard-tissue-mineralization-failure" data-dismech-node="Dental Hard Tissue Mineralization Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Dental Hard Tissue Mineralization Failure</div>
+
 
                 <div class="item-desc">FAM20C acts intracellularly within ameloblasts and odontoblasts, where its substrates (including DSPP and other SIBLINGs) direct enamel and dentin mineralization. Its loss produces a distinctive hypoplastic amelogenesis imperfecta affecting all teeth together with dentin abnormalities, a hallmark of the non-lethal form that should prompt FAM20C testing. Hypophosphatemic rickets adds spontaneous recurrent abscesses on non-carious teeth.
 </div>
@@ -6561,6 +7038,22 @@ This pathophysiological event involves abnormal biomineral tissue development (G
 
 
 
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hypoplastic amelogenesis imperfecta</span>
+
+	                            <span class="crosslink-desc">Failed enamel matrix mineralization presents clinically as hypoplastic amelogenesis imperfecta affecting all teeth.
+</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
 
 
     <details class="evidence-details">
@@ -6577,6 +7070,7 @@ This pathophysiological event involves abnormal biomineral tissue development (G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6604,6 +7098,7 @@ This pathophysiological event involves abnormal biomineral tissue development (G
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6625,6 +7120,7 @@ This pathophysiological event involves abnormal biomineral tissue development (G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6650,6 +7146,7 @@ This pathophysiological event involves abnormal biomineral tissue development (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gingival-fibroblast-activation-via-tgf-beta-and-yap-taz" data-dismech-node="Gingival Fibroblast Activation via TGF-beta and YAP/TAZ" data-dismech-type="pathophysiology">
                 <div class="item-name">Gingival Fibroblast Activation via TGF-beta and YAP/TAZ</div>
+
 
                 <div class="item-desc">In non-lethal Raine syndrome, resident gingival fibroblasts are activated along the conserved pro-fibrotic axis. Proteomic and functional analyses of patient gingival tissue and primary gingival fibroblasts show upregulated TGF-beta/SMAD signaling together with engagement of the fibrogenic transcriptional cofactors YAP and TAZ; FAM20C knockdown reproduces the TGF-beta-YAP/TAZ interplay, defining a self-reinforcing profibrotic loop. This is the disease-specific instance of the conserved mesenchymal cell activation step of the fibrotic response, with the gingival fibroblast substituted for the generic fibroblast.
 </div>
@@ -6777,6 +7274,7 @@ This pathophysiological event involves increased TGF-beta Receptor Signaling, an
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6798,6 +7296,7 @@ This pathophysiological event involves increased TGF-beta Receptor Signaling, an
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6823,6 +7322,7 @@ This pathophysiological event involves increased TGF-beta Receptor Signaling, an
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-excessive-gingival-ecm-deposition-and-calcification" data-dismech-node="Excessive Gingival ECM Deposition and Calcification" data-dismech-type="pathophysiology">
                 <div class="item-name">Excessive Gingival ECM Deposition and Calcification</div>
+
 
                 <div class="item-desc">Activated gingival fibroblasts overproduce and disorganize extracellular matrix, with increased profibrotic and pro-osteogenic proteins (POSTN, SPARC, VIM). The result is gingival fibrosis together with pathological ectopic gingival calcification — the tissue substrate of the gum hyperplasia seen clinically. The pro-osteogenic component distinguishes this from generic soft-tissue fibrosis and reflects the loss of FAM20C-dependent mineralization control.
 </div>
@@ -6877,6 +7377,22 @@ This pathophysiological event involves gingival fibroblast, annotated with fibro
 
 
 
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Gum hyperplasia</span>
+
+	                            <span class="crosslink-desc">Fibrotic, calcified expansion of the gingival ECM is the tissue substrate of the gum hyperplasia seen clinically.
+</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
 
 
     <details class="evidence-details">
@@ -6893,6 +7409,7 @@ This pathophysiological event involves gingival fibroblast, annotated with fibro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6917,6 +7434,7 @@ This pathophysiological event involves gingival fibroblast, annotated with fibro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6965,7 +7483,7 @@ This pathophysiological event involves gingival fibroblast, annotated with fibro
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Bone Matrix Mineralization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The matrix-level lesion. Loss of FAM20C-dependent substrate phosphorylation, compounded by FGF23-driven hypophosphatemia, leaves bone matrix abnormally mineralized with disorganized, thickened collagen fibrils and a widened, disorganized growth plate. Critically, this is an UNDER-mineralization lesion: non-decalcified human histology after tetracycline labeling documented severe osteomalacia (not rickets), and knock-in mouse tibiae that look osteosclerotic on radiography show reduced mineral density and increased porosity on micro-CT. FAM20C additionally fine-tunes chondroitin sulfate 4-O/6-O sulfation, an activity lost with Raine syndrome mutations, providing a further route to dysregulated osteoblast biomineralization. The relationship between this osteomalacic matrix and the sclerotic radiographic appearance is the entry\u0027s principal open question (see discussions).\\n\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"osteoblast\", \"osteocyte\"], \"biological_processes\": [\"bone mineralization\", \"ossification\"]}}, {\"id\": \"Craniofacial Skeletal Overgrowth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The dysplasia predominantly affects craniofacial development. Increased ossification of the skull and facial bones underlies the characteristic facies \\u2014 narrow prominent forehead, severe proptosis, underdeveloped midface, depressed nasal bridge and short nose \\u2014 and in the most severe cases multisuture craniosynostosis. Severe midface hypoplasia in turn produces choanal atresia or stenosis, obstructing the neonatal upper airway.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"ossification\"]}}, {\"id\": \"Dental Hard Tissue Mineralization Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FAM20C acts intracellularly within ameloblasts and odontoblasts, where its substrates (including DSPP and other SIBLINGs) direct enamel and dentin mineralization. Its loss produces a distinctive hypoplastic amelogenesis imperfecta affecting all teeth together with dentin abnormalities, a hallmark of the non-lethal form that should prompt FAM20C testing. Hypophosphatemic rickets adds spontaneous recurrent abscesses on non-carious teeth.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"ameloblast\", \"odontoblast\"], \"biological_processes\": [\"biomineral tissue development\"]}}, {\"id\": \"Dysregulated FGF23 and Renal Phosphate Wasting\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FAM20C directly phosphorylates FGF23 on Ser180 within its R176XXR179/S180AE subtilisin-like proprotein convertase motif; this phosphorylation blocks GalNAc-T3 O-glycosylation and promotes furin cleavage and inactivation of FGF23. FAM20C also sustains DMP1 expression, which suppresses FGF23 production. Loss of FAM20C therefore raises circulating intact, biologically active FGF23, causing renal phosphate wasting, hypophosphatemia, and FGF23-related hypophosphatemic rickets or osteomalacia \\u2014 the dominant endocrine feature of the non-lethal form.\\n\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"phosphate ion homeostasis\"], \"genes\": [\"FGF23\"], \"gene_terms\": [{\"label\": \"FGF23\", \"id\": \"hgnc:3680\", \"modifier\": \"INCREASED\"}]}}, {\"id\": \"Ectopic Intracranial and Soft Tissue Calcification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ectopic mineral is deposited outside the skeleton. The leading hypothesis is that loss of FAM20C-dependent phosphorylation of mineralization-INHIBITING secreted substrates removes a brake on mineral nucleation, but this has been demonstrated biochemically rather than at ectopic sites in patients, and a parallel in silico analysis proposes distinct brain-expressed FAM20C targets; the mechanism should be read as provisional. Intracranial calcifications are a cardinal feature, typically periventricular and involving basal ganglia and corpus callosum, and are accompanied in severe cases by periventricular gliosis, infarction, hemorrhage and leukomalacia. Brain-specific deletion of Fam20c in mice produces cerebral calcification without skeletal or dental defects, indicating that local loss of FAM20C function within the brain is sufficient. Ectopic calcification also occurs in soft tissue and solid organs in longer-surviving patients.\\n\", \"meta\": {\"evidence_count\": 5}}, {\"id\": \"Excessive Gingival ECM Deposition and Calcification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activated gingival fibroblasts overproduce and disorganize extracellular matrix, with increased profibrotic and pro-osteogenic proteins (POSTN, SPARC, VIM). The result is gingival fibrosis together with pathological ectopic gingival calcification \\u2014 the tissue substrate of the gum hyperplasia seen clinically. The pro-osteogenic component distinguishes this from generic soft-tissue fibrosis and reflects the loss of FAM20C-dependent mineralization control.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"gingival fibroblast\"]}}, {\"id\": \"FAM20C\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 6, \"genes\": [\"FAM20C\"], \"gene_terms\": [{\"label\": \"FAM20C\", \"id\": \"hgnc:22140\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Generalized Osteosclerosis and Periosteal Bone Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The radiographic readout of the abnormal matrix: a diffuse, marked increase in radiodensity of all bones, most striking at the skull base and long bones, together with periosteal new bone formation \\u2014 the feature that distinguishes Raine syndrome from osteopetrosis and other sclerosing dysplasias. Modeled as a distinct node from the matrix lesion because the two dissociate: the sclerotic radiographic appearance overlies an osteomalacic, porous matrix, and osteosclerosis may be mild or absent in the non-lethal form.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"ossification\"]}}, {\"id\": \"Gingival Fibroblast Activation via TGF-beta and YAP/TAZ\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In non-lethal Raine syndrome, resident gingival fibroblasts are activated along the conserved pro-fibrotic axis. Proteomic and functional analyses of patient gingival tissue and primary gingival fibroblasts show upregulated TGF-beta/SMAD signaling together with engagement of the fibrogenic transcriptional cofactors YAP and TAZ; FAM20C knockdown reproduces the TGF-beta-YAP/TAZ interplay, defining a self-reinforcing profibrotic loop. This is the disease-specific instance of the conserved mesenchymal cell activation step of the fibrotic response, with the gingival fibroblast substituted for the generic fibroblast.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"gingival fibroblast\"], \"biological_processes\": [\"TGF-beta Receptor Signaling\"]}}, {\"id\": \"Hypophosphatemic rickets\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistent hypophosphatemic rickets, the most striking endocrinological manifestation of non-lethal Raine syndrome, poorly responsive to phosphate salts and alfacalcidol.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Non-lethal RS\"], \"term_id\": \"HP:0004912\"}}, {\"id\": \"Hypophosphorylation of Secreted Biomineralization Proteins\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FAM20C phosphorylates well over one hundred substrates in the secretory pathway, including the caseins and members of the SIBLING (small integrin-binding ligand, N-linked glycoprotein) family \\u2014 DMP1, MEPE, osteopontin (SPP1), bone sialoprotein and DSPP \\u2014 which regulate extracellular matrix biomineralization. Loss of FAM20C activity leaves these substrates hypophosphorylated, removing a key post-translational control on mineral nucleation and inhibition in bone and dental hard tissue.\\n\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"biomineral tissue development\"], \"genes\": [\"DMP1\", \"MEPE (FAM20C substrate, hypophosphorylated)\", \"SPP1 / osteopontin (FAM20C substrate, hypophosphorylated)\", \"DSPP (FAM20C substrate, hypophosphorylated)\"], \"gene_terms\": [{\"label\": \"DMP1\", \"id\": \"hgnc:2932\", \"modifier\": \"DECREASED\"}, {\"label\": \"MEPE (FAM20C substrate, hypophosphorylated)\", \"id\": \"hgnc:13361\", \"modifier\": \"ABNORMAL\"}, {\"label\": \"SPP1 / osteopontin (FAM20C substrate, hypophosphorylated)\", \"id\": \"hgnc:11255\", \"modifier\": \"ABNORMAL\"}, {\"label\": \"DSPP (FAM20C substrate, hypophosphorylated)\", \"id\": \"hgnc:3054\", \"modifier\": \"ABNORMAL\"}]}}, {\"id\": \"Hypoplastic amelogenesis imperfecta\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Profound failure of dental enamel formation producing a distinctive hypoplastic amelogenesis imperfecta affecting all teeth, often with dentin abnormalities; a hallmark of the non-lethal form.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Non-lethal RS\"], \"term_id\": \"HP:0000705\"}}, {\"id\": \"Loss of FAM20C Golgi Casein Kinase Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FAM20C is the Golgi casein kinase: an atypical, secretory-pathway protein kinase that localizes to the Golgi apparatus and phosphorylates serine residues within S-x-E/pS motifs of secreted proteins. Biallelic loss-of-function variants in FAM20C abolish or markedly reduce this kinase activity. Raine syndrome missense substitutions impair both Golgi localization and catalytic activity of the recombinant enzyme; a non-lethal splice-altering variant produces an in-frame insertion that mislocalizes the protein and reduces its secretion without disrupting dimerization.\\n\", \"meta\": {\"evidence_count\": 5, \"biological_processes\": [\"peptidyl-serine phosphorylation of secreted proteins\"], \"molecular_functions\": [\"Golgi casein kinase (protein serine/threonine kinase) activity\"], \"genes\": [\"FAM20C\"], \"gene_terms\": [{\"label\": \"FAM20C\", \"id\": \"hgnc:22140\", \"modifier\": \"DECREASED\"}]}}, {\"id\": \"Neonatal Respiratory Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergent terminal node of the lethal form: upper-airway obstruction from choanal atresia/stenosis plus pulmonary hypoplasia from the narrow thorax produce severe respiratory distress from birth, the usual proximate cause of death within days to weeks.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Neonatal intensive care and airway management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"When Raine syndrome is suspected prenatally, delivery should be planned with immediate neonatal intensive care availability because significant respiratory distress is usually present from birth; airway management for choanal atresia/stenosis is the immediate priority. Care remains supportive \\u2014 there is no disease-modifying therapy.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Neonatal respiratory distress\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe respiratory distress present immediately after birth, from combined choanal atresia and thoracic/pulmonary hypoplasia; the usual proximate cause of neonatal death in the lethal form.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Lethal RS\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002643\"}}, {\"id\": \"Phosphate salts and alfacalcidol for hypophosphatemic rickets\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Conventional therapy for hypophosphatemic rickets with oral phosphate salts and the active vitamin D analogue alfacalcidol has been used in non-lethal Raine syndrome, but the rickets is reported as scarcely responsive to this regimen.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"oral phosphate salts\", \"alfacalcidol\"]}}, {\"id\": \"Restorative and oral surgical dental management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Extensive restorative and oral surgical intervention is required for the dental sequelae of non-lethal Raine syndrome, including hypoplastic amelogenesis imperfecta and spontaneous recurrent abscesses on non-carious teeth.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Thoracic Hypoplasia and Pulmonary Hypoplasia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A narrow, hypoplastic thorax restricts lung growth, producing pulmonary hypoplasia. This arm is mechanistically independent of the craniofacial arm; the two converge on neonatal respiratory failure.\\n\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Loss of FAM20C Golgi Casein Kinase Activity\", \"target\": \"Hypophosphorylation of Secreted Biomineralization Proteins\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of kinase activity leaves the FAM20C secreted phosphoproteome unphosphorylated.\\n\"}, {\"source\": \"Loss of FAM20C Golgi Casein Kinase Activity\", \"target\": \"Gingival Fibroblast Activation via TGF-beta and YAP/TAZ\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of FAM20C activity engages a TGF-beta-YAP/TAZ profibrotic loop in resident gingival fibroblasts.\\n\"}, {\"source\": \"Hypophosphorylation of Secreted Biomineralization Proteins\", \"target\": \"Dysregulated FGF23 and Renal Phosphate Wasting\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced DMP1 expression and loss of direct FGF23 phosphorylation dysregulate FGF23 processing and output.\\n\"}, {\"source\": \"Hypophosphorylation of Secreted Biomineralization Proteins\", \"target\": \"Abnormal Bone Matrix Mineralization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of SIBLING phosphorylation deranges matrix mineral nucleation and inhibition.\\n\"}, {\"source\": \"Hypophosphorylation of Secreted Biomineralization Proteins\", \"target\": \"Ectopic Intracranial and Soft Tissue Calcification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of phosphorylation on mineralization-inhibiting secreted substrates removes a brake on mineral nucleation outside the skeleton.\\n\"}, {\"source\": \"Hypophosphorylation of Secreted Biomineralization Proteins\", \"target\": \"Dental Hard Tissue Mineralization Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ameloblast and odontoblast substrates are left hypophosphorylated.\\n\"}, {\"source\": \"Dysregulated FGF23 and Renal Phosphate Wasting\", \"target\": \"Abnormal Bone Matrix Mineralization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypophosphatemia produces rickets/osteomalacia, on which the sclerotic radiographic phenotype is superimposed.\\n\"}, {\"source\": \"Abnormal Bone Matrix Mineralization\", \"target\": \"Generalized Osteosclerosis and Periosteal Bone Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The abnormal matrix presents radiographically as generalized osteosclerosis with periosteal new bone formation.\\n\"}, {\"source\": \"Generalized Osteosclerosis and Periosteal Bone Formation\", \"target\": \"Craniofacial Skeletal Overgrowth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excess ossification of the skull and facial bones drives the craniofacial phenotype.\\n\"}, {\"source\": \"Generalized Osteosclerosis and Periosteal Bone Formation\", \"target\": \"Thoracic Hypoplasia and Pulmonary Hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Skeletal involvement of the ribs and thoracic cage produces a narrow, hypoplastic thorax.\\n\"}, {\"source\": \"Thoracic Hypoplasia and Pulmonary Hypoplasia\", \"target\": \"Neonatal Respiratory Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pulmonary hypoplasia limits gas exchange from the first minutes of life.\\n\"}, {\"source\": \"Craniofacial Skeletal Overgrowth\", \"target\": \"Neonatal Respiratory Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Midface hypoplasia with choanal atresia/stenosis obstructs the neonatal upper airway.\\n\"}, {\"source\": \"Gingival Fibroblast Activation via TGF-beta and YAP/TAZ\", \"target\": \"Excessive Gingival ECM Deposition and Calcification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Activated gingival fibroblasts overproduce and disorganize extracellular matrix.\\n\"}, {\"source\": \"Neonatal intensive care and airway management\", \"target\": \"Neonatal respiratory distress\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Phosphate salts and alfacalcidol for hypophosphatemic rickets\", \"target\": \"Dysregulated FGF23 and Renal Phosphate Wasting\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Phosphate salts and alfacalcidol for hypophosphatemic rickets\", \"target\": \"Hypophosphatemic rickets\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Restorative and oral surgical dental management\", \"target\": \"Hypoplastic amelogenesis imperfecta\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"FAM20C\", \"target\": \"Loss of FAM20C Golgi Casein Kinase Activity\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Bone Matrix Mineralization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The matrix-level lesion. Loss of FAM20C-dependent substrate phosphorylation, compounded by FGF23-driven hypophosphatemia, leaves bone matrix abnormally mineralized with disorganized, thickened collagen fibrils and a widened, disorganized growth plate. Critically, this is an UNDER-mineralization lesion: non-decalcified human histology after tetracycline labeling documented severe osteomalacia (not rickets), and knock-in mouse tibiae that look osteosclerotic on radiography show reduced mineral density and increased porosity on micro-CT. FAM20C additionally fine-tunes chondroitin sulfate 4-O/6-O sulfation, an activity lost with Raine syndrome mutations, providing a further route to dysregulated osteoblast biomineralization. The relationship between this osteomalacic matrix and the sclerotic radiographic appearance is the entry\u0027s principal open question (see discussions).\\n\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"osteoblast\", \"osteocyte\"], \"biological_processes\": [\"bone mineralization\", \"ossification\"]}}, {\"id\": \"Choanal atresia or stenosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Choanal atresia or stenosis secondary to severe midface hypoplasia; a major contributor to neonatal respiratory compromise and the most common neonatal comorbidity in non-lethal cases.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000453\"}}, {\"id\": \"Craniofacial Skeletal Overgrowth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The dysplasia predominantly affects craniofacial development. Increased ossification of the skull and facial bones underlies the characteristic facies \\u2014 narrow prominent forehead, severe proptosis, underdeveloped midface, depressed nasal bridge and short nose \\u2014 and in the most severe cases multisuture craniosynostosis. Severe midface hypoplasia in turn produces choanal atresia or stenosis, obstructing the neonatal upper airway.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"ossification\"]}}, {\"id\": \"Dental Hard Tissue Mineralization Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FAM20C acts intracellularly within ameloblasts and odontoblasts, where its substrates (including DSPP and other SIBLINGs) direct enamel and dentin mineralization. Its loss produces a distinctive hypoplastic amelogenesis imperfecta affecting all teeth together with dentin abnormalities, a hallmark of the non-lethal form that should prompt FAM20C testing. Hypophosphatemic rickets adds spontaneous recurrent abscesses on non-carious teeth.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"ameloblast\", \"odontoblast\"], \"biological_processes\": [\"biomineral tissue development\"]}}, {\"id\": \"Depressed nasal bridge\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005280\"}}, {\"id\": \"Dysregulated FGF23 and Renal Phosphate Wasting\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FAM20C directly phosphorylates FGF23 on Ser180 within its R176XXR179/S180AE subtilisin-like proprotein convertase motif; this phosphorylation blocks GalNAc-T3 O-glycosylation and promotes furin cleavage and inactivation of FGF23. FAM20C also sustains DMP1 expression, which suppresses FGF23 production. Loss of FAM20C therefore raises circulating intact, biologically active FGF23, causing renal phosphate wasting, hypophosphatemia, and FGF23-related hypophosphatemic rickets or osteomalacia \\u2014 the dominant endocrine feature of the non-lethal form.\\n\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"phosphate ion homeostasis\"], \"genes\": [\"FGF23\"], \"gene_terms\": [{\"label\": \"FGF23\", \"id\": \"hgnc:3680\", \"modifier\": \"INCREASED\"}]}}, {\"id\": \"Ectopic Intracranial and Soft Tissue Calcification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ectopic mineral is deposited outside the skeleton. The leading hypothesis is that loss of FAM20C-dependent phosphorylation of mineralization-INHIBITING secreted substrates removes a brake on mineral nucleation, but this has been demonstrated biochemically rather than at ectopic sites in patients, and a parallel in silico analysis proposes distinct brain-expressed FAM20C targets; the mechanism should be read as provisional. Intracranial calcifications are a cardinal feature, typically periventricular and involving basal ganglia and corpus callosum, and are accompanied in severe cases by periventricular gliosis, infarction, hemorrhage and leukomalacia. Brain-specific deletion of Fam20c in mice produces cerebral calcification without skeletal or dental defects, indicating that local loss of FAM20C function within the brain is sufficient. Ectopic calcification also occurs in soft tissue and solid organs in longer-surviving patients.\\n\", \"meta\": {\"evidence_count\": 5}}, {\"id\": \"Ectopic soft tissue and solid organ calcification\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ectopic mineralization outside the skeleton and brain, including soft tissue and multiple solid organs in longer-surviving patients.\\n\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Non-lethal RS\"], \"term_id\": \"HP:0010766\"}}, {\"id\": \"Excessive Gingival ECM Deposition and Calcification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activated gingival fibroblasts overproduce and disorganize extracellular matrix, with increased profibrotic and pro-osteogenic proteins (POSTN, SPARC, VIM). The result is gingival fibrosis together with pathological ectopic gingival calcification \\u2014 the tissue substrate of the gum hyperplasia seen clinically. The pro-osteogenic component distinguishes this from generic soft-tissue fibrosis and reflects the loss of FAM20C-dependent mineralization control.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"gingival fibroblast\"]}}, {\"id\": \"FAM20C\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 6, \"genes\": [\"FAM20C\"], \"gene_terms\": [{\"label\": \"FAM20C\", \"id\": \"hgnc:22140\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Generalized Osteosclerosis and Periosteal Bone Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The radiographic readout of the abnormal matrix: a diffuse, marked increase in radiodensity of all bones, most striking at the skull base and long bones, together with periosteal new bone formation \\u2014 the feature that distinguishes Raine syndrome from osteopetrosis and other sclerosing dysplasias. Modeled as a distinct node from the matrix lesion because the two dissociate: the sclerotic radiographic appearance overlies an osteomalacic, porous matrix, and osteosclerosis may be mild or absent in the non-lethal form.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"ossification\"]}}, {\"id\": \"Generalized osteosclerosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Diffuse, marked increase in bone density affecting all bones, most striking at the skull base and long bones.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005789\"}}, {\"id\": \"Gingival Fibroblast Activation via TGF-beta and YAP/TAZ\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In non-lethal Raine syndrome, resident gingival fibroblasts are activated along the conserved pro-fibrotic axis. Proteomic and functional analyses of patient gingival tissue and primary gingival fibroblasts show upregulated TGF-beta/SMAD signaling together with engagement of the fibrogenic transcriptional cofactors YAP and TAZ; FAM20C knockdown reproduces the TGF-beta-YAP/TAZ interplay, defining a self-reinforcing profibrotic loop. This is the disease-specific instance of the conserved mesenchymal cell activation step of the fibrotic response, with the gingival fibroblast substituted for the generic fibroblast.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"gingival fibroblast\"], \"biological_processes\": [\"TGF-beta Receptor Signaling\"]}}, {\"id\": \"Gum hyperplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gingival overgrowth with fibrosis and pathological gingival calcification.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000212\"}}, {\"id\": \"Hypophosphatemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypophosphatemia due to FGF23-mediated renal phosphate wasting.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Non-lethal RS\"], \"term_id\": \"HP:0002148\"}}, {\"id\": \"Hypophosphatemic rickets\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistent hypophosphatemic rickets, the most striking endocrinological manifestation of non-lethal Raine syndrome, poorly responsive to phosphate salts and alfacalcidol.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Non-lethal RS\"], \"term_id\": \"HP:0004912\"}}, {\"id\": \"Hypophosphorylation of Secreted Biomineralization Proteins\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FAM20C phosphorylates well over one hundred substrates in the secretory pathway, including the caseins and members of the SIBLING (small integrin-binding ligand, N-linked glycoprotein) family \\u2014 DMP1, MEPE, osteopontin (SPP1), bone sialoprotein and DSPP \\u2014 which regulate extracellular matrix biomineralization. Loss of FAM20C activity leaves these substrates hypophosphorylated, removing a key post-translational control on mineral nucleation and inhibition in bone and dental hard tissue.\\n\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"biomineral tissue development\"], \"genes\": [\"DMP1\", \"MEPE (FAM20C substrate, hypophosphorylated)\", \"SPP1 / osteopontin (FAM20C substrate, hypophosphorylated)\", \"DSPP (FAM20C substrate, hypophosphorylated)\"], \"gene_terms\": [{\"label\": \"DMP1\", \"id\": \"hgnc:2932\", \"modifier\": \"DECREASED\"}, {\"label\": \"MEPE (FAM20C substrate, hypophosphorylated)\", \"id\": \"hgnc:13361\", \"modifier\": \"ABNORMAL\"}, {\"label\": \"SPP1 / osteopontin (FAM20C substrate, hypophosphorylated)\", \"id\": \"hgnc:11255\", \"modifier\": \"ABNORMAL\"}, {\"label\": \"DSPP (FAM20C substrate, hypophosphorylated)\", \"id\": \"hgnc:3054\", \"modifier\": \"ABNORMAL\"}]}}, {\"id\": \"Hypoplastic amelogenesis imperfecta\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Profound failure of dental enamel formation producing a distinctive hypoplastic amelogenesis imperfecta affecting all teeth, often with dentin abnormalities; a hallmark of the non-lethal form.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Non-lethal RS\"], \"term_id\": \"HP:0000705\"}}, {\"id\": \"Intracranial calcification\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebral calcification, typically periventricular and involving the basal ganglia and corpus callosum; a cardinal radiological feature.\\n\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0002514\"}}, {\"id\": \"Loss of FAM20C Golgi Casein Kinase Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FAM20C is the Golgi casein kinase: an atypical, secretory-pathway protein kinase that localizes to the Golgi apparatus and phosphorylates serine residues within S-x-E/pS motifs of secreted proteins. Biallelic loss-of-function variants in FAM20C abolish or markedly reduce this kinase activity. Raine syndrome missense substitutions impair both Golgi localization and catalytic activity of the recombinant enzyme; a non-lethal splice-altering variant produces an in-frame insertion that mislocalizes the protein and reduces its secretion without disrupting dimerization.\\n\", \"meta\": {\"evidence_count\": 5, \"biological_processes\": [\"peptidyl-serine phosphorylation of secreted proteins\"], \"molecular_functions\": [\"Golgi casein kinase (protein serine/threonine kinase) activity\"], \"genes\": [\"FAM20C\"], \"gene_terms\": [{\"label\": \"FAM20C\", \"id\": \"hgnc:22140\", \"modifier\": \"DECREASED\"}]}}, {\"id\": \"Midface hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011800\"}}, {\"id\": \"Neonatal Respiratory Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergent terminal node of the lethal form: upper-airway obstruction from choanal atresia/stenosis plus pulmonary hypoplasia from the narrow thorax produce severe respiratory distress from birth, the usual proximate cause of death within days to weeks.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Neonatal intensive care and airway management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"When Raine syndrome is suspected prenatally, delivery should be planned with immediate neonatal intensive care availability because significant respiratory distress is usually present from birth; airway management for choanal atresia/stenosis is the immediate priority. Care remains supportive \\u2014 there is no disease-modifying therapy.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Neonatal respiratory distress\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe respiratory distress present immediately after birth, from combined choanal atresia and thoracic/pulmonary hypoplasia; the usual proximate cause of neonatal death in the lethal form.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Lethal RS\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002643\"}}, {\"id\": \"Periosteal bone formation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Periosteal new bone formation along the long bones and ribs \\u2014 the feature that distinguishes Raine syndrome from osteopetrosis and other sclerosing bone dysplasias.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0030314\"}}, {\"id\": \"Phosphate salts and alfacalcidol for hypophosphatemic rickets\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Conventional therapy for hypophosphatemic rickets with oral phosphate salts and the active vitamin D analogue alfacalcidol has been used in non-lethal Raine syndrome, but the rickets is reported as scarcely responsive to this regimen.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"oral phosphate salts\", \"alfacalcidol\"]}}, {\"id\": \"Proptosis (exophthalmos)\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe proptosis due to shallow orbits from craniofacial skeletal overgrowth and midface underdevelopment.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000520\"}}, {\"id\": \"Pulmonary hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pulmonary hypoplasia secondary to the narrow, hypoplastic thorax; with choanal atresia it is a principal determinant of neonatal lethality, with affected individuals in the classic form surviving only days or weeks.\\n\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Lethal RS\"], \"term_id\": \"HP:0002089\"}}, {\"id\": \"Restorative and oral surgical dental management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Extensive restorative and oral surgical intervention is required for the dental sequelae of non-lethal Raine syndrome, including hypoplastic amelogenesis imperfecta and spontaneous recurrent abscesses on non-carious teeth.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Thoracic Hypoplasia and Pulmonary Hypoplasia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A narrow, hypoplastic thorax restricts lung growth, producing pulmonary hypoplasia. This arm is mechanistically independent of the craniofacial arm; the two converge on neonatal respiratory failure.\\n\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Loss of FAM20C Golgi Casein Kinase Activity\", \"target\": \"Hypophosphorylation of Secreted Biomineralization Proteins\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of kinase activity leaves the FAM20C secreted phosphoproteome unphosphorylated.\\n\"}, {\"source\": \"Loss of FAM20C Golgi Casein Kinase Activity\", \"target\": \"Gingival Fibroblast Activation via TGF-beta and YAP/TAZ\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of FAM20C activity engages a TGF-beta-YAP/TAZ profibrotic loop in resident gingival fibroblasts.\\n\"}, {\"source\": \"Hypophosphorylation of Secreted Biomineralization Proteins\", \"target\": \"Dysregulated FGF23 and Renal Phosphate Wasting\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced DMP1 expression and loss of direct FGF23 phosphorylation dysregulate FGF23 processing and output.\\n\"}, {\"source\": \"Hypophosphorylation of Secreted Biomineralization Proteins\", \"target\": \"Abnormal Bone Matrix Mineralization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of SIBLING phosphorylation deranges matrix mineral nucleation and inhibition.\\n\"}, {\"source\": \"Hypophosphorylation of Secreted Biomineralization Proteins\", \"target\": \"Ectopic Intracranial and Soft Tissue Calcification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of phosphorylation on mineralization-inhibiting secreted substrates removes a brake on mineral nucleation outside the skeleton.\\n\"}, {\"source\": \"Hypophosphorylation of Secreted Biomineralization Proteins\", \"target\": \"Dental Hard Tissue Mineralization Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ameloblast and odontoblast substrates are left hypophosphorylated.\\n\"}, {\"source\": \"Dysregulated FGF23 and Renal Phosphate Wasting\", \"target\": \"Abnormal Bone Matrix Mineralization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypophosphatemia produces rickets/osteomalacia, on which the sclerotic radiographic phenotype is superimposed.\\n\"}, {\"source\": \"Dysregulated FGF23 and Renal Phosphate Wasting\", \"target\": \"Hypophosphatemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excess intact FGF23 drives renal phosphate wasting, lowering serum phosphate.\\n\"}, {\"source\": \"Dysregulated FGF23 and Renal Phosphate Wasting\", \"target\": \"Hypophosphatemic rickets\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic FGF23-driven phosphate wasting produces hypophosphatemic rickets, the dominant endocrine feature of the non-lethal form.\\n\"}, {\"source\": \"Abnormal Bone Matrix Mineralization\", \"target\": \"Generalized Osteosclerosis and Periosteal Bone Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The abnormal matrix presents radiographically as generalized osteosclerosis with periosteal new bone formation.\\n\"}, {\"source\": \"Generalized Osteosclerosis and Periosteal Bone Formation\", \"target\": \"Craniofacial Skeletal Overgrowth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excess ossification of the skull and facial bones drives the craniofacial phenotype.\\n\"}, {\"source\": \"Generalized Osteosclerosis and Periosteal Bone Formation\", \"target\": \"Thoracic Hypoplasia and Pulmonary Hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Skeletal involvement of the ribs and thoracic cage produces a narrow, hypoplastic thorax.\\n\"}, {\"source\": \"Generalized Osteosclerosis and Periosteal Bone Formation\", \"target\": \"Generalized osteosclerosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary edge: this node is the tissue-level process whose direct clinical readout is the generalized osteosclerosis phenotype.\\n\"}, {\"source\": \"Generalized Osteosclerosis and Periosteal Bone Formation\", \"target\": \"Periosteal bone formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary edge: periosteal new bone formation is the second radiographic readout of this process and the feature that distinguishes Raine syndrome from osteopetrosis.\\n\"}, {\"source\": \"Thoracic Hypoplasia and Pulmonary Hypoplasia\", \"target\": \"Neonatal Respiratory Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pulmonary hypoplasia limits gas exchange from the first minutes of life.\\n\"}, {\"source\": \"Thoracic Hypoplasia and Pulmonary Hypoplasia\", \"target\": \"Pulmonary hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary edge: restricted lung growth within the narrow thorax is the pulmonary hypoplasia phenotype itself.\\n\"}, {\"source\": \"Neonatal Respiratory Failure\", \"target\": \"Neonatal respiratory distress\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary edge: this organism-level failure presents clinically as severe neonatal respiratory distress from birth.\\n\"}, {\"source\": \"Craniofacial Skeletal Overgrowth\", \"target\": \"Neonatal Respiratory Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Midface hypoplasia with choanal atresia/stenosis obstructs the neonatal upper airway.\\n\"}, {\"source\": \"Craniofacial Skeletal Overgrowth\", \"target\": \"Proptosis (exophthalmos)\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased ossification of the skull and facial bones shallows the orbits, producing the severe proptosis.\\n\"}, {\"source\": \"Craniofacial Skeletal Overgrowth\", \"target\": \"Midface hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Over-ossified facial bones fail to develop normally, leaving the midface underdeveloped.\\n\"}, {\"source\": \"Craniofacial Skeletal Overgrowth\", \"target\": \"Depressed nasal bridge\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same craniofacial over-ossification underlies the depressed nasal bridge and short, hypoplastic nose.\\n\"}, {\"source\": \"Craniofacial Skeletal Overgrowth\", \"target\": \"Choanal atresia or stenosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe midface hypoplasia narrows or occludes the posterior nasal apertures, producing choanal atresia or stenosis.\\n\"}, {\"source\": \"Ectopic Intracranial and Soft Tissue Calcification\", \"target\": \"Intracranial calcification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary edge: ectopic mineral deposition within the brain is the intracranial calcification phenotype, typically periventricular and involving the basal ganglia and corpus callosum.\\n\"}, {\"source\": \"Ectopic Intracranial and Soft Tissue Calcification\", \"target\": \"Ectopic soft tissue and solid organ calcification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary edge: the same ectopic mineralization process deposits mineral in soft tissue and solid organs of longer-surviving patients.\\n\"}, {\"source\": \"Dental Hard Tissue Mineralization Failure\", \"target\": \"Hypoplastic amelogenesis imperfecta\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failed enamel matrix mineralization presents clinically as hypoplastic amelogenesis imperfecta affecting all teeth.\\n\"}, {\"source\": \"Gingival Fibroblast Activation via TGF-beta and YAP/TAZ\", \"target\": \"Excessive Gingival ECM Deposition and Calcification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Activated gingival fibroblasts overproduce and disorganize extracellular matrix.\\n\"}, {\"source\": \"Excessive Gingival ECM Deposition and Calcification\", \"target\": \"Gum hyperplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fibrotic, calcified expansion of the gingival ECM is the tissue substrate of the gum hyperplasia seen clinically.\\n\"}, {\"source\": \"Neonatal intensive care and airway management\", \"target\": \"Neonatal respiratory distress\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Phosphate salts and alfacalcidol for hypophosphatemic rickets\", \"target\": \"Dysregulated FGF23 and Renal Phosphate Wasting\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Phosphate salts and alfacalcidol for hypophosphatemic rickets\", \"target\": \"Hypophosphatemic rickets\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Restorative and oral surgical dental management\", \"target\": \"Hypoplastic amelogenesis imperfecta\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"FAM20C\", \"target\": \"Loss of FAM20C Golgi Casein Kinase Activity\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6988,15 +7506,17 @@ This pathophysiological event involves gingival fibroblast, annotated with fibro
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(8)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(9)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Metabolism<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Limbs<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Nervous System<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Metabolism<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Respiratory<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Musculoskeletal<span class="pill-count">(4)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Other<span class="pill-count">(6)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Nervous System<span class="pill-count">(3)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Respiratory<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -7039,6 +7559,9 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7053,6 +7576,7 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7107,11 +7631,39 @@ This clinical feature is Dysplastic/low-set ears, annotated with Low-set ears (H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32299476" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32299476" target="_blank">PMID:32299476</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The most classical phenotype was characterized by a combination of microcephaly, exophthalmos, hypoplastic nose, low-set ears, gum hypertrophy, cleft palate/uvula, and severe midface hypoplasia leading to choanal atresia."</div>
+
+
+                <div class="evidence-explanation">Names low-set ears explicitly as part of the classical Raine syndrome phenotype.</div>
+
+
+
+            </div>
 
             <div class="evidence-item" data-dismech-evidence="PMID:24959018" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
@@ -7123,6 +7675,9 @@ This clinical feature is Dysplastic/low-set ears, annotated with Low-set ears (H
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
@@ -7131,7 +7686,7 @@ This clinical feature is Dysplastic/low-set ears, annotated with Low-set ears (H
                 <div class="evidence-snippet">"small nose with depressed nasal bridge, gum hyperplasia, high-arched narrow palate, long philtrum and dysplastic ears"</div>
 
 
-                <div class="evidence-explanation">Case report documents dysplastic ears; low-set/dysplastic ears are part of the characteristic facies.</div>
+                <div class="evidence-explanation">Case report documents dysplastic (not specifically low-set) ears, supporting ear dysmorphism within the same facies - hence INDIRECT for the low-set claim.</div>
 
 
 
@@ -7184,6 +7739,9 @@ This clinical feature is Exophthalmos, annotated with Proptosis (HP:0000520). HP
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7198,6 +7756,7 @@ This clinical feature is Exophthalmos, annotated with Proptosis (HP:0000520). HP
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7252,6 +7811,9 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7266,6 +7828,7 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7290,6 +7853,7 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7322,7 +7886,7 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
-                    <span class="cat-count">8</span>
+                    <span class="cat-count">9</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-midface-hypoplasia" data-dismech-node="Midface hypoplasia" data-dismech-type="phenotype">
@@ -7355,6 +7919,9 @@ This clinical feature is Midface hypoplasia, annotated with Midface retrusion (H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7369,6 +7936,7 @@ This clinical feature is Midface hypoplasia, annotated with Midface retrusion (H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7423,6 +7991,9 @@ This clinical feature is Depressed nasal bridge (HP:0005280). HP:0005280 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7437,6 +8008,7 @@ This clinical feature is Depressed nasal bridge (HP:0005280). HP:0005280 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7491,6 +8063,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7505,6 +8080,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7556,6 +8132,9 @@ This clinical feature is Choanal atresia or stenosis, annotated with Choanal atr
                     </div>
 
 
+
+
+
                     <div class="item-desc">Both complete atresia and stenosis are reported. The phenotype is bound to HP:0000453 Choanal atresia, which is narrower than the claim; HP:0000452 Choanal stenosis covers the milder end and is not separately modeled because the cited sources do not consistently distinguish the two.
 </div>
 
@@ -7576,6 +8155,7 @@ This clinical feature is Choanal atresia or stenosis, annotated with Choanal atr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7603,6 +8183,7 @@ This clinical feature is Choanal atresia or stenosis, annotated with Choanal atr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7611,6 +8192,105 @@ This clinical feature is Choanal atresia or stenosis, annotated with Choanal atr
 
 
                 <div class="evidence-explanation">Lists choanal atresia/stenosis as a characteristic feature.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-gum-hyperplasia" data-dismech-node="Gum hyperplasia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Gum hyperplasia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Gingival overgrowth</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000212" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0000212</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Gingival hyperplasia, annotated with Gingival overgrowth (HP:0000212). HP:0000212 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24959018" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24959018" target="_blank">PMID:24959018</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"There was exophthalmos, small nose with depressed nasal bridge, gum hyperplasia, high-arched narrow palate, long philtrum and dysplastic ears"</div>
+
+
+                <div class="evidence-explanation">Case description documenting gum hyperplasia in Raine syndrome.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10482879" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10482879" target="_blank">PMID:10482879</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We describe a newborn girl with a lethal sclerosing bone dysplasia leading to prenatal skeletal alterations and microcephaly, proptosis, hypoplastic nose and midface, small jaw, cleft palate, hypertrophied gums, intracranial calcifications, and generalized osteosclerosis."</div>
+
+
+                <div class="evidence-explanation">Independent case documenting hypertrophied gums as part of the Raine syndrome phenotype.</div>
 
 
 
@@ -7640,15 +8320,18 @@ This clinical feature is Choanal atresia or stenosis, annotated with Choanal atr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000705" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0000705</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000705" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0000705</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypoplastic amelogenesis imperfecta, annotated with Amelogenesis imperfecta (HP:0000705). HP:0000705 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7668,6 +8351,7 @@ This clinical feature is Hypoplastic amelogenesis imperfecta, annotated with Ame
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7708,10 +8392,10 @@ This clinical feature is Hypoplastic amelogenesis imperfecta, annotated with Ame
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0000175</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0000175</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7722,9 +8406,12 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -7739,6 +8426,7 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7747,6 +8435,31 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
 
 
                 <div class="evidence-explanation">Case description of a Raine syndrome neonate documenting cleft palate within the craniofacial complex.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32299476" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32299476" target="_blank">PMID:32299476</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The most classical phenotype was characterized by a combination of microcephaly, exophthalmos, hypoplastic nose, low-set ears, gum hypertrophy, cleft palate/uvula, and severe midface hypoplasia leading to choanal atresia."</div>
+
+
+                <div class="evidence-explanation">Includes cleft palate/uvula in the classical Raine syndrome phenotype, beyond the single case report.</div>
 
 
 
@@ -7773,18 +8486,23 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
 
                     <span class="phenotype-id">
 
+                        <span class="phenotype-term-label">Multiple suture craniosynostosis</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001363" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0001363</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011324" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0011324</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Multisuture craniosynostosis, annotated with Craniosynostosis (HP:0001363). HP:0001363 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Multisuture craniosynostosis, annotated with Multiple suture craniosynostosis (HP:0011324). HP:0011324 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7804,6 +8522,7 @@ This clinical feature is Multisuture craniosynostosis, annotated with Craniosyno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7844,15 +8563,18 @@ This clinical feature is Multisuture craniosynostosis, annotated with Craniosyno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002645" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0002645</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002645" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0002645</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Wormian bones (HP:0002645). HP:0002645 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7872,6 +8594,7 @@ This clinical feature is Wormian bones (HP:0002645). HP:0002645 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7903,6 +8626,89 @@ This clinical feature is Wormian bones (HP:0002645). HP:0002645 is a phenotype f
             <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Limbs
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-short-distal-phalanges" data-dismech-node="Short distal phalanges" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Short distal phalanges
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Short distal phalanx of finger</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009882" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0009882</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypoplastic distal phalanges, annotated with Short distal phalanx of finger (HP:0009882). HP:0009882 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24039075" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24039075" target="_blank">PMID:24039075</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Our patient had the common craniofacial features as well as, uncommon features such as protruding tongue, short stature, and hypoplastic distal phalanges."</div>
+
+
+                <div class="evidence-explanation">Documents hypoplastic distal phalanges in a patient with a whole-gene FAM20C deletion.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
                     <span class="cat-count">2</span>
                 </summary>
@@ -7921,15 +8727,18 @@ This clinical feature is Wormian bones (HP:0002645). HP:0002645 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002148" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0002148</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002148" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0002148</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypophosphatemia (HP:0002148). HP:0002148 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7949,6 +8758,7 @@ This clinical feature is Hypophosphatemia (HP:0002148). HP:0002148 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7989,15 +8799,18 @@ This clinical feature is Hypophosphatemia (HP:0002148). HP:0002148 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004912" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0004912</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004912" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0004912</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypophosphatemic rickets (HP:0004912). HP:0004912 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8017,6 +8830,7 @@ This clinical feature is Hypophosphatemic rickets (HP:0004912). HP:0004912 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8045,425 +8859,11 @@ This clinical feature is Hypophosphatemic rickets (HP:0004912). HP:0004912 is a 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Nervous System
-                    <span class="cat-count">3</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-neurodevelopmental-delay" data-dismech-node="Neurodevelopmental delay" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Neurodevelopmental delay
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Global developmental delay</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0001263</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32299476" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32299476" target="_blank">PMID:32299476</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"A variable degree of neurodevelopmental delay was seen in the majority of our cases and seizures and hearing or vision involvement were also frequent."</div>
-
-
-                <div class="evidence-explanation">Natural-history data on developmental delay in surviving patients.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-seizures" data-dismech-node="Seizures" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Seizures
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0001250</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32299476" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32299476" target="_blank">PMID:32299476</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"A variable degree of neurodevelopmental delay was seen in the majority of our cases and seizures and hearing or vision involvement were also frequent."</div>
-
-
-                <div class="evidence-explanation">Seizures reported as frequent in the non-lethal natural-history cohort.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-intellectual-disability" data-dismech-node="Intellectual disability" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Intellectual disability
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0001249</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:34360805" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34360805" target="_blank">PMID:34360805</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The milder phenotype is defined by a large spectrum ranging from osteonecrosis to osteosclerosis with additional congenital defects or intellectual disability in some cases."</div>
-
-
-                <div class="evidence-explanation">Systematic phenotype review reports intellectual disability in a subset of non-lethal cases.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:37240249" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37240249" target="_blank">PMID:37240249</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-COMPUTATIONAL">Computational</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Individuals with RNS can have developmental delay, intellectual disability, seizures, and structural brain defects"</div>
-
-
-                <div class="evidence-explanation">Confirms intellectual disability within the reported neurological spectrum. Tagged COMPUTATIONAL to match the paper type (an in silico analysis) and this entry&#39;s other two uses of the same reference.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
             <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Respiratory
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-neonatal-respiratory-distress" data-dismech-node="Neonatal respiratory distress" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Neonatal respiratory distress
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002643" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0002643</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Neonatal respiratory distress (HP:0002643). HP:0002643 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32299476" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32299476" target="_blank">PMID:32299476</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"RS is usually lethal during the neonatal period due to severe respiratory distress."</div>
-
-
-                <div class="evidence-explanation">Documents respiratory distress as the cause of neonatal lethality.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-pulmonary-hypoplasia" data-dismech-node="Pulmonary hypoplasia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Pulmonary hypoplasia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002089" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0002089</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Pulmonary hypoplasia (HP:0002089). HP:0002089 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33676444" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33676444" target="_blank">PMID:33676444</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Severe midface hypoplasia and narrow thorax leading to choanal atresia and pulmonary hypoplasia respectively, contribute to respiratory distress and have been regarded as the causes for early death."</div>
-
-
-                <div class="evidence-explanation">Documents pulmonary hypoplasia from the narrow thorax as a cause of early death.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:17924334" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17924334" target="_blank">PMID:17924334</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Affected individuals survive only days or weeks."</div>
-
-
-                <div class="evidence-explanation">Documents the neonatal-lethal course that pulmonary hypoplasia and airway obstruction drive.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-7">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">6</span>
+                    Musculoskeletal
+                    <span class="cat-count">4</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-generalized-osteosclerosis" data-dismech-node="Generalized osteosclerosis" data-dismech-type="phenotype">
@@ -8480,15 +8880,18 @@ This clinical feature is Pulmonary hypoplasia (HP:0002089). HP:0002089 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005789" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0005789</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005789" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0005789</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Generalized osteosclerosis (HP:0005789). HP:0005789 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8508,6 +8911,7 @@ This clinical feature is Generalized osteosclerosis (HP:0005789). HP:0005789 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8545,20 +8949,23 @@ This clinical feature is Generalized osteosclerosis (HP:0005789). HP:0005789 is 
 
                     <span class="phenotype-id">
 
-                        <span class="phenotype-term-label">Periosteal thickening of long tubular bones</span>
+                        <span class="phenotype-term-label">Periostosis</span>
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006465" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0006465</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030314" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0030314</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Periosteal new bone formation of long bones, annotated with Periosteal thickening of long tubular bones (HP:0006465). HP:0006465 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Periosteal new bone formation, annotated with Periostosis (HP:0030314). HP:0030314 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8578,6 +8985,7 @@ This clinical feature is Periosteal new bone formation of long bones, annotated 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8620,15 +9028,18 @@ This clinical feature is Periosteal new bone formation of long bones, annotated 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002514" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0002514</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002514" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0002514</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cerebral calcification (HP:0002514). HP:0002514 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8648,6 +9059,7 @@ This clinical feature is Cerebral calcification (HP:0002514). HP:0002514 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8675,6 +9087,7 @@ This clinical feature is Cerebral calcification (HP:0002514). HP:0002514 is a ph
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8699,6 +9112,7 @@ This clinical feature is Cerebral calcification (HP:0002514). HP:0002514 is a ph
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8707,100 +9121,6 @@ This clinical feature is Cerebral calcification (HP:0002514). HP:0002514 is a ph
 
 
                 <div class="evidence-explanation">Human background framing in the introduction of a mouse study (hence OTHER, not this paper&#39;s own data), establishing intracranial calcification as a defining feature of Raine syndrome. No proportion is stated, so no frequency band is assigned.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-gum-hyperplasia" data-dismech-node="Gum hyperplasia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Gum hyperplasia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Gingival overgrowth</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000212" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0000212</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Gingival hyperplasia, annotated with Gingival overgrowth (HP:0000212). HP:0000212 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:24959018" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24959018" target="_blank">PMID:24959018</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"There was exophthalmos, small nose with depressed nasal bridge, gum hyperplasia, high-arched narrow palate, long philtrum and dysplastic ears"</div>
-
-
-                <div class="evidence-explanation">Case description documenting gum hyperplasia in Raine syndrome.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:10482879" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10482879" target="_blank">PMID:10482879</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"We describe a newborn girl with a lethal sclerosing bone dysplasia leading to prenatal skeletal alterations and microcephaly, proptosis, hypoplastic nose and midface, small jaw, cleft palate, hypertrophied gums, intracranial calcifications, and generalized osteosclerosis."</div>
-
-
-                <div class="evidence-explanation">Independent case documenting hypertrophied gums as part of the Raine syndrome phenotype.</div>
 
 
 
@@ -8832,15 +9152,18 @@ This clinical feature is Gingival hyperplasia, annotated with Gingival overgrowt
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010766" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0010766</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010766" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0010766</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ectopic calcification (HP:0010766). HP:0010766 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8860,6 +9183,7 @@ This clinical feature is Ectopic calcification (HP:0010766). HP:0010766 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8887,6 +9211,7 @@ This clinical feature is Ectopic calcification (HP:0010766). HP:0010766 is a phe
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8910,9 +9235,20 @@ This clinical feature is Ectopic calcification (HP:0010766). HP:0010766 is a phe
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-short-distal-phalanges" data-dismech-node="Short distal phalanges" data-dismech-type="phenotype">
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-7">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Nervous System
+                    <span class="cat-count">3</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-neurodevelopmental-delay" data-dismech-node="Neurodevelopmental delay" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Short distal phalanges
+                        Neurodevelopmental delay
+
+                        <span class="phenotype-freq">FREQUENT</span>
 
 
 
@@ -8921,20 +9257,23 @@ This clinical feature is Ectopic calcification (HP:0010766). HP:0010766 is a phe
 
                     <span class="phenotype-id">
 
-                        <span class="phenotype-term-label">Short distal phalanx of finger</span>
+                        <span class="phenotype-term-label">Global developmental delay</span>
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009882" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0009882</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypoplastic distal phalanges, annotated with Short distal phalanx of finger (HP:0009882). HP:0009882 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8946,10 +9285,10 @@ This clinical feature is Hypoplastic distal phalanges, annotated with Short dist
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:24039075" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:32299476" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24039075" target="_blank">PMID:24039075</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32299476" target="_blank">PMID:32299476</a>
                     </span>
 
 
@@ -8957,14 +9296,366 @@ This clinical feature is Hypoplastic distal phalanges, annotated with Short dist
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"Our patient had the common craniofacial features as well as, uncommon features such as protruding tongue, short stature, and hypoplastic distal phalanges."</div>
+                <div class="evidence-snippet">"A variable degree of neurodevelopmental delay was seen in the majority of our cases and seizures and hearing or vision involvement were also frequent."</div>
 
 
-                <div class="evidence-explanation">Documents hypoplastic distal phalanges in a patient with a whole-gene FAM20C deletion.</div>
+                <div class="evidence-explanation">Natural-history data on developmental delay in surviving patients.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-seizures" data-dismech-node="Seizures" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Seizures
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0001250</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32299476" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32299476" target="_blank">PMID:32299476</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A variable degree of neurodevelopmental delay was seen in the majority of our cases and seizures and hearing or vision involvement were also frequent."</div>
+
+
+                <div class="evidence-explanation">Seizures reported as frequent in the non-lethal natural-history cohort.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-intellectual-disability" data-dismech-node="Intellectual disability" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Intellectual disability
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0001249</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34360805" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34360805" target="_blank">PMID:34360805</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The milder phenotype is defined by a large spectrum ranging from osteonecrosis to osteosclerosis with additional congenital defects or intellectual disability in some cases."</div>
+
+
+                <div class="evidence-explanation">Systematic phenotype review reports intellectual disability in a subset of non-lethal cases.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37240249" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37240249" target="_blank">PMID:37240249</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-COMPUTATIONAL">Computational</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Individuals with RNS can have developmental delay, intellectual disability, seizures, and structural brain defects"</div>
+
+
+                <div class="evidence-explanation">Confirms intellectual disability within the reported neurological spectrum. Tagged COMPUTATIONAL to match the paper type (an in silico analysis) and this entry&#39;s other two uses of the same reference.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-8">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Respiratory
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-neonatal-respiratory-distress" data-dismech-node="Neonatal respiratory distress" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Neonatal respiratory distress
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002643" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0002643</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Neonatal respiratory distress (HP:0002643). HP:0002643 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32299476" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32299476" target="_blank">PMID:32299476</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"RS is usually lethal during the neonatal period due to severe respiratory distress."</div>
+
+
+                <div class="evidence-explanation">Documents respiratory distress as the cause of neonatal lethality.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pulmonary-hypoplasia" data-dismech-node="Pulmonary hypoplasia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Pulmonary hypoplasia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002089" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0002089</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pulmonary hypoplasia (HP:0002089). HP:0002089 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33676444" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33676444" target="_blank">PMID:33676444</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Severe midface hypoplasia and narrow thorax leading to choanal atresia and pulmonary hypoplasia respectively, contribute to respiratory distress and have been regarded as the causes for early death."</div>
+
+
+                <div class="evidence-explanation">Documents pulmonary hypoplasia from the narrow thorax as a cause of early death.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17924334" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17924334" target="_blank">PMID:17924334</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Affected individuals survive only days or weeks."</div>
+
+
+                <div class="evidence-explanation">Documents the neonatal-lethal course that pulmonary hypoplasia and airway obstruction drive.</div>
 
 
 
@@ -9052,6 +9743,9 @@ This disease-associated gene is FAM20C (hgnc:22140). hgnc:22140 is a gene from t
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
@@ -9074,6 +9768,7 @@ This disease-associated gene is FAM20C (hgnc:22140). hgnc:22140 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9101,6 +9796,7 @@ This disease-associated gene is FAM20C (hgnc:22140). hgnc:22140 is a gene from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9122,6 +9818,7 @@ This disease-associated gene is FAM20C (hgnc:22140). hgnc:22140 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9209,6 +9906,31 @@ This treatment is neonatal respiratory support and airway management, annotated 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">When Raine syndrome is suspected prenatally, delivery should be planned with immediate neonatal intensive care availability because significant respiratory distress is usually present from birth; airway management for choanal atresia/stenosis is the immediate priority. Care remains supportive — there is no disease-modifying therapy.
 </div>
 
@@ -9253,6 +9975,7 @@ This treatment targets Neonatal respiratory distress (HP:0002643). HP:0002643 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9357,6 +10080,31 @@ This treatment uses alfacalcidol (CHEBI:31186). CHEBI:31186 is a therapeutic age
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Conventional therapy for hypophosphatemic rickets with oral phosphate salts and the active vitamin D analogue alfacalcidol has been used in non-lethal Raine syndrome, but the rickets is reported as scarcely responsive to this regimen.
 </div>
 
@@ -9389,6 +10137,7 @@ This treatment uses alfacalcidol (CHEBI:31186). CHEBI:31186 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9457,6 +10206,7 @@ This treatment targets Hypophosphatemic rickets (HP:0004912). HP:0004912 is a ph
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9478,6 +10228,7 @@ This treatment targets Hypophosphatemic rickets (HP:0004912). HP:0004912 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9544,6 +10295,31 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Extensive restorative and oral surgical intervention is required for the dental sequelae of non-lethal Raine syndrome, including hypoplastic amelogenesis imperfecta and spontaneous recurrent abscesses on non-carious teeth.
 </div>
 
@@ -9588,6 +10364,7 @@ This treatment targets Amelogenesis imperfecta (HP:0000705). HP:0000705 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9654,6 +10431,31 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Autosomal recessive inheritance with a 25% recurrence risk for siblings; consanguinity is common. Carrier testing and prenatal or preimplantation diagnosis are possible once the familial FAM20C variants are known.
 </div>
 
@@ -9676,6 +10478,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9743,6 +10546,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9765,6 +10569,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9814,6 +10619,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9917,6 +10723,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9938,6 +10745,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10029,6 +10837,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10117,6 +10926,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10169,6 +10979,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10287,6 +11098,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10390,6 +11202,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10465,6 +11278,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10486,6 +11300,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10540,6 +11355,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10626,6 +11442,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10647,6 +11464,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10703,6 +11521,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10775,6 +11594,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10796,6 +11616,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10863,6 +11684,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11014,6 +11836,7 @@ This experimental model concerns FAM20C (hgnc:22140). hgnc:22140 is a gene from 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -11035,6 +11858,7 @@ This experimental model concerns FAM20C (hgnc:22140). hgnc:22140 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11164,6 +11988,7 @@ This experimental model concerns FAM20C (hgnc:22140). hgnc:22140 is a gene from 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -11290,6 +12115,7 @@ This experimental model concerns FAM20C (hgnc:22140). hgnc:22140 is a gene from 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -11413,6 +12239,7 @@ This experimental model concerns FAM20C (hgnc:22140). hgnc:22140 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11785,9 +12612,10 @@ pathophysiology:
     - reference: PMID:22900076
       reference_title: The Raine syndrome protein FAM20C is a Golgi kinase that phosphorylates bio-mineralization proteins.
       supports: SUPPORT
+      directness: INDIRECT
       evidence_source: IN_VITRO
       snippet: &#34;we find that FAM20C phosphorylates a biologically active peptide at amino acids essential for inhibition of biomineralization&#34;
-      explanation: Shows FAM20C phosphorylates residues essential for INHIBITION of biomineralization, the biochemical basis for loss of a mineralization brake; the extension to ectopic (extraskeletal) sites is inferred, hence PARTIAL.
+      explanation: Shows FAM20C phosphorylates residues essential for INHIBITION of biomineralization, the biochemical basis for loss of a mineralization brake; the extension to ectopic (extraskeletal) sites is inferred, hence INDIRECT.
   - target: Dental Hard Tissue Mineralization Failure
     description: &gt;
       Ameloblast and odontoblast substrates are left hypophosphorylated.
@@ -11858,6 +12686,41 @@ pathophysiology:
       evidence_source: MODEL_ORGANISM
       snippet: &#34;These results suggested that the hPi diet significantly improved the skeletal development of the Fam20c-deficient mice, implying that hypophosphatemia partially contributed to the skeletal defects in Fam20c-deficient subjects.&#34;
       explanation: Dietary phosphate rescue establishes hypophosphatemia as a causal contributor to the skeletal mineralization defect.
+  - target: Hypophosphatemia
+    description: &gt;
+      Excess intact FGF23 drives renal phosphate wasting, lowering serum
+      phosphate.
+    evidence:
+    - reference: PMID:25026495
+      reference_title: Functional analysis of mutant FAM20C in Raine syndrome with FGF23-related hypophosphatemia.
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &#34;our results suggest that FAM20C suppresses FGF23 production by enhancing DMP1 expression, and inactivating mutations in FAM20C cause FGF23-related hypophosphatemia by decreasing transcription of DMP1.&#34;
+      explanation: Directly attributes the hypophosphatemia of Raine syndrome to FGF23 dysregulation.
+    - reference: PMID:31471673
+      reference_title: Non-lethal Raine Syndrome in a Middle-Aged Woman Caused by a Novel FAM20C Mutation.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;midface hypoplasia, exophthalmos, amelogenesis imperfecta, shortening of distal phalanges, pectus excavatum, and hypophosphatemia due to renal phosphate wasting&#34;
+      explanation: Human documentation that the hypophosphatemia arises from renal phosphate wasting.
+  - target: Hypophosphatemic rickets
+    description: &gt;
+      Chronic FGF23-driven phosphate wasting produces hypophosphatemic rickets,
+      the dominant endocrine feature of the non-lethal form.
+    evidence:
+    - reference: PMID:22615579
+      reference_title: &#34;Inactivation of a novel FGF23 regulator, FAM20C, leads to hypophosphatemic rickets in mice.&#34;
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &#34;both the global and mineralized tissue-specific cKO mice developed hypophosphatemic rickets (but not osteosclerosis), along with a significant downregulation of osteoblast differentiation markers and a dramatic elevation of fibroblast growth factor 23 (FGF23) in the serum and bone.&#34;
+      explanation: In vivo demonstration that FAM20C loss couples FGF23 elevation to hypophosphatemic rickets.
+    - reference: PMID:32299476
+      reference_title: Natural history of non-lethal Raine syndrome during childhood.
+      supports: SUPPORT
+      directness: INDIRECT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Persistent hypophosphatemic rickets was the most striking endocrinological manifestation, which was scarcely responsive to therapy with phosphate salts and alfacalcidol.&#34;
+      explanation: Human documentation of the rickets phenotype itself; the FGF23 mechanism behind it is evidenced by the mouse study, hence INDIRECT for the causal link.
   evidence:
   - reference: PMID:24706917
     reference_title: &#34;Dynamic regulation of FGF23 by Fam20C phosphorylation, GalNAc-T3 glycosylation, and furin proteolysis.&#34;
@@ -12004,9 +12867,19 @@ pathophysiology:
     - reference: PMID:33676444
       reference_title: &#34;Recurrent variant c.1680C&gt;A in FAM20C gene and genotype-phenotype correlation in a patient with Raine syndrome: a case report.&#34;
       supports: SUPPORT
+      directness: INDIRECT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Clinical manifestations include generalized osteosclerosis, craniofacial dysplasia, thoracic hypoplasia and oro-dental anomalies.&#34;
-      explanation: Lists thoracic hypoplasia alongside osteosclerosis as a skeletal manifestation; the causal ordering is inferred, hence PARTIAL.
+      explanation: Lists thoracic hypoplasia alongside osteosclerosis as a skeletal manifestation; the causal ordering is inferred, hence INDIRECT.
+  - target: Generalized osteosclerosis
+    description: &gt;
+      Summary edge: this node is the tissue-level process whose direct clinical
+      readout is the generalized osteosclerosis phenotype.
+  - target: Periosteal bone formation
+    description: &gt;
+      Summary edge: periosteal new bone formation is the second radiographic
+      readout of this process and the feature that distinguishes Raine syndrome
+      from osteopetrosis.
   evidence:
   - reference: PMID:25019372
     reference_title: &#34;Raine syndrome: an overview.&#34;
@@ -12037,6 +12910,10 @@ pathophysiology:
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Severe midface hypoplasia and narrow thorax leading to choanal atresia and pulmonary hypoplasia respectively, contribute to respiratory distress and have been regarded as the causes for early death.&#34;
       explanation: Attributes neonatal respiratory distress and early death to pulmonary hypoplasia arising from the narrow thorax.
+  - target: Pulmonary hypoplasia
+    description: &gt;
+      Summary edge: restricted lung growth within the narrow thorax is the
+      pulmonary hypoplasia phenotype itself.
   evidence:
   - reference: PMID:33676444
     reference_title: &#34;Recurrent variant c.1680C&gt;A in FAM20C gene and genotype-phenotype correlation in a patient with Raine syndrome: a case report.&#34;
@@ -12051,6 +12928,11 @@ pathophysiology:
     from choanal atresia/stenosis plus pulmonary hypoplasia from the narrow
     thorax produce severe respiratory distress from birth, the usual proximate
     cause of death within days to weeks.
+  downstream:
+  - target: Neonatal respiratory distress
+    description: &gt;
+      Summary edge: this organism-level failure presents clinically as severe
+      neonatal respiratory distress from birth.
   evidence:
   - reference: PMID:32299476
     reference_title: Natural history of non-lethal Raine syndrome during childhood.
@@ -12091,6 +12973,50 @@ pathophysiology:
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;The most common neonatal comorbidity was respiratory distress secondary to choanal atresia.&#34;
       explanation: Directly links choanal atresia to neonatal respiratory compromise.
+  - target: Proptosis (exophthalmos)
+    description: &gt;
+      Increased ossification of the skull and facial bones shallows the orbits,
+      producing the severe proptosis.
+    evidence:
+    - reference: PMID:33676444
+      reference_title: &#34;Recurrent variant c.1680C&gt;A in FAM20C gene and genotype-phenotype correlation in a patient with Raine syndrome: a case report.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;The increased ossification of the skull and facial bones underlies the characteristic facial features of RS, which include narrow prominent forehead, proptosis, depressed nasal bridge, and midface hypoplasia.&#34;
+      explanation: States that skull and facial over-ossification underlies proptosis.
+  - target: Midface hypoplasia
+    description: &gt;
+      Over-ossified facial bones fail to develop normally, leaving the midface
+      underdeveloped.
+    evidence:
+    - reference: PMID:33676444
+      reference_title: &#34;Recurrent variant c.1680C&gt;A in FAM20C gene and genotype-phenotype correlation in a patient with Raine syndrome: a case report.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;The increased ossification of the skull and facial bones underlies the characteristic facial features of RS, which include narrow prominent forehead, proptosis, depressed nasal bridge, and midface hypoplasia.&#34;
+      explanation: States that skull and facial over-ossification underlies midface hypoplasia.
+  - target: Depressed nasal bridge
+    description: &gt;
+      The same craniofacial over-ossification underlies the depressed nasal
+      bridge and short, hypoplastic nose.
+    evidence:
+    - reference: PMID:33676444
+      reference_title: &#34;Recurrent variant c.1680C&gt;A in FAM20C gene and genotype-phenotype correlation in a patient with Raine syndrome: a case report.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;The increased ossification of the skull and facial bones underlies the characteristic facial features of RS, which include narrow prominent forehead, proptosis, depressed nasal bridge, and midface hypoplasia.&#34;
+      explanation: States that skull and facial over-ossification underlies the depressed nasal bridge.
+  - target: Choanal atresia or stenosis
+    description: &gt;
+      Severe midface hypoplasia narrows or occludes the posterior nasal
+      apertures, producing choanal atresia or stenosis.
+    evidence:
+    - reference: PMID:32299476
+      reference_title: Natural history of non-lethal Raine syndrome during childhood.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;The most common clinical features are microcephaly, exophthalmos, hypoplastic nose and severe midface hypoplasia, leading to choanal atresia.&#34;
+      explanation: Directly states that severe midface hypoplasia leads to choanal atresia.
   evidence:
   - reference: PMID:25019372
     reference_title: &#34;Raine syndrome: an overview.&#34;
@@ -12126,6 +13052,16 @@ pathophysiology:
     calcification without skeletal or dental defects, indicating that local loss
     of FAM20C function within the brain is sufficient. Ectopic calcification also
     occurs in soft tissue and solid organs in longer-surviving patients.
+  downstream:
+  - target: Intracranial calcification
+    description: &gt;
+      Summary edge: ectopic mineral deposition within the brain is the
+      intracranial calcification phenotype, typically periventricular and
+      involving the basal ganglia and corpus callosum.
+  - target: Ectopic soft tissue and solid organ calcification
+    description: &gt;
+      Summary edge: the same ectopic mineralization process deposits mineral in
+      soft tissue and solid organs of longer-surviving patients.
   evidence:
   - reference: PMID:36914045
     reference_title: &#34;Intracranial calcification in Fam20c-deficient mice recapitulates human Raine syndrome.&#34;
@@ -12182,6 +13118,18 @@ pathophysiology:
     term:
       id: GO:0031214
       label: biomineral tissue development
+  downstream:
+  - target: Hypoplastic amelogenesis imperfecta
+    description: &gt;
+      Failed enamel matrix mineralization presents clinically as hypoplastic
+      amelogenesis imperfecta affecting all teeth.
+    evidence:
+    - reference: PMID:25928877
+      reference_title: Variability of systemic and oro-dental phenotype in two families with non-lethal Raine syndrome with FAM20C mutations.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;a profound failure of dental enamel formation leading to a distinctive hypoplastic AI in all teeth should alert clinicians to the possibility of FAM20C mutations.&#34;
+      explanation: Directly states that the enamel formation failure leads to the hypoplastic AI phenotype.
   evidence:
   - reference: PMID:25928877
     reference_title: &#34;Variability of systemic and oro-dental phenotype in two families with non-lethal Raine syndrome with FAM20C mutations.&#34;
@@ -12266,6 +13214,18 @@ pathophysiology:
     term:
       id: CL:0002552
       label: fibroblast of gingiva
+  downstream:
+  - target: Gum hyperplasia
+    description: &gt;
+      Fibrotic, calcified expansion of the gingival ECM is the tissue substrate
+      of the gum hyperplasia seen clinically.
+    evidence:
+    - reference: PMID:38664418
+      reference_title: Gingival proteomics reveals the role of TGF beta and YAP/TAZ signaling in Raine syndrome fibrosis.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;gingival fibrosis and calcifications are associated with, and most likely caused by excessed ECM production and disorganization&#34;
+      explanation: Attributes the clinical gingival overgrowth phenotype to the excessive, disorganized ECM produced by activated fibroblasts.
   evidence:
   - reference: PMID:38664418
     reference_title: Gingival proteomics reveals the role of TGF beta and YAP/TAZ signaling in Raine syndrome fibrosis.
@@ -12306,10 +13266,10 @@ phenotypes:
     bone dysplasias.
   diagnostic: true
   phenotype_term:
-    preferred_term: Periosteal new bone formation of long bones
+    preferred_term: Periosteal new bone formation
     term:
-      id: HP:0006465
-      label: Periosteal thickening of long tubular bones
+      id: HP:0030314
+      label: Periostosis
   evidence:
   - reference: PMID:33676444
     reference_title: &#34;Recurrent variant c.1680C&gt;A in FAM20C gene and genotype-phenotype correlation in a patient with Raine syndrome: a case report.&#34;
@@ -12600,6 +13560,12 @@ phenotypes:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;We describe a newborn girl with a lethal sclerosing bone dysplasia leading to prenatal skeletal alterations and microcephaly, proptosis, hypoplastic nose and midface, small jaw, cleft palate, hypertrophied gums, intracranial calcifications, and generalized osteosclerosis.&#34;
     explanation: Case description of a Raine syndrome neonate documenting cleft palate within the craniofacial complex.
+  - reference: PMID:32299476
+    reference_title: Natural history of non-lethal Raine syndrome during childhood.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The most classical phenotype was characterized by a combination of microcephaly, exophthalmos, hypoplastic nose, low-set ears, gum hypertrophy, cleft palate/uvula, and severe midface hypoplasia leading to choanal atresia.&#34;
+    explanation: Includes cleft palate/uvula in the classical Raine syndrome phenotype, beyond the single case report.
 - category: Sensory
   name: Visual impairment
   description: &gt;
@@ -12656,8 +13622,8 @@ phenotypes:
   phenotype_term:
     preferred_term: Multisuture craniosynostosis
     term:
-      id: HP:0001363
-      label: Craniosynostosis
+      id: HP:0011324
+      label: Multiple suture craniosynostosis
   evidence:
   - reference: PMID:38163266
     reference_title: &#34;Raine syndrome: Prenatally identified severe craniofacial phenotype with multisuture synostosis and brain abnormalities associated with variants in FAM20C.&#34;
@@ -12697,12 +13663,19 @@ phenotypes:
       id: HP:0000369
       label: Low-set ears
   evidence:
+  - reference: PMID:32299476
+    reference_title: Natural history of non-lethal Raine syndrome during childhood.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The most classical phenotype was characterized by a combination of microcephaly, exophthalmos, hypoplastic nose, low-set ears, gum hypertrophy, cleft palate/uvula, and severe midface hypoplasia leading to choanal atresia.&#34;
+    explanation: Names low-set ears explicitly as part of the classical Raine syndrome phenotype.
   - reference: PMID:24959018
     reference_title: &#34;Raine syndrome.&#34;
     supports: SUPPORT
+    directness: INDIRECT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;small nose with depressed nasal bridge, gum hyperplasia, high-arched narrow palate, long philtrum and dysplastic ears&#34;
-    explanation: Case report documents dysplastic ears; low-set/dysplastic ears are part of the characteristic facies.
+    explanation: Case report documents dysplastic (not specifically low-set) ears, supporting ear dysmorphism within the same facies - hence INDIRECT for the low-set claim.
 - category: Skeletal
   name: Short distal phalanges
   description: &gt;
@@ -13321,6 +14294,77 @@ discussions:
     evidence_source: MODEL_ORGANISM
     snippet: &#34;Fam20c deficiency in mice does not recapitulate the human disorder, so the underlying pathoetiological mechanisms remain poorly understood.&#34;
     explanation: States the model-human mismatch explicitly.
+- discussion_id: raine_neurosensory_mechanism_gap
+  kind: KNOWLEDGE_GAP
+  prompt: &gt;
+    What mechanism links FAM20C loss to the neurodevelopmental delay,
+    intellectual disability, seizures, microcephaly and hearing/vision
+    involvement of Raine syndrome - are these downstream of intracranial
+    calcification and periventricular brain injury, of dysregulated
+    brain-expressed FAM20C substrates, or of independent processes?
+  rationale: &gt;
+    Intracranial calcification, periventricular gliosis, infarction and
+    leukomalacia co-occur with the neurological phenotypes, but no cited source
+    establishes a causal path from calcification or brain injury to seizures,
+    developmental delay, intellectual disability or microcephaly, and the in
+    silico literature explicitly states that FAM20C brain-target dysregulation
+    is unstudied. The sensory involvement is mechanistically heterogeneous at
+    the case level (severe bilateral hearing loss, auditory neuropathy spectrum
+    disorder, conductive loss from glue ear, and a unilateral visual loss from
+    central retinal artery occlusion), with no unifying mechanism proposed.
+    These phenotypes are therefore left without causal edges rather than wired
+    to the calcification node on inference alone.
+  attaches_to:
+  - phenotypes#Neurodevelopmental delay
+  - phenotypes#Seizures
+  - phenotypes#Intellectual disability
+  - phenotypes#Microcephaly
+  - phenotypes#Hearing impairment
+  - phenotypes#Visual impairment
+  evidence:
+  - reference: PMID:37240249
+    reference_title: &#34;Potential Role of Protein Kinase FAM20C on the Brain in Raine Syndrome, an In Silico Analysis.&#34;
+    supports: SUPPORT
+    evidence_source: COMPUTATIONAL
+    snippet: &#34;Individuals with RNS can have developmental delay, intellectual disability, seizures, and structural brain defects, but little is known about FAM20C brain-target-protein dysregulation or about a potential pathogenesis associated with neurologic features.&#34;
+    explanation: Explicitly states that the pathogenesis of the neurologic features is unknown.
+  - reference: PMID:32299476
+    reference_title: Natural history of non-lethal Raine syndrome during childhood.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Case I presented both severe bilateral hearing loss and a partial unilateral visual loss due to occlusion of the central retinal artery&#34;
+    explanation: Documents case-level sensory findings with disparate proximate causes and no disease-level mechanism.
+- discussion_id: raine_dysmorphic_feature_mechanism_gap
+  kind: KNOWLEDGE_GAP
+  prompt: &gt;
+    Which developmental mechanisms produce the cleft palate, low-set ears,
+    short distal phalanges, wormian bones and multisuture craniosynostosis of
+    Raine syndrome - are they downstream of generalized over-ossification, of
+    hypophosphorylated FAM20C substrates acting in craniofacial and limb
+    development, or independent malformations?
+  rationale: &gt;
+    These features are consistently documented, but the causal statement the
+    literature offers for the craniofacial phenotype (increased ossification of
+    the skull and facial bones) is made only for the facial features - forehead,
+    proptosis, nasal bridge, midface. No cited source articulates a mechanism
+    for palatal shelf fusion failure, ear position, phalangeal hypoplasia or
+    wormian bones, and the multisuture craniosynostosis case report describes
+    but does not explain premature suture fusion. Rather than extend the
+    over-ossification edge to malformations it is not asserted for, these
+    phenotypes are recorded as a mechanistic gap.
+  attaches_to:
+  - phenotypes#Cleft palate
+  - phenotypes#Low-set ears
+  - phenotypes#Short distal phalanges
+  - phenotypes#Wormian bones
+  - phenotypes#Craniosynostosis
+  evidence:
+  - reference: PMID:24039075
+    reference_title: &#34;Hereditary deletion of the entire FAM20C gene in a patient with Raine syndrome.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;In addition, he had wormian bones and pyriform aperture stenosis, features that are usually under diagnosed.&#34;
+    explanation: Documents the minor skeletal features as observed findings without a mechanistic account.
 notes: &gt;
   No GeneReviews chapter exists for Raine syndrome or FAM20C (PubMed searches
   for &#34;Raine syndrome AND GeneReviews&#34; and &#34;FAM20C AND GeneReviews&#34; return no
@@ -13415,6 +14459,29 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Raine_Syndrome</strong> · 2026-07-31T00:59:52Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Raine_Syndrome/2026-07-31T005952Z-claude-code-c49bf6.yaml">View source</a></p>
+                        <p class="research-review-text">Created the Raine syndrome (lethal osteosclerotic bone dysplasia, MONDO:0009821, FAM20C / hgnc:22140) disorder entry.
+
+Deep research: &#34;just research-disorder falcon Raine_Syndrome&#34; (Edison/Falcon, 434 s, 25 citations, 1 markdown artifact committed under research/Raine_Syndrome-deep-research-falcon_artifacts/). NEC preflight against MONDO:0009821 passed - FAM20C was the dominant gene mention (38 occurrences, no competing gene), and the report&#39;s OMIM 259775 and 259660 both match the MONDO xrefs. No GeneReviews chapter exists for Raine syndrome or FAM20C (PubMed esearch for both returned zero hits), so the phenotype baseline was drawn from PMID:25019372, PMID:34360805 and the non-lethal natural-history cohort PMID:32299476.
+
+Curated 9 pathophysiology nodes forming an explicit causal chain: loss of FAM20C Golgi casein kinase activity -&gt; hypophosphorylation of the secreted SIBLING/FGF23 phosphoproteome -&gt; (a) dysregulated FGF23 with renal phosphate wasting, (b) abnormal bone mineralization and osteosclerosis, (c) dental hard tissue mineralization failure; plus craniofacial skeletal overgrowth with airway compromise, ectopic intracranial and soft tissue calcification, and a two-node gingival fibrosis arm declaring conforms_to fibrotic_response#Mesenchymal Cell Activation and fibrotic_response#Excessive ECM Deposition.
+
+Also curated: 22 phenotypes (HPO-bound, subtype-tagged where subtype-specific), lethal vs non-lethal subtypes with the hypomorphic-allele rationale, structured prevalence slots (BELOW_1_IN_1000000 point prevalence plus a CASES_IN_LITERATURE record; the deprecated percentage field was not used), 4 treatments, 2 imaging findings, 2 biochemical markers, differential diagnoses, 4 animal models, and a HUMAN_MODEL_MISMATCH discussion capturing the mouse-osteomalacia versus human-osteosclerosis discrepancy with two proposed experiments.
+
+Evidence: 99 evidence items across 29 PMIDs. Every snippet was independently verified as an exact whitespace-normalized substring of its references_cache abstract (0 failures). Two new references were resolved from Falcon DOI leads via the PMC ID converter and fetched with just fetch-reference: PMID:32101876 (high-phosphate diet rescue in Fam20c-deficient mice) and PMID:37240249 (in silico FAM20C brain substrates).
+
+Validation: just validate (schema + terms + references) passed; just validate-terms passed; compliance 97.9 percent global / 98.3 percent weighted.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -13769,7 +14836,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Raine Syndrome", "mondoId": "MONDO:0009821", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Raine_Syndrome", "yamlRevision": "1c45e7ac65d2"};
+        const OS_CONFIG = {"diseaseName": "Raine Syndrome", "mondoId": "MONDO:0009821", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Raine_Syndrome", "yamlRevision": "2a2bfb29e5fc"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

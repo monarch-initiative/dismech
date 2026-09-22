@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,18 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4115,6 +4192,7 @@ The pale macules are the part that is genuinely not understood, and the most int
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4136,6 +4214,7 @@ The pale macules are the part that is genuinely not understood, and the most int
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4633,6 +4712,7 @@ Neither observation settles it. The functional experiment used exogenous ligand 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4654,6 +4734,7 @@ Neither observation settles it. The functional experiment used exogenous ligand 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4801,6 +4882,7 @@ Neither observation settles it. The functional experiment used exogenous ligand 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4835,6 +4917,13 @@ Neither observation settles it. The functional experiment used exogenous ligand 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-kitlg-gain-of-function-variant-in-the-receptor-binding-motif" data-dismech-node="KITLG Gain-of-Function Variant in the Receptor-Binding Motif" data-dismech-type="pathophysiology">
                 <div class="item-name">KITLG Gain-of-Function Variant in the Receptor-Binding Motif</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">A heterozygous missense substitution in KITLG, almost always within the conserved VTNNV motif spanning amino acids 33-37 in exon 2. The motif lies on a conserved beta-strand that forms the interface with the KIT receptor, so a substitution there alters the ligand-receptor contact rather than destabilising the protein. Reported alleles include p.Val33Ala, p.Thr34Pro, p.Thr34Ile, p.Asn35Ile, p.Asn35Lys, p.Asn36Ser, and p.Lys38Thr - the last extending the hotspot by one residue, so it is sometimes written VTNNVK, 33-38. Alleles outside the motif are also reported: p.Glu113Lys (c.337G&gt;A, exon 4), described as lying at a different ligand-receptor interaction site; p.Ser78Leu, reported as novel with no stated structural interpretation; and a pair of exon-4 substitutions at c.329A.</div>
 
@@ -4921,6 +5010,8 @@ This genetic context concerns KITLG (hgnc:6343). hgnc:6343 is a gene from the HU
 
 
 
+
+
         <span class="tag tag-classification">allele_type: missense</span>
 
 
@@ -4936,6 +5027,9 @@ This genetic context concerns KITLG (hgnc:6343). hgnc:6343 is a gene from the HU
         <span class="tag tag-classification">functional_impact_category: GAIN_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -5027,6 +5121,7 @@ This pathophysiological event involves increased stem cell factor receptor bindi
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5048,6 +5143,7 @@ This pathophysiological event involves increased stem cell factor receptor bindi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5075,6 +5171,7 @@ This pathophysiological event involves increased stem cell factor receptor bindi
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5099,6 +5196,13 @@ This pathophysiological event involves increased stem cell factor receptor bindi
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-enhanced-kitlg-kit-signaling-in-epidermal-melanocytes" data-dismech-node="Enhanced KITLG-KIT Signaling in Epidermal Melanocytes" data-dismech-type="pathophysiology">
                 <div class="item-name">Enhanced KITLG-KIT Signaling in Epidermal Melanocytes</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Keratinocyte-derived KITLG binds KIT on neighbouring epidermal melanocytes, dimerising the receptor and activating its tyrosine kinase. That this axis is rate-limiting for epidermal pigment is well supported: adding soluble KITLG to grafted human skin darkens it, and blocking either KITLG or KIT depletes melanocytes.
 What is not established is the step this node names. The proposal is that the mutant ligand engages KIT more effectively than wild type, and the sources state it as a possibility rather than a finding - the affinity increase is inferred from homology modelling of the substituted residues, and no binding assay, receptor phosphorylation measurement, or dose-response comparison of mutant against wild-type ligand has been published. Every functional experiment in this literature reads out melanin or transcription downstream, not receptor engagement itself. The node is graded PROVISIONAL for that reason, and the evidence attached below characterises the wild-type axis rather than the mutant&#39;s behaviour on it.</div>
@@ -5223,6 +5327,7 @@ This pathophysiological event involves increased Kit signaling pathway (GO:00381
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5244,6 +5349,7 @@ This pathophysiological event involves increased Kit signaling pathway (GO:00381
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5271,6 +5377,7 @@ This pathophysiological event involves increased Kit signaling pathway (GO:00381
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5295,6 +5402,13 @@ This pathophysiological event involves increased Kit signaling pathway (GO:00381
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-upregulated-mitf-driven-melanogenic-transcription" data-dismech-node="Upregulated MITF-Driven Melanogenic Transcription" data-dismech-type="pathophysiology">
                 <div class="item-name">Upregulated MITF-Driven Melanogenic Transcription</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Downstream of the strengthened KIT signal the melanocyte&#39;s melanogenic transcriptional program is upregulated, with MITF - the master regulator of the melanocyte lineage and of the pigment-synthesis genes it controls - the most prominently affected node. This step is graded PROVISIONAL rather than ESTABLISHED because the transcriptomic evidence comes from one base-edited cell model of one exon-4 allele, not from patient melanocytes or from the common VTNNV-motif alleles.</div>
 
@@ -5418,6 +5532,7 @@ This pathophysiological event involves increased positive regulation of melanin 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5440,6 +5555,13 @@ This pathophysiological event involves increased positive regulation of melanin 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-tyrosinase-activity" data-dismech-node="Increased Tyrosinase Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Tyrosinase Activity</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">The rate-limiting enzyme of melanogenesis runs faster. Tyrosinase activity was significantly higher in cells exposed to the mutant soluble ligand than in cells exposed to wild type. Graded PROVISIONAL rather than ESTABLISHED: this is one 2009 experiment on one allele, and it was done by adding recombinant soluble ligand to A375 melanoma cells rather than in melanocytes expressing the variant from its own locus, so the measurement stands but has not been independently reproduced or shown in a physiological cell context.</div>
 
@@ -5563,6 +5685,7 @@ This pathophysiological event involves increased tyrosinase activity (GO:0004503
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5585,6 +5708,13 @@ This pathophysiological event involves increased tyrosinase activity (GO:0004503
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-melanocyte-melanin-content" data-dismech-node="Increased Melanocyte Melanin Content" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Melanocyte Melanin Content</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">The melanocyte accumulates more pigment. Melanin content roughly doubled in cells exposed to the mutant ligand relative to wild type, which is the closest thing in this literature to a direct functional demonstration that the variant is a gain of function on melanin synthesis rather than a rare allele that merely segregates. It carries the same caveat as the tyrosinase measurement above - one paper, one allele, exogenous ligand on a melanoma line - which is why it is PROVISIONAL.</div>
 
@@ -5708,6 +5838,7 @@ This pathophysiological event involves increased melanin biosynthetic process (G
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5730,6 +5861,13 @@ This pathophysiological event involves increased melanin biosynthetic process (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-epidermal-melanin-accumulation" data-dismech-node="Progressive Epidermal Melanin Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Epidermal Melanin Accumulation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Sustained overproduction of melanin across the epidermis produces the clinical lesion: a diffuse, partly blotchy brown background present at or shortly after birth that enlarges and multiplies with age rather than remitting. The distribution is generalised - face, neck, trunk, and limbs, and frequently the palms, soles, and oral mucosa - and adnexal structures are spared.</div>
 
@@ -5859,6 +5997,7 @@ This pathophysiological event involves increased pigmentation (GO:0043473). GO:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5880,6 +6019,7 @@ This pathophysiological event involves increased pigmentation (GO:0043473). GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5905,6 +6045,13 @@ This pathophysiological event involves increased pigmentation (GO:0043473). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-somatic-reversion-of-the-kitlg-locus-in-skin" data-dismech-node="Somatic Reversion of the KITLG Locus in Skin" data-dismech-type="pathophysiology">
                 <div class="item-name">Somatic Reversion of the KITLG Locus in Skin</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">A candidate explanation for the hypopigmented component, and one that would make the &#34;hypo&#34; in the disease name a misnomer. In a patient with hypopigmented macules and striae distributed along the lines of Blaschko, digital PCR found copy-neutral loss of heterozygosity at the KITLG locus in DNA from the pale lesion but not in blood - consistent with clones that lost the mutant allele, reverted to ordinary KITLG-KIT signalling, and appear pale only by contrast with the surrounding hyperpigmented skin. Blaschko-linear distribution is the expected pattern for a clonal somatic event in keratinocyte or melanocyte lineages, which is what makes the observation more than a coincidence.
 Graded HYPOTHETICAL: this is a single patient carrying a single allele, and the cafe-au-lait macules in the same individual did not follow Blaschko lines and superimposed on the hypopigmented striae, so they require a separate mechanism this one does not supply. The general question is explicitly open in the literature.</div>
@@ -5991,6 +6138,7 @@ This pathophysiological event involves epidermal melanocyte (CL:2000000). CL:200
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6015,6 +6163,7 @@ This pathophysiological event involves epidermal melanocyte (CL:2000000). CL:200
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6036,6 +6185,7 @@ This pathophysiological event involves epidermal melanocyte (CL:2000000). CL:200
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6102,6 +6252,7 @@ One caution on how far any of this can be pushed: the family it comes from was s
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6126,6 +6277,7 @@ One caution on how far any of this can be pushed: the family it comes from was s
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6147,6 +6299,7 @@ One caution on how far any of this can be pushed: the family it comes from was s
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6192,7 +6345,7 @@ One caution on how far any of this can be pushed: the family it comes from was s
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Enhanced KITLG-KIT Signaling in Epidermal Melanocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Keratinocyte-derived KITLG binds KIT on neighbouring epidermal melanocytes, dimerising the receptor and activating its tyrosine kinase. That this axis is rate-limiting for epidermal pigment is well supported: adding soluble KITLG to grafted human skin darkens it, and blocking either KITLG or KIT depletes melanocytes.\\nWhat is not established is the step this node names. The proposal is that the mutant ligand engages KIT more effectively than wild type, and the sources state it as a possibility rather than a finding - the affinity increase is inferred from homology modelling of the substituted residues, and no binding assay, receptor phosphorylation measurement, or dose-response comparison of mutant against wild-type ligand has been published. Every functional experiment in this literature reads out melanin or transcription downstream, not receptor engagement itself. The node is graded PROVISIONAL for that reason, and the evidence attached below characterises the wild-type axis rather than the mutant\u0027s behaviour on it.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"epidermal melanocyte\"], \"biological_processes\": [\"Kit signaling pathway\"]}}, {\"id\": \"Hypopigmented Macules and Streaks\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Discrete pale macules, and in at least one reported patient hypopigmented striae following the lines of Blaschko. The Blaschko-linear form is the observation that raised revertant mosaicism as the underlying mechanism.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0020073\"}}, {\"id\": \"Increased Melanocyte Melanin Content\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The melanocyte accumulates more pigment. Melanin content roughly doubled in cells exposed to the mutant ligand relative to wild type, which is the closest thing in this literature to a direct functional demonstration that the variant is a gain of function on melanin synthesis rather than a rare allele that merely segregates. It carries the same caveat as the tyrosinase measurement above - one paper, one allele, exogenous ligand on a melanoma line - which is why it is PROVISIONAL.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"epidermal melanocyte\"], \"biological_processes\": [\"melanin biosynthetic process\"]}}, {\"id\": \"Increased Tyrosinase Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The rate-limiting enzyme of melanogenesis runs faster. Tyrosinase activity was significantly higher in cells exposed to the mutant soluble ligand than in cells exposed to wild type. Graded PROVISIONAL rather than ESTABLISHED: this is one 2009 experiment on one allele, and it was done by adding recombinant soluble ligand to A375 melanoma cells rather than in melanocytes expressing the variant from its own locus, so the measurement stands but has not been independently reproduced or shown in a physiological cell context.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"epidermal melanocyte\"], \"molecular_functions\": [\"tyrosinase activity\"]}}, {\"id\": \"K14-SCF transgenic mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The closest functional analogue of FPHH, and it is an analogue of the mechanism rather than of the mutation. It puts extra KITLG where FPHH puts overactive KITLG - in the keratinocytes - and the skin responds with epidermal hyperpigmentation, which is the direction FPHH goes.\\nIt also speaks to a question this entry leaves open. The pigment increase came with epidermal melanocytosis, meaning more melanocytes in the interfollicular epidermis, so excess keratinocyte KITLG signal can expand the melanocyte population and not merely drive each cell harder. That is the same reading the FPHH immunohistochemistry supports and the opposite of what this entry\u0027s pathograph currently models.\"}, {\"id\": \"KITLG Gain-of-Function Variant in the Receptor-Binding Motif\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A heterozygous missense substitution in KITLG, almost always within the conserved VTNNV motif spanning amino acids 33-37 in exon 2. The motif lies on a conserved beta-strand that forms the interface with the KIT receptor, so a substitution there alters the ligand-receptor contact rather than destabilising the protein. Reported alleles include p.Val33Ala, p.Thr34Pro, p.Thr34Ile, p.Asn35Ile, p.Asn35Lys, p.Asn36Ser, and p.Lys38Thr - the last extending the hotspot by one residue, so it is sometimes written VTNNVK, 33-38. Alleles outside the motif are also reported: p.Glu113Lys (c.337G\u003eA, exon 4), described as lying at a different ligand-receptor interaction site; p.Ser78Leu, reported as novel with no stated structural interpretation; and a pair of exon-4 substitutions at c.329A.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"keratinocyte\"], \"molecular_functions\": [\"stem cell factor receptor binding\"], \"genetic_context\": {\"allele_type\": \"missense\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"GAIN_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"KITLG\", \"id\": \"hgnc:6343\"}]}}}, {\"id\": \"Lentigines\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Small, sharply demarcated dark macules scattered among the other lesions. The one source that ranks the lesions puts lentigines ahead of cafe-au-lait macules, which it calls only sometimes present; neither is quantified, so no frequency band is asserted here.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001003\"}}, {\"id\": \"Oral Mucosal Pigmentation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pigmentation of the oral mucosa alongside the cutaneous lesions. It is the feature most likely to bring a patient to a dentist rather than a dermatologist, and its presence is part of why Peutz-Jeghers syndrome and Addison disease sit in the differential. No frequency band is given: the KITLG series describe mucosal involvement as frequent while the same paper reports a pedigree with no mucosal disease, and there is no denominator anywhere in this literature to adjudicate between them.\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0010284\"}}, {\"id\": \"Progressive Diffuse Hyperpigmentation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The defining and universal feature. Diffuse, partly blotchy hyperpigmented patches present at birth or in early infancy, enlarging and increasing in number with age across face, neck, trunk, and limbs, and frequently involving palms, soles, and oral mucosa.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0007505\"}}, {\"id\": \"Progressive Epidermal Melanin Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sustained overproduction of melanin across the epidermis produces the clinical lesion: a diffuse, partly blotchy brown background present at or shortly after birth that enlarges and multiplies with age rather than remitting. The distribution is generalised - face, neck, trunk, and limbs, and frequently the palms, soles, and oral mucosa - and adnexal structures are spared.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"pigmentation\"], \"animal_models\": [{\"name\": \"K14-SCF transgenic mouse\", \"species\": \"Mouse\", \"genotype\": \"Human keratin 14 promoter driving epidermal keratinocyte expression of stem cell factor (KITLG), in membrane-bound and membrane/soluble transgene variants\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Excess keratinocyte-derived KITLG produces epidermal hyperpigmentation, reproducing the direction of effect but by overexpressing wild-type ligand rather than by the gain-of-function substitution that causes the human disease.\"}]}}, {\"id\": \"Somatic Reversion of the KITLG Locus in Skin\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A candidate explanation for the hypopigmented component, and one that would make the \\\"hypo\\\" in the disease name a misnomer. In a patient with hypopigmented macules and striae distributed along the lines of Blaschko, digital PCR found copy-neutral loss of heterozygosity at the KITLG locus in DNA from the pale lesion but not in blood - consistent with clones that lost the mutant allele, reverted to ordinary KITLG-KIT signalling, and appear pale only by contrast with the surrounding hyperpigmented skin. Blaschko-linear distribution is the expected pattern for a clonal somatic event in keratinocyte or melanocyte lineages, which is what makes the observation more than a coincidence.\\nGraded HYPOTHETICAL: this is a single patient carrying a single allele, and the cafe-au-lait macules in the same individual did not follow Blaschko lines and superimposed on the hypopigmented striae, so they require a separate mechanism this one does not supply. The general question is explicitly open in the literature.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"epidermal melanocyte\"]}}, {\"id\": \"Sun exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Ultraviolet exposure deepens existing lesions. It is a modifier of an established genetic disease rather than a cause of it, and it is the only environmental factor reported in this literature - the pedigrees explicitly record no chemical exposure history. It is also the practical reason photoprotection gets recommended even though no photoprotection study exists in this disease.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Upregulated MITF-Driven Melanogenic Transcription\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Downstream of the strengthened KIT signal the melanocyte\u0027s melanogenic transcriptional program is upregulated, with MITF - the master regulator of the melanocyte lineage and of the pigment-synthesis genes it controls - the most prominently affected node. This step is graded PROVISIONAL rather than ESTABLISHED because the transcriptomic evidence comes from one base-edited cell model of one exon-4 allele, not from patient melanocytes or from the common VTNNV-motif alleles.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"epidermal melanocyte\"], \"biological_processes\": [\"positive regulation of melanin biosynthetic process\"]}}], \"edges\": [{\"source\": \"KITLG Gain-of-Function Variant in the Receptor-Binding Motif\", \"target\": \"Enhanced KITLG-KIT Signaling in Epidermal Melanocytes\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"KITLG Gain-of-Function Variant in the Receptor-Binding Motif\", \"target\": \"Somatic Reversion of the KITLG Locus in Skin\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reversion is loss of this germline allele in a somatic clone, so the variant is what the reversion event acts on. The intermediates - what triggers mitotic recombination at this locus, and why it appears to happen often enough to be visible - are unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Enhanced KITLG-KIT Signaling in Epidermal Melanocytes\", \"target\": \"Upregulated MITF-Driven Melanogenic Transcription\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Upregulated MITF-Driven Melanogenic Transcription\", \"target\": \"Increased Tyrosinase Activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Increased Tyrosinase Activity\", \"target\": \"Increased Melanocyte Melanin Content\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Increased Melanocyte Melanin Content\", \"target\": \"Progressive Epidermal Melanin Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Epidermal Melanin Accumulation\", \"target\": \"Progressive Diffuse Hyperpigmentation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Epidermal Melanin Accumulation\", \"target\": \"Lentigines\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Epidermal Melanin Accumulation\", \"target\": \"Oral Mucosal Pigmentation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Epidermal Melanin Accumulation\", \"target\": \"Somatic Reversion of the KITLG Locus in Skin\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The hyperpigmented background is what makes a reverted clone visible at all - a patch of normally pigmented skin only reads as hypopigmented against it. This edge records that dependency rather than a causal push toward reversion.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Somatic Reversion of the KITLG Locus in Skin\", \"target\": \"Hypopigmented Macules and Streaks\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Sun exposure\", \"target\": \"Progressive Epidermal Melanin Accumulation\", \"predicate\": \"exacerbates\", \"is_orphan\": false, \"description\": \"Sun exposure darkens lesional skin further, on top of the constitutive drive from the KITLG variant.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"K14-SCF transgenic mouse\", \"target\": \"Progressive Epidermal Melanin Accumulation\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Excess keratinocyte-derived KITLG produces epidermal hyperpigmentation, reproducing the direction of effect but by overexpressing wild-type ligand rather than by the gain-of-function substitution that causes the human disease.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Three gaps between this and FPHH. The transgene overexpresses wild-type SCF, so it models too much signal rather than an altered ligand-receptor interface, and it cannot speak to whether the FPHH variants raise binding affinity. Normal mouse interfollicular epidermis has almost no melanocytes, so the baseline being corrected toward is a species difference rather than a disease state - the model makes mouse skin more human-like as much as it makes it FPHH-like. And the membrane/soluble variant also produces cutaneous mastocytosis, which is not a feature of FPHH.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Enhanced KITLG-KIT Signaling in Epidermal Melanocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Keratinocyte-derived KITLG binds KIT on neighbouring epidermal melanocytes, dimerising the receptor and activating its tyrosine kinase. That this axis is rate-limiting for epidermal pigment is well supported: adding soluble KITLG to grafted human skin darkens it, and blocking either KITLG or KIT depletes melanocytes.\\nWhat is not established is the step this node names. The proposal is that the mutant ligand engages KIT more effectively than wild type, and the sources state it as a possibility rather than a finding - the affinity increase is inferred from homology modelling of the substituted residues, and no binding assay, receptor phosphorylation measurement, or dose-response comparison of mutant against wild-type ligand has been published. Every functional experiment in this literature reads out melanin or transcription downstream, not receptor engagement itself. The node is graded PROVISIONAL for that reason, and the evidence attached below characterises the wild-type axis rather than the mutant\u0027s behaviour on it.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"epidermal melanocyte\"], \"biological_processes\": [\"Kit signaling pathway\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Hypopigmented Macules and Streaks\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Discrete pale macules, and in at least one reported patient hypopigmented striae following the lines of Blaschko. The Blaschko-linear form is the observation that raised revertant mosaicism as the underlying mechanism.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0020073\"}}, {\"id\": \"Increased Melanocyte Melanin Content\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The melanocyte accumulates more pigment. Melanin content roughly doubled in cells exposed to the mutant ligand relative to wild type, which is the closest thing in this literature to a direct functional demonstration that the variant is a gain of function on melanin synthesis rather than a rare allele that merely segregates. It carries the same caveat as the tyrosinase measurement above - one paper, one allele, exogenous ligand on a melanoma line - which is why it is PROVISIONAL.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"epidermal melanocyte\"], \"biological_processes\": [\"melanin biosynthetic process\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Increased Tyrosinase Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The rate-limiting enzyme of melanogenesis runs faster. Tyrosinase activity was significantly higher in cells exposed to the mutant soluble ligand than in cells exposed to wild type. Graded PROVISIONAL rather than ESTABLISHED: this is one 2009 experiment on one allele, and it was done by adding recombinant soluble ligand to A375 melanoma cells rather than in melanocytes expressing the variant from its own locus, so the measurement stands but has not been independently reproduced or shown in a physiological cell context.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"epidermal melanocyte\"], \"molecular_functions\": [\"tyrosinase activity\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"K14-SCF transgenic mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The closest functional analogue of FPHH, and it is an analogue of the mechanism rather than of the mutation. It puts extra KITLG where FPHH puts overactive KITLG - in the keratinocytes - and the skin responds with epidermal hyperpigmentation, which is the direction FPHH goes.\\nIt also speaks to a question this entry leaves open. The pigment increase came with epidermal melanocytosis, meaning more melanocytes in the interfollicular epidermis, so excess keratinocyte KITLG signal can expand the melanocyte population and not merely drive each cell harder. That is the same reading the FPHH immunohistochemistry supports and the opposite of what this entry\u0027s pathograph currently models.\"}, {\"id\": \"KITLG Gain-of-Function Variant in the Receptor-Binding Motif\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A heterozygous missense substitution in KITLG, almost always within the conserved VTNNV motif spanning amino acids 33-37 in exon 2. The motif lies on a conserved beta-strand that forms the interface with the KIT receptor, so a substitution there alters the ligand-receptor contact rather than destabilising the protein. Reported alleles include p.Val33Ala, p.Thr34Pro, p.Thr34Ile, p.Asn35Ile, p.Asn35Lys, p.Asn36Ser, and p.Lys38Thr - the last extending the hotspot by one residue, so it is sometimes written VTNNVK, 33-38. Alleles outside the motif are also reported: p.Glu113Lys (c.337G\u003eA, exon 4), described as lying at a different ligand-receptor interaction site; p.Ser78Leu, reported as novel with no stated structural interpretation; and a pair of exon-4 substitutions at c.329A.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"keratinocyte\"], \"molecular_functions\": [\"stem cell factor receptor binding\"], \"genetic_context\": {\"allele_type\": \"missense\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"GAIN_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"KITLG\", \"id\": \"hgnc:6343\"}]}, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Lentigines\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Small, sharply demarcated dark macules scattered among the other lesions. The one source that ranks the lesions puts lentigines ahead of cafe-au-lait macules, which it calls only sometimes present; neither is quantified, so no frequency band is asserted here.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001003\"}}, {\"id\": \"Oral Mucosal Pigmentation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pigmentation of the oral mucosa alongside the cutaneous lesions. It is the feature most likely to bring a patient to a dentist rather than a dermatologist, and its presence is part of why Peutz-Jeghers syndrome and Addison disease sit in the differential. No frequency band is given: the KITLG series describe mucosal involvement as frequent while the same paper reports a pedigree with no mucosal disease, and there is no denominator anywhere in this literature to adjudicate between them.\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0010284\"}}, {\"id\": \"Progressive Diffuse Hyperpigmentation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The defining and universal feature. Diffuse, partly blotchy hyperpigmented patches present at birth or in early infancy, enlarging and increasing in number with age across face, neck, trunk, and limbs, and frequently involving palms, soles, and oral mucosa.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0007505\"}}, {\"id\": \"Progressive Epidermal Melanin Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sustained overproduction of melanin across the epidermis produces the clinical lesion: a diffuse, partly blotchy brown background present at or shortly after birth that enlarges and multiplies with age rather than remitting. The distribution is generalised - face, neck, trunk, and limbs, and frequently the palms, soles, and oral mucosa - and adnexal structures are spared.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"pigmentation\"], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"K14-SCF transgenic mouse\", \"species\": \"Mouse\", \"genotype\": \"Human keratin 14 promoter driving epidermal keratinocyte expression of stem cell factor (KITLG), in membrane-bound and membrane/soluble transgene variants\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Excess keratinocyte-derived KITLG produces epidermal hyperpigmentation, reproducing the direction of effect but by overexpressing wild-type ligand rather than by the gain-of-function substitution that causes the human disease.\"}]}}, {\"id\": \"Somatic Reversion of the KITLG Locus in Skin\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A candidate explanation for the hypopigmented component, and one that would make the \\\"hypo\\\" in the disease name a misnomer. In a patient with hypopigmented macules and striae distributed along the lines of Blaschko, digital PCR found copy-neutral loss of heterozygosity at the KITLG locus in DNA from the pale lesion but not in blood - consistent with clones that lost the mutant allele, reverted to ordinary KITLG-KIT signalling, and appear pale only by contrast with the surrounding hyperpigmented skin. Blaschko-linear distribution is the expected pattern for a clonal somatic event in keratinocyte or melanocyte lineages, which is what makes the observation more than a coincidence.\\nGraded HYPOTHETICAL: this is a single patient carrying a single allele, and the cafe-au-lait macules in the same individual did not follow Blaschko lines and superimposed on the hypopigmented striae, so they require a separate mechanism this one does not supply. The general question is explicitly open in the literature.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"epidermal melanocyte\"], \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Sun exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Ultraviolet exposure deepens existing lesions. It is a modifier of an established genetic disease rather than a cause of it, and it is the only environmental factor reported in this literature - the pedigrees explicitly record no chemical exposure history. It is also the practical reason photoprotection gets recommended even though no photoprotection study exists in this disease.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Upregulated MITF-Driven Melanogenic Transcription\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Downstream of the strengthened KIT signal the melanocyte\u0027s melanogenic transcriptional program is upregulated, with MITF - the master regulator of the melanocyte lineage and of the pigment-synthesis genes it controls - the most prominently affected node. This step is graded PROVISIONAL rather than ESTABLISHED because the transcriptomic evidence comes from one base-edited cell model of one exon-4 allele, not from patient melanocytes or from the common VTNNV-motif alleles.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"epidermal melanocyte\"], \"biological_processes\": [\"positive regulation of melanin biosynthetic process\"], \"mechanism_confidence\": \"PROVISIONAL\"}}], \"edges\": [{\"source\": \"KITLG Gain-of-Function Variant in the Receptor-Binding Motif\", \"target\": \"Enhanced KITLG-KIT Signaling in Epidermal Melanocytes\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"KITLG Gain-of-Function Variant in the Receptor-Binding Motif\", \"target\": \"Somatic Reversion of the KITLG Locus in Skin\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reversion is loss of this germline allele in a somatic clone, so the variant is what the reversion event acts on. The intermediates - what triggers mitotic recombination at this locus, and why it appears to happen often enough to be visible - are unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Enhanced KITLG-KIT Signaling in Epidermal Melanocytes\", \"target\": \"Upregulated MITF-Driven Melanogenic Transcription\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Upregulated MITF-Driven Melanogenic Transcription\", \"target\": \"Increased Tyrosinase Activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Increased Tyrosinase Activity\", \"target\": \"Increased Melanocyte Melanin Content\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Increased Melanocyte Melanin Content\", \"target\": \"Progressive Epidermal Melanin Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Epidermal Melanin Accumulation\", \"target\": \"Progressive Diffuse Hyperpigmentation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Epidermal Melanin Accumulation\", \"target\": \"Lentigines\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Epidermal Melanin Accumulation\", \"target\": \"Oral Mucosal Pigmentation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Epidermal Melanin Accumulation\", \"target\": \"Somatic Reversion of the KITLG Locus in Skin\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The hyperpigmented background is what makes a reverted clone visible at all - a patch of normally pigmented skin only reads as hypopigmented against it. This edge records that dependency rather than a causal push toward reversion.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Somatic Reversion of the KITLG Locus in Skin\", \"target\": \"Hypopigmented Macules and Streaks\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Sun exposure\", \"target\": \"Progressive Epidermal Melanin Accumulation\", \"predicate\": \"exacerbates\", \"is_orphan\": false, \"description\": \"Sun exposure darkens lesional skin further, on top of the constitutive drive from the KITLG variant.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"K14-SCF transgenic mouse\", \"target\": \"Progressive Epidermal Melanin Accumulation\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Excess keratinocyte-derived KITLG produces epidermal hyperpigmentation, reproducing the direction of effect but by overexpressing wild-type ligand rather than by the gain-of-function substitution that causes the human disease.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Three gaps between this and FPHH. The transgene overexpresses wild-type SCF, so it models too much signal rather than an altered ligand-receptor interface, and it cannot speak to whether the FPHH variants raise binding affinity. Normal mouse interfollicular epidermis has almost no melanocytes, so the baseline being corrected toward is a species difference rather than a disease state - the model makes mouse skin more human-like as much as it makes it FPHH-like. And the membrane/soluble variant also produces cutaneous mastocytosis, which is not a feature of FPHH.\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6211,9 +6364,9 @@ One caution on how far any of this can be pushed: the family it comes from was s
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Integument<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Head and Neck<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Integument<span class="pill-count">(5)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6222,13 +6375,13 @@ One caution on how far any of this can be pushed: the family it comes from was s
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Integument
+                    Head and Neck
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-cafe-au-lait-macules" data-dismech-node="Cafe-au-lait Macules" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-oral-mucosal-pigmentation" data-dismech-node="Oral Mucosal Pigmentation" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Cafe-au-lait Macules
+                        Oral Mucosal Pigmentation
 
 
 
@@ -6237,17 +6390,17 @@ One caution on how far any of this can be pushed: the family it comes from was s
 
                     <span class="phenotype-id">
 
-                        <span class="phenotype-term-label">Cafe-au-lait spot</span>
+                        <span class="phenotype-term-label">Intra-oral hyperpigmentation</span>
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000957" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000957</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010284" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0010284</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cafe-au-lait spot (HP:0000957). HP:0000957 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Intra-oral hyperpigmentation (HP:0010284). HP:0010284 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6256,16 +6409,19 @@ This clinical feature is Cafe-au-lait spot (HP:0000957). HP:0000957 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:21368769" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:33407466" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21368769" target="_blank">PMID:21368769</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33407466" target="_blank">PMID:33407466</a>
                     </span>
 
 
@@ -6273,23 +6429,24 @@ This clinical feature is Cafe-au-lait spot (HP:0000957). HP:0000957 is a phenoty
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"multiple café-au-lait spots, intermingled with scattered hypopigmented-appearing maculae, and lentigines"</div>
+                <div class="evidence-snippet">"located on the face, neck, trunk and limbs and frequently on the palms, soles and oral mucosa"</div>
 
 
-                <div class="evidence-explanation">Cafe-au-lait macules as a described component of the FPHH phenotype.</div>
+                <div class="evidence-explanation">Oral mucosal involvement in a molecularly confirmed KITLG series - the primary support, since the case report below was never sequenced.</div>
 
 
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:39152874" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:22577587" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39152874" target="_blank">PMID:39152874</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22577587" target="_blank">PMID:22577587</a>
                     </span>
 
 
@@ -6297,14 +6454,40 @@ This clinical feature is Cafe-au-lait spot (HP:0000957). HP:0000957 is a phenoty
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"On examination, multiple diffuse lentigines were observed on his face, trunk, and extremities, accompanied by multiple CALMs and scattered hypopigmented macules of varying sizes"</div>
+                <div class="evidence-snippet">"hyperpigmented patches in the skin and mucous membranes, present in early infancy, and increase in size and number with age"</div>
 
 
-                <div class="evidence-explanation">A single-patient examination finding recording cafe-au-lait macules alongside lentigines and hypopigmented macules, and their appearance after the initial hyperpigmentation.</div>
+                <div class="evidence-explanation">Records mucous-membrane involvement as part of the characteristic distribution. Graded PARTIAL because this 2012 case report predates molecular testing in the patient and carries no KITLG genotype, so it cannot be tied to this entry&#39;s entity with certainty.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22577587" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22577587" target="_blank">PMID:22577587</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"who presented with a peculiar progressive oral pigmentation disorder"</div>
+
+
+                <div class="evidence-explanation">A worked case in which oral pigmentation was the presenting complaint. Same caveat - clinically diagnosed &#34;FPH&#34;, not genotyped.</div>
 
 
 
@@ -6325,7 +6508,7 @@ This clinical feature is Cafe-au-lait spot (HP:0000957). HP:0000957 is a phenoty
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
+                    Integument
                     <span class="cat-count">5</span>
                 </summary>
 
@@ -6392,6 +6575,9 @@ This clinical feature is Progressive hyperpigmentation (HP:0007505), qualified a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6406,6 +6592,7 @@ This clinical feature is Progressive hyperpigmentation (HP:0007505), qualified a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6430,6 +6617,7 @@ This clinical feature is Progressive hyperpigmentation (HP:0007505), qualified a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6486,6 +6674,9 @@ This clinical feature is Mixed hypo- and hyperpigmentation of the skin (HP:00091
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6500,6 +6691,7 @@ This clinical feature is Mixed hypo- and hyperpigmentation of the skin (HP:00091
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6524,6 +6716,7 @@ This clinical feature is Mixed hypo- and hyperpigmentation of the skin (HP:00091
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6578,6 +6771,9 @@ This clinical feature is Hypopigmented macule (HP:0020073). HP:0020073 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6595,6 +6791,7 @@ This clinical feature is Hypopigmented macule (HP:0020073). HP:0020073 is a phen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6603,6 +6800,105 @@ This clinical feature is Hypopigmented macule (HP:0020073). HP:0020073 is a phen
 
 
                 <div class="evidence-explanation">Documents both the discrete macules and the Blaschko-linear striae.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cafe-au-lait-macules" data-dismech-node="Cafe-au-lait Macules" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Cafe-au-lait Macules
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Cafe-au-lait spot</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000957" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000957</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cafe-au-lait spot (HP:0000957). HP:0000957 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21368769" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21368769" target="_blank">PMID:21368769</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"multiple café-au-lait spots, intermingled with scattered hypopigmented-appearing maculae, and lentigines"</div>
+
+
+                <div class="evidence-explanation">Cafe-au-lait macules as a described component of the FPHH phenotype.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39152874" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39152874" target="_blank">PMID:39152874</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"On examination, multiple diffuse lentigines were observed on his face, trunk, and extremities, accompanied by multiple CALMs and scattered hypopigmented macules of varying sizes"</div>
+
+
+                <div class="evidence-explanation">A single-patient examination finding recording cafe-au-lait macules alongside lentigines and hypopigmented macules, and their appearance after the initial hyperpigmentation.</div>
 
 
 
@@ -6634,15 +6930,18 @@ This clinical feature is Hypopigmented macule (HP:0020073). HP:0020073 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001003" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001003</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001003" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001003</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Multiple lentigines (HP:0001003). HP:0001003 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6665,6 +6964,7 @@ This clinical feature is Multiple lentigines (HP:0001003). HP:0001003 is a pheno
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6673,124 +6973,6 @@ This clinical feature is Multiple lentigines (HP:0001003). HP:0001003 is a pheno
 
 
                 <div class="evidence-explanation">Lentigines listed among the characteristic lesions, with cafe-au-lait macules noted as only sometimes present.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-oral-mucosal-pigmentation" data-dismech-node="Oral Mucosal Pigmentation" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Oral Mucosal Pigmentation
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Intra-oral hyperpigmentation</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010284" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0010284</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Intra-oral hyperpigmentation (HP:0010284). HP:0010284 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (3 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33407466" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33407466" target="_blank">PMID:33407466</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"located on the face, neck, trunk and limbs and frequently on the palms, soles and oral mucosa"</div>
-
-
-                <div class="evidence-explanation">Oral mucosal involvement in a molecularly confirmed KITLG series - the primary support, since the case report below was never sequenced.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:22577587" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22577587" target="_blank">PMID:22577587</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"hyperpigmented patches in the skin and mucous membranes, present in early infancy, and increase in size and number with age"</div>
-
-
-                <div class="evidence-explanation">Records mucous-membrane involvement as part of the characteristic distribution. Graded PARTIAL because this 2012 case report predates molecular testing in the patient and carries no KITLG genotype, so it cannot be tied to this entry&#39;s entity with certainty.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:22577587" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22577587" target="_blank">PMID:22577587</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"who presented with a peculiar progressive oral pigmentation disorder"</div>
-
-
-                <div class="evidence-explanation">A worked case in which oral pigmentation was the presenting complaint. Same caveat - clinically diagnosed &#34;FPH&#34;, not genotyped.</div>
 
 
 
@@ -6880,6 +7062,9 @@ This disease-associated gene is KITLG (hgnc:6343). hgnc:6343 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (7 references)
@@ -6894,6 +7079,7 @@ This disease-associated gene is KITLG (hgnc:6343). hgnc:6343 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6921,6 +7107,7 @@ This disease-associated gene is KITLG (hgnc:6343). hgnc:6343 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6942,6 +7129,7 @@ This disease-associated gene is KITLG (hgnc:6343). hgnc:6343 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7128,6 +7316,31 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">The intervention with the clearest indication, and effectively the only one specific to the disease rather than borrowed from general dyschromia management. Autosomal dominant transmission carries a 50% recurrence risk to offspring, penetrance has been described as reduced, and de novo cases occur - including a demonstrated de novo exon-4 allele - so unaffected parents do not exclude transmissible disease in the proband&#39;s own children.</div>
 
 
@@ -7149,6 +7362,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7237,6 +7451,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7285,6 +7500,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7361,6 +7577,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7412,6 +7629,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7486,6 +7704,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7584,6 +7803,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7649,6 +7869,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7722,6 +7943,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7743,6 +7965,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7816,6 +8039,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7883,6 +8107,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8083,6 +8308,7 @@ This experimental model concerns KITLG (hgnc:6343). hgnc:6343 is a gene from the
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8122,6 +8348,7 @@ This experimental model concerns KITLG (hgnc:6343). hgnc:6343 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8166,6 +8393,7 @@ This experimental model concerns KITLG (hgnc:6343). hgnc:6343 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9568,6 +9796,104 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Familial Progressive Hyperpigmentation With Or Without Hypopigmentation</strong> · 2026-08-29T00:27:11Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Familial_Progressive_Hyperpigmentation_With_Or_Without_Hypopigmentation/2026-08-29T002711Z-claude-code-5f991f.yaml">View source</a></p>
+                        <p class="research-review-text">New Mendelian entry for the KITLG gain-of-function pigmentary genodermatosis (MONDO:0007771, OMIM:145250).
+
+Deep research: falcon was requested but is not configured in this environment, so the run used --fallback and the substitution is recorded in the report frontmatter (fell_back: true, requested_provider: falcon, provider_attempts listing the falcon ProviderNotConfiguredError). The report was produced by claude_code. Its own validation flagged needs_review: true on both checks - 15 of 45 quotes unsupported, including one attributed to PMID:19375057, and two obsolete GO terms (GO:0014065, GO:0005615). No snippet and no ontology term was copied from the report. Every snippet in this entry was taken directly from references_cache and every CURIE was resolved through OAK. The report was used for coverage and for one scoping correction described below.
+
+GeneReviews: searched by disease name and by gene; no chapter exists, so no baseline was available.
+
+Pathograph: six nodes. The main chain runs KITLG gain-of-function variant in the VTNNV receptor-binding motif -&gt; enhanced KITLG-KIT signaling in epidermal melanocytes -&gt; upregulated MITF-driven melanogenic transcription -&gt; increased tyrosinase activity and melanin synthesis -&gt; progressive epidermal melanin accumulation. A sixth node covers somatic copy-neutral loss of heterozygosity at KITLG as a candidate account of the hypopigmented macules (revertant mosaicism). Confidence grading is deliberately uneven: the MITF node is PROVISIONAL because its only evidence is a base-edited cell model of one exon-4 allele, and the reversion node is HYPOTHETICAL because it rests on a single patient whose cafe-au-lait macules did not follow the same Blaschko-linear distribution.
+
+Scoping correction. The initial draft treated MONDO:0013648 as a labelling variant of this entry, and that was wrong. MONDO cross-references show MONDO:0013648 -&gt; OMIM:614233, which is FPH1, a 19p13.1-pter locus with no identified gene (PMID:16709486). That is a genetically distinct disease and is now recorded as a differential rather than lumped in. MONDO:0017239 -&gt; Orphanet:280628 carries no OMIM id and is read here as the Orphanet view of the same KITLG entity. The entry notes as an observation that MONDO currently asserts the 19p gene-unknown term as a parent of the KITLG term; no ontology change is proposed. The recessive biallelic KITLG auditory-pigmentary disorder is excluded as a separate entity and recorded as a differential.
+
+Treatments: only genetic counselling is curated. Cosmetic and depigmenting measures drawn from the general hyperpigmentation literature were deliberately not curated, because none has been reported in this disease and extrapolating them would manufacture a treatment section out of inference. KIT inhibition by imatinib is the mechanistically obvious idea and is confined to prose for the same reason.
+
+Datasets: none curated. No repository dataset exists for this disorder, and a gene-based search on KITLG would surface testicular germ cell tumour and pigmentation GWAS rather than this disease - the Named Entity Confusion case CLAUDE.md warns about - so dataset discovery was not run.
+
+Validation: just validate-disorders passes (schema, terms, and references); 45/45 snippets verified against the local cache; check-duplicate-keys, check-entity-refs, check-folded-hyphens, check-snippet-length, check-title-snippets and check-snippet-grading all clean. Weighted compliance 84.4%; the remaining gaps are datasets and evidence slots on external_assertions and proposed_experiments.
+
+Pre-PR adversarial review. A red-team pass over the finished entry found defects that the
+validators cannot see, and the entry was reworked before any PR was opened. The substantive
+ones: (a) eleven evidence items carried a reference_title that paraphrased PMID:33407466&#39;s
+content rather than quoting its title - only PublicationReference.title is machine-checked, so
+this passed validation; (b) a phenotype asserting the disease is skin-limited contradicted the
+entry&#39;s own oral-mucosal-pigmentation phenotype and generalised a single-pedigree negative to a
+VERY_FREQUENT disease-level claim - it was deleted and replaced with a KNOWLEDGE_GAP discussion
+presenting both the negative series and the contrary reports; (c) the node asserting that the
+mutant ligand engages KIT more effectively than wild type was graded ESTABLISHED while every
+evidence item attached to it tested the wild-type axis - the affinity increase is inferred from
+homology modelling and no binding or receptor-activation assay on a mutant ligand exists, so the
+node was downgraded to PROVISIONAL and the top-level description was rewritten to stop stating
+it as measured fact.
+
+Also corrected in that pass: HP:0000163 replaced by HP:0010284 (Intra-oral hyperpigmentation)
+for the oral phenotype; GO:0048066 (a developmental-process term) replaced by GO:0043473 for a
+node about lifelong postnatal progression; the bundled &#34;Increased Tyrosinase Activity and
+Melanin Synthesis&#34; node split into a MOLECULAR and a CELLULAR node per the single-value
+biological_scale discipline, both downgraded to PROVISIONAL given one paper, one allele, and
+exogenous ligand on an A375 melanoma line; the grafted-skin evidence re-graded IN_VITRO -&gt;
+MODEL_ORGANISM and its explanation corrected to say the review is summarising work it cites;
+the disconnected reversion node wired into the graph; guessed frequency bands dropped from four
+phenotypes where no denominator exists in the literature; two Experiment would_support targets
+repointed off genetic#KITLG, where the proposed outcome could not bear on them; a structural
+claim over-extended from p.Glu113Lys to p.Ser78Leu narrowed to its source; the FPH2 synonym
+added and the &#34;melanosis universalis hereditaria&#34; collision with MONDO:0013648 recorded.
+
+Added on the review&#39;s prompting: a histopathology section, attributed carefully because the
+family it comes from (PMID:29186243) was screened for KITLG and had no mutation - so it is
+quoted for the tissue-level finding and, separately, as the concrete instance behind the
+locus-heterogeneity claim. Two review findings were not actioned: the suggested Kitlg mouse
+model could not be curated because PMID:41584853&#39;s cache body is empty, and no
+experimental_models or animal_models section was added for that reason.
+
+Post-review validation: just validate-disorders passes; 49/49 snippets verified; all six
+ungated checks clean. Weighted compliance moved 84.4% -&gt; 81.7%, which reflects removing an
+over-claimed phenotype and adding sections with genuine gaps rather than a regression.
+
+Review round (PR #9975). The automated reviewer requested five changes, all sourced from
+cached references already in the tree, and all were made. The reference_title for
+PMID:29186243 was written from memory rather than copied from the cache and was caught by
+scripts/check_reference_titles.py, which is a CI step not listed among the checks in
+CLAUDE.md&#39;s evidence workflow - running exactly what is documented still let a red build
+through. The histopathology prose claimed its source &#34;does not settle&#34; whether excess
+pigment reflects more melanocytes or busier ones, when that source reports increased
+melanocytes by both S100 and HMB45; two evidence items were added and the prose corrected.
+The same prose claimed the hyperplasia-versus-hyperfunction question was recorded as open
+when no discussion covered it; a KNOWLEDGE_GAP discussion with a melanocyte-density
+experiment was added. Countervailing evidence for the reversion node - S100 and HMB45
+almost completely negative in hypopigmented areas, implying melanocytes are absent rather
+than reverted - was added as a REFUTE item. A truncated sentence introduced into the
+description by an earlier edit was repaired.
+
+Three reviewer suggestions were also taken. The K14-SCF transgenic mouse was located
+(PMID:9584135), fetched, and curated as an animal_models entry with modeled_mechanisms and
+a readout; it is the closest functional analogue of the disease and it bears on the
+hyperplasia question, since keratinocyte-targeted KITLG expression produces epidermal
+melanocytosis as well as hyperpigmentation. Sun exposure was added as an environmental
+modifier with influences_mechanisms. The p.Lys38Thr variant was added to the allele list.
+A mixed-source evidence item bundling a grafted-in-animal arm with an explanted-human-skin
+arm was split so each carries a single evidence_source.
+
+One self-inflicted error worth recording: the ECTO CURIE for ultraviolet exposure was
+guessed (ECTO:9000060) rather than looked up, and term validation caught the label
+mismatch. The correct term is ECTO:0000006.
+
+Post-review validation: just validate-disorders passes; 58/58 snippets verified;
+check-reference-titles, check-entity-refs, check-duplicate-keys, check-folded-hyphens,
+check-snippet-length, check-title-snippets, check-snippet-grading and
+check-environmental-evidence all clean; tests/test_data.py passes (45,748 tests).
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

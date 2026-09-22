@@ -130,3 +130,14 @@ def test_managed_workflows_use_the_resolver_action():
                 f"workflow '{stem}' is in agent-config.yaml but does not `uses:` "
                 f"the resolve-agent-config action"
             )
+
+
+def test_duplicate_search_tool_allowlists_stay_in_sync():
+    command = (REPO_ROOT / ".claude/commands/dedupe.md").read_text()
+    workflow = (WORKFLOW_DIR / "claude-dedupe-issues.yml").read_text()
+    command_tools = re.search(r"^allowed-tools: (.+)$", command, re.MULTILINE)
+    workflow_tools = re.search(r'--allowedTools "([^"]+)"', workflow)
+    assert command_tools and workflow_tools
+    assert {tool.strip() for tool in command_tools[1].split(",")} == {
+        tool.strip() for tool in workflow_tools[1].split(",")
+    }

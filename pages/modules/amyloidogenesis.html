@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -467,6 +468,18 @@
         .tag-component {
             background: #f0fdf4;
             color: #166534;
+        }
+
+        /* Same values as disorder.html.j2 so a treatment chip looks identical
+           whether it is read on a disorder page or on a module page. */
+        .tag-treatment {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .tag-gene {
+            background: #dbeafe;
+            color: #1e40af;
         }
 
         .tag-role {
@@ -1044,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1059,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1113,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1126,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1284,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1294,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1335,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1541,6 +1590,9 @@
 
     
     
+
+    
+    
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -1577,7 +1629,7 @@
                 
                 <span class="badge badge-category">Module</span>
                 <span class="badge badge-module">amyloidogenesis</span>
-                <span class="badge badge-count">10 disorders</span>
+                <span class="badge badge-count">11 disorders</span>
                 
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 6</a>
                 
@@ -1698,11 +1750,13 @@ This mechanism module involves increased amyloid fibril formation (GO:1990000). 
 
         
 
+        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
                 <h2 class="card-title">Used By Disorder Entries</h2>
-                <span class="card-count">10</span>
+                <span class="card-count">11</span>
             </div>
             
             <div class="crosslink-list">
@@ -1998,6 +2052,21 @@ This mechanism module involves increased amyloid fibril formation (GO:1990000). 
                 </div>
                 
                 <div class="crosslink-item">
+                    <a href="../disorders/Muckle-Wells_Syndrome.html">Muckle-Wells Syndrome</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        AA (serum amyloid A) amyloidosis → Amyloid Fibril Formation and Extracellular Deposition
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
                     <a href="../disorders/Primary_Cutaneous_Amyloidosis.html">Primary Cutaneous Amyloidosis</a>
                     
                     <span class="crosslink-desc">
@@ -2166,11 +2235,13 @@ This mechanism module involves increased amyloid fibril formation (GO:1990000). 
             
             <div class="item-box anchor-target" id="module-pathophysiology-amyloidogenic-precursor-protein" data-dismech-node="Amyloidogenic Precursor Protein" data-dismech-type="pathophysiology">
                 <div class="item-name">Amyloidogenic Precursor Protein</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The proximal trigger of amyloidogenesis is an amyloidogenic precursor protein whose native fold is destabilized - by a point mutation, by overproduction, by aging, or by proteolytic processing - so that it is prone to misfold. The identity of the precursor defines the amyloidosis type (transthyretin, immunoglobulin light chain, serum amyloid A, amyloid-beta), but the shared feature is a metastable precursor poised to depart its native conformation.</div>
                 
@@ -2337,11 +2408,13 @@ This pathophysiological event involves abnormal protein folding (GO:0006457). GO
             
             <div class="item-box anchor-target" id="module-pathophysiology-protein-misfolding-and-beta-sheet-oligomerization" data-dismech-node="Protein Misfolding and Beta-Sheet Oligomerization" data-dismech-type="pathophysiology">
                 <div class="item-name">Protein Misfolding and Beta-Sheet Oligomerization</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The destabilized precursor undergoes a conformational change from its native fold into beta-sheet-rich, aggregation-prone species. These misfolded monomers self-associate into soluble oligomers that both seed further aggregation (nucleation) and are themselves proteotoxic. This misfolding and oligomerization is the amplifying step that commits the precursor to the amyloid pathway.</div>
                 
@@ -2471,11 +2544,13 @@ This pathophysiological event involves abnormal protein folding (GO:0006457). GO
             
             <div class="item-box anchor-target" id="module-pathophysiology-amyloid-fibril-formation-and-extracellular-deposition" data-dismech-node="Amyloid Fibril Formation and Extracellular Deposition" data-dismech-type="pathophysiology">
                 <div class="item-name">Amyloid Fibril Formation and Extracellular Deposition</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The rate-limiting central effector of amyloidogenesis. Beta-sheet oligomers nucleate and elongate into insoluble amyloid fibrils bearing the characteristic highly ordered cross-beta structural motif, which deposit in the extracellular space of affected tissues. Fibril formation and tissue deposition are the disorder-agnostic convergence step - the central event common to all amyloidoses - and the key conformance target of the module.</div>
                 
@@ -2578,6 +2653,13 @@ This pathophysiological event involves increased amyloid fibril formation (GO:19
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Muckle-Wells_Syndrome.html">Muckle-Wells Syndrome</a>
+                            
+                            <span class="crosslink-desc">as AA (serum amyloid A) amyloidosis</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Primary_Cutaneous_Amyloidosis.html">Primary Cutaneous Amyloidosis</a>
                             
                             <span class="crosslink-desc">as Papillary Dermal Amyloid Fibril Deposition</span>
@@ -2610,11 +2692,13 @@ This pathophysiological event involves increased amyloid fibril formation (GO:19
             
             <div class="item-box anchor-target" id="module-pathophysiology-progressive-tissue-amyloid-accumulation" data-dismech-node="Progressive Tissue Amyloid Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Tissue Amyloid Accumulation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Continued fibril deposition accumulates as amyloid within the extracellular matrix of affected organs, progressively expanding the interstitium and physically disrupting normal tissue architecture. This accumulation - the growing amyloid burden - is the effector step that converts molecular fibril formation into an organ-level structural lesion.</div>
                 
@@ -2749,11 +2833,13 @@ This pathophysiological event involves increased amyloid fibril formation (GO:19
             
             <div class="item-box anchor-target" id="module-pathophysiology-organ-dysfunction" data-dismech-node="Organ Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Organ Dysfunction</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The clinical end state of the module. Amyloid infiltration and proteotoxic soluble oligomers impair the function of the affected organs - producing restrictive cardiomyopathy and heart failure (cardiac amyloidosis), peripheral and autonomic neuropathy, nephrotic-range proteinuria and renal failure, or neurodegeneration - the consequence of the conserved amyloidogenesis chain.</div>
                 
@@ -2892,6 +2978,129 @@ This pathophysiological event involves increased amyloid fibril formation (GO:19
                 </div>
                 
 
+                
+            </div>
+            
+        </div>
+        
+
+        
+        
+        <div class="card" id="treatments">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
+                <h2 class="card-title">Treatments</h2>
+                <span class="card-count">1</span>
+            </div>
+            
+            <div class="item-box" data-dismech-node="Transthyretin Stabilizer (Tafamidis)" data-dismech-type="treatment">
+                <div class="item-name">Transthyretin Stabilizer (Tafamidis)</div>
+                
+                <div class="item-meta">
+                    
+                    
+                    
+                    
+                    <span class="tag tag-treatment">
+                        Pharmacotherapy
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-6">NCIT:C15986</a>
+    
+    
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    
+                    
+                    
+                    <span class="tag tag-treatment">
+                        tafamidis
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/CHEBI_78538" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-7">CHEBI:78538</a>
+    
+    
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses tafamidis (CHEBI:78538). CHEBI:78538 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+                    
+                </div>
+                
+                
+    
+    
+    
+    
+    
+    
+    
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+        
+        <span class="tag tag-treatment">Small molecule</span>
+        
+        
+        
+        
+        
+    </div>
+    
+    
+    
+    
+    
+    
+    
+                
+                <div class="item-desc">Tafamidis is a small-molecule transthyretin (TTR) stabilizer that binds the TTR tetramer at its thyroxine-binding sites, kinetically stabilizing it and preventing dissociation into the misfolding-prone monomers that form amyloid fibrils. By acting on the amyloidogenic precursor, it slows amyloid formation and progression of transthyretin amyloidosis. Represents the amyloidogenesis drug-target design pattern for conforming disorders, acting on the precursor node rather than on established deposits (complementary approaches silence TTR synthesis or promote amyloid clearance).</div>
+                
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism target:</strong>
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">INHIBITS</span>
+                        
+                        
+                        <a href="#module-pathophysiology-amyloidogenic-precursor-protein"><strong>Amyloidogenic Precursor Protein</strong></a>
+                        
+                        <span> — TTR tetramer stabilization prevents dissociation of the precursor into misfolding-prone monomers, blocking the trigger of fibril formation.</span>
+                        
+                    </div>
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <span class="tag" style="background:#ecfeff;color:#155e75;">Evidence: 1</span>
+                </div>
+                
                 
             </div>
             

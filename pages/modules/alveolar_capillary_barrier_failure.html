@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -467,6 +468,18 @@
         .tag-component {
             background: #f0fdf4;
             color: #166534;
+        }
+
+        /* Same values as disorder.html.j2 so a treatment chip looks identical
+           whether it is read on a disorder page or on a module page. */
+        .tag-treatment {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .tag-gene {
+            background: #dbeafe;
+            color: #1e40af;
         }
 
         .tag-role {
@@ -1044,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1059,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1113,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1126,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1284,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1294,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1335,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1537,6 +1586,9 @@
 
     
 
+    
+
+    
     
 
     
@@ -1982,6 +2034,8 @@ This module is deliberately narrower than `epithelial_barrier_dysfunction`, whic
 
         
 
+        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
@@ -2085,11 +2139,13 @@ This module is deliberately narrower than `epithelial_barrier_dysfunction`, whic
             
             <div class="item-box anchor-target" id="module-pathophysiology-alveolar-capillary-interface-insult" data-dismech-node="Alveolar-Capillary Interface Insult" data-dismech-type="pathophysiology">
                 <div class="item-name">Alveolar-Capillary Interface Insult</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">An insult is delivered to the alveolar surface or to the capillary side of the blood-gas barrier. The initiating agents are heterogeneous — oxidant gases, airborne particulates, whole cigarette smoke, replicating pathogens, sustained alveolar hypoxia, and cold-storage ischemia-reperfusion — but each converges on oxidative stress and innate inflammatory signaling at the interface. This node is the disorder-specific entry point; conforming entries substitute their own agent here and inherit the chain below.</div>
                 
@@ -2265,11 +2321,13 @@ This pathophysiological event involves increased Inflammatory response (GO:00069
             
             <div class="item-box anchor-target" id="module-pathophysiology-cyclic-mechanical-strain-amplification" data-dismech-node="Cyclic Mechanical Strain Amplification" data-dismech-type="pathophysiology">
                 <div class="item-name">Cyclic Mechanical Strain Amplification</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Breathing subjects the alveolar wall to continuous cyclic deformation. Within the physiological range this strain maintains barrier and surfactant function, but supraphysiological strain — from mechanical ventilation, hyperinflation, or vigorous spontaneous effort — amplifies an established insult rather than initiating one on its own. Strain increases apparent permeability, potentiates pathogen translocation, and augments profibrotic signaling in the injured alveolar wall. This node is a modifier of severity and is why the same insult produces different barrier outcomes in a spontaneously breathing and a mechanically ventilated lung.</div>
                 
@@ -2403,11 +2461,13 @@ This pathophysiological event involves decreased Cell-cell junction organization
             
             <div class="item-box anchor-target" id="module-pathophysiology-alveolar-epithelial-and-endothelial-junctional-disruption" data-dismech-node="Alveolar Epithelial and Endothelial Junctional Disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">Alveolar Epithelial and Endothelial Junctional Disruption</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Tight and adherens junction complexes are lost on both faces of the barrier — ZO-1 and occludin between alveolar epithelial cells, VE-cadherin and PECAM-1 between capillary endothelial cells — with visible intercellular gap formation, falling transepithelial electrical resistance, and shedding of soluble adhesion molecules into the alveolar and vascular compartments. This is the rate-limiting, disorder-agnostic step: whatever the initiating insult, the barrier fails here, and this is the node conforming disorder entries should target.</div>
                 
@@ -2623,11 +2683,13 @@ This pathophysiological event involves decreased Cell-cell junction (GO:0005911)
             
             <div class="item-box anchor-target" id="module-pathophysiology-trans-barrier-injury-propagation-and-increased-permeability" data-dismech-node="Trans-Barrier Injury Propagation and Increased Permeability" data-dismech-type="pathophysiology">
                 <div class="item-name">Trans-Barrier Injury Propagation and Increased Permeability</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Permeability of the blood-gas barrier rises, and injury crosses it. Exposure confined to the alveolar epithelial surface produces measurable injury in the capillary endothelium that was never directly exposed, and the reverse coupling holds for insults delivered to the vascular side. Propagation is mediated by soluble mediators, oxidative signaling, and adhesion-molecule shedding acting over short distances across the fused basement membrane rather than by direct contact of the agent with the second layer. The functional consequence is a barrier that passes protein and fluid.</div>
                 
@@ -2775,11 +2837,13 @@ This pathophysiological event involves increased Leukocyte migration (GO:0050900
             
             <div class="item-box anchor-target" id="module-pathophysiology-protein-rich-alveolar-flooding-and-gas-exchange-failure" data-dismech-node="Protein-Rich Alveolar Flooding and Gas-Exchange Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Protein-Rich Alveolar Flooding and Gas-Exchange Failure</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Protein-rich fluid accumulates in the interstitium and airspace. Flooded and collapsed alveoli continue to be perfused but no longer ventilated, producing shunt physiology, hypoxemia, and reduced compliance. Surfactant is diluted and inactivated by the exuded protein, lowering the surface-tension threshold for further collapse and closing a positive-feedback loop back onto the barrier. Whether the process resolves through epithelial repair and active fluid clearance or progresses to fibroproliferative remodeling is determined downstream and is disorder-specific.</div>
                 
@@ -2849,6 +2913,9 @@ This pathophysiological event involves decreased Respiratory gaseous exchange by
             </div>
             
         </div>
+        
+
+        
         
 
         <footer class="page-footer">

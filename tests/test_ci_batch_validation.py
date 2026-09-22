@@ -59,7 +59,11 @@ def test_ci_validates_hypothesis_review_artifacts_on_report_or_yaml_changes() ->
     assert "- 'kb/hypotheses/**'" in workflow_text
 
     step = _step_named("main.yaml", "Validate hypothesis review artifacts")
-    assert step["if"] == "steps.changes.outputs.kb_hypotheses == 'true'"
+    # Forced on merge_group: queue builds run the full suite (#10168).
+    assert step["if"] == (
+        "github.event_name == 'merge_group' "
+        "|| steps.changes.outputs.kb_hypotheses == 'true'"
+    )
     assert "just validate-hypothesis-assessment-all" in step["run"]
     assert "just validate-hypothesis-reconciliation-all" in step["run"]
 
@@ -85,6 +89,15 @@ def _step_named(filename: str, name: str) -> dict:
     matches = [s for s in _workflow_steps(filename) if s.get("name") == name]
     assert len(matches) == 1, f"expected exactly one {name!r} step in {filename}"
     return matches[0]
+
+
+def test_retired_dataset_cache_guard_runs_on_curation_only_prs() -> None:
+    step = _step_named("main.yaml", "Reject retired dataset cache")
+    assert "if" not in step, "old curation PRs must not bypass the cache guard"
+    assert step["run"].strip() == (
+        "uv run pytest -q "
+        "tests/test_data.py::test_no_automation_touches_the_frozen_dataset_cache"
+    )
 
 
 def test_entity_ref_check_runs_ungated_over_the_whole_kb() -> None:

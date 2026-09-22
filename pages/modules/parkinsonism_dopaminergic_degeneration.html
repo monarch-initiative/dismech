@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -467,6 +468,18 @@
         .tag-component {
             background: #f0fdf4;
             color: #166534;
+        }
+
+        /* Same values as disorder.html.j2 so a treatment chip looks identical
+           whether it is read on a disorder page or on a module page. */
+        .tag-treatment {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .tag-gene {
+            background: #dbeafe;
+            color: #1e40af;
         }
 
         .tag-role {
@@ -1044,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1059,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1113,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1126,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1284,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1294,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1335,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1541,6 +1590,9 @@
 
     
     
+
+    
+    
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -1585,7 +1637,7 @@
                 
                 <span class="badge badge-category">Module</span>
                 <span class="badge badge-module">parkinsonism_dopaminergic_degeneration</span>
-                <span class="badge badge-count">5 disorders</span>
+                <span class="badge badge-count">7 disorders</span>
                 
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 5</a>
                 
@@ -1872,11 +1924,13 @@ This mechanism module involves decreased dopaminergic synaptic transmission (GO:
 
         
 
+        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
                 <h2 class="card-title">Used By Disorder Entries</h2>
-                <span class="card-count">5</span>
+                <span class="card-count">7</span>
             </div>
             
             <div class="crosslink-list">
@@ -1897,6 +1951,46 @@ This mechanism module involves decreased dopaminergic synaptic transmission (GO:
                 </div>
                 
                 <div class="crosslink-item">
+                    <a href="../disorders/Dementia_with_Lewy_Bodies.html">Dementia with Lewy Bodies</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Alpha-Synuclein Aggregation and Lewy Body Formation → Alpha-Synuclein Aggregation and Lewy Pathology
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/LRRK2-Related_Parkinson_Disease.html">LRRK2-Related Parkinson Disease</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Alpha-Synuclein Aggregation and Lewy Pathology
+                        
+                        
+                        , 
+                        
+                        Nigrostriatal Dopaminergic Neurodegeneration
+                        
+                        
+                        , 
+                        
+                        Striatal Dopamine Deficiency and Basal Ganglia Circuit Dysfunction
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
                     <a href="../disorders/Manganism.html">Manganism</a>
                     
                     <span class="crosslink-desc">
@@ -1904,7 +1998,7 @@ This mechanism module involves decreased dopaminergic synaptic transmission (GO:
                         
                         
                         
-                        Basal Ganglia Circuit Dysfunction and Extrapyramidal Parkinsonism → Striatal Dopamine Deficiency and Basal Ganglia Circuit Dysfunction
+                        Basal Ganglia Output Failure → Striatal Dopamine Deficiency and Basal Ganglia Circuit Dysfunction
                         
                         
                     </span>
@@ -2030,11 +2124,13 @@ This mechanism module involves decreased dopaminergic synaptic transmission (GO:
             
             <div class="item-box anchor-target" id="module-pathophysiology-dopaminergic-neuronal-vulnerability-and-toxic-insult" data-dismech-node="Dopaminergic Neuronal Vulnerability and Toxic Insult" data-dismech-type="pathophysiology">
                 <div class="item-name">Dopaminergic Neuronal Vulnerability and Toxic Insult</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The shared initiating event is injury to the dopaminergic neurons of the substantia nigra pars compacta by converging genetic and environmental insults. Epidemiological and toxicological data implicate occupational and environmental neurotoxicants — the herbicide paraquat, the pesticide rotenone, the meperidine contaminant MPTP, and manganese — alongside monogenic causes, all targeting the same selectively vulnerable nigral dopaminergic population.</div>
                 
@@ -2142,11 +2238,13 @@ This pathophysiological event involves increased response to oxidative stress (G
             
             <div class="item-box anchor-target" id="module-pathophysiology-mitochondrial-complex-i-inhibition-and-oxidative-stress" data-dismech-node="Mitochondrial Complex I Inhibition and Oxidative Stress" data-dismech-type="pathophysiology">
                 <div class="item-name">Mitochondrial Complex I Inhibition and Oxidative Stress</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The convergent biochemical lesion is impairment of mitochondrial electron transport chain complex I with consequent oxidative stress. Environmental parkinsonian toxins act here directly — MPTP (via MPP+), rotenone, and paraquat inhibit or poison complex I — while monogenic PD genes (PINK1, PRKN, DJ-1) compromise mitochondrial quality control. The energy deficit and reactive oxygen species generation render the highly metabolically demanding nigral dopaminergic neurons selectively vulnerable. This node is where the environmental exposome plugs into the module.</div>
                 
@@ -2296,11 +2394,13 @@ This pathophysiological event involves increased response to oxidative stress (G
             
             <div class="item-box anchor-target" id="module-pathophysiology-alpha-synuclein-aggregation-and-lewy-pathology" data-dismech-node="Alpha-Synuclein Aggregation and Lewy Pathology" data-dismech-type="pathophysiology">
                 <div class="item-name">Alpha-Synuclein Aggregation and Lewy Pathology</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">In Parkinson disease and the synucleinopathy forms of parkinsonism, misfolded alpha-synuclein accumulates into Lewy bodies and Lewy neurites that spread in a prion-like manner and amplify dopaminergic injury. This proteostatic arm is characteristic of Parkinson disease but is not universal across all parkinsonisms — toxin models such as MPTP can produce nigral degeneration with variable alpha-synuclein pathology — so conforming nodes may include or omit it.</div>
                 
@@ -2379,6 +2479,18 @@ This pathophysiological event involves increased inclusion body assembly (GO:007
                     <div class="crosslink-list">
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Dementia_with_Lewy_Bodies.html">Dementia with Lewy Bodies</a>
+                            
+                            <span class="crosslink-desc">as Alpha-Synuclein Aggregation and Lewy Body Formation</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/LRRK2-Related_Parkinson_Disease.html">LRRK2-Related Parkinson Disease</a>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Parkinson&#39;s_Disease.html">Parkinson&#39;s Disease</a>
                             
                             <span class="crosslink-desc">as Alpha-Synuclein Aggregation</span>
@@ -2408,11 +2520,13 @@ This pathophysiological event involves increased inclusion body assembly (GO:007
             
             <div class="item-box anchor-target" id="module-pathophysiology-nigrostriatal-dopaminergic-neurodegeneration" data-dismech-node="Nigrostriatal Dopaminergic Neurodegeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Nigrostriatal Dopaminergic Neurodegeneration</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The convergent effector lesion is progressive degeneration of the substantia nigra pars compacta dopaminergic neurons and their nigrostriatal projection. This is the key conformance target of the module: motor parkinsonism emerges once nigral dopaminergic loss removes nigrostriatal dopamine input below a compensable threshold. Conforming disorders substitute their specific upstream driver while sharing this nigrostriatal degeneration.</div>
                 
@@ -2498,6 +2612,11 @@ This pathophysiological event involves decreased dopamine biosynthetic process (
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/LRRK2-Related_Parkinson_Disease.html">LRRK2-Related Parkinson Disease</a>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Neurodevelopmental_Disorder_with_Early-Onset_Parkinsonism_and_Behavioral_Abnormalities.html">Neurodevelopmental Disorder with Early-Onset Parkinsonism and Behavioral Abnormalities</a>
                             
                             <span class="crosslink-desc">as Nigrostriatal Dopaminergic Neuron Degeneration</span>
@@ -2539,11 +2658,13 @@ This pathophysiological event involves decreased dopamine biosynthetic process (
             
             <div class="item-box anchor-target" id="module-pathophysiology-striatal-dopamine-deficiency-and-basal-ganglia-circuit-dysfunction" data-dismech-node="Striatal Dopamine Deficiency and Basal Ganglia Circuit Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Striatal Dopamine Deficiency and Basal Ganglia Circuit Dysfunction</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Loss of nigrostriatal dopaminergic terminals depletes dopamine in the striatum, the principal input nucleus of the basal ganglia. Reduced striatal dopamine shifts the basal ganglia-thalamocortical motor circuit toward excessive inhibitory output (hyperactive indirect pathway, hypoactive direct pathway), producing the cardinal features of parkinsonism (HP:0001300) — bradykinesia, rigidity, and rest tremor. In the dopaminergic parkinsonisms this circuit deficit is levodopa-responsive; manganism is a partial exception with predominantly pallidal pathology and poor levodopa response.</div>
                 
@@ -2650,9 +2771,14 @@ This pathophysiological event involves decreased dopaminergic synaptic transmiss
                     <div class="crosslink-list">
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/LRRK2-Related_Parkinson_Disease.html">LRRK2-Related Parkinson Disease</a>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Manganism.html">Manganism</a>
                             
-                            <span class="crosslink-desc">as Basal Ganglia Circuit Dysfunction and Extrapyramidal Parkinsonism</span>
+                            <span class="crosslink-desc">as Basal Ganglia Output Failure</span>
                             
                         </div>
                         
@@ -2683,6 +2809,9 @@ This pathophysiological event involves decreased dopaminergic synaptic transmiss
             </div>
             
         </div>
+        
+
+        
         
 
         <footer class="page-footer">

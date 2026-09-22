@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3756,6 +3821,18 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3798,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 7</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 9</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Malaria"
@@ -3939,7 +4016,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">6</div>
+                <div class="stat-value">7</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -3956,11 +4033,19 @@
 
 
 
+            <a class="stat-link" href="#discussions">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">💬</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Gaps</div>
+            </div>
+            </a>
+
 
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">7</div>
+                <div class="stat-value">9</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4123,6 +4208,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4184,6 +4270,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4251,6 +4338,7 @@
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4315,6 +4403,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4347,6 +4436,148 @@
 
         <!-- Discussions / Knowledge Gaps -->
 
+        <div class="card" id="discussions">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">?</div>
+                <h2 class="card-title">Discussions and Knowledge Gaps</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box discussion-box anchor-target" id="ineffective_erythropoiesis_contribution">
+                <div class="item-name">How much of severe malarial anemia is ineffective erythropoiesis and dyserythropoiesis rather than peripheral destruction of uninfected erythrocytes, and does the answer differ between non-immune adults in a single acute infection and children with endemic exposure?</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-discussion-kind">KNOWLEDGE GAP</span>
+
+
+
+                    <span class="entity-ref-chip">ineffective_erythropoiesis_contribution</span>
+
+                </div>
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Attached to</div>
+                    <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-bystander-destruction-of-uninfected-erythrocytes-in-severe-malarial-anemia">pathophysiology#Bystander Destruction of Uninfected Erythrocytes in Severe Malarial Anemia</a>
+
+
+
+                    </div>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 10px;">Severe malarial anemia has two well-established arms: increased destruction and clearance of uninfected erythrocytes, and suppressed or ineffective erythrocyte production. This entry models the first arm. Its quantitative source is a 1999 retrospective model of non-immune adults undergoing induced malaria therapy, which reports dyserythropoiesis as insignificant in that dataset - a model output, not a marrow measurement, and from a population unlike the pediatric endemic syndrome the term &#34;severe malarial anemia&#34; names elsewhere in this file. A 2022 review of the marrow arm draws on children with malarial anemia and describes ineffective erythropoiesis and dyserythropoiesis as general features of malaria across Plasmodium species. The two are not straightforwardly reconcilable, and the relative contribution is recorded here as unsettled rather than being resolved in the node description. Modelling the erythropoietic arm as its own pathophysiology node is the natural follow-up.</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36361552" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36361552" target="_blank">PMID:36361552</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Anemia is an important clinical manifestation of malaria due to the increased lysis of RBC and to decreased RBC production as a result of ineffective erythropoiesis and dyserythropoiesis."</div>
+
+
+                <div class="evidence-explanation">The review&#39;s own conclusion places decreased erythrocyte production alongside lysis as a cause of malarial anemia, which is the arm this entry does not model.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36361552" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36361552" target="_blank">PMID:36361552</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Ineffective erythropoiesis associated to dyserythropoiesis are general features found in malaria in several Plasmodium species."</div>
+
+
+                <div class="evidence-explanation">States the erythropoietic arm as a general feature of malaria rather than a species- or cohort-specific finding, which is what makes the 1999 model&#39;s &#34;insignificant role&#34; verdict a dataset-bounded result rather than a settled one.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10466119" data-dismech-supports="REFUTE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10466119" target="_blank">PMID:10466119</a>
+                    </span>
+
+
+                    <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+
+                    <span class="evidence-source source-COMPUTATIONAL">Computational</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The model also showed that dyserythropoiesis plays an insignificant role in the resulting anaemia."</div>
+
+
+                <div class="evidence-explanation">The competing position, quoted from the source the destruction node rests on. Graded REFUTE against the proposition that the erythropoietic arm contributes materially, so the disagreement is visible in the entry rather than resolved by omission.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
 
         <!-- Pathophysiology -->
 
@@ -4354,13 +4585,14 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">6</span>
+                <span class="card-count">7</span>
             </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-infected-erythrocyte-sequestration-and-cytoadherence" data-dismech-node="Infected erythrocyte sequestration and cytoadherence" data-dismech-type="pathophysiology">
                 <div class="item-name">Infected erythrocyte sequestration and cytoadherence</div>
 
-                <div class="item-desc">In severe falciparum malaria, parasitized erythrocytes sequester in the microvasculature, promoting endothelial injury, impaired perfusion, and downstream organ dysfunction.</div>
+
+                <div class="item-desc">In severe falciparum malaria, parasitized erythrocytes sequester in the microvasculature, promoting endothelial injury, impaired perfusion, and downstream organ dysfunction. Sequestration is mediated by Plasmodium falciparum erythrocyte membrane protein 1 (PfEMP1), a variant surface antigen family encoded by the var multigene family and displayed on the infected-erythrocyte surface, which binds host endothelial receptors including CD36 and ICAM-1; receptor usage differs by clinical syndrome, with increased CD36 binding associated with uncomplicated malaria and increased ICAM-1 binding associated with cerebral malaria.</div>
 
 
 
@@ -4516,7 +4748,7 @@ This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 i
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -4528,6 +4760,7 @@ This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4544,6 +4777,31 @@ This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 i
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="PMID:21390226" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21390226" target="_blank">PMID:21390226</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This is a complex system involving several host receptors and a major parasite-derived variant antigen (PfEMP1) expressed on the surface of the infected erythrocyte membrane. Previous studies have suggested a role for ICAM-1 in the pathology of cerebral malaria, although these have been..."</div>
+
+
+                <div class="evidence-explanation">Directly names PfEMP1 as the parasite ligand and quantifies how differential CD36 versus ICAM-1 receptor usage tracks with uncomplicated versus cerebral malaria, the receptor detail this node&#39;s title named but did not evidence.</div>
+
+
+
+            </div>
+
 
         </div>
     </details>
@@ -4553,6 +4811,7 @@ This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-blood-brain-barrier-dysfunction-in-cerebral-malaria" data-dismech-node="Blood-brain barrier dysfunction in cerebral malaria" data-dismech-type="pathophysiology">
                 <div class="item-name">Blood-brain barrier dysfunction in cerebral malaria</div>
+
 
                 <div class="item-desc">Cerebral malaria involves endothelial barrier breakdown with increased permeability and stress responses, linking vascular pathology to severe neurologic phenotypes.</div>
 
@@ -4703,6 +4962,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4724,6 +4984,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4749,6 +5010,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-epcr-associated-endothelial-pathology" data-dismech-node="EPCR-associated endothelial pathology" data-dismech-type="pathophysiology">
                 <div class="item-name">EPCR-associated endothelial pathology</div>
+
 
                 <div class="item-desc">Parasite interactions with endothelial protein C receptor (EPCR) are associated with severe disease and suggest a pathway for enhanced vascular injury and dysregulated coagulation-inflammatory signaling.</div>
 
@@ -4855,6 +5117,7 @@ This pathophysiological event involves inflammatory response (GO:0006954). GO:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4877,6 +5140,7 @@ This pathophysiological event involves inflammatory response (GO:0006954). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cerebrovascular-cd8-positive-t-cell-engagement" data-dismech-node="Cerebrovascular CD8-positive T-cell engagement" data-dismech-type="pathophysiology">
                 <div class="item-name">Cerebrovascular CD8-positive T-cell engagement</div>
+
 
                 <div class="item-desc">Pediatric cerebral malaria includes intravascular and perivascular CD8-positive T-cell engagement at the cerebrovasculature, supporting an immune-mediated component of neurologic injury.</div>
 
@@ -5004,6 +5268,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5025,6 +5290,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5050,6 +5316,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-abo-dependent-rosetting-and-severe-malaria-risk" data-dismech-node="ABO-dependent rosetting and severe malaria risk" data-dismech-type="pathophysiology">
                 <div class="item-name">ABO-dependent rosetting and severe malaria risk</div>
+
 
                 <div class="item-desc">Host ABO genotype modifies falciparum rosetting behavior and contributes to differential risk of severe malaria.</div>
 
@@ -5177,6 +5444,7 @@ This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5201,6 +5469,7 @@ This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5221,8 +5490,259 @@ This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 i
 
 	            </div>
 
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-bystander-destruction-of-uninfected-erythrocytes-in-severe-malarial-anemia" data-dismech-node="Bystander Destruction of Uninfected Erythrocytes in Severe Malarial Anemia" data-dismech-type="pathophysiology">
+                <div class="item-name">Bystander Destruction of Uninfected Erythrocytes in Severe Malarial Anemia</div>
+
+
+                <div class="item-desc">Malarial anemia is disproportionate to the fraction of erythrocytes directly parasitized. Modeling of parasitemia and hemoglobin decline in malaria-therapy patients shows that several uninfected erythrocytes are lost for every parasitized erythrocyte observed; splenic clearance and phagocytosis of uninfected erythrocytes, rather than direct parasite lysis, are on that reading the principal drivers of severe anemia.</div>
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        erythrocyte
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0000232</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-cell">
+                        macrophage
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-17">CL:0000235</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        phagocytosis
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006909" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0006909</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves phagocytosis (GO:0006909). GO:0006909 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-location">
+                        spleen
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002106" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-19">UBERON:0002106</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in spleen (UBERON:0002106). UBERON:0002106 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Anemia</span>
+
+	                            <span class="crosslink-desc">Bystander loss of uninfected erythrocytes, far exceeding the number directly parasitized, is the principal driver of malaria-associated anemia.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (4 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10466119" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10466119" target="_blank">PMID:10466119</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-COMPUTATIONAL">Computational</span>
+
+                </div>
+
+                <div class="evidence-snippet">"an average of 8.5 erythrocytes were destroyed in addition to each erythrocyte observed to become parasitized"</div>
+
+
+                <div class="evidence-explanation">Mathematical modeling of parasitemia and anemia data from malaria-therapy patients quantifies uninfected-erythrocyte loss as far exceeding parasitized-erythrocyte loss, establishing bystander destruction as the dominant mechanism.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10466119" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10466119" target="_blank">PMID:10466119</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-COMPUTATIONAL">Computational</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The model also showed that dyserythropoiesis plays an insignificant role in the resulting anaemia."</div>
+
+
+                <div class="evidence-explanation">The same model reports dyserythropoiesis as insignificant in this dataset - non-immune adults in a single induced infection - which is why the node treats bystander destruction as the dominant mechanism there. This is a model output rather than a marrow measurement, and it does not settle the contribution of ineffective erythropoiesis in endemic pediatric severe malarial anemia; see the ineffective_erythropoiesis_contribution discussion.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10466119" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10466119" target="_blank">PMID:10466119</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-COMPUTATIONAL">Computational</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We postulate that uninfected erythrocyte destruction occurs through phagocytosis of erythrocytes bound to merozoites killed as a result of the accompanying malaria paroxysms."</div>
+
+
+                <div class="evidence-explanation">States the authors&#39; proposed cellular mechanism (phagocytic clearance) for the bystander erythrocyte loss quantified by their model.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
+
+
+	            </div>
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypnozoite-persistence-and-vivax-relapse" data-dismech-node="Hypnozoite persistence and vivax relapse" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypnozoite persistence and vivax relapse</div>
+
 
                 <div class="item-desc">Dormant P. vivax hypnozoites in the liver sustain recurrent malaria episodes unless eradicated with radical cure.</div>
 
@@ -5248,11 +5768,11 @@ This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-16">UBERON:0002107</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-20">UBERON:0002107</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -5294,6 +5814,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5352,7 +5873,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Blood-brain barrier dysfunction in cerebral malaria\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cerebral malaria involves endothelial barrier breakdown with increased permeability and stress responses, linking vascular pathology to severe neurologic phenotypes.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"endothelial cell\"], \"biological_processes\": [\"inflammatory response\"], \"locations\": [\"brain\"]}}, {\"id\": \"Coma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebral malaria can present with coma as a defining severe neurologic manifestation.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Cerebral malaria\"], \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001259\"}}, {\"id\": \"Hypnozoite persistence and vivax relapse\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dormant P. vivax hypnozoites in the liver sustain recurrent malaria episodes unless eradicated with radical cure.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"liver\"]}}, {\"id\": \"Infected erythrocyte sequestration and cytoadherence\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In severe falciparum malaria, parasitized erythrocytes sequester in the microvasculature, promoting endothelial injury, impaired perfusion, and downstream organ dysfunction.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"erythrocyte\", \"endothelial cell\"], \"biological_processes\": [\"cell adhesion\"], \"locations\": [\"blood\"]}}, {\"id\": \"Primaquine radical cure for vivax malaria\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Primaquine reduces recurrent vivax malaria by targeting dormant liver hypnozoites.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"primaquine\"]}}, {\"id\": \"Recurrent vivax malaria\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures are a major severe neurologic manifestation in cerebral malaria.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Cerebral malaria\"], \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001250\"}}], \"edges\": [{\"source\": \"Infected erythrocyte sequestration and cytoadherence\", \"target\": \"Blood-brain barrier dysfunction in cerebral malaria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Microvascular sequestration contributes to BBB injury and neurologic manifestations.\"}, {\"source\": \"Blood-brain barrier dysfunction in cerebral malaria\", \"target\": \"Coma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Barrier dysfunction and microvascular pathology contribute to cerebral edema and coma.\"}, {\"source\": \"Blood-brain barrier dysfunction in cerebral malaria\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebral vascular and inflammatory injury contributes to seizure risk.\"}, {\"source\": \"Hypnozoite persistence and vivax relapse\", \"target\": \"Recurrent vivax malaria\", \"predicate\": \"causes\", \"is_orphan\": true, \"description\": \"Persistence of hypnozoites drives repeated blood-stage episodes.\"}, {\"source\": \"Primaquine radical cure for vivax malaria\", \"target\": \"Hypnozoite persistence and vivax relapse\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": [\"Recurrent vivax malaria\"]}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Malaria can cause clinically significant anemia, especially in severe disease.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001903\"}}, {\"id\": \"Blood-brain barrier dysfunction in cerebral malaria\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cerebral malaria involves endothelial barrier breakdown with increased permeability and stress responses, linking vascular pathology to severe neurologic phenotypes.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"endothelial cell\"], \"biological_processes\": [\"inflammatory response\"], \"locations\": [\"brain\"]}}, {\"id\": \"Bystander Destruction of Uninfected Erythrocytes in Severe Malarial Anemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Malarial anemia is disproportionate to the fraction of erythrocytes directly parasitized. Modeling of parasitemia and hemoglobin decline in malaria-therapy patients shows that several uninfected erythrocytes are lost for every parasitized erythrocyte observed; splenic clearance and phagocytosis of uninfected erythrocytes, rather than direct parasite lysis, are on that reading the principal drivers of severe anemia.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"erythrocyte\", \"macrophage\"], \"biological_processes\": [\"phagocytosis\"], \"locations\": [\"spleen\"]}}, {\"id\": \"Coma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebral malaria can present with coma as a defining severe neurologic manifestation.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Cerebral malaria\"], \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001259\"}}, {\"id\": \"Hypnozoite persistence and vivax relapse\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dormant P. vivax hypnozoites in the liver sustain recurrent malaria episodes unless eradicated with radical cure.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"liver\"]}}, {\"id\": \"Infected erythrocyte sequestration and cytoadherence\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In severe falciparum malaria, parasitized erythrocytes sequester in the microvasculature, promoting endothelial injury, impaired perfusion, and downstream organ dysfunction. Sequestration is mediated by Plasmodium falciparum erythrocyte membrane protein 1 (PfEMP1), a variant surface antigen family encoded by the var multigene family and displayed on the infected-erythrocyte surface, which binds host endothelial receptors including CD36 and ICAM-1; receptor usage differs by clinical syndrome, with increased CD36 binding associated with uncomplicated malaria and increased ICAM-1 binding associated with cerebral malaria.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"erythrocyte\", \"endothelial cell\"], \"biological_processes\": [\"cell adhesion\"], \"locations\": [\"blood\"]}}, {\"id\": \"Primaquine radical cure for vivax malaria\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Primaquine reduces recurrent vivax malaria by targeting dormant liver hypnozoites.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"primaquine\"]}}, {\"id\": \"Recurrent vivax malaria\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures are a major severe neurologic manifestation in cerebral malaria.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Cerebral malaria\"], \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001250\"}}], \"edges\": [{\"source\": \"Infected erythrocyte sequestration and cytoadherence\", \"target\": \"Blood-brain barrier dysfunction in cerebral malaria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Microvascular sequestration contributes to BBB injury and neurologic manifestations.\"}, {\"source\": \"Blood-brain barrier dysfunction in cerebral malaria\", \"target\": \"Coma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Barrier dysfunction and microvascular pathology contribute to cerebral edema and coma.\"}, {\"source\": \"Blood-brain barrier dysfunction in cerebral malaria\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebral vascular and inflammatory injury contributes to seizure risk.\"}, {\"source\": \"Bystander Destruction of Uninfected Erythrocytes in Severe Malarial Anemia\", \"target\": \"Anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bystander loss of uninfected erythrocytes, far exceeding the number directly parasitized, is the principal driver of malaria-associated anemia.\"}, {\"source\": \"Hypnozoite persistence and vivax relapse\", \"target\": \"Recurrent vivax malaria\", \"predicate\": \"causes\", \"is_orphan\": true, \"description\": \"Persistence of hypnozoites drives repeated blood-stage episodes.\"}, {\"source\": \"Primaquine radical cure for vivax malaria\", \"target\": \"Hypnozoite persistence and vivax relapse\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": [\"Recurrent vivax malaria\"]}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5410,15 +5931,18 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001903" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001903</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001903" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001903</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5438,6 +5962,7 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5462,6 +5987,7 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5504,15 +6030,18 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001873" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001873</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001873" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001873</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5532,6 +6061,7 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5556,6 +6086,7 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5605,15 +6136,18 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001744" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001744</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001744" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001744</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5633,6 +6167,7 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5684,15 +6219,18 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002013" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002013</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002013" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002013</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Vomiting (HP:0002013). HP:0002013 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5712,6 +6250,7 @@ This clinical feature is Vomiting (HP:0002013). HP:0002013 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5763,10 +6302,10 @@ This clinical feature is Vomiting (HP:0002013). HP:0002013 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001945</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001945</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Fever (HP:0001945), qualified as temporality acute. HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5795,6 +6334,9 @@ This clinical feature is Fever (HP:0001945), qualified as temporality acute. HP:
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5809,6 +6351,7 @@ This clinical feature is Fever (HP:0001945), qualified as temporality acute. HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5860,15 +6403,18 @@ This clinical feature is Fever (HP:0001945), qualified as temporality acute. HP:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002315</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002315</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5888,6 +6434,7 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5930,10 +6477,10 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001259" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001259</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001259" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001259</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Coma (HP:0001259), qualified as severity severe. HP:0001259 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5962,6 +6509,9 @@ This clinical feature is Coma (HP:0001259), qualified as severity severe. HP:000
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5976,6 +6526,7 @@ This clinical feature is Coma (HP:0001259), qualified as severity severe. HP:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6018,10 +6569,10 @@ This clinical feature is Coma (HP:0001259), qualified as severity severe. HP:000
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Seizure (HP:0001250), qualified as severity severe. HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6050,6 +6601,9 @@ This clinical feature is Seizure (HP:0001250), qualified as severity severe. HP:
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6064,6 +6618,7 @@ This clinical feature is Seizure (HP:0001250), qualified as severity severe. HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6115,15 +6670,18 @@ This clinical feature is Seizure (HP:0001250), qualified as severity severe. HP:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025143" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0025143</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0025143" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0025143</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Chills (HP:0025143). HP:0025143 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6143,6 +6701,7 @@ This clinical feature is Chills (HP:0025143). HP:0025143 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6185,15 +6744,18 @@ This clinical feature is Chills (HP:0025143). HP:0025143 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0003326</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0003326</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6213,6 +6775,7 @@ This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6289,6 +6852,9 @@ This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6303,6 +6869,7 @@ This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6327,6 +6894,7 @@ This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6369,10 +6937,10 @@ This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from th
                         Gene: G6PD
 
 
-    <a href="https://bioregistry.io/hgnc:4057" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-27">hgnc:4057</a>
+    <a href="https://bioregistry.io/hgnc:4057" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-31">hgnc:4057</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is G6PD (hgnc:4057). hgnc:4057 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -6380,6 +6948,9 @@ This disease-associated gene is G6PD (hgnc:4057). hgnc:4057 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -6398,6 +6969,7 @@ This disease-associated gene is G6PD (hgnc:4057). hgnc:4057 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6422,6 +6994,7 @@ This disease-associated gene is G6PD (hgnc:4057). hgnc:4057 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6457,6 +7030,9 @@ This disease-associated gene is G6PD (hgnc:4057). hgnc:4057 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6471,6 +7047,7 @@ This disease-associated gene is G6PD (hgnc:4057). hgnc:4057 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6495,6 +7072,7 @@ This disease-associated gene is G6PD (hgnc:4057). hgnc:4057 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6530,6 +7108,9 @@ This disease-associated gene is G6PD (hgnc:4057). hgnc:4057 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6544,6 +7125,7 @@ This disease-associated gene is G6PD (hgnc:4057). hgnc:4057 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6579,6 +7161,9 @@ This disease-associated gene is G6PD (hgnc:4057). hgnc:4057 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6593,6 +7178,7 @@ This disease-associated gene is G6PD (hgnc:4057). hgnc:4057 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6628,6 +7214,9 @@ This disease-associated gene is G6PD (hgnc:4057). hgnc:4057 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6642,6 +7231,7 @@ This disease-associated gene is G6PD (hgnc:4057). hgnc:4057 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6666,6 +7256,7 @@ This disease-associated gene is G6PD (hgnc:4057). hgnc:4057 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6708,10 +7299,10 @@ This disease-associated gene is G6PD (hgnc:4057). hgnc:4057 is a gene from the H
                         Gene: ABO
 
 
-    <a href="https://bioregistry.io/hgnc:79" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-28">hgnc:79</a>
+    <a href="https://bioregistry.io/hgnc:79" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-32">hgnc:79</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is ABO (hgnc:79). hgnc:79 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -6719,6 +7310,9 @@ This disease-associated gene is ABO (hgnc:79). hgnc:79 is a gene from the HUGO G
 
 
                 </div>
+
+
+
 
 
 
@@ -6737,6 +7331,7 @@ This disease-associated gene is ABO (hgnc:79). hgnc:79 is a gene from the HUGO G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6787,7 +7382,7 @@ This disease-associated gene is ABO (hgnc:79). hgnc:79 is a gene from the HUGO G
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-29">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6828,16 +7423,30 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_223316" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-30">CHEBI:223316</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_223316" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-34">CHEBI:223316</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses artemisinin, annotated with (+)-artemisinin (CHEBI:223316). CHEBI:223316 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -6862,6 +7471,7 @@ This treatment uses artemisinin, annotated with (+)-artemisinin (CHEBI:223316). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6893,7 +7503,7 @@ This treatment uses artemisinin, annotated with (+)-artemisinin (CHEBI:223316). 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6934,16 +7544,30 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_8405" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-32">CHEBI:8405</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_8405" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-36">CHEBI:8405</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses primaquine (CHEBI:8405). CHEBI:8405 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -6977,6 +7601,7 @@ This treatment uses primaquine (CHEBI:8405). CHEBI:8405 is a therapeutic agent f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7023,6 +7648,7 @@ This treatment uses primaquine (CHEBI:8405). CHEBI:8405 is a therapeutic agent f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7051,7 +7677,7 @@ This treatment uses primaquine (CHEBI:8405). CHEBI:8405 is a therapeutic agent f
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7084,6 +7710,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Severe malaria management includes organ support and restrictive fluid strategy to improve survival.</div>
 
 
@@ -7105,6 +7745,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7136,7 +7777,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">insecticide-treated bed net use<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">insecticide-treated bed net use<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is insecticide-treated bed net use, annotated with Preventive Intervention (NCIT:C15843). NCIT:C15843 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7169,6 +7810,20 @@ This treatment is insecticide-treated bed net use, annotated with Preventive Int
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Insecticide-treated bed nets are a core vector-control intervention that reduces malaria burden by limiting mosquito exposure.</div>
 
 
@@ -7190,6 +7845,7 @@ This treatment is insecticide-treated bed net use, annotated with Preventive Int
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7221,7 +7877,7 @@ This treatment is insecticide-treated bed net use, annotated with Preventive Int
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">chemoprevention<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">chemoprevention<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is chemoprevention, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7254,6 +7910,20 @@ This treatment is chemoprevention, annotated with Pharmacotherapy (NCIT:C15986).
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Drug-based preventive strategies such as IPTp and seasonal chemoprevention reduce malaria morbidity in high-risk populations.</div>
 
 
@@ -7275,6 +7945,7 @@ This treatment is chemoprevention, annotated with Pharmacotherapy (NCIT:C15986).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7306,7 +7977,7 @@ This treatment is chemoprevention, annotated with Pharmacotherapy (NCIT:C15986).
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">vaccination<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">vaccination<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7339,6 +8010,31 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Vaccine</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">WHO-endorsed pre-erythrocytic vaccines are deployed to reduce clinical malaria burden in endemic pediatric populations.</div>
 
 
@@ -7360,6 +8056,7 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7435,6 +8132,7 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7486,6 +8184,7 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7556,6 +8255,7 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7608,6 +8308,7 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7657,6 +8358,7 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7727,6 +8429,7 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7748,6 +8451,7 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7797,6 +8501,7 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7851,11 +8556,11 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
         Plasmodium falciparum
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_5833" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-37">NCBITaxon:5833</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_5833" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-41">NCBITaxon:5833</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-37">NCBI Taxonomy (NCBITaxon)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-41">NCBI Taxonomy (NCBITaxon)</span>
     </span>
 
 
@@ -7891,6 +8596,7 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7933,11 +8639,11 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
         Plasmodium vivax
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_5855" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-38">NCBITaxon:5855</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_5855" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-42">NCBITaxon:5855</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-38">NCBI Taxonomy (NCBITaxon)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-42">NCBI Taxonomy (NCBITaxon)</span>
     </span>
 
 
@@ -7973,6 +8679,7 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8034,6 +8741,7 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8055,6 +8763,7 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8152,6 +8861,7 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8225,6 +8935,7 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8305,6 +9016,7 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8381,6 +9093,7 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8452,11 +9165,11 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000178" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-39">UBERON:0000178</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000178" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-43">UBERON:0000178</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Uberon multi-species anatomy ontology (UBERON)
 Relation: this dataset samples this sample type
 This dataset samples whole blood, annotated with blood (UBERON:0000178). UBERON:0000178 is a sample type from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -8535,11 +9248,11 @@ This dataset samples whole blood, annotated with blood (UBERON:0000178). UBERON:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000178" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-40">UBERON:0000178</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000178" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-44">UBERON:0000178</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Uberon multi-species anatomy ontology (UBERON)
 Relation: this dataset samples this sample type
 This dataset samples peripheral blood mononuclear cell, annotated with blood (UBERON:0000178). UBERON:0000178 is a sample type from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -8608,11 +9321,11 @@ This dataset samples peripheral blood mononuclear cell, annotated with blood (UB
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000178" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-41">UBERON:0000178</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000178" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-45">UBERON:0000178</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Uberon multi-species anatomy ontology (UBERON)
 Relation: this dataset samples this sample type
 This dataset samples whole blood, annotated with blood (UBERON:0000178). UBERON:0000178 is a sample type from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -8685,11 +9398,11 @@ This dataset samples whole blood, annotated with blood (UBERON:0000178). UBERON:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0001945</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0001945</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8712,6 +9425,7 @@ This clinical trial targets Fever (HP:0001945). HP:0001945 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8760,11 +9474,11 @@ This clinical trial targets Fever (HP:0001945). HP:0001945 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0001945</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0001945</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8777,11 +9491,11 @@ This clinical trial targets Fever (HP:0001945). HP:0001945 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001903" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0001903</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001903" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0001903</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Anemia (HP:0001903). HP:0001903 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8804,6 +9518,7 @@ This clinical trial targets Anemia (HP:0001903). HP:0001903 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8852,11 +9567,11 @@ This clinical trial targets Anemia (HP:0001903). HP:0001903 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0001945</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0001945</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8879,6 +9594,7 @@ This clinical trial targets Fever (HP:0001945). HP:0001945 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9154,7 +9870,13 @@ pathophysiology:
   description: &gt;-
     In severe falciparum malaria, parasitized erythrocytes sequester in the
     microvasculature, promoting endothelial injury, impaired perfusion, and
-    downstream organ dysfunction.
+    downstream organ dysfunction. Sequestration is mediated by
+    Plasmodium falciparum erythrocyte membrane protein 1 (PfEMP1), a variant
+    surface antigen family encoded by the var multigene family and displayed
+    on the infected-erythrocyte surface, which binds host endothelial
+    receptors including CD36 and ICAM-1; receptor usage differs by clinical
+    syndrome, with increased CD36 binding associated with uncomplicated
+    malaria and increased ICAM-1 binding associated with cerebral malaria.
   cell_types:
   - preferred_term: erythrocyte
     term:
@@ -9184,6 +9906,16 @@ pathophysiology:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Infected erythrocyte sequestration in the microvasculature plays a critical role in the development of severe disease&#34;
     explanation: Directly supports sequestration as a central severe-malaria mechanism.
+  - reference: PMID:21390226
+    reference_title: &#34;Specific receptor usage in Plasmodium falciparum cytoadherence is associated with disease outcome.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;This is a complex system involving several host receptors and a major parasite-derived variant antigen (PfEMP1) expressed on the surface of the infected erythrocyte membrane. Previous studies have suggested a role for ICAM-1 in the pathology of cerebral malaria, although these have been inconclusive. In this study we have examined the cytoadherence patterns of 101 patient isolates from varying clinical syndromes to CD36 and ICAM-1, and have used variant ICAM-1 proteins to further characterise this adhesive phenotype. Our results show that increased binding to CD36 is associated with uncomplicated malaria while ICAM-1 adhesion is raised in parasites from cerebral malaria cases.&#34;
+    explanation: &gt;-
+      Directly names PfEMP1 as the parasite ligand and quantifies how
+      differential CD36 versus ICAM-1 receptor usage tracks with
+      uncomplicated versus cerebral malaria, the receptor detail this node&#39;s
+      title named but did not evidence.
 - name: Blood-brain barrier dysfunction in cerebral malaria
   description: &gt;-
     Cerebral malaria involves endothelial barrier breakdown with increased
@@ -9309,6 +10041,103 @@ pathophysiology:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;In the case-control study, compared to OO, the double dose genotypes consistently had higher odds ratios (OR) for severe malaria than single dose genotypes, with AB (OR 1.93) and AO (OR 1.27) showing most marked difference (p = 0.02, Wald test).&#34;
     explanation: Restricts this evidence item to human case-control findings on genotype-specific severe-malaria risk.
+- name: Bystander Destruction of Uninfected Erythrocytes in Severe Malarial Anemia
+  biological_scale: CELLULAR
+  description: &gt;-
+    Malarial anemia is disproportionate to the fraction of erythrocytes
+    directly parasitized. Modeling of parasitemia and hemoglobin decline in
+    malaria-therapy patients shows that several uninfected erythrocytes are
+    lost for every parasitized erythrocyte observed; splenic clearance and
+    phagocytosis of uninfected erythrocytes, rather than direct parasite lysis,
+    are on that reading the principal drivers of severe anemia.
+  notes: &gt;-
+    The quantitative anchor here is a retrospective model of non-immune
+    neurosyphilis patients undergoing induced malaria therapy: adults, a single
+    acute infection, no prior exposure. This entry uses &#34;severe malarial anemia&#34;
+    elsewhere as the WHO-criterion syndrome, which is predominantly pediatric
+    and endemic, so applying this node to that stratum is a population
+    extrapolation from adult induced-infection data. Bystander destruction is
+    independently accepted as a contributor to severe malarial anemia, so the
+    extrapolation is defensible, but the source population is stated here rather
+    than left implicit. The model&#39;s finding that dyserythropoiesis is
+    insignificant is likewise specific to that dataset and is not carried into
+    the node description; see the ineffective_erythropoiesis_contribution
+    discussion. Nothing upstream currently reaches this node, because the entry
+    has no blood-stage schizont-rupture or merozoite-release node for it to hang
+    off; adding one is out of scope for the issue this closes.
+  cell_types:
+  - preferred_term: erythrocyte
+    term:
+      id: CL:0000232
+      label: erythrocyte
+  - preferred_term: macrophage
+    term:
+      id: CL:0000235
+      label: macrophage
+  biological_processes:
+  - preferred_term: phagocytosis
+    term:
+      id: GO:0006909
+      label: phagocytosis
+  locations:
+  - preferred_term: spleen
+    term:
+      id: UBERON:0002106
+      label: spleen
+  downstream:
+  - target: Anemia
+    description: &gt;-
+      Bystander loss of uninfected erythrocytes, far exceeding the number
+      directly parasitized, is the principal driver of malaria-associated
+      anemia.
+  evidence:
+  - reference: PMID:10466119
+    reference_title: &#34;Anaemia of acute malaria infections in non-immune patients primarily results from destruction of uninfected erythrocytes.&#34;
+    supports: SUPPORT
+    evidence_source: COMPUTATIONAL
+    snippet: &#34;an average of 8.5 erythrocytes were destroyed in addition to each erythrocyte observed to become parasitized&#34;
+    explanation: &gt;-
+      Mathematical modeling of parasitemia and anemia data from malaria-therapy
+      patients quantifies uninfected-erythrocyte loss as far exceeding
+      parasitized-erythrocyte loss, establishing bystander destruction as the
+      dominant mechanism.
+  - reference: PMID:10466119
+    reference_title: &#34;Anaemia of acute malaria infections in non-immune patients primarily results from destruction of uninfected erythrocytes.&#34;
+    supports: SUPPORT
+    evidence_source: COMPUTATIONAL
+    snippet: &#34;The model also showed that dyserythropoiesis plays an insignificant role in the resulting anaemia.&#34;
+    explanation: &gt;-
+      The same model reports dyserythropoiesis as insignificant in this
+      dataset - non-immune adults in a single induced infection - which is why
+      the node treats bystander destruction as the dominant mechanism there.
+      This is a model output rather than a marrow measurement, and it does not
+      settle the contribution of ineffective erythropoiesis in endemic pediatric
+      severe malarial anemia; see the ineffective_erythropoiesis_contribution
+      discussion.
+  - reference: PMID:10466119
+    reference_title: &#34;Anaemia of acute malaria infections in non-immune patients primarily results from destruction of uninfected erythrocytes.&#34;
+    supports: SUPPORT
+    directness: INDIRECT
+    evidence_source: COMPUTATIONAL
+    snippet: &#34;We postulate that uninfected erythrocyte destruction occurs through phagocytosis of erythrocytes bound to merozoites killed as a result of the accompanying malaria paroxysms.&#34;
+    explanation: &gt;-
+      States the authors&#39; proposed cellular mechanism (phagocytic clearance)
+      for the bystander erythrocyte loss quantified by their model.
+  - reference: PMID:36361552
+    reference_title: &#34;Erythropoiesis and Malaria, a Multifaceted Interplay.&#34;
+    supports: SUPPORT
+    quote_role: REVIEW_SYNTHESIS
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;malarial anemia is thought to be largely caused by hemolysis and splenic clearance of infected and uninfected erythrocytes&#34;
+    explanation: &gt;-
+      A later review&#39;s synthesis of the established splenic-clearance mechanism
+      from prior human clinical literature, stated before it turns to its own
+      topic of erythropoietic suppression. Marked REVIEW_SYNTHESIS rather than
+      BACKGROUND because the citing publication is itself a review rather than a
+      primary study framing its own work. Note the quoted clause is the
+      concessive half of a sentence whose point is the opposite; the review&#39;s
+      own position is recorded in the
+      ineffective_erythropoiesis_contribution discussion.
 - name: Hypnozoite persistence and vivax relapse
   description: &gt;-
     Dormant P. vivax hypnozoites in the liver sustain recurrent malaria episodes
@@ -9943,6 +10772,67 @@ clinical_trials:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Most participants took part in the controlled human malaria infection (CHMI) or malaria challenge to find out if L9LS prevents malaria after being bitten by infected mosquitos.&#34;
     explanation: Registry evidence supports early-phase interventional prevention trial design.
+
+discussions:
+- discussion_id: ineffective_erythropoiesis_contribution
+  kind: KNOWLEDGE_GAP
+  attaches_to:
+  - pathophysiology#Bystander Destruction of Uninfected Erythrocytes in Severe Malarial Anemia
+  prompt: &gt;-
+    How much of severe malarial anemia is ineffective erythropoiesis and
+    dyserythropoiesis rather than peripheral destruction of uninfected
+    erythrocytes, and does the answer differ between non-immune adults in a
+    single acute infection and children with endemic exposure?
+  rationale: &gt;-
+    Severe malarial anemia has two well-established arms: increased
+    destruction and clearance of uninfected erythrocytes, and suppressed or
+    ineffective erythrocyte production. This entry models the first arm. Its
+    quantitative source is a 1999 retrospective model of non-immune adults
+    undergoing induced malaria therapy, which reports dyserythropoiesis as
+    insignificant in that dataset - a model output, not a marrow measurement,
+    and from a population unlike the pediatric endemic syndrome the term
+    &#34;severe malarial anemia&#34; names elsewhere in this file. A 2022 review of the
+    marrow arm draws on children with malarial anemia and describes ineffective
+    erythropoiesis and dyserythropoiesis as general features of malaria across
+    Plasmodium species. The two are not straightforwardly reconcilable, and the
+    relative contribution is recorded here as unsettled rather than being
+    resolved in the node description. Modelling the erythropoietic arm as its
+    own pathophysiology node is the natural follow-up.
+  evidence:
+  - reference: PMID:36361552
+    reference_title: &#34;Erythropoiesis and Malaria, a Multifaceted Interplay.&#34;
+    supports: SUPPORT
+    directness: DIRECT
+    quote_role: REVIEW_SYNTHESIS
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Anemia is an important clinical manifestation of malaria due to the increased lysis of RBC and to decreased RBC production as a result of ineffective erythropoiesis and dyserythropoiesis.&#34;
+    explanation: &gt;-
+      The review&#39;s own conclusion places decreased erythrocyte production
+      alongside lysis as a cause of malarial anemia, which is the arm this
+      entry does not model.
+  - reference: PMID:36361552
+    reference_title: &#34;Erythropoiesis and Malaria, a Multifaceted Interplay.&#34;
+    supports: SUPPORT
+    directness: DIRECT
+    quote_role: REVIEW_SYNTHESIS
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Ineffective erythropoiesis associated to dyserythropoiesis are general features found in malaria in several Plasmodium species.&#34;
+    explanation: &gt;-
+      States the erythropoietic arm as a general feature of malaria rather than
+      a species- or cohort-specific finding, which is what makes the 1999
+      model&#39;s &#34;insignificant role&#34; verdict a dataset-bounded result rather than
+      a settled one.
+  - reference: PMID:10466119
+    reference_title: &#34;Anaemia of acute malaria infections in non-immune patients primarily results from destruction of uninfected erythrocytes.&#34;
+    supports: REFUTE
+    directness: DIRECT
+    evidence_source: COMPUTATIONAL
+    snippet: &#34;The model also showed that dyserythropoiesis plays an insignificant role in the resulting anaemia.&#34;
+    explanation: &gt;-
+      The competing position, quoted from the source the destruction node rests
+      on. Graded REFUTE against the proposition that the erythropoietic arm
+      contributes materially, so the disagreement is visible in the entry rather
+      than resolved by omission.
 </pre>
             </div>
         </div>
@@ -9961,6 +10851,8 @@ clinical_trials:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -10349,7 +11241,7 @@ The 2024 Lancet Infectious Diseases IPD meta-analysis and the Brazil operational
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Malaria", "mondoId": "MONDO:0005136", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Malaria", "yamlRevision": "c0f4d3c808a1"};
+        const OS_CONFIG = {"diseaseName": "Malaria", "mondoId": "MONDO:0005136", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Malaria", "yamlRevision": "dc311e9ef4b5"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

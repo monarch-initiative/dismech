@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,18 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4172,6 +4249,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4497,6 +4575,7 @@ This readout is measured by electroencephalography.</span>
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4791,6 +4870,7 @@ This readout is measured by immunoblot assay.</span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5098,6 +5178,7 @@ This readout is measured by behavioral assay.</span>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5132,6 +5213,7 @@ This readout is measured by behavioral assay.</span>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-syngap1-haploinsufficiency" data-dismech-node="SYNGAP1 Haploinsufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">SYNGAP1 Haploinsufficiency</div>
+
 
                 <div class="item-desc">A heterozygous loss-of-function variant in SYNGAP1 (or a 6p21.3 deletion encompassing it), usually de novo, reduces functional SynGAP protein to roughly half. This node captures the single concept of the initiating haploinsufficiency.</div>
 
@@ -5226,6 +5308,7 @@ This pathophysiological event involves SYNGAP1 (hgnc:11497). hgnc:11497 is a gen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5248,6 +5331,7 @@ This pathophysiological event involves SYNGAP1 (hgnc:11497). hgnc:11497 is a gen
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-syngap-at-the-excitatory-postsynaptic-density" data-dismech-node="Reduced SynGAP at the Excitatory Postsynaptic Density" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced SynGAP at the Excitatory Postsynaptic Density</div>
+
 
                 <div class="item-desc">SynGAP is a Ras/Rap GTPase-activating protein highly concentrated at the postsynaptic density of excitatory (glutamatergic) synapses, where it restrains synaptic Ras signaling. Its reduction removes this brake. This node captures the single concept of the synaptic protein deficit.</div>
 
@@ -5373,6 +5457,7 @@ This pathophysiological event involves decreased GTPase activator activity (GO:0
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5395,6 +5480,7 @@ This pathophysiological event involves decreased GTPase activator activity (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-ras-signaling-and-ampa-receptor-trafficking" data-dismech-node="Dysregulated Ras Signaling and AMPA Receptor Trafficking" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysregulated Ras Signaling and AMPA Receptor Trafficking</div>
+
 
                 <div class="item-desc">Without adequate SynGAP, Ras-ERK signaling at the synapse is disinhibited, increasing insertion of AMPA-type glutamate receptors and strengthening excitatory transmission. This node captures the single concept of the signaling and receptor-trafficking derangement.</div>
 
@@ -5508,6 +5594,7 @@ This pathophysiological event involves increased Regulation of Ras protein signa
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-premature-excitatory-synapse-and-dendritic-spine-maturation" data-dismech-node="Premature Excitatory Synapse and Dendritic Spine Maturation" data-dismech-type="pathophysiology">
                 <div class="item-name">Premature Excitatory Synapse and Dendritic Spine Maturation</div>
+
 
                 <div class="item-desc">SynGAP normally paces the maturation of dendritic spines and excitatory synapses; its loss causes premature, accelerated maturation and an excess of strengthened excitatory synapses during development. This node captures the single concept of the accelerated synaptic maturation defect.</div>
 
@@ -5641,6 +5728,7 @@ This pathophysiological event involves dysregulated Dendritic spine development 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5663,6 +5751,7 @@ This pathophysiological event involves dysregulated Dendritic spine development 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cortical-excitation-inhibition-imbalance" data-dismech-node="Cortical Excitation-Inhibition Imbalance" data-dismech-type="pathophysiology">
                 <div class="item-name">Cortical Excitation-Inhibition Imbalance</div>
+
 
                 <div class="item-desc">The net effect is a shift of cortical circuits toward excitation over inhibition, lowering seizure threshold. This node captures the single concept of the excitation-inhibition imbalance and conforms to the shared epilepsy final common pathway.</div>
 
@@ -5738,6 +5827,7 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuronal-network-hyperexcitability" data-dismech-node="Neuronal Network Hyperexcitability" data-dismech-type="pathophysiology">
                 <div class="item-name">Neuronal Network Hyperexcitability</div>
+
 
                 <div class="item-desc">Cortical networks become hyperexcitable and prone to hypersynchronous, generalized discharges. This node captures the single concept of network hyperexcitability and conforms to the shared epilepsy final common pathway.</div>
 
@@ -5825,6 +5915,7 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5847,6 +5938,7 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-generalized-epilepsy" data-dismech-node="Generalized Epilepsy" data-dismech-type="pathophysiology">
                 <div class="item-name">Generalized Epilepsy</div>
+
 
                 <div class="item-desc">Most affected individuals develop generalized epilepsy, and a characteristic subset has myoclonic-astatic epilepsy (Doose syndrome) or epilepsy with myoclonic absences. This node captures the single concept of the seizure endpoint and conforms to the shared epilepsy final common pathway.</div>
 
@@ -5919,6 +6011,7 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5941,6 +6034,7 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-cognitive-development" data-dismech-node="Impaired Cognitive Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Cognitive Development</div>
+
 
                 <div class="item-desc">Developmental delay and intellectual disability, moderate to severe in most, are essentially universal. This node captures the single concept of the cognitive outcome.</div>
 
@@ -6013,6 +6107,7 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6035,6 +6130,7 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-autism-and-behavioral-abnormalities" data-dismech-node="Autism and Behavioral Abnormalities" data-dismech-type="pathophysiology">
                 <div class="item-name">Autism and Behavioral Abnormalities</div>
+
 
                 <div class="item-desc">About half of affected individuals have autism spectrum disorder or other behavioral abnormalities, including stereotypies. This node captures the single concept of the neurobehavioral outcome.</div>
 
@@ -6141,9 +6237,7 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Musculoskeletal<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(7)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(12)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6179,6 +6273,9 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6231,6 +6328,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
+
                 </div>
 
             </details>
@@ -6239,7 +6339,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">7</span>
+                    <span class="cat-count">12</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-global-developmental-delay" data-dismech-node="Global Developmental Delay" data-dismech-type="phenotype">
@@ -6270,6 +6370,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6284,6 +6387,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6342,298 +6446,10 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-absence-seizures" data-dismech-node="Absence Seizures" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Absence Seizures
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Generalized non-motor (absence) seizure</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002121" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002121</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Absence seizure, annotated with Generalized non-motor (absence) seizure (HP:0002121). HP:0002121 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-
 
 
 
                 </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-autistic-behavior" data-dismech-node="Autistic Behavior" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Autistic Behavior
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000729</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-eyelid-myoclonia-with-absences" data-dismech-node="Eyelid Myoclonia with Absences" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Eyelid Myoclonia with Absences
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Absence seizure with eyelid myoclonia</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011149" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0011149</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Absence seizure with eyelid myoclonia (HP:0011149). HP:0011149 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:30541864" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30541864" target="_blank">PMID:30541864</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Seizure types included eyelid myoclonia with absences (65%), myoclonic seizures (34%), atypical (20%) and typical (18%) absences, and atonic seizures (14%), triggered by eating in 25%."</div>
-
-
-                <div class="evidence-explanation">Vlaskamp cohort quantifies eyelid myoclonia with absences in 65% of patients.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-ataxia" data-dismech-node="Ataxia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Ataxia
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001251</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:30541864" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30541864" target="_blank">PMID:30541864</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"high pain threshold (72%); eating problems, including oral aversion (68%); hypotonia (67%); sleeping problems (62%); autism spectrum disorder (54%); and ataxia or gait abnormalities (51%)."</div>
-
-
-                <div class="evidence-explanation">Vlaskamp cohort quantifies ataxia or gait abnormalities in 51% of patients.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-sleep-disturbance" data-dismech-node="Sleep Disturbance" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Sleep Disturbance
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0002360</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:30541864" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30541864" target="_blank">PMID:30541864</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"high pain threshold (72%); eating problems, including oral aversion (68%); hypotonia (67%); sleeping problems (62%); autism spectrum disorder (54%); and ataxia or gait abnormalities (51%)."</div>
-
-
-                <div class="evidence-explanation">Vlaskamp cohort quantifies sleeping problems in 62% of patients.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">5</span>
-                </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-generalized-onset-seizures" data-dismech-node="Generalized-Onset Seizures" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6649,15 +6465,18 @@ This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002197" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002197</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002197" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002197</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Generalized-onset seizure (HP:0002197). HP:0002197 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6677,6 +6496,7 @@ This clinical feature is Generalized-onset seizure (HP:0002197). HP:0002197 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6717,15 +6537,94 @@ This clinical feature is Generalized-onset seizure (HP:0002197). HP:0002197 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0032794" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0032794</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0032794" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0032794</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Myoclonic seizure (HP:0032794). HP:0032794 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-absence-seizures" data-dismech-node="Absence Seizures" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Absence Seizures
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Generalized non-motor (absence) seizure</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002121" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0002121</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Absence seizure, annotated with Generalized non-motor (absence) seizure (HP:0002121). HP:0002121 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-autistic-behavior" data-dismech-node="Autistic Behavior" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Autistic Behavior
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000729</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
 
 
 
@@ -6753,10 +6652,10 @@ This clinical feature is Myoclonic seizure (HP:0032794). HP:0032794 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000733" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000733</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000733" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000733</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Motor stereotypy (HP:0000733). HP:0000733 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6766,6 +6665,85 @@ This clinical feature is Motor stereotypy (HP:0000733). HP:0000733 is a phenotyp
 
 
 
+
+
+
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-eyelid-myoclonia-with-absences" data-dismech-node="Eyelid Myoclonia with Absences" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Eyelid Myoclonia with Absences
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Absence seizure with eyelid myoclonia</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011149" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0011149</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Absence seizure with eyelid myoclonia (HP:0011149). HP:0011149 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30541864" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30541864" target="_blank">PMID:30541864</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Seizure types included eyelid myoclonia with absences (65%), myoclonic seizures (34%), atypical (20%) and typical (18%) absences, and atonic seizures (14%), triggered by eating in 25%."</div>
+
+
+                <div class="evidence-explanation">Vlaskamp cohort quantifies eyelid myoclonia with absences in 65% of patients.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -6789,15 +6767,18 @@ This clinical feature is Motor stereotypy (HP:0000733). HP:0000733 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0020208" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0020208</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0020208" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0020208</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Eating-induced seizure (HP:0020208). HP:0020208 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6817,6 +6798,7 @@ This clinical feature is Eating-induced seizure (HP:0020208). HP:0020208 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6861,15 +6843,18 @@ This clinical feature is Eating-induced seizure (HP:0020208). HP:0020208 is a ph
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007021" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0007021</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007021" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0007021</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is High pain threshold, annotated with Pain insensitivity (HP:0007021). HP:0007021 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6892,6 +6877,7 @@ This clinical feature is High pain threshold, annotated with Pain insensitivity 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6900,6 +6886,154 @@ This clinical feature is High pain threshold, annotated with Pain insensitivity 
 
 
                 <div class="evidence-explanation">Vlaskamp cohort quantifies high pain threshold in 72% of patients.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-ataxia" data-dismech-node="Ataxia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Ataxia
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001251</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30541864" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30541864" target="_blank">PMID:30541864</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"high pain threshold (72%); eating problems, including oral aversion (68%); hypotonia (67%); sleeping problems (62%); autism spectrum disorder (54%); and ataxia or gait abnormalities (51%)."</div>
+
+
+                <div class="evidence-explanation">Vlaskamp cohort quantifies ataxia or gait abnormalities in 51% of patients.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-sleep-disturbance" data-dismech-node="Sleep Disturbance" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Sleep Disturbance
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0002360</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30541864" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30541864" target="_blank">PMID:30541864</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"high pain threshold (72%); eating problems, including oral aversion (68%); hypotonia (67%); sleeping problems (62%); autism spectrum disorder (54%); and ataxia or gait abnormalities (51%)."</div>
+
+
+                <div class="evidence-explanation">Vlaskamp cohort quantifies sleeping problems in 62% of patients.</div>
 
 
 
@@ -6987,6 +7121,9 @@ This disease-associated gene is SYNGAP1 (hgnc:11497). hgnc:11497 is a gene from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7001,6 +7138,7 @@ This disease-associated gene is SYNGAP1 (hgnc:11497). hgnc:11497 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7083,6 +7221,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Epilepsy is managed with antiseizure medications; about half of affected individuals respond to a single agent while the remainder are pharmacoresistant. No SYNGAP1-specific ASM guideline exists.</div>
 
 
@@ -7104,6 +7256,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7168,6 +7321,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Developmental delay/intellectual disability and autism are managed with standard developmental, educational, and behavioral interventions; nasogastric/gastrostomy feeding may be needed for significant feeding issues.</div>
 
 
@@ -7227,6 +7394,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7301,6 +7469,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8192,6 +8361,19 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: SYNGAP1-Related Developmental and Epileptic Encephalopathy</strong> · 2026-07-18T11:42:38Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/SYNGAP1-Related_Developmental_and_Epileptic_Encephalopathy/2026-07-18T114238Z-claude-code-17bf55.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo curation of SYNGAP1-related DEE / SYNGAP1-ID / MRD5 (MONDO:0012960), an autosomal dominant synaptopathy. GeneReviews baseline PMID:30789692 (tagged). claude_code deep research. Granular unbundled pathophysiology: SYNGAP1 haploinsufficiency -&gt; reduced SynGAP at excitatory PSD (Ras/Rap GAP brake) -&gt; dysregulated Ras signaling + AMPA trafficking -&gt; premature excitatory synapse/dendritic-spine maturation -&gt; cortical E/I imbalance -&gt; hyperexcitability -&gt; generalized epilepsy (incl. Doose subset); parallel impaired-cognition and autism effectors. Three conforms_to links to the epilepsy module. Evidence snippet-verified: 30789692 (GeneReviews), 26912996 (Mind the Gap - SynGAP as Ras/AMPA brake), 31025938 (Rumbaugh adult re-expression reversibility), 39807402 (Graglia therapy roadmap), 30541864 (Vlaskamp distinctive DEE). Diagnosis + prevalence (CASES_IN_LITERATURE) sections included. Discussions: developmental-window/adult-reversibility gap, dosage-sensitivity upregulation-therapy hypothesis, and mechanism-to-phenotype gap. Caught two mis-cited PMIDs during fetch-verify (23141539 = HDAC4 paper, not Clement). All snippets confirmed as exact substrings; validation and folded-hyphen pass.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

@@ -20,6 +20,11 @@ Each disorder page includes:
 - Treatment options with NCIT term links
 - All claims backed by PubMed evidence
 
+Related browsers:
+
+- [Curation history dashboard](https://monarch-initiative.github.io/dismech-history/) — explore curation, review, and audit activity by date, agent tool, model, and section.
+- [Monarch NAMs browser](https://monarch-initiative.github.io/monarch-nams/) — explore New Approach Methodologies (NAMs) and research datasets represented in DisMech.
+
 ## How It Works
 
 ### Project Overview Slides
@@ -95,8 +100,11 @@ just qc
 # Validate a single file
 just validate kb/disorders/Asthma.yaml
 
-# Validate references against PubMed abstracts
-just validate-references kb/disorders/Asthma.yaml
+# Validate a KB entry's evidence snippets against the cited abstracts
+just validate-kb-references kb/disorders/Asthma.yaml
+
+# Check a deep-research report's citations (a different question -- see docs)
+just validate-research-reference research/Asthma-deep-research-falcon.md
 
 # Analyze compliance with recommended field coverage
 just compliance-all
@@ -186,7 +194,9 @@ just upload-cx2-test-all
 and applies a deterministic layout so the uploaded network is immediately viewable in
 NDEx. Add `--dot-layout` if Graphviz and `pydot` are available and you want a Graphviz
 layout instead of the built-in layered layout. The default NDEx upload visibility is
-`PUBLIC`, and the `just` upload targets default the host to `https://test.ndexbio.org`.
+`PRIVATE`, and the `just` upload targets default the host to `https://test.ndexbio.org`.
+Production releases use the protected, manually triggered `Publish NDEx release`
+GitHub Actions workflow described in the operator documentation.
 
 ## Agentic Curation Guide
 

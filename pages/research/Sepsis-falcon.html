@@ -1,0 +1,1350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sepsis · Falcon · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Sepsis</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Sepsis</h1>
+                
+                <p class="report-subtitle">Sepsis: Comprehensive Disease-Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-09-15</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-edison">Falcon</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_1040015" target="_blank" rel="noopener noreferrer">MONDO:1040015</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: Edison Scientific Literature</span>
+                    
+                    
+                    <span class="meta-chip">48 citations</span>
+                    
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Sepsis: Comprehensive Disease-Characteristics Report</h1>
+<h2>Executive summary</h2>
+<p>Sepsis is an acute, life-threatening syndrome in which infection triggers a dysregulated host response and new organ dysfunction. It is not synonymous with infection, bacteremia, or systemic inflammatory response syndrome (SIRS). Under Sepsis-3, adult clinical operationalization is suspected/documented infection plus an acute increase in Sequential Organ Failure Assessment (SOFA) score of at least 2 points. Septic shock is the higher-risk subset requiring vasopressors to maintain mean arterial pressure (MAP) at least 65 mmHg and having lactate above 2 mmol/L despite adequate volume resuscitation. Reported mortality is approximately 15–25% for sepsis and 30–50% for septic shock, varying substantially by case mix and health-system capacity (<a href="#ref-hotchkiss2016sepsisandseptic-pages-1-2">hotchkiss2016sepsisandseptic pages 1-2</a>).</p>
+<p>Sepsis is a complex, heterogeneous syndrome rather than a Mendelian disease. Its biology comprises simultaneously evolving pathogen burden, innate inflammatory activation, endothelial and microvascular injury, coagulation/complement activation, metabolic dysfunction, and immune suppression. This heterogeneity explains why rapid antimicrobials, source control, and physiologic support remain more successful than non-stratified immunomodulation (<a href="#ref-hotchkiss2016sepsisandseptic-pages-5-6">hotchkiss2016sepsisandseptic pages 5-6</a>, <a href="#ref-hotchkiss2016sepsisandseptic-pages-9-10">hotchkiss2016sepsisandseptic pages 9-10</a>, <a href="#ref-sebastian2025sepsisandpostsepsis-pages-8-10">sebastian2025sepsisandpostsepsis pages 8-10</a>).</p>
+<h2>1. Disease information</h2>
+<h3>Definition, names, and identifiers</h3>
+<p><strong>Preferred name:</strong> sepsis. <strong>Synonyms/related terms:</strong> septicemia/septicaemia, blood poisoning, systemic infection, severe sepsis, septic shock, infection-associated organ dysfunction. “Septicemia” and “blood poisoning” are imprecise legacy terms; bacteremia may be absent, and “severe sepsis” is redundant under Sepsis-3.</p>
+<p>Key suggested identifiers are:</p>
+<ul>
+<li><strong>MeSH:</strong> Sepsis, D018805.</li>
+<li><strong>ICD-10-CM:</strong> A40.- streptococcal sepsis; A41.- other sepsis; A41.9 unspecified-organism sepsis; R65.20 severe sepsis without shock; R65.21 severe sepsis with septic shock. Coding rules require the underlying infection/organism and acute organ dysfunction where applicable.</li>
+<li><strong>ICD-11:</strong> sepsis without versus with septic shock concepts should be verified against the implementation’s current release.</li>
+<li><strong>MONDO:</strong> retrieved disease-level mappings include <strong><a href="http://purl.obolibrary.org/obo/MONDO_0005229" target="_blank" rel="noopener noreferrer">MONDO:0005229</a></strong>, bacterial infectious disease with sepsis, and <strong><a href="http://purl.obolibrary.org/obo/MONDO_1040015" target="_blank" rel="noopener noreferrer">MONDO:1040015</a></strong>, infectious disease with sepsis. A general “sepsis” MONDO identifier should be release-verified rather than inferred from the Open Targets HPO-derived entry (OpenTargets Search: sepsis).</li>
+<li><strong>OMIM/Orphanet:</strong> not applicable as a single inherited or rare disease entity. Rare monogenic immunodeficiencies can predispose to invasive infection and sepsis, but are distinct diagnoses.</li>
+</ul>
+<p>Sepsis knowledge comes from both <strong>individual-level data</strong>—EHR-derived vital signs, laboratory results, cultures, medications and outcomes—and <strong>aggregated resources</strong>, including registries, administrative claims, cohorts, trials, guidelines and ontologies. Definition and coding variation materially alter estimated incidence (<a href="#ref-ljungstrom2019incidencesofcommunity-pages-12-13">ljungstrom2019incidencesofcommunity pages 12-13</a>, <a href="#ref-hotchkiss2016sepsisandseptic-pages-1-2">hotchkiss2016sepsisandseptic pages 1-2</a>).</p>
+<h2>2. Etiology, risk, and protective factors</h2>
+<h3>Causal factors and infectious agents</h3>
+<p>The necessary upstream trigger is infection, most often pneumonia, urinary infection, intra-abdominal infection, bloodstream/device infection, or skin/soft-tissue infection. Bacteria predominate, but fungi, viruses and parasites can cause the syndrome. In one small cohort represented in a systematic-review evidence table, isolates were 48.7% Gram-negative, 31.6% Gram-positive and 14.5% fungal; this is illustrative rather than globally representative. Another cohort’s sources were urinary 30.4%, abdominal 26.6%, pulmonary 25.3%, other 6.3% and undetermined 11.4% (hodgsonUnknownyeararticletitlehealthrelated pages 15-16).</p>
+<p>Typical agents include <em>Escherichia coli</em>, <em>Klebsiella pneumoniae</em>, <em>Pseudomonas aeruginosa</em>, <em>Staphylococcus aureus</em>, streptococci, enterococci, anaerobes, <em>Candida</em> spp., influenza virus and SARS-CoV-2. Pathogen distribution depends on age, site, community versus hospital acquisition, geography, immune status and antimicrobial exposure. Culture negativity—reported in up to 30%—does not exclude sepsis (<a href="#ref-hotchkiss2016sepsisandseptic-pages-12-13">hotchkiss2016sepsisandseptic pages 12-13</a>).</p>
+<h3>Host and environmental risk factors</h3>
+<p>Major risks include neonatal or advanced age, male sex in some older populations, frailty, diabetes, chronic kidney/liver/lung disease, cancer, immunosuppression, pregnancy/postpartum states, major surgery, trauma or burns, invasive devices, hospitalization, prior antimicrobials and resistant-organism exposure. In a Swedish population study, incidence increased more than forty-fold from the youngest to oldest groups; median age was 78 years, and men aged at least 85 had approximately 70% higher severe-sepsis incidence than women of similar age (<a href="#ref-ljungstrom2019incidencesofcommunity-pages-12-13">ljungstrom2019incidencesofcommunity pages 12-13</a>).</p>
+<p>Environmental and health-system modifiers include sanitation, vaccination coverage, crowding, air pollution insofar as it increases respiratory disease, occupational injury, access to primary and obstetric care, delayed recognition, antimicrobial resistance, and limited laboratory/ICU capacity. Smoking, hazardous alcohol use, malnutrition, inactivity and obesity influence infection, cardiopulmonary reserve or recovery, but are neither necessary nor sufficient causes.</p>
+<p><strong>Protective factors</strong> are mainly infection prevention and physiological reserve: age-appropriate vaccination, hand hygiene, safe surgery/childbirth, catheter bundles, antimicrobial stewardship, prompt treatment of localized infection, nutrition, mobility and chronic-disease control. No validated common “protective allele” is used clinically.</p>
+<h3>Gene–environment interaction</h3>
+<p>Host genotype affects pathogen recognition and cytokine, leukocyte, endothelial and coagulation responses, but effect size depends on organism, infection site, ancestry, antimicrobial susceptibility, treatment timing and comorbidity. Examples include a TLR4 haplotype associated with acquisition in Han Chinese (OR 1.59), CD14 rs2569190 with septic shock (OR 1.72), TREM1 rs2234246 with shock (OR 3.10), and TREM1 rs5743661 with 30-day mortality after Gram-positive sepsis (OR 4.88); inconsistent replication prevents clinical use (<a href="#ref-giamarellosbourboulis2016theroleof-pages-4-5">giamarellosbourboulis2016theroleof pages 4-5</a>). This context dependence is a genuine gene–environment interaction problem, not evidence of deterministic inheritance (<a href="#ref-sutherland2009benchtobedsidereviewassociation-pages-1-2">sutherland2009benchtobedsidereviewassociation pages 1-2</a>).</p>
+<h2>3. Phenotypes</h2>
+<p>Sepsis may occur at any age. Onset is usually acute over hours to days; severity and manifestations fluctuate with infection source, host reserve and treatment.</p>
+<ul>
+<li><strong>Constitutional signs:</strong> fever (<a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" rel="noopener noreferrer">HP:0001945</a>), hypothermia (<a href="http://purl.obolibrary.org/obo/HP_0002045" target="_blank" rel="noopener noreferrer">HP:0002045</a>), chills, malaise and weakness. Temperature can be normal, especially in neonates, older or immunosuppressed patients.</li>
+<li><strong>Cardiovascular signs:</strong> tachycardia (<a href="http://purl.obolibrary.org/obo/HP_0001649" target="_blank" rel="noopener noreferrer">HP:0001649</a>), hypotension (<a href="http://purl.obolibrary.org/obo/HP_0002615" target="_blank" rel="noopener noreferrer">HP:0002615</a>), delayed capillary refill, mottling, vasoplegia and shock; myocardial depression may affect both ventricles, and mild troponin elevation is common but nonspecific (<a href="#ref-hotchkiss2016sepsisandseptic-pages-9-10">hotchkiss2016sepsisandseptic pages 9-10</a>).</li>
+<li><strong>Respiratory:</strong> tachypnea (<a href="http://purl.obolibrary.org/obo/HP_0002789" target="_blank" rel="noopener noreferrer">HP:0002789</a>), hypoxemia (<a href="http://purl.obolibrary.org/obo/HP_0012418" target="_blank" rel="noopener noreferrer">HP:0012418</a>), pulmonary edema and ARDS. Alveolar-capillary injury lowers compliance and gas exchange. In the Swedish study, 78% of Sepsis-3 cases qualified through respiratory dysfunction alone, illustrating the sensitivity of epidemiology to oxygen-based SOFA classification (<a href="#ref-ljungstrom2019incidencesofcommunity-pages-12-13">ljungstrom2019incidencesofcommunity pages 12-13</a>, <a href="#ref-hotchkiss2016sepsisandseptic-pages-9-10">hotchkiss2016sepsisandseptic pages 9-10</a>).</li>
+<li><strong>Neurologic/behavioral:</strong> altered consciousness, delirium (<a href="http://purl.obolibrary.org/obo/HP_0031258" target="_blank" rel="noopener noreferrer">HP:0031258</a>), agitation, somnolence and encephalopathy (<a href="http://purl.obolibrary.org/obo/HP_0001298" target="_blank" rel="noopener noreferrer">HP:0001298</a>). Long-term cognitive, anxiety, depressive and post-traumatic symptoms may persist.</li>
+<li><strong>Renal:</strong> oliguria (<a href="http://purl.obolibrary.org/obo/HP_0100520" target="_blank" rel="noopener noreferrer">HP:0100520</a>), rising creatinine, electrolyte/acid-base abnormalities and AKI.</li>
+<li><strong>Hematologic/coagulation:</strong> thrombocytopenia (<a href="http://purl.obolibrary.org/obo/HP_0001873" target="_blank" rel="noopener noreferrer">HP:0001873</a>), prolonged coagulation tests, microthrombosis, bleeding and disseminated intravascular coagulation (<a href="http://purl.obolibrary.org/obo/HP_0001928" target="_blank" rel="noopener noreferrer">HP:0001928</a> broadly).</li>
+<li><strong>Hepatic/metabolic:</strong> hyperbilirubinemia (<a href="http://purl.obolibrary.org/obo/HP_0002904" target="_blank" rel="noopener noreferrer">HP:0002904</a>), cholestasis, hypoglycemia or hyperglycemia, metabolic acidosis and hyperlactatemia.</li>
+<li><strong>Gastrointestinal/musculoskeletal:</strong> ileus, feeding intolerance, catabolism, ICU-acquired weakness and lean-tissue loss.</li>
+</ul>
+<p>Phenotype frequency cannot be represented by one universal percentage because cohorts use different definitions and infection sources. Severity ranges from reversible single-organ dysfunction to rapidly progressive multiorgan failure. Per-phenotype quality-of-life effects include impaired mobility/self-care from weakness, inability to work, cognitive and emotional disability after encephalopathy/delirium, and chronic dialysis or dyspnea after organ injury. In a 2023 German claims study of 7,370 previously employed working-age survivors, 69.2% returned to work by six months and 76.9% by 12 months; at one year, 9.8% remained on sick leave and 13.3% had retired early (DOI: <a href="https://doi.org/10.3389/fmed.2023.1187809" target="_blank" rel="noopener noreferrer">https://doi.org/10.3389/fmed.2023.1187809</a>; published May 2023) (<a href="#ref-fleischmannstruzek2023returntowork-pages-8-8">fleischmannstruzek2023returntowork pages 8-8</a>).</p>
+<h2>4. Genetic and molecular information</h2>
+<h3>Disease architecture</h3>
+<p>There is <strong>no single causal sepsis gene</strong>, characteristic chromosomal abnormality, Mendelian inheritance, penetrance, anticipation, carrier frequency, founder mutation or germline-mosaicism framework. Sepsis susceptibility and outcomes are multifactorial and polygenic. Consequently, ClinVar-style “pathogenic/likely pathogenic” classification is generally inappropriate for common sepsis-associated variants; they are susceptibility or prognostic associations. Somatic clonal hematopoiesis genes such as TET2/SRSF2 are emerging disease modifiers, not causes of sepsis. Open Targets associations also prominently include adrenergic receptors and F8 because of therapeutic/clinical evidence; these should not be mislabeled causal genes (OpenTargets Search: sepsis).</p>
+<h3>Variant evidence</h3>
+<p>A GWAS of 832 septic-shock patients identified 139 death-associated SNPs at 5% FDR. Candidate loci included <strong>CYP11B2/PTPN11</strong> for early death and <strong>FER, CISH, MAPKAPK3</strong> for late death. The top regulatory candidate, <strong>rs143356980</strong>, lies near <strong>CISH</strong> in a monocyte/T-cell super-enhancer; CRISPR deletion and reporter assays supported enhancer function, with the T allele reducing activity relative to C. However, the reported very large multilocus early/late death-risk estimates require independent replication (DOI: <a href="https://doi.org/10.3390/ijms22115852" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/ijms22115852</a>; published May 2021) (<a href="#ref-rosier2021geneticpredispositionto-pages-16-18">rosier2021geneticpredispositionto pages 16-18</a>, <a href="#ref-rosier2021geneticpredispositionto-pages-1-2">rosier2021geneticpredispositionto pages 1-2</a>).</p>
+<p>The FER rs4957796-C allele has an approximately 20% European frequency and was associated with lower mortality in pneumonia-related sepsis in one study but not replicated for 28-day mortality in another. TNF rs1800629 and TLR4 Asp299Gly/Thr399Ile are classic inconsistent candidate associations (<a href="#ref-rosier2021geneticpredispositionto-pages-1-2">rosier2021geneticpredispositionto pages 1-2</a>, <a href="#ref-sutherland2009benchtobedsidereviewassociation-pages-1-2">sutherland2009benchtobedsidereviewassociation pages 1-2</a>).</p>
+<h3>Epigenetics and testing</h3>
+<p>Stimulus- and cell-specific chromatin accessibility, DNA methylation, histone modifications and trained immunity/tolerance can sustain immune reprogramming. CISH enhancer effects illustrate regulatory genetics, but not a diagnostic epigenetic lesion. Sepsis-related epigenomics remains investigational; cfDNA methylation is being tested as a tissue-of-origin and immune-injury biomarker (NCT06817408) (NCT06817408 chunk 1).</p>
+<p>Routine WGS, WES, panels, CMA, karyotype, FISH, mtDNA or repeat-expansion testing is <strong>not recommended for sepsis itself</strong>. Genetic evaluation is appropriate only when recurrent/unusual infection suggests an underlying inborn error of immunity, metabolic disorder or other independent diagnosis. Current associations lack replication, ancestry generalizability and incremental clinical utility beyond age, comorbidity and physiological severity (<a href="#ref-sutherland2009benchtobedsidereviewassociation-pages-1-2">sutherland2009benchtobedsidereviewassociation pages 1-2</a>, <a href="#ref-sutherland2009benchtobedsidereviewassociation-pages-6-7">sutherland2009benchtobedsidereviewassociation pages 6-7</a>).</p>
+<h2>5. Environmental information</h2>
+<p>Sepsis is not directly caused by a toxin or radiation in the usual disease definition. Relevant exposures operate by increasing infection or reducing reserve: contaminated water/food, poor sanitation, healthcare-associated resistant organisms, wounds/trauma, invasive devices, occupational exposure to pathogens, malnutrition, smoke/air pollution and limited healthcare access. Antibiotic exposure selects resistant microbiota and changes empiric-treatment adequacy. LPS is a bacterial PAMP and experimental trigger, not usually a standalone environmental cause of human sepsis.</p>
+<p>Lifestyle modification reduces background infection and comorbidity risk but cannot reliably prevent all sepsis. Smoking cessation, moderated alcohol use, physical activity, adequate protein/calorie intake, oral health, skin/foot care in diabetes, and adherence to chronic-disease therapy are reasonable population measures.</p>
+<h2>6. Mechanism and pathophysiology</h2>
+<h3>Causal chain</h3>
+<ol>
+<li><strong>Trigger/upstream sensing:</strong> local or disseminated microbes release PAMPs; injured cells release DAMPs. TLRs, NOD-like receptors, dectins, RAGE and nucleic-acid sensors activate NF-κB, AP-1 and IRF3/7 (<a href="http://purl.obolibrary.org/obo/GO_0045087" target="_blank" rel="noopener noreferrer">GO:0045087</a> innate immune response; <a href="http://purl.obolibrary.org/obo/GO_0002224" target="_blank" rel="noopener noreferrer">GO:0002224</a> TLR signaling) (<a href="#ref-hotchkiss2016sepsisandseptic-pages-5-6">hotchkiss2016sepsisandseptic pages 5-6</a>).</li>
+<li><strong>Mediator amplification:</strong> macrophages, monocytes, dendritic cells, neutrophils and endothelium produce TNF, IL-1, IL-6, chemokines and interferons (<a href="http://purl.obolibrary.org/obo/GO_0019221" target="_blank" rel="noopener noreferrer">GO:0019221</a>). Complement C3a/C4a/C5a amplifies leukocyte recruitment and injury (<a href="http://purl.obolibrary.org/obo/GO_0006956" target="_blank" rel="noopener noreferrer">GO:0006956</a>) (<a href="#ref-vella2025cytokinesinsepsis-pages-10-11">vella2025cytokinesinsepsis pages 10-11</a>).</li>
+<li><strong>Barrier/coagulation failure:</strong> activated endothelium becomes adhesive, permeable and procoagulant; platelets, fibrin and neutrophils generate immunothrombi. Capillary leak causes edema, while microvascular flow heterogeneity and thrombosis impair oxygen/nutrient delivery (<a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" rel="noopener noreferrer">GO:0007596</a>; <a href="http://purl.obolibrary.org/obo/GO_0030168" target="_blank" rel="noopener noreferrer">GO:0030168</a>) (<a href="#ref-hotchkiss2016sepsisandseptic-pages-9-10">hotchkiss2016sepsisandseptic pages 9-10</a>).</li>
+<li><strong>Cell/tissue injury:</strong> ROS, proteases, extracellular histones, complement, mitochondrial dysfunction, apoptosis and inflammatory cell death injure parenchyma. NETs capture organisms but expose histones/proteases that damage endothelium (<a href="http://purl.obolibrary.org/obo/GO_0140725" target="_blank" rel="noopener noreferrer">GO:0140725</a>) (<a href="#ref-vella2025cytokinesinsepsis-pages-10-11">vella2025cytokinesinsepsis pages 10-11</a>).</li>
+<li><strong>Organ manifestations:</strong> alveolar-capillary leak → hypoxemia/ARDS; vasodilation, leak and cardiodepression → hypotension; microvascular/metabolic tubular stress → AKI; BBB/neuroimmune dysfunction → delirium; cholestasis/hypoxia → bilirubin rise; platelet/coagulation consumption → thrombocytopenia/DIC (<a href="#ref-hotchkiss2016sepsisandseptic-pages-9-10">hotchkiss2016sepsisandseptic pages 9-10</a>).</li>
+<li><strong>Concurrent immune suppression:</strong> T/B/dendritic-cell apoptosis, lymphopenia, reduced monocyte MHC-II/HLA-DR, PD-1/PD-L1 signaling, regulatory/TH2 skewing and IL-10/TGF-β impair pathogen clearance and predispose to secondary infection. In human sepsis, stimulated lymphocyte pro-inflammatory/TH1 cytokine production was reported below 10% of non-septic controls; persistent lymphopenia predicts mortality (<a href="#ref-hotchkiss2016sepsisandseptic-pages-5-6">hotchkiss2016sepsisandseptic pages 5-6</a>).</li>
+<li><strong>Recovery or persistence:</strong> successful source control and organ support permit resolution; otherwise persistent inflammation, immunosuppression and catabolism produce chronic critical illness/post-sepsis syndrome.</li>
+</ol>
+<h3>Molecular profiling and advanced technologies</h3>
+<p>Bulk transcriptomics has defined immune-response endotypes. Pneumonia-associated <strong>SRS1</strong> is relatively immunosuppressed and high-risk versus <strong>SRS2</strong>; an IFNγ/CXCL9-driven endotype may represent about 20% of cases and is now being therapeutically selected in EMBRACE. Eleven-gene host-response panels can distinguish sepsis from sterile inflammation in research settings, but endotypes are platform- and cohort-dependent (<a href="#ref-sebastian2025sepsisandpostsepsis-pages-8-10">sebastian2025sepsisandpostsepsis pages 8-10</a>).</p>
+<p>Proteomics, metabolomics and lipidomics repeatedly implicate complement/coagulation, extracellular matrix, leukocyte migration, amino-acid depletion, mitochondrial/bioenergetic dysfunction and altered lipid mediators. A 2024 pilot proteomics study found 174 differentially expressed proteins and proposed plasma SPP1/osteopontin as a diagnostic/prognostic candidate, but its discovery sample—22 patients and 10 controls—is too small for implementation.</p>
+<p>Single-cell RNA/ATAC and spatial methods increasingly resolve monocyte, neutrophil, lymphocyte and organ-parenchymal states hidden by bulk blood measurements. As of 2024, these approaches are primarily mechanistic and stratification tools, not standard diagnostics. Liquid-biopsy cfDNA epigenomics is being prospectively evaluated in 1,000 participants to infer tissue/cell injury and immune exhaustion (NCT06817408) (NCT06817408 chunk 1).</p>
+<p>Suggested cell terms include neutrophil <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" rel="noopener noreferrer">CL:0000775</a>, monocyte <a href="http://purl.obolibrary.org/obo/CL_0000576" target="_blank" rel="noopener noreferrer">CL:0000576</a>, macrophage <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a>, dendritic cell <a href="http://purl.obolibrary.org/obo/CL_0000451" target="_blank" rel="noopener noreferrer">CL:0000451</a>, T cell <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" rel="noopener noreferrer">CL:0000084</a>, B cell <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" rel="noopener noreferrer">CL:0000236</a>, platelet <a href="http://purl.obolibrary.org/obo/CL_0000233" target="_blank" rel="noopener noreferrer">CL:0000233</a> and endothelial cell <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" rel="noopener noreferrer">CL:0000115</a>. Relevant compartments are plasma membrane <a href="http://purl.obolibrary.org/obo/GO_0005886" target="_blank" rel="noopener noreferrer">GO:0005886</a>, extracellular region <a href="http://purl.obolibrary.org/obo/GO_0005576" target="_blank" rel="noopener noreferrer">GO:0005576</a> and mitochondrion <a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" rel="noopener noreferrer">GO:0005739</a>.</p>
+<h2>7. Anatomical structures affected</h2>
+<p>Sepsis is systemic and has no lateralization. Frequent <strong>primary sites</strong> are lung, urinary tract/kidney, abdomen, bloodstream/device, skin/soft tissue and CNS. <strong>Secondary injury</strong> affects lung (<a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" rel="noopener noreferrer">UBERON:0002048</a>), kidney (<a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" rel="noopener noreferrer">UBERON:0002113</a>), liver (<a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" rel="noopener noreferrer">UBERON:0002107</a>), heart (<a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" rel="noopener noreferrer">UBERON:0000948</a>), brain (<a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" rel="noopener noreferrer">UBERON:0000955</a>), blood (<a href="http://purl.obolibrary.org/obo/UBERON_0000178" target="_blank" rel="noopener noreferrer">UBERON:0000178</a>), gastrointestinal barrier and skeletal muscle. The key cross-organ tissue is vascular endothelium, including glycocalyx and microcirculation. Relevant subcellular compartments include membrane PRR complexes, cytosolic inflammasomes, nucleus/chromatin, mitochondria, ER and lysosome/autophagy machinery.</p>
+<h2>8. Temporal development</h2>
+<p>Onset can be neonatal, pediatric, adult or geriatric. The usual pattern is <strong>acute</strong>, sometimes fulminant within hours. A practical trajectory is: localized infection → early systemic response and evolving organ dysfunction → established sepsis → septic shock/multiorgan dysfunction → recovery, death or chronic critical illness. These are trajectories, not formal cancer-like stages.</p>
+<p>The crucial intervention window is at suspicion/recognition: obtain cultures without material delay, begin appropriate antimicrobials, control the source and restore perfusion. Progression rate is highly variable. Resolution may occur over days; organ recovery can take weeks to months. Recurrent infection, rehospitalization, weakness and neurocognitive/psychiatric sequelae can persist for years. Treatment-induced remission is better described as infection resolution and organ recovery; “spontaneous remission” is not a useful sepsis construct.</p>
+<h2>9. Inheritance and population epidemiology</h2>
+<p>Sepsis has multifactorial/polygenic susceptibility with variable, context-dependent expression—not AD, AR, X-linked or mitochondrial inheritance. There is no clinically defined penetrance, anticipation or carrier state.</p>
+<p>A widely cited modeled global estimate for 2017 is approximately <strong>48.9 million cases</strong>, incidence <strong>677.5 per 100,000</strong>, and about <strong>11 million deaths</strong>, roughly one in five deaths worldwide. Estimates include sepsis as an intermediate mechanism in many underlying diseases and are definition/model dependent. A prospective Swedish study found community-onset Sepsis-3 incidence of <strong>838/100,000/year</strong>, versus <strong>276/100,000/year</strong> for older severe-sepsis criteria; bacteremia occurred in 13% of suspected cases and had incidence 203/100,000/year (DOI: <a href="https://doi.org/10.1371/journal.pone.0225700" target="_blank" rel="noopener noreferrer">https://doi.org/10.1371/journal.pone.0225700</a>; published December 2019) (<a href="#ref-ljungstrom2019incidencesofcommunity-pages-12-13">ljungstrom2019incidencesofcommunity pages 12-13</a>).</p>
+<p>Burden is highest at the extremes of age and disproportionately affects low- and middle-income regions. Sex effects vary; male excess is often reported in older adults. Geographic variation reflects infectious-disease ecology, vaccination, maternal/neonatal care, antimicrobial resistance, coding, recognition and ICU access.</p>
+<h2>10. Diagnostics</h2>
+<h3>Clinical criteria and differential diagnosis</h3>
+<p>Sepsis is a <strong>clinical syndrome</strong>, not confirmed by one assay. Identify suspected infection and acute organ dysfunction using history, examination, trends and SOFA components: respiratory oxygenation, platelets, bilirubin, MAP/vasopressors, Glasgow Coma Scale, creatinine/urine output. qSOFA—altered mentation, respiratory rate ≥22/min and systolic pressure ≤100 mmHg—is prognostic but insufficiently sensitive for screening. The 2021 SSC strongly recommends against qSOFA alone; SIRS, NEWS or MEWS may be used within structured programs. Performance-improvement programs were associated with lower mortality in 50 observational studies (OR 0.66, 95% CI 0.61–0.72), while randomized screening evidence did not itself show mortality benefit (RR 0.90, 95% CI 0.51–1.58) (<a href="#ref-evans2021survivingsepsiscampaign-pages-1-2">evans2021survivingsepsiscampaign pages 1-2</a>).</p>
+<p>Obtain at least two blood-culture sets and source specimens before antimicrobials when this causes no harmful delay. CBC/differential, CMP, bilirubin, creatinine, coagulation tests, blood gas and serial lactate characterize organ dysfunction. Urinalysis/culture, respiratory testing, CSF, joint fluid or surgical specimens are source-dependent. Ultrasound, radiography, CT, MRI, echocardiography and ECG locate infection or assess organ failure; imaging should not delay stabilization.</p>
+<p>Differentials include uncomplicated infection, noninfectious SIRS after trauma/surgery/pancreatitis, hemorrhagic/cardiogenic/obstructive shock, adrenal crisis, anaphylaxis, toxicologic syndromes, pulmonary embolism, cytokine-release/HLH-like states and thrombotic microangiopathy.</p>
+<h3>Biomarkers and omics</h3>
+<p>Lactate is useful for severity and resuscitation trends but is neither specific for sepsis nor a pure tissue-hypoxia marker. CRP and procalcitonin (PCT) support context-dependent probability and stewardship; PCT should not independently rule sepsis in/out. PCT-guided discontinuation can reduce antibiotic exposure, whereas initiation remains clinical (<a href="#ref-hotchkiss2016sepsisandseptic-pages-12-13">hotchkiss2016sepsisandseptic pages 12-13</a>).</p>
+<p>Presepsin, soluble TREM-1, IL-6, endothelial/glycocalyx markers, cell-free DNA, miRNAs and transcriptomic classifiers remain adjunctive/investigational. Monocyte distribution width (MDW) is automatically generated with some CBC analyzers; a 2,200-person prospective study is evaluating a cutoff of 20, but uses Sepsis-2 adjudication, limiting direct Sepsis-3 translation (NCT06267742) (NCT06267742 chunk 1).</p>
+<p>There is no asymptomatic population or newborn “sepsis screening” test. Screening is continuous risk surveillance in symptomatic/high-risk patients. Genetic testing is not a routine diagnostic pathway.</p>
+<h2>11. Outcome and prognosis</h2>
+<p>Short-term prognosis is driven by age/frailty, comorbidities, source and pathogen, antimicrobial adequacy, lactate/shock, number and duration of failed organs and response to treatment. Approximate mortality is 15–25% in sepsis and 30–50% in septic shock (<a href="#ref-hotchkiss2016sepsisandseptic-pages-1-2">hotchkiss2016sepsisandseptic pages 1-2</a>). In an oncologic ICU cohort, mortality was 37% overall and 68% for Sepsis-3 septic shock; SOFA outperformed qSOFA and SIRS for hospital-death discrimination.</p>
+<p>A falling SOFA is favorable. In one derivation/validation analysis, less than a 25% fall by day 7 was associated with markedly increased death risk (OR 14.87), while day-7 ΔSOFA had AUROC 0.84 in the derivation cohort.</p>
+<p>Survivors face new disability, cognitive impairment, depression/anxiety/PTSD, recurrent infection, cardiovascular events, kidney disease, muscle wasting and reduced HRQoL. Five- or ten-year “sepsis survival rates” are not stable disease constants because underlying illness and acute severity dominate. Rehabilitation, medication reconciliation and physical/cognitive/emotional follow-up are therefore part of sepsis care, not optional extras (<a href="#ref-fleischmannstruzek2023returntowork-pages-8-8">fleischmannstruzek2023returntowork pages 8-8</a>, hodgsonUnknownyeararticletitlehealthrelated pages 73-74).</p>
+<h2>12. Treatment and real-world implementation</h2>
+<h3>Immediate algorithm</h3>
+<ol>
+<li>Recognize sepsis as a medical emergency; measure lactate, obtain cultures and assess SOFA.</li>
+<li>Give empiric IV antimicrobials promptly—within 1 hour for septic shock/high-likelihood sepsis—chosen by source, local resistance, prior exposure, allergy, renal/hepatic function and PK/PD. Narrow when microbiology and clinical response permit. Risks include allergy, nephrotoxicity, <em>C. difficile</em>, microbiome injury and resistance (<a href="#ref-hotchkiss2016sepsisandseptic-pages-12-13">hotchkiss2016sepsisandseptic pages 12-13</a>).</li>
+<li>Achieve source control—drain abscess, debride infected tissue, relieve obstruction or remove infected devices—as soon as practical.</li>
+<li>For hypoperfusion/shock, use crystalloid with repeated dynamic reassessment. The historical initial 30 mL/kg recommendation is weak, not a mandate; balanced crystalloids are generally favored over 0.9% saline. Avoid persistent positive balance and fluid-accumulation organ injury.</li>
+<li>Use <strong>norepinephrine</strong> first-line to target MAP near 65 mmHg; starting peripherally through an appropriate proximal vein is preferable to delaying for central access. Add vasopressin, then epinephrine when needed. Individualize MAP upward in selected chronic-hypertension patients.</li>
+<li>Consider IV hydrocortisone for ongoing vasopressor-dependent shock. It generally accelerates shock reversal; hyperglycemia, hypernatremia and neuromuscular weakness are relevant harms.</li>
+</ol>
+<p>The 2021 SSC provides the authoritative adult framework (published October 2021; DOI: <a href="https://doi.org/10.1007/s00134-021-06506-y" target="_blank" rel="noopener noreferrer">https://doi.org/10.1007/s00134-021-06506-y</a>) (<a href="#ref-evans2021survivingsepsiscampaign-pages-1-2">evans2021survivingsepsiscampaign pages 1-2</a>). A 2023 expert summary emphasizes the changes: balanced fluid over saline, steroids for persistent vasopressor need, peripheral vasopressor initiation, and downgrade of fixed 30 mL/kg from strong to weak.</p>
+<h3>Organ support and supportive care</h3>
+<p>Use lung-protective ventilation for ARDS, conservative oxygen targets after stabilization, prone positioning for severe ARDS, sedation minimization and spontaneous awakening/breathing protocols. Apply standard indications for RRT rather than prophylactic early dialysis. Use restrictive RBC transfusion thresholds in stable adults, venous-thromboembolism and stress-ulcer prophylaxis when indicated, insulin protocols avoiding hypoglycemia, early enteral nutrition as tolerated, pressure-injury prevention and early mobilization. Surgery is etiologic only when required for source control.</p>
+<p>No gene, cell, RNA or broadly targeted immunotherapy is approved specifically for routine sepsis. Activated protein C was withdrawn; routine high-dose steroids, IV vitamin C cocktails, immunoglobulin, polymyxin-B hemoperfusion, cytokine adsorption and checkpoint therapy are not standard outside selected indications/trials.</p>
+<h3>Precision and experimental therapy</h3>
+<p>Current development emphasizes <strong>treatable endotypes</strong>, not one universal immunomodulator. EMBRACE (NCT06694701; Phase 2, 75 participants, active-not-recruiting in the retrieved registry) selects IFNγ/CXCL9-high patients without monocyte-HLA-DR immunoparalysis for emapalumab, exemplifying biomarker-directed immunotherapy (NCT06694701 chunk 2). MODIFY (NCT05909683; Phase 3, 190 participants) evaluates PCT- and molecular-guided antibiotic decisions (NCT05909683 chunk 2). Additional active programs include:</p>
+<ul>
+<li><strong>NCT06817408</strong>, 1,000-person cfDNA epigenomics/tissue-injury cohort (NCT06817408 chunk 1).</li>
+<li><strong>NCT06267742</strong>, 2,200-person MDW diagnostic validation (NCT06267742 chunk 1).</li>
+<li><strong>NCT03929159</strong>, 150-person plasma/PBMC miRNA outcome cohort (NCT03929159 chunk 1).</li>
+<li><strong>NCT03226158</strong>, 160-child microbial cell-free DNA sequencing cohort for impending bloodstream infection (NCT03226158 chunk 1).</li>
+</ul>
+<p>Suggested NCIt annotations include Anti-Infective Therapy, Source-Control Procedure/Drainage, Fluid Therapy, Norepinephrine Therapy, Vasopressor Therapy, Hydrocortisone, Mechanical Ventilation, Renal Replacement Therapy, Physical Therapy and Rehabilitation.</p>
+<h2>13. Prevention</h2>
+<p><strong>Primary prevention:</strong> vaccination against influenza, COVID-19, pneumococcus, meningococcus, <em>Haemophilus influenzae</em> type b and other age/risk-appropriate infections; clean water/sanitation; maternal/neonatal infection prevention; hand hygiene; sterile procedural technique; catheter/ventilator/surgical-site bundles; wound and chronic-disease care; smoking cessation; nutrition; antimicrobial stewardship.</p>
+<p><strong>Secondary prevention:</strong> public/professional education about infection plus confusion, dyspnea, hypotension, oliguria or mottling; risk-based EHR surveillance; prompt evaluation, cultures, antimicrobials and source control. There is no recommended population biomarker or genetic screening program.</p>
+<p><strong>Tertiary prevention:</strong> minimize iatrogenic complications, de-escalate antimicrobials, prevent thrombosis/pressure injury/delirium, mobilize early, vaccinate before/after discharge as appropriate, and provide post-sepsis physical, cognitive, psychological and social follow-up. SSC added strong recommendations for discharge information, medication reconciliation, shared planning and referral for deficits.</p>
+<h2>14. Other species and natural disease</h2>
+<p>Naturally occurring sepsis occurs in companion and production animals, including dogs (<strong>NCBI Taxon 9615</strong>), cats (9685), horses (9796), cattle (9913), pigs (9823) and sheep (9940). Common settings include canine peritonitis/pyometra, equine colic and neonatal foal sepsis, bovine mastitis/metritis and neonatal calf sepsis. These are clinically and economically important, but pathogen distributions, hemodynamics and treatment constraints differ by species. Sepsis itself is not generally “transmitted” cross-species; zoonotic pathogens may cross species and then cause sepsis in the infected host.</p>
+<p>No sepsis-specific breed ontology association or conserved causal gene is established. Orthologous TLR, cytokine, complement, coagulation and adrenergic pathways are conserved, enabling comparative research, but the retrieved evidence set did not support reliable breed-specific VBO annotations or veterinary incidence estimates.</p>
+<h2>15. Model organisms</h2>
+<p><strong>CLP:</strong> surgical polymicrobial peritonitis in mouse/rat; reproduces leukopenia, thrombocytopenia, hypotension, cytokine elevation, organ dysfunction and later immune paralysis. It is widely considered the most comprehensive model but varies with ligation length, needle size, punctures, operator, fluids and antibiotics (<a href="#ref-kannan2024mousemodelsof-pages-1-3">kannan2024mousemodelsof pages 1-3</a>, <a href="#ref-cai2023advancesinrodent-pages-4-5">cai2023advancesinrodent pages 4-5</a>).</p>
+<p><strong>Cecal slurry:</strong> standardized donor fecal material injected intraperitoneally; avoids surgery, is scalable and useful in neonatal mice, but varies by donor microbiome and batch (<a href="#ref-kannan2024mousemodelsof-pages-11-12">kannan2024mousemodelsof pages 11-12</a>).</p>
+<p><strong>Live-pathogen models:</strong> <em>E. coli</em>, <em>Pseudomonas</em>, <em>S. aureus</em>, <em>Klebsiella</em>, pneumococcus, streptococci or <em>Candida</em> permit pathogen-specific immunity and antimicrobial testing. Artificial IV/IP routes can bypass the natural infection site; pneumonia models better reproduce local-to-systemic progression. Candida models reproduce kidney injury, shock, thrombocytopenia and PD-1/PD-L1 upregulation (<a href="#ref-cai2023advancesinrodent-pages-2-4">cai2023advancesinrodent pages 2-4</a>).</p>
+<p><strong>LPS/endotoxemia:</strong> rapid, reproducible TLR4 inflammation, but no replicating infection and incomplete biphasic human disease. Specific-pathogen-free mice require approximately 250–500-fold more LPS than humans for comparable responses (<a href="#ref-kannan2024mousemodelsof-pages-11-12">kannan2024mousemodelsof pages 11-12</a>).</p>
+<p><strong>Two-hit models</strong> combine trauma/hemorrhage/ischemia with infection and may model clinical complexity, but protocols are poorly standardized. Humanized NSG mice recreate aspects of human immunity but have incomplete reconstitution. “Dirty” mice have adult-human-like immune experience and more severe CLP/LPS responses, improving some realism while reducing standardization (<a href="#ref-cai2023advancesinrodent-pages-6-8">cai2023advancesinrodent pages 6-8</a>, <a href="#ref-cai2023advancesinrodent-pages-8-9">cai2023advancesinrodent pages 8-9</a>).</p>
+<p>The central translational limitation is that young, inbred, SPF rodents exposed to a synchronized insult do not reproduce older, comorbid, genetically and microbiologically heterogeneous patients receiving antibiotics, surgery and ICU support. Accordingly, 2023–2024 experts recommend matching the model to the question, using both sexes/ages and supportive care, standardizing severity, and validating across multiple models before clinical translation (DOIs: <a href="https://doi.org/10.3390/ijms24119578" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/ijms24119578</a>, published May 2023; <a href="https://doi.org/10.1002/cpz1.997" target="_blank" rel="noopener noreferrer">https://doi.org/10.1002/cpz1.997</a>, published March 2024) (<a href="#ref-kannan2024mousemodelsof-pages-1-3">kannan2024mousemodelsof pages 1-3</a>, <a href="#ref-cai2023advancesinrodent-pages-1-2">cai2023advancesinrodent pages 1-2</a>).</p>
+<h2>Ontology and knowledge-base mapping</h2>
+<p>The following compact mapping distinguishes verified identifiers from suggested terms needing current-release validation.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Domain</th>
+<th>Preferred concept / identifier</th>
+<th>Suggested ontology terms / codes</th>
+<th>Practical note</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Disease</td>
+<td>Sepsis</td>
+<td><strong>MeSH:</strong> Sepsis (D018805); <strong>ICD-10-CM:</strong> A41.9, Sepsis, unspecified organism; <strong>ICD-11 candidates:</strong> 1G40, sepsis without septic shock; 1G41, sepsis with septic shock; <strong>MONDO:</strong> general sepsis identifier requires release-level verification</td>
+<td>Sepsis is infection-associated, life-threatening organ dysfunction caused by a dysregulated host response; do not equate it with uncomplicated infection, bacteremia, or SIRS (<a href="#ref-hotchkiss2016sepsisandseptic-pages-1-2">hotchkiss2016sepsisandseptic pages 1-2</a>, <a href="#ref-evans2021survivingsepsiscampaign-pages-1-2">evans2021survivingsepsiscampaign pages 1-2</a>).</td>
+</tr>
+<tr>
+<td>Disease subtype</td>
+<td>Bacterial infectious disease with sepsis</td>
+<td><strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0005229" target="_blank" rel="noopener noreferrer">MONDO:0005229</a> (verified in retrieved Open Targets mapping)</td>
+<td>A narrower concept than all-cause sepsis; sepsis may also be viral, fungal, or parasitic (OpenTargets Search: sepsis).</td>
+</tr>
+<tr>
+<td>Disease subtype</td>
+<td>Infectious disease with sepsis</td>
+<td><strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_1040015" target="_blank" rel="noopener noreferrer">MONDO:1040015</a> (verified in retrieved Open Targets mapping)</td>
+<td>Broad infection-with-sepsis concept found in Open Targets; confirm intended hierarchy before production use (OpenTargets Search: sepsis).</td>
+</tr>
+<tr>
+<td>Disease severity</td>
+<td>Septic shock</td>
+<td><strong>ICD-10-CM:</strong> R65.21; <strong>ICD-11 candidate:</strong> 1G41; <strong>SNOMED CT:</strong> use current-release “Septic shock” concept</td>
+<td>Clinical subset with vasopressor-dependent hypotension and elevated lactate despite adequate volume resuscitation; substantially higher mortality than sepsis without shock (<a href="#ref-hotchkiss2016sepsisandseptic-pages-1-2">hotchkiss2016sepsisandseptic pages 1-2</a>, <a href="#ref-vasques2018septicshock3vs-pages-7-7">vasques2018septicshock3vs pages 7-7</a>).</td>
+</tr>
+<tr>
+<td>Phenotype</td>
+<td>Fever or hypothermia</td>
+<td><strong>HPO:</strong> Fever (<a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" rel="noopener noreferrer">HP:0001945</a>); Hypothermia (<a href="http://purl.obolibrary.org/obo/HP_0002045" target="_blank" rel="noopener noreferrer">HP:0002045</a>)</td>
+<td>Variable and episodic acute signs; absence of fever does not exclude sepsis. Temperature responses depend on host age, severity, and environment (<a href="#ref-hotchkiss2016sepsisandseptic-pages-1-2">hotchkiss2016sepsisandseptic pages 1-2</a>, bakoush2023…classification pages 8-10).</td>
+</tr>
+<tr>
+<td>Phenotype</td>
+<td>Tachycardia and hypotension</td>
+<td><strong>HPO:</strong> Tachycardia (<a href="http://purl.obolibrary.org/obo/HP_0001649" target="_blank" rel="noopener noreferrer">HP:0001649</a>); Hypotension (<a href="http://purl.obolibrary.org/obo/HP_0002615" target="_blank" rel="noopener noreferrer">HP:0002615</a>)</td>
+<td>Cardiovascular manifestations range from compensated tachycardia to vasoplegia, myocardial depression, and shock (<a href="#ref-hotchkiss2016sepsisandseptic-pages-9-10">hotchkiss2016sepsisandseptic pages 9-10</a>).</td>
+</tr>
+<tr>
+<td>Phenotype</td>
+<td>Tachypnea, hypoxemia, respiratory failure</td>
+<td><strong>HPO:</strong> Tachypnea (<a href="http://purl.obolibrary.org/obo/HP_0002789" target="_blank" rel="noopener noreferrer">HP:0002789</a>); Hypoxemia (<a href="http://purl.obolibrary.org/obo/HP_0012418" target="_blank" rel="noopener noreferrer">HP:0012418</a>); Respiratory failure (term; verify current HPO identifier)</td>
+<td>Alveolar–capillary injury causes noncardiogenic edema, impaired compliance, and reduced gas exchange; respiratory dysfunction commonly contributes to SOFA-defined sepsis (<a href="#ref-ljungstrom2019incidencesofcommunity-pages-12-13">ljungstrom2019incidencesofcommunity pages 12-13</a>, <a href="#ref-hotchkiss2016sepsisandseptic-pages-9-10">hotchkiss2016sepsisandseptic pages 9-10</a>).</td>
+</tr>
+<tr>
+<td>Phenotype</td>
+<td>Altered consciousness, delirium, encephalopathy</td>
+<td><strong>HPO:</strong> Delirium (<a href="http://purl.obolibrary.org/obo/HP_0031258" target="_blank" rel="noopener noreferrer">HP:0031258</a>); Encephalopathy (<a href="http://purl.obolibrary.org/obo/HP_0001298" target="_blank" rel="noopener noreferrer">HP:0001298</a>); Altered mental status (term; verify current HPO identifier)</td>
+<td>May be an early sign or sepsis-associated encephalopathy; exclude CNS infection, structural lesions, drugs, metabolic disease, and primary neurologic causes (<a href="#ref-hotchkiss2016sepsisandseptic-pages-9-10">hotchkiss2016sepsisandseptic pages 9-10</a>).</td>
+</tr>
+<tr>
+<td>Phenotype</td>
+<td>Oliguria and acute kidney injury</td>
+<td><strong>HPO:</strong> Oliguria (<a href="http://purl.obolibrary.org/obo/HP_0100520" target="_blank" rel="noopener noreferrer">HP:0100520</a>); Acute kidney injury (term; verify current HPO identifier)</td>
+<td>Dynamic organ dysfunction assessed using urine output and creatinine; may require renal replacement therapy in severe cases (<a href="#ref-hotchkiss2016sepsisandseptic-pages-9-10">hotchkiss2016sepsisandseptic pages 9-10</a>, NCT06817408 chunk 1).</td>
+</tr>
+<tr>
+<td>Phenotype</td>
+<td>Thrombocytopenia and coagulopathy</td>
+<td><strong>HPO:</strong> Thrombocytopenia (<a href="http://purl.obolibrary.org/obo/HP_0001873" target="_blank" rel="noopener noreferrer">HP:0001873</a>); Abnormality of coagulation (<a href="http://purl.obolibrary.org/obo/HP_0001928" target="_blank" rel="noopener noreferrer">HP:0001928</a>); Disseminated intravascular coagulation (term; verify current HPO identifier)</td>
+<td>Reflects platelet consumption, coagulation activation, endothelial injury, and—in severe disease—DIC (<a href="#ref-hotchkiss2016sepsisandseptic-pages-9-10">hotchkiss2016sepsisandseptic pages 9-10</a>, bakoush2023…classification pages 8-10).</td>
+</tr>
+<tr>
+<td>Phenotype</td>
+<td>Hyperbilirubinemia and hepatic dysfunction</td>
+<td><strong>HPO:</strong> Hyperbilirubinemia (<a href="http://purl.obolibrary.org/obo/HP_0002904" target="_blank" rel="noopener noreferrer">HP:0002904</a>); Abnormal liver function (term; verify current HPO identifier)</td>
+<td>SOFA hepatic dysfunction is bilirubin-based; mechanisms include cholestasis, inflammation, hypoxia, and shock (<a href="#ref-hotchkiss2016sepsisandseptic-pages-9-10">hotchkiss2016sepsisandseptic pages 9-10</a>).</td>
+</tr>
+<tr>
+<td>Laboratory phenotype</td>
+<td>Hyperlactatemia</td>
+<td><strong>HPO:</strong> Increased circulating lactate concentration (term; verify current HPO identifier); <strong>LOINC:</strong> use specimen/method-specific lactate code</td>
+<td>Lactate supports severity assessment and resuscitation monitoring but is neither sepsis-specific nor a pure measure of tissue hypoxia (<a href="#ref-vasques2018septicshock3vs-pages-7-7">vasques2018septicshock3vs pages 7-7</a>, <a href="#ref-oczkowski2022survivingsepsiscampaign-pages-7-8">oczkowski2022survivingsepsiscampaign pages 7-8</a>).</td>
+</tr>
+<tr>
+<td>Organ</td>
+<td>Lung</td>
+<td><strong>UBERON:</strong> lung (<a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" rel="noopener noreferrer">UBERON:0002048</a>)</td>
+<td>Frequent infection source and target of secondary injury; manifestations include pneumonia, hypoxemia, and ARDS (<a href="#ref-ljungstrom2019incidencesofcommunity-pages-12-13">ljungstrom2019incidencesofcommunity pages 12-13</a>, <a href="#ref-hotchkiss2016sepsisandseptic-pages-9-10">hotchkiss2016sepsisandseptic pages 9-10</a>).</td>
+</tr>
+<tr>
+<td>Organ</td>
+<td>Kidney</td>
+<td><strong>UBERON:</strong> kidney (<a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" rel="noopener noreferrer">UBERON:0002113</a>)</td>
+<td>Sepsis-associated AKI involves microcirculatory, inflammatory, endothelial, and metabolic injury rather than hypoperfusion alone (<a href="#ref-hotchkiss2016sepsisandseptic-pages-9-10">hotchkiss2016sepsisandseptic pages 9-10</a>).</td>
+</tr>
+<tr>
+<td>Organ</td>
+<td>Liver</td>
+<td><strong>UBERON:</strong> liver (<a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" rel="noopener noreferrer">UBERON:0002107</a>)</td>
+<td>Hepatic dysfunction may present with cholestasis, hyperbilirubinemia, impaired clearance, or hypoxic hepatitis (<a href="#ref-hotchkiss2016sepsisandseptic-pages-9-10">hotchkiss2016sepsisandseptic pages 9-10</a>).</td>
+</tr>
+<tr>
+<td>Organ</td>
+<td>Heart</td>
+<td><strong>UBERON:</strong> heart (<a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" rel="noopener noreferrer">UBERON:0000948</a>)</td>
+<td>Sepsis-induced cardiomyopathy can affect both ventricles; mild troponin elevation is common but nonspecific (<a href="#ref-hotchkiss2016sepsisandseptic-pages-9-10">hotchkiss2016sepsisandseptic pages 9-10</a>).</td>
+</tr>
+<tr>
+<td>Organ</td>
+<td>Brain</td>
+<td><strong>UBERON:</strong> brain (<a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" rel="noopener noreferrer">UBERON:0000955</a>)</td>
+<td>Neuroinflammation, blood–brain-barrier dysfunction, microglial activation, and systemic metabolic disturbances contribute to encephalopathy and long-term cognitive deficits (<a href="#ref-hotchkiss2016sepsisandseptic-pages-1-2">hotchkiss2016sepsisandseptic pages 1-2</a>, <a href="#ref-hotchkiss2016sepsisandseptic-pages-9-10">hotchkiss2016sepsisandseptic pages 9-10</a>).</td>
+</tr>
+<tr>
+<td>System/tissue</td>
+<td>Blood and vascular endothelium</td>
+<td><strong>UBERON:</strong> blood (<a href="http://purl.obolibrary.org/obo/UBERON_0000178" target="_blank" rel="noopener noreferrer">UBERON:0000178</a>); vasculature (term; verify site-specific UBERON code)</td>
+<td>Endothelial activation converts an anticoagulant surface into a proadhesive, procoagulant interface and promotes capillary leak and immunothrombosis (<a href="#ref-hotchkiss2016sepsisandseptic-pages-9-10">hotchkiss2016sepsisandseptic pages 9-10</a>).</td>
+</tr>
+<tr>
+<td>Cell type</td>
+<td>Neutrophil</td>
+<td><strong>CL:</strong> neutrophil (<a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" rel="noopener noreferrer">CL:0000775</a>)</td>
+<td>Performs phagocytosis and NET formation; dysregulated NETs trap pathogens but can damage endothelium and amplify thrombosis and inflammation (<a href="#ref-vella2025cytokinesinsepsis-pages-10-11">vella2025cytokinesinsepsis pages 10-11</a>, bakoush2023…classification pages 8-10).</td>
+</tr>
+<tr>
+<td>Cell type</td>
+<td>Monocyte</td>
+<td><strong>CL:</strong> monocyte (<a href="http://purl.obolibrary.org/obo/CL_0000576" target="_blank" rel="noopener noreferrer">CL:0000576</a>)</td>
+<td>Key pathogen-sensing and antigen-presenting cell; reduced monocyte HLA-DR is used experimentally to define sepsis-induced immunoparalysis (<a href="#ref-hotchkiss2016sepsisandseptic-pages-5-6">hotchkiss2016sepsisandseptic pages 5-6</a>, NCT06694701 chunk 2).</td>
+</tr>
+<tr>
+<td>Cell type</td>
+<td>Macrophage</td>
+<td><strong>CL:</strong> macrophage (<a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a>)</td>
+<td>Produces inflammatory cytokines after PRR activation; later polarization and uptake of apoptotic cells can increase IL-10 and TGF-β and suppress immunity (<a href="#ref-hotchkiss2016sepsisandseptic-pages-5-6">hotchkiss2016sepsisandseptic pages 5-6</a>, <a href="#ref-vella2025cytokinesinsepsis-pages-10-11">vella2025cytokinesinsepsis pages 10-11</a>).</td>
+</tr>
+<tr>
+<td>Cell type</td>
+<td>Dendritic cell</td>
+<td><strong>CL:</strong> dendritic cell (<a href="http://purl.obolibrary.org/obo/CL_0000451" target="_blank" rel="noopener noreferrer">CL:0000451</a>)</td>
+<td>Apoptotic depletion and impaired antigen presentation contribute to immunosuppression (<a href="#ref-hotchkiss2016sepsisandseptic-pages-5-6">hotchkiss2016sepsisandseptic pages 5-6</a>).</td>
+</tr>
+<tr>
+<td>Cell type</td>
+<td>T lymphocyte</td>
+<td><strong>CL:</strong> T cell (<a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" rel="noopener noreferrer">CL:0000084</a>)</td>
+<td>Lymphopenia, apoptosis, PD-1 expression, TH2/regulatory skewing, and functional exhaustion are associated with persistent immune dysfunction (<a href="#ref-hotchkiss2016sepsisandseptic-pages-5-6">hotchkiss2016sepsisandseptic pages 5-6</a>).</td>
+</tr>
+<tr>
+<td>Cell type</td>
+<td>B lymphocyte</td>
+<td><strong>CL:</strong> B cell (<a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" rel="noopener noreferrer">CL:0000236</a>)</td>
+<td>Sepsis-associated apoptosis reduces adaptive immune-cell numbers and may impair subsequent antimicrobial immunity (<a href="#ref-hotchkiss2016sepsisandseptic-pages-5-6">hotchkiss2016sepsisandseptic pages 5-6</a>).</td>
+</tr>
+<tr>
+<td>Cell type</td>
+<td>Platelet</td>
+<td><strong>CL:</strong> platelet (<a href="http://purl.obolibrary.org/obo/CL_0000233" target="_blank" rel="noopener noreferrer">CL:0000233</a>)</td>
+<td>Platelets link coagulation to innate immunity through fibrin binding, P-selectin-mediated leukocyte recruitment, and microthrombus formation (<a href="#ref-hotchkiss2016sepsisandseptic-pages-9-10">hotchkiss2016sepsisandseptic pages 9-10</a>).</td>
+</tr>
+<tr>
+<td>Cell type</td>
+<td>Endothelial cell</td>
+<td><strong>CL:</strong> endothelial cell (<a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" rel="noopener noreferrer">CL:0000115</a>)</td>
+<td>Central effector of permeability, leukocyte adhesion, vasoplegia, coagulation activation, and microvascular organ injury (<a href="#ref-vella2025cytokinesinsepsis-pages-10-11">vella2025cytokinesinsepsis pages 10-11</a>, <a href="#ref-hotchkiss2016sepsisandseptic-pages-9-10">hotchkiss2016sepsisandseptic pages 9-10</a>).</td>
+</tr>
+<tr>
+<td>Mechanism</td>
+<td>Pattern-recognition receptor signaling</td>
+<td><strong>GO-BP:</strong> innate immune response (<a href="http://purl.obolibrary.org/obo/GO_0045087" target="_blank" rel="noopener noreferrer">GO:0045087</a>); inflammatory response (<a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a>); Toll-like receptor signaling pathway (<a href="http://purl.obolibrary.org/obo/GO_0002224" target="_blank" rel="noopener noreferrer">GO:0002224</a>)</td>
+<td>PAMPs and DAMPs activate TLRs, NOD proteins, dectins, RAGE, and RNA sensors, converging on NF-κB, AP-1, and IRFs (<a href="#ref-hotchkiss2016sepsisandseptic-pages-5-6">hotchkiss2016sepsisandseptic pages 5-6</a>).</td>
+</tr>
+<tr>
+<td>Mechanism</td>
+<td>Cytokine production and signaling</td>
+<td><strong>GO-BP:</strong> cytokine-mediated signaling pathway (<a href="http://purl.obolibrary.org/obo/GO_0019221" target="_blank" rel="noopener noreferrer">GO:0019221</a>); positive regulation of cytokine production (<a href="http://purl.obolibrary.org/obo/GO_0001819" target="_blank" rel="noopener noreferrer">GO:0001819</a>)</td>
+<td>TNF, IL-1, IL-6, chemokines, and interferons drive systemic inflammation, while IL-10 and TGF-β contribute to compensatory immunosuppression (<a href="#ref-hotchkiss2016sepsisandseptic-pages-5-6">hotchkiss2016sepsisandseptic pages 5-6</a>, bakoush2023…classification pages 8-10).</td>
+</tr>
+<tr>
+<td>Mechanism</td>
+<td>Complement activation</td>
+<td><strong>GO-BP:</strong> complement activation (<a href="http://purl.obolibrary.org/obo/GO_0006956" target="_blank" rel="noopener noreferrer">GO:0006956</a>)</td>
+<td>C3a, C4a, and particularly C5a amplify inflammation, alter neutrophil function, and can promote immune-cell apoptosis (<a href="#ref-vella2025cytokinesinsepsis-pages-10-11">vella2025cytokinesinsepsis pages 10-11</a>, <a href="#ref-hotchkiss2016sepsisandseptic-pages-17-18">hotchkiss2016sepsisandseptic pages 17-18</a>).</td>
+</tr>
+<tr>
+<td>Mechanism</td>
+<td>Coagulation and immunothrombosis</td>
+<td><strong>GO-BP:</strong> blood coagulation (<a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" rel="noopener noreferrer">GO:0007596</a>); platelet activation (<a href="http://purl.obolibrary.org/obo/GO_0030168" target="_blank" rel="noopener noreferrer">GO:0030168</a>)</td>
+<td>Inflammation, endothelial activation, platelets, fibrin, and leukocytes generate microvascular thrombi; excessive activation may progress to consumptive coagulopathy or DIC (<a href="#ref-hotchkiss2016sepsisandseptic-pages-9-10">hotchkiss2016sepsisandseptic pages 9-10</a>, bakoush2023…classification pages 8-10).</td>
+</tr>
+<tr>
+<td>Mechanism</td>
+<td>Programmed cell death</td>
+<td><strong>GO-BP:</strong> apoptotic process (<a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" rel="noopener noreferrer">GO:0006915</a>); pyroptosis (<a href="http://purl.obolibrary.org/obo/GO_0070269" target="_blank" rel="noopener noreferrer">GO:0070269</a>)</td>
+<td>Human autopsy and experimental evidence support lymphocyte and dendritic-cell apoptosis as drivers of immunosuppression; pyroptosis is a plausible inflammatory mechanism but requires evidence-specific annotation (<a href="#ref-hotchkiss2016sepsisandseptic-pages-5-6">hotchkiss2016sepsisandseptic pages 5-6</a>).</td>
+</tr>
+<tr>
+<td>Mechanism</td>
+<td>Neutrophil extracellular-trap formation</td>
+<td><strong>GO-BP:</strong> neutrophil extracellular trap formation (<a href="http://purl.obolibrary.org/obo/GO_0140725" target="_blank" rel="noopener noreferrer">GO:0140725</a>)</td>
+<td>NETs support antimicrobial defense but expose histones and proteases that injure endothelium and amplify cytokine signaling (<a href="#ref-vella2025cytokinesinsepsis-pages-10-11">vella2025cytokinesinsepsis pages 10-11</a>).</td>
+</tr>
+<tr>
+<td>Mechanism</td>
+<td>Mitochondrial/metabolic dysfunction</td>
+<td><strong>GO-BP:</strong> cellular response to oxidative stress (<a href="http://purl.obolibrary.org/obo/GO_0034599" target="_blank" rel="noopener noreferrer">GO:0034599</a>); cellular respiration (<a href="http://purl.obolibrary.org/obo/GO_0045333" target="_blank" rel="noopener noreferrer">GO:0045333</a>); <strong>GO-CC:</strong> mitochondrion (<a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" rel="noopener noreferrer">GO:0005739</a>)</td>
+<td>Bioenergetic failure, oxidative stress, and metabolic reprogramming may cause organ dysfunction despite restored macrocirculation; many candidate signatures remain investigational (<a href="#ref-sebastian2025sepsisandpostsepsis-pages-8-10">sebastian2025sepsisandpostsepsis pages 8-10</a>, <a href="#ref-cai2023advancesinrodent-pages-8-9">cai2023advancesinrodent pages 8-9</a>).</td>
+</tr>
+<tr>
+<td>Mechanism</td>
+<td>Immune suppression/exhaustion</td>
+<td><strong>GO-BP:</strong> negative regulation of immune response (<a href="http://purl.obolibrary.org/obo/GO_0050777" target="_blank" rel="noopener noreferrer">GO:0050777</a>); regulation of T-cell apoptotic process (suggested term)</td>
+<td>PD-1/PD-L1 signaling, reduced MHC-II/HLA-DR, lymphocyte apoptosis, impaired cytokine production, and regulatory-cell expansion can coexist with inflammation (<a href="#ref-hotchkiss2016sepsisandseptic-pages-5-6">hotchkiss2016sepsisandseptic pages 5-6</a>).</td>
+</tr>
+<tr>
+<td>Subcellular site</td>
+<td>Plasma membrane and extracellular compartment</td>
+<td><strong>GO-CC:</strong> plasma membrane (<a href="http://purl.obolibrary.org/obo/GO_0005886" target="_blank" rel="noopener noreferrer">GO:0005886</a>); extracellular region (<a href="http://purl.obolibrary.org/obo/GO_0005576" target="_blank" rel="noopener noreferrer">GO:0005576</a>)</td>
+<td>PRRs, adhesion molecules, complement, cytokines, coagulation proteins, and NET components act across these compartments (<a href="#ref-hotchkiss2016sepsisandseptic-pages-5-6">hotchkiss2016sepsisandseptic pages 5-6</a>, <a href="#ref-vella2025cytokinesinsepsis-pages-10-11">vella2025cytokinesinsepsis pages 10-11</a>, <a href="#ref-hotchkiss2016sepsisandseptic-pages-9-10">hotchkiss2016sepsisandseptic pages 9-10</a>).</td>
+</tr>
+<tr>
+<td>Chemical</td>
+<td>Lipopolysaccharide</td>
+<td><strong>ChEBI:</strong> lipopolysaccharide (<a href="http://purl.obolibrary.org/obo/CHEBI_16412" target="_blank" rel="noopener noreferrer">CHEBI:16412</a>)</td>
+<td>Gram-negative PAMP and experimental endotoxemia trigger; LPS models are reproducible but do not reproduce live, heterogeneous human infection (<a href="#ref-kannan2024mousemodelsof-pages-11-12">kannan2024mousemodelsof pages 11-12</a>, <a href="#ref-cai2023advancesinrodent-pages-4-5">cai2023advancesinrodent pages 4-5</a>).</td>
+</tr>
+<tr>
+<td>Chemical/biomarker</td>
+<td>Lactate</td>
+<td><strong>ChEBI:</strong> lactate (<a href="http://purl.obolibrary.org/obo/CHEBI_24996" target="_blank" rel="noopener noreferrer">CHEBI:24996</a>)</td>
+<td>Measure specimen-specific blood lactate clinically; elevation has multiple causes, including adrenergic glycolysis, impaired clearance, and hypoperfusion (<a href="#ref-vasques2018septicshock3vs-pages-7-7">vasques2018septicshock3vs pages 7-7</a>, <a href="#ref-oczkowski2022survivingsepsiscampaign-pages-7-8">oczkowski2022survivingsepsiscampaign pages 7-8</a>).</td>
+</tr>
+<tr>
+<td>Chemical/intervention</td>
+<td>Norepinephrine</td>
+<td><strong>ChEBI:</strong> noradrenaline (<a href="http://purl.obolibrary.org/obo/CHEBI_18357" target="_blank" rel="noopener noreferrer">CHEBI:18357</a>); <strong>NCIt suggested term:</strong> Norepinephrine</td>
+<td>Preferred first-line vasopressor in septic shock; receptor-target associations in Open Targets reflect therapeutic biology rather than causal sepsis genes (OpenTargets Search: sepsis, <a href="#ref-oczkowski2022survivingsepsiscampaign-pages-7-8">oczkowski2022survivingsepsiscampaign pages 7-8</a>).</td>
+</tr>
+<tr>
+<td>Chemical/intervention</td>
+<td>Vasopressin</td>
+<td><strong>ChEBI:</strong> vasopressin (verify current ChEBI identifier); <strong>NCIt suggested term:</strong> Vasopressin</td>
+<td>Common adjunct to norepinephrine when escalating vasopressor support; not a pathogen-directed therapy (<a href="#ref-vasques2018septicshock3vs-pages-7-7">vasques2018septicshock3vs pages 7-7</a>, <a href="#ref-oczkowski2022survivingsepsiscampaign-pages-7-8">oczkowski2022survivingsepsiscampaign pages 7-8</a>).</td>
+</tr>
+<tr>
+<td>Chemical/intervention</td>
+<td>Hydrocortisone</td>
+<td><strong>ChEBI:</strong> hydrocortisone (<a href="http://purl.obolibrary.org/obo/CHEBI_17650" target="_blank" rel="noopener noreferrer">CHEBI:17650</a>); <strong>NCIt suggested term:</strong> Hydrocortisone</td>
+<td>Suggested for septic shock with an ongoing vasopressor requirement; annotate as adjunctive corticosteroid therapy, not general sepsis monotherapy (<a href="#ref-oczkowski2022survivingsepsiscampaign-pages-7-8">oczkowski2022survivingsepsiscampaign pages 7-8</a>).</td>
+</tr>
+<tr>
+<td>Intervention</td>
+<td>Broad-spectrum antimicrobial therapy</td>
+<td><strong>NCIt suggested terms:</strong> Antibiotic Therapy; Anti-Infective Therapy; Antimicrobial Treatment</td>
+<td>Start promptly after appropriate cultures when this does not cause harmful delay; select empirically by source, resistance risk, prior exposure, and local ecology, then de-escalate when possible (<a href="#ref-hotchkiss2016sepsisandseptic-pages-12-13">hotchkiss2016sepsisandseptic pages 12-13</a>).</td>
+</tr>
+<tr>
+<td>Intervention</td>
+<td>Source control</td>
+<td><strong>NCIt suggested terms:</strong> Surgical Procedure; Drainage Procedure; Device Removal</td>
+<td>Drain infected collections, debride necrotic tissue, relieve obstruction, or remove infected devices as soon as medically and logistically practical (<a href="#ref-hotchkiss2016sepsisandseptic-pages-12-13">hotchkiss2016sepsisandseptic pages 12-13</a>).</td>
+</tr>
+<tr>
+<td>Intervention</td>
+<td>Intravenous crystalloid resuscitation</td>
+<td><strong>NCIt suggested terms:</strong> Fluid Therapy; Intravenous Infusion; Crystalloid Solution</td>
+<td>Initial resuscitation is individualized; balanced crystalloids are generally preferred, and repeated reassessment is needed to avoid fluid accumulation and organ edema (<a href="#ref-oczkowski2022survivingsepsiscampaign-pages-7-8">oczkowski2022survivingsepsiscampaign pages 7-8</a>).</td>
+</tr>
+<tr>
+<td>Intervention</td>
+<td>Vasopressor therapy</td>
+<td><strong>NCIt suggested terms:</strong> Vasopressor Therapy; Norepinephrine Therapy</td>
+<td>Used to restore perfusion pressure when hypotension persists during/after initial fluid resuscitation; peripheral initiation may avoid harmful delay while central access is arranged (<a href="#ref-oczkowski2022survivingsepsiscampaign-pages-7-8">oczkowski2022survivingsepsiscampaign pages 7-8</a>).</td>
+</tr>
+<tr>
+<td>Intervention</td>
+<td>Mechanical ventilation / ARDS care</td>
+<td><strong>NCIt suggested terms:</strong> Mechanical Ventilation; Lung Protective Ventilation</td>
+<td>Use lung-protective ventilation for sepsis-associated ARDS; ventilatory support treats organ failure but not the infectious trigger (<a href="#ref-hotchkiss2016sepsisandseptic-pages-9-10">hotchkiss2016sepsisandseptic pages 9-10</a>, <a href="#ref-oczkowski2022survivingsepsiscampaign-pages-7-8">oczkowski2022survivingsepsiscampaign pages 7-8</a>).</td>
+</tr>
+<tr>
+<td>Intervention</td>
+<td>Renal replacement therapy</td>
+<td><strong>NCIt suggested term:</strong> Renal Replacement Therapy</td>
+<td>Reserved for standard urgent indications or severe persistent AKI; trials evaluate need and timing as outcomes rather than establishing sepsis-specific dialysis criteria (<a href="#ref-oczkowski2022survivingsepsiscampaign-pages-7-8">oczkowski2022survivingsepsiscampaign pages 7-8</a>, NCT06817408 chunk 1).</td>
+</tr>
+<tr>
+<td>Intervention</td>
+<td>Post-sepsis rehabilitation and follow-up</td>
+<td><strong>NCIt suggested terms:</strong> Rehabilitation; Physical Therapy; Occupational Therapy; Cognitive Assessment</td>
+<td>Assess physical, cognitive, emotional, medication, social, and economic needs after discharge; long-term disability and failure to return to work are common (<a href="#ref-fleischmannstruzek2023returntowork-pages-8-8">fleischmannstruzek2023returntowork pages 8-8</a>, hodgsonUnknownyeararticletitlehealthrelated pages 73-74).</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><em>Table: Compact knowledge-base mappings for sepsis disease concepts, phenotypes, anatomy, cells, mechanisms, chemicals, and interventions. Verified identifiers are distinguished from suggested terms or codes requiring release-level validation.</em></p>
+<h2>Evidence-quality and expert interpretation</h2>
+<p>The strongest evidence supports Sepsis-3/SOFA characterization, rapid infection treatment/source control and individualized organ support. Epidemiologic estimates are definition-sensitive. Biomarkers should augment rather than replace bedside judgment. Genetic, epigenetic, single-cell and multi-omics findings are biologically informative but mostly not clinically validated. The most credible precision-medicine direction is prospective enrichment of trials by reproducible immune/endothelial/metabolic endotypes rather than retrospective subgroup claims.</p>
+<p>Direct abstract wording supporting the central concept includes: <strong>“sepsis [is] life-threatening organ dysfunction caused by a dysregulated host response to infection”</strong> in the SSC/Sepsis-3 framework (<a href="#ref-evans2021survivingsepsiscampaign-pages-1-2">evans2021survivingsepsiscampaign pages 1-2</a>). Recent model experts similarly emphasize that <strong>“human sepsis is a complex disease that manifests with a diverse range of phenotypes and inherent variability,”</strong> explaining why no single model or targeted drug captures the syndrome (<a href="#ref-kannan2024mousemodelsof-pages-1-3">kannan2024mousemodelsof pages 1-3</a>).</p>
+<h3>Key cited publications and URLs</h3>
+<ul>
+<li>Hotchkiss RS et al. <em>Sepsis and septic shock</em>. Nature Reviews Disease Primers. Published June 30, 2016. <a href="https://doi.org/10.1038/nrdp.2016.45" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/nrdp.2016.45</a> (<a href="#ref-hotchkiss2016sepsisandseptic-pages-1-2">hotchkiss2016sepsisandseptic pages 1-2</a>)</li>
+<li>Evans L et al. <em>Surviving Sepsis Campaign: International Guidelines 2021</em>. Published October 2021. <a href="https://doi.org/10.1007/s00134-021-06506-y" target="_blank" rel="noopener noreferrer">https://doi.org/10.1007/s00134-021-06506-y</a> (<a href="#ref-evans2021survivingsepsiscampaign-pages-1-2">evans2021survivingsepsiscampaign pages 1-2</a>)</li>
+<li>Ljungström L et al. Population incidence study. Published December 2019. <a href="https://doi.org/10.1371/journal.pone.0225700" target="_blank" rel="noopener noreferrer">https://doi.org/10.1371/journal.pone.0225700</a> (<a href="#ref-ljungstrom2019incidencesofcommunity-pages-12-13">ljungstrom2019incidencesofcommunity pages 12-13</a>)</li>
+<li>Rosier F et al. CISH-enhancer GWAS/functional study. Published May 2021. <a href="https://doi.org/10.3390/ijms22115852" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/ijms22115852</a> (<a href="#ref-rosier2021geneticpredispositionto-pages-16-18">rosier2021geneticpredispositionto pages 16-18</a>)</li>
+<li>Cai L et al. Rodent-model review. Published May 2023. <a href="https://doi.org/10.3390/ijms24119578" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/ijms24119578</a> (<a href="#ref-cai2023advancesinrodent-pages-4-5">cai2023advancesinrodent pages 4-5</a>)</li>
+<li>Kannan SK et al. Mouse-model protocols. Published March 2024. <a href="https://doi.org/10.1002/cpz1.997" target="_blank" rel="noopener noreferrer">https://doi.org/10.1002/cpz1.997</a> (<a href="#ref-kannan2024mousemodelsof-pages-1-3">kannan2024mousemodelsof pages 1-3</a>)</li>
+<li>Fleischmann-Struzek C et al. Return-to-work outcomes. Published May 2023. <a href="https://doi.org/10.3389/fmed.2023.1187809" target="_blank" rel="noopener noreferrer">https://doi.org/10.3389/fmed.2023.1187809</a> (<a href="#ref-fleischmannstruzek2023returntowork-pages-8-8">fleischmannstruzek2023returntowork pages 8-8</a>)</li>
+</ul>
+<p>PMIDs were included where available in the retrieved records; many full-text excerpts supplied DOI but not PMID. The foundational Sepsis-3 consensus is Singer et al., JAMA 2016, DOI <a href="https://doi.org/10.1001/jama.2016.0287" target="_blank" rel="noopener noreferrer">https://doi.org/10.1001/jama.2016.0287</a>; PMID <strong>26903338</strong>.</p>
+<p>References</p>
+<ol>
+<li>
+<p><a id="ref-hotchkiss2016sepsisandseptic-pages-1-2"></a>(hotchkiss2016sepsisandseptic pages 1-2): Richard S. Hotchkiss, Lyle L. Moldawer, Steven M. Opal, Konrad Reinhart, Isaiah R. Turnbull, and Jean-Louis Vincent. Sepsis and septic shock. Nature Reviews Disease Primers, Jun 2016. URL: <a href="https://doi.org/10.1038/nrdp.2016.45" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/nrdp.2016.45</a>, <a href="https://doi.org/10.1038/nrdp.2016.45" target="_blank" rel="noopener noreferrer">doi:10.1038/nrdp.2016.45</a>. This article has 2186 citations.</p>
+</li>
+<li>
+<p><a id="ref-hotchkiss2016sepsisandseptic-pages-5-6"></a>(hotchkiss2016sepsisandseptic pages 5-6): Richard S. Hotchkiss, Lyle L. Moldawer, Steven M. Opal, Konrad Reinhart, Isaiah R. Turnbull, and Jean-Louis Vincent. Sepsis and septic shock. Nature Reviews Disease Primers, Jun 2016. URL: <a href="https://doi.org/10.1038/nrdp.2016.45" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/nrdp.2016.45</a>, <a href="https://doi.org/10.1038/nrdp.2016.45" target="_blank" rel="noopener noreferrer">doi:10.1038/nrdp.2016.45</a>. This article has 2186 citations.</p>
+</li>
+<li>
+<p><a id="ref-hotchkiss2016sepsisandseptic-pages-9-10"></a>(hotchkiss2016sepsisandseptic pages 9-10): Richard S. Hotchkiss, Lyle L. Moldawer, Steven M. Opal, Konrad Reinhart, Isaiah R. Turnbull, and Jean-Louis Vincent. Sepsis and septic shock. Nature Reviews Disease Primers, Jun 2016. URL: <a href="https://doi.org/10.1038/nrdp.2016.45" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/nrdp.2016.45</a>, <a href="https://doi.org/10.1038/nrdp.2016.45" target="_blank" rel="noopener noreferrer">doi:10.1038/nrdp.2016.45</a>. This article has 2186 citations.</p>
+</li>
+<li>
+<p><a id="ref-sebastian2025sepsisandpostsepsis-pages-8-10"></a>(sebastian2025sepsisandpostsepsis pages 8-10): Jhan Sebastian, Saavedra Torres, Francisco Javier Tamayo-Giraldo, Alejandro Bejarano-Zuleta, H. Nati-Castillo, Diego A. Quintero, M. Ospina-Mejía, Camila Salazar-Santoliva, Isaac A. Suárez-Sangucho, E. Ortiz-Prado, J. Izquierdo-Condoy, Georgia Damoraki, Feng Shen, Gaweł Sołowski, Torres Jss, FJ Tamayo-Giraldo, H. Nati-Castillo, DA Quintero, M. Ospina-Mejía, Izquierdo-Condoy, Tamayo-Giraldo Torres, Quintero Nati-Castillo, and Izquierdo-Condoy. This. Sepsis and post-sepsis syndrome: a multisystem challenge requiring comprehensive care and management—a review. Frontiers in Medicine, Apr 2025. URL: <a href="https://doi.org/10.3389/fmed.2025.1560737" target="_blank" rel="noopener noreferrer">https://doi.org/10.3389/fmed.2025.1560737</a>, <a href="https://doi.org/10.3389/fmed.2025.1560737" target="_blank" rel="noopener noreferrer">doi:10.3389/fmed.2025.1560737</a>. This article has 61 citations.</p>
+</li>
+<li>
+<p><a id="ref-opentargets-search-sepsis"></a>(OpenTargets Search: sepsis): Open Targets Query (sepsis, 15 results). Buniello, A. et al. (2025). Open Targets Platform: facilitating therapeutic hypotheses building in drug discovery. Nucleic Acids Research.</p>
+</li>
+<li>
+<p><a id="ref-ljungstrom2019incidencesofcommunity-pages-12-13"></a>(ljungstrom2019incidencesofcommunity pages 12-13): Lars Ljungström, Rune Andersson, and Gunnar Jacobsson. Incidences of community onset severe sepsis, sepsis-3 sepsis, and bacteremia in sweden – a prospective population-based study. PLOS ONE, 14(12):e0225700, Dec 2019. URL: <a href="https://doi.org/10.1371/journal.pone.0225700" target="_blank" rel="noopener noreferrer">https://doi.org/10.1371/journal.pone.0225700</a>, <a href="https://doi.org/10.1371/journal.pone.0225700" target="_blank" rel="noopener noreferrer">doi:10.1371/journal.pone.0225700</a>. This article has 73 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-hodgsonunknownyeararticletitlehealthrelated-pages-15-16"></a>(hodgsonUnknownyeararticletitlehealthrelated pages 15-16): CL Hodgson. Article title: health-related quality of life of adult sepsis survivors following critical illness: a systematic review journal name: critical care medicine sheraya de …. Unknown journal, Unknown year.</p>
+</li>
+<li>
+<p><a id="ref-hotchkiss2016sepsisandseptic-pages-12-13"></a>(hotchkiss2016sepsisandseptic pages 12-13): Richard S. Hotchkiss, Lyle L. Moldawer, Steven M. Opal, Konrad Reinhart, Isaiah R. Turnbull, and Jean-Louis Vincent. Sepsis and septic shock. Nature Reviews Disease Primers, Jun 2016. URL: <a href="https://doi.org/10.1038/nrdp.2016.45" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/nrdp.2016.45</a>, <a href="https://doi.org/10.1038/nrdp.2016.45" target="_blank" rel="noopener noreferrer">doi:10.1038/nrdp.2016.45</a>. This article has 2186 citations.</p>
+</li>
+<li>
+<p><a id="ref-giamarellosbourboulis2016theroleof-pages-4-5"></a>(giamarellosbourboulis2016theroleof pages 4-5): Evangelos J. Giamarellos-Bourboulis and Steven M. Opal. The role of genetics and antibodies in sepsis. Annals of translational medicine, 4 17:328, Sep 2016. URL: <a href="https://doi.org/10.21037/atm.2016.08.63" target="_blank" rel="noopener noreferrer">https://doi.org/10.21037/atm.2016.08.63</a>, <a href="https://doi.org/10.21037/atm.2016.08.63" target="_blank" rel="noopener noreferrer">doi:10.21037/atm.2016.08.63</a>. This article has 48 citations.</p>
+</li>
+<li>
+<p><a id="ref-sutherland2009benchtobedsidereviewassociation-pages-1-2"></a>(sutherland2009benchtobedsidereviewassociation pages 1-2): Ainsley M Sutherland and Keith R Walley. Bench-to-bedside review: association of genetic variation with sepsis. Critical Care, 13:210-210, Apr 2009. URL: <a href="https://doi.org/10.1186/cc7702" target="_blank" rel="noopener noreferrer">https://doi.org/10.1186/cc7702</a>, <a href="https://doi.org/10.1186/cc7702" target="_blank" rel="noopener noreferrer">doi:10.1186/cc7702</a>. This article has 141 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-fleischmannstruzek2023returntowork-pages-8-8"></a>(fleischmannstruzek2023returntowork pages 8-8): Carolin Fleischmann-Struzek, Bianka Ditscheid, Norman Rose, Melissa Spoden, Lisa Wedekind, Peter Schlattmann, Christian Günster, Konrad Reinhart, Christiane S. Hartog, and Antje Freytag. Return to work after sepsis—a german population-based health claims study. Frontiers in Medicine, May 2023. URL: <a href="https://doi.org/10.3389/fmed.2023.1187809" target="_blank" rel="noopener noreferrer">https://doi.org/10.3389/fmed.2023.1187809</a>, <a href="https://doi.org/10.3389/fmed.2023.1187809" target="_blank" rel="noopener noreferrer">doi:10.3389/fmed.2023.1187809</a>. This article has 16 citations.</p>
+</li>
+<li>
+<p><a id="ref-rosier2021geneticpredispositionto-pages-16-18"></a>(rosier2021geneticpredispositionto pages 16-18): Florian Rosier, Audrey Brisebarre, Claire Dupuis, Sabrina Baaklini, Denis Puthier, Christine Brun, Lydie C. Pradel, Pascal Rihet, and Didier Payen. Genetic predisposition to the mortality in septic shock patients: from gwas to the identification of a regulatory variant modulating the activity of a cish enhancer. International Journal of Molecular Sciences, 22(11):5852, May 2021. URL: <a href="https://doi.org/10.3390/ijms22115852" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/ijms22115852</a>, <a href="https://doi.org/10.3390/ijms22115852" target="_blank" rel="noopener noreferrer">doi:10.3390/ijms22115852</a>. This article has 26 citations.</p>
+</li>
+<li>
+<p><a id="ref-rosier2021geneticpredispositionto-pages-1-2"></a>(rosier2021geneticpredispositionto pages 1-2): Florian Rosier, Audrey Brisebarre, Claire Dupuis, Sabrina Baaklini, Denis Puthier, Christine Brun, Lydie C. Pradel, Pascal Rihet, and Didier Payen. Genetic predisposition to the mortality in septic shock patients: from gwas to the identification of a regulatory variant modulating the activity of a cish enhancer. International Journal of Molecular Sciences, 22(11):5852, May 2021. URL: <a href="https://doi.org/10.3390/ijms22115852" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/ijms22115852</a>, <a href="https://doi.org/10.3390/ijms22115852" target="_blank" rel="noopener noreferrer">doi:10.3390/ijms22115852</a>. This article has 26 citations.</p>
+</li>
+<li>
+<p><a id="ref-nct06817408-chunk-1"></a>(NCT06817408 chunk 1): Aadel A. Chaudhuri. Dynamics of Organ Damage and Immune Exhaustion During Sepsis. Mayo Clinic. 2025. ClinicalTrials.gov Identifier: NCT06817408</p>
+</li>
+<li>
+<p><a id="ref-sutherland2009benchtobedsidereviewassociation-pages-6-7"></a>(sutherland2009benchtobedsidereviewassociation pages 6-7): Ainsley M Sutherland and Keith R Walley. Bench-to-bedside review: association of genetic variation with sepsis. Critical Care, 13:210-210, Apr 2009. URL: <a href="https://doi.org/10.1186/cc7702" target="_blank" rel="noopener noreferrer">https://doi.org/10.1186/cc7702</a>, <a href="https://doi.org/10.1186/cc7702" target="_blank" rel="noopener noreferrer">doi:10.1186/cc7702</a>. This article has 141 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-vella2025cytokinesinsepsis-pages-10-11"></a>(vella2025cytokinesinsepsis pages 10-11): Roberta Vella, Diego Panci, Francesco Carini, Ginevra Malta, Salvatore Vieni, Sabrina David, Giuseppe Davide Albano, Maria Puntarello, Stefania Zerbo, and Antonina Argo. Cytokines in sepsis: a critical review of the literature on systemic inflammation and multiple organ dysfunction. Frontiers in Immunology, Nov 2025. URL: <a href="https://doi.org/10.3389/fimmu.2025.1682306" target="_blank" rel="noopener noreferrer">https://doi.org/10.3389/fimmu.2025.1682306</a>, <a href="https://doi.org/10.3389/fimmu.2025.1682306" target="_blank" rel="noopener noreferrer">doi:10.3389/fimmu.2025.1682306</a>. This article has 44 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-evans2021survivingsepsiscampaign-pages-1-2"></a>(evans2021survivingsepsiscampaign pages 1-2): Laura Evans, A. Rhodes, W. Alhazzani, M. Antonelli, C. Coopersmith, C. French, F. Machado, L. McIntyre, M. Ostermann, H. Prescott, C. Schorr, S. Simpson, W. Wiersinga, F. Alshamsi, D. Angus, Y. Arabi, Luciano Azevedo, R. Beale, G. Beilman, E. Belley‐Cote, L. Burry, M. Cecconi, J. Centofanti, Angel O Coz Yataco, J. D. De Waele, R. Dellinger, Kent Doi, Bin Du, E. Estenssoro, R. Ferrer, C. Gomersall, C. Hodgson, M. Møller, T. Iwashyna, Shevin T. Jacob, R. Kleinpell, M. Klompas, Y. Koh, Anand Kumar, A. Kwizera, S. Lobo, H. Masur, S. Mcgloughlin, S. Mehta, Y. Mehta, M. Mer, M. Nunnally, S. Oczkowski, T. Osborn, E. Papathanassoglou, A. Perner, M. Puskarich, J. Roberts, W. Schweickert, Maureen A. Seckel, J. Sevransky, C. Sprung, T. Welte, J. Zimmerman, and Mitchell M. Levy. Surviving sepsis campaign: international guidelines for management of sepsis and septic shock 2021. Intensive Care Medicine, 47:1181-1247, Oct 2021. URL: <a href="https://doi.org/10.1007/s00134-021-06506-y" target="_blank" rel="noopener noreferrer">https://doi.org/10.1007/s00134-021-06506-y</a>, <a href="https://doi.org/10.1007/s00134-021-06506-y" target="_blank" rel="noopener noreferrer">doi:10.1007/s00134-021-06506-y</a>. This article has 10381 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-nct06267742-chunk-1"></a>(NCT06267742 chunk 1):  Clinical Trial to Evaluate MDW for Early Detection of Sepsis. Beckman Coulter, Inc.. 2022. ClinicalTrials.gov Identifier: NCT06267742</p>
+</li>
+<li>
+<p><a id="ref-hodgsonunknownyeararticletitlehealthrelated-pages-73-74"></a>(hodgsonUnknownyeararticletitlehealthrelated pages 73-74): CL Hodgson. Article title: health-related quality of life of adult sepsis survivors following critical illness: a systematic review journal name: critical care medicine sheraya de …. Unknown journal, Unknown year.</p>
+</li>
+<li>
+<p><a id="ref-nct06694701-chunk-2"></a>(NCT06694701 chunk 2):  Emapalumab Treatment For Anticipated Clinical Benefit In Sepsis Driven By The Interferon-Gamma Endotype (The EMBRACE Trial). Hellenic Institute for the Study of Sepsis. 2025. ClinicalTrials.gov Identifier: NCT06694701</p>
+</li>
+<li>
+<p><a id="ref-nct05909683-chunk-2"></a>(NCT05909683 chunk 2):  Assessing the Procalcitonin-guidance and Molecular-guided Diagnosis for Therapy of Severe Infections (the MODIFY Trial). Hellenic Institute for the Study of Sepsis. 2023. ClinicalTrials.gov Identifier: NCT05909683</p>
+</li>
+<li>
+<p><a id="ref-nct03929159-chunk-1"></a>(NCT03929159 chunk 1):  Correlating MicroRNA Changes With Sepsis Outcomes. M.D. Anderson Cancer Center. 2019. ClinicalTrials.gov Identifier: NCT03929159</p>
+</li>
+<li>
+<p><a id="ref-nct03226158-chunk-1"></a>(NCT03226158 chunk 1):  Next Generation Pathogen Sequencing for Prediction of Adverse Events. St. Jude Children's Research Hospital. 2017. ClinicalTrials.gov Identifier: NCT03226158</p>
+</li>
+<li>
+<p><a id="ref-kannan2024mousemodelsof-pages-1-3"></a>(kannan2024mousemodelsof pages 1-3): Shravan Kumar Kannan, Caleb Y. Kim, Mohammad Heidarian, Roger R. Berton, Isaac J. Jensen, Thomas S. Griffith, and Vladimir P. Badovinac. Mouse models of sepsis. Current Protocols, Mar 2024. URL: <a href="https://doi.org/10.1002/cpz1.997" target="_blank" rel="noopener noreferrer">https://doi.org/10.1002/cpz1.997</a>, <a href="https://doi.org/10.1002/cpz1.997" target="_blank" rel="noopener noreferrer">doi:10.1002/cpz1.997</a>. This article has 37 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-cai2023advancesinrodent-pages-4-5"></a>(cai2023advancesinrodent pages 4-5): Lun Cai, Elizabeth Rodgers, Nick Schoenmann, and Raghavan Pillai Raju. Advances in rodent experimental models of sepsis. International Journal of Molecular Sciences, 24:9578, May 2023. URL: <a href="https://doi.org/10.3390/ijms24119578" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/ijms24119578</a>, <a href="https://doi.org/10.3390/ijms24119578" target="_blank" rel="noopener noreferrer">doi:10.3390/ijms24119578</a>. This article has 76 citations.</p>
+</li>
+<li>
+<p><a id="ref-kannan2024mousemodelsof-pages-11-12"></a>(kannan2024mousemodelsof pages 11-12): Shravan Kumar Kannan, Caleb Y. Kim, Mohammad Heidarian, Roger R. Berton, Isaac J. Jensen, Thomas S. Griffith, and Vladimir P. Badovinac. Mouse models of sepsis. Current Protocols, Mar 2024. URL: <a href="https://doi.org/10.1002/cpz1.997" target="_blank" rel="noopener noreferrer">https://doi.org/10.1002/cpz1.997</a>, <a href="https://doi.org/10.1002/cpz1.997" target="_blank" rel="noopener noreferrer">doi:10.1002/cpz1.997</a>. This article has 37 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-cai2023advancesinrodent-pages-2-4"></a>(cai2023advancesinrodent pages 2-4): Lun Cai, Elizabeth Rodgers, Nick Schoenmann, and Raghavan Pillai Raju. Advances in rodent experimental models of sepsis. International Journal of Molecular Sciences, 24:9578, May 2023. URL: <a href="https://doi.org/10.3390/ijms24119578" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/ijms24119578</a>, <a href="https://doi.org/10.3390/ijms24119578" target="_blank" rel="noopener noreferrer">doi:10.3390/ijms24119578</a>. This article has 76 citations.</p>
+</li>
+<li>
+<p><a id="ref-cai2023advancesinrodent-pages-6-8"></a>(cai2023advancesinrodent pages 6-8): Lun Cai, Elizabeth Rodgers, Nick Schoenmann, and Raghavan Pillai Raju. Advances in rodent experimental models of sepsis. International Journal of Molecular Sciences, 24:9578, May 2023. URL: <a href="https://doi.org/10.3390/ijms24119578" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/ijms24119578</a>, <a href="https://doi.org/10.3390/ijms24119578" target="_blank" rel="noopener noreferrer">doi:10.3390/ijms24119578</a>. This article has 76 citations.</p>
+</li>
+<li>
+<p><a id="ref-cai2023advancesinrodent-pages-8-9"></a>(cai2023advancesinrodent pages 8-9): Lun Cai, Elizabeth Rodgers, Nick Schoenmann, and Raghavan Pillai Raju. Advances in rodent experimental models of sepsis. International Journal of Molecular Sciences, 24:9578, May 2023. URL: <a href="https://doi.org/10.3390/ijms24119578" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/ijms24119578</a>, <a href="https://doi.org/10.3390/ijms24119578" target="_blank" rel="noopener noreferrer">doi:10.3390/ijms24119578</a>. This article has 76 citations.</p>
+</li>
+<li>
+<p><a id="ref-cai2023advancesinrodent-pages-1-2"></a>(cai2023advancesinrodent pages 1-2): Lun Cai, Elizabeth Rodgers, Nick Schoenmann, and Raghavan Pillai Raju. Advances in rodent experimental models of sepsis. International Journal of Molecular Sciences, 24:9578, May 2023. URL: <a href="https://doi.org/10.3390/ijms24119578" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/ijms24119578</a>, <a href="https://doi.org/10.3390/ijms24119578" target="_blank" rel="noopener noreferrer">doi:10.3390/ijms24119578</a>. This article has 76 citations.</p>
+</li>
+<li>
+<p><a id="ref-vasques2018septicshock3vs-pages-7-7"></a>(vasques2018septicshock3vs pages 7-7): Francesco Vasques, Eleonora Duscio, Federica Romitti, Iacopo Pasticci, Pietro Caironi, Jennifer Meessen, Roberto Latini, Massimo Cressoni, Luigi Camporota, Antonio Pesenti, Roberto Fumagalli, Michael Quintel, and Luciano Gattinoni. Septic shock-3 vs 2: an analysis of the albios study. Critical Care, Sep 2018. URL: <a href="https://doi.org/10.1186/s13054-018-2169-8" target="_blank" rel="noopener noreferrer">https://doi.org/10.1186/s13054-018-2169-8</a>, <a href="https://doi.org/10.1186/s13054-018-2169-8" target="_blank" rel="noopener noreferrer">doi:10.1186/s13054-018-2169-8</a>. This article has 30 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-bakoush2023-classification-pages-8-10"></a>(bakoush2023…classification pages 8-10): FB Al Bakoush, AE Azab, and R Yahya. … , classification, risk factors, causative organisms, pathophysiology, prognosis, clinical manifestations, complications, systemic examination, and treatment. Unknown journal, 2023.</p>
+</li>
+<li>
+<p><a id="ref-oczkowski2022survivingsepsiscampaign-pages-7-8"></a>(oczkowski2022survivingsepsiscampaign pages 7-8): Simon Oczkowski, Fayez Alshamsi, Emilie Belley-Cote, John E. Centofanti, Morten Hylander Møller, Mark E. Nunnaly, and Waleed Alhazzani. Surviving sepsis campaign guidelines 2021: highlights for the practicing clinician. Polish archives of internal medicine, Jul 2022. URL: <a href="https://doi.org/10.20452/pamw.16290" target="_blank" rel="noopener noreferrer">https://doi.org/10.20452/pamw.16290</a>, <a href="https://doi.org/10.20452/pamw.16290" target="_blank" rel="noopener noreferrer">doi:10.20452/pamw.16290</a>. This article has 148 citations.</p>
+</li>
+<li>
+<p><a id="ref-hotchkiss2016sepsisandseptic-pages-17-18"></a>(hotchkiss2016sepsisandseptic pages 17-18): Richard S. Hotchkiss, Lyle L. Moldawer, Steven M. Opal, Konrad Reinhart, Isaiah R. Turnbull, and Jean-Louis Vincent. Sepsis and septic shock. Nature Reviews Disease Primers, Jun 2016. URL: <a href="https://doi.org/10.1038/nrdp.2016.45" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/nrdp.2016.45</a>, <a href="https://doi.org/10.1038/nrdp.2016.45" target="_blank" rel="noopener noreferrer">doi:10.1038/nrdp.2016.45</a>. This article has 2186 citations.</p>
+</li>
+</ol>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Sepsis-deep-research-falcon_artifacts/artifact-00.md">Edison artifact artifact-00</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>14</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>14</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>14</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>5</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Sensory_Ataxic_Neuropathy_Dysarthria_Ophthalmoparesis-falcon.html">← Sensory Ataxic Neuropathy, Dysarthria, and Ophthalmoparesis (Falcon)</a>
+                
+                
+                <a href="SETBP1_Disorder-falcon.html">SETBP1 Haploinsufficiency Disorder (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Sepsis.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Sepsis-deep-research-falcon.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-edison" aria-current="page">Falcon</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

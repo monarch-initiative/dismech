@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,18 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4335,6 +4412,7 @@ Treatment is unusually mechanism-legible for a psychiatric syndrome: benzodiazep
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4356,6 +4434,7 @@ Treatment is unusually mechanism-legible for a psychiatric syndrome: benzodiazep
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4465,6 +4544,7 @@ Treatment is unusually mechanism-legible for a psychiatric syndrome: benzodiazep
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4486,6 +4566,7 @@ Treatment is unusually mechanism-legible for a psychiatric syndrome: benzodiazep
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4595,6 +4676,7 @@ Treatment is unusually mechanism-legible for a psychiatric syndrome: benzodiazep
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4616,6 +4698,7 @@ Treatment is unusually mechanism-legible for a psychiatric syndrome: benzodiazep
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4725,6 +4808,7 @@ Treatment is unusually mechanism-legible for a psychiatric syndrome: benzodiazep
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4746,6 +4830,7 @@ Treatment is unusually mechanism-legible for a psychiatric syndrome: benzodiazep
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4882,6 +4967,7 @@ Treatment is unusually mechanism-legible for a psychiatric syndrome: benzodiazep
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4903,6 +4989,7 @@ Treatment is unusually mechanism-legible for a psychiatric syndrome: benzodiazep
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4987,6 +5074,7 @@ Treatment is unusually mechanism-legible for a psychiatric syndrome: benzodiazep
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5008,6 +5096,7 @@ Treatment is unusually mechanism-legible for a psychiatric syndrome: benzodiazep
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5082,6 +5171,7 @@ Treatment is unusually mechanism-legible for a psychiatric syndrome: benzodiazep
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5166,6 +5256,7 @@ Treatment is unusually mechanism-legible for a psychiatric syndrome: benzodiazep
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5187,6 +5278,7 @@ Treatment is unusually mechanism-legible for a psychiatric syndrome: benzodiazep
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5266,6 +5358,7 @@ Treatment is unusually mechanism-legible for a psychiatric syndrome: benzodiazep
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-heterogeneous-upstream-liability" data-dismech-node="Heterogeneous Upstream Liability" data-dismech-type="pathophysiology">
                 <div class="item-name">Heterogeneous Upstream Liability</div>
+
 
                 <div class="item-desc">The entry point to catatonia is not a single lesion but any of a wide range of upstream conditions: mood disorders, schizophrenia-spectrum illness, autism, autoimmune encephalitis (particularly NMDA receptor encephalitis), systemic lupus erythematosus, thyroid disease, epilepsy, and medication-induced or withdrawal states. This node exists so that the downstream mechanism can be curated once and referenced from the many disorders in which catatonia appears, rather than duplicated per disease. Genetic and developmental data are consistent with this framing: they support vulnerability rather than a single syndrome-specific architecture.</div>
 
@@ -5419,6 +5512,7 @@ Treatment is unusually mechanism-legible for a psychiatric syndrome: benzodiazep
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5440,6 +5534,7 @@ Treatment is unusually mechanism-legible for a psychiatric syndrome: benzodiazep
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5467,6 +5562,7 @@ Treatment is unusually mechanism-legible for a psychiatric syndrome: benzodiazep
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5489,6 +5585,7 @@ Treatment is unusually mechanism-legible for a psychiatric syndrome: benzodiazep
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cortical-gaba-a-receptor-mediated-inhibition-deficit" data-dismech-node="Cortical GABA-A Receptor-Mediated Inhibition Deficit" data-dismech-type="pathophysiology">
                 <div class="item-name">Cortical GABA-A Receptor-Mediated Inhibition Deficit</div>
+
 
                 <div class="item-desc">Reduced GABA-A receptor-mediated inhibition in sensorimotor and adjacent cortex is the proximate molecular substrate most directly evidenced in akinetic catatonia. In vivo SPECT with iodine-123-iomazenil, a benzodiazepine-site ligand, showed significantly lower binding in the left sensorimotor cortex in catatonic patients than in psychiatric controls matched for age, sex, medication, and underlying diagnosis — so the finding is not attributable to the underlying psychiatric illness or its treatment. Catatonic motor and affective symptom severity correlated with the binding deficit. Regional cerebral blood flow was separately reduced in right lower prefrontal and parietal cortex, implicating a second, perfusion-level site. This node is the molecular target of benzodiazepine treatment.</div>
 
@@ -5722,6 +5819,7 @@ This pathophysiological event occurs in parietal lobe (UBERON:0001872). UBERON:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5743,6 +5841,7 @@ This pathophysiological event occurs in parietal lobe (UBERON:0001872). UBERON:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5770,6 +5869,7 @@ This pathophysiological event occurs in parietal lobe (UBERON:0001872). UBERON:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5792,6 +5892,7 @@ This pathophysiological event occurs in parietal lobe (UBERON:0001872). UBERON:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-striatal-dopaminergic-transmission" data-dismech-node="Reduced Striatal Dopaminergic Transmission" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Striatal Dopaminergic Transmission</div>
+
 
                 <div class="item-desc">Reduced dopaminergic transmission in the dorsal striatum shifts the balance of basal-ganglia direct and indirect pathway output toward inhibition of movement initiation and speed. The clinical signature is bidirectional: dopamine antagonists can induce catatonia and parkinsonism, and dopaminergic medication can relieve catatonia. This node is also the proposed point of contact between catatonia and neuroleptic malignant syndrome, which share precipitants and an overlapping motor phenotype.</div>
 
@@ -6004,6 +6105,7 @@ This pathophysiological event occurs in striatum (UBERON:0002435). UBERON:000243
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6025,6 +6127,7 @@ This pathophysiological event occurs in striatum (UBERON:0002435). UBERON:000243
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6052,6 +6155,7 @@ This pathophysiological event occurs in striatum (UBERON:0002435). UBERON:000243
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6074,6 +6178,7 @@ This pathophysiological event occurs in striatum (UBERON:0002435). UBERON:000243
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-glutamatergic-nmda-receptor-perturbation-and-neuroinflammation" data-dismech-node="Glutamatergic NMDA Receptor Perturbation and Neuroinflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Glutamatergic NMDA Receptor Perturbation and Neuroinflammation</div>
+
 
                 <div class="item-desc">In the autoimmune subgroup, antibodies against the NMDA receptor perturb glutamatergic excitation and are accompanied by CNS inflammation. Catatonia is present in a majority of published NMDA receptor antibody encephalitis cases, and its phenomenology in that setting is weighted toward the hypokinetic pole — immobility/stupor and mutism predominate — while excitement co-occurs in a third of patients, illustrating within-episode heterogeneity. Microglial processes are among those implicated by genetic and developmental data, though peripheral inflammatory biomarkers remain nonspecific.</div>
 
@@ -6299,6 +6404,7 @@ This pathophysiological event involves increased microglial cell activation (GO:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6320,6 +6426,7 @@ This pathophysiological event involves increased microglial cell activation (GO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6347,6 +6454,7 @@ This pathophysiological event involves increased microglial cell activation (GO:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6369,6 +6477,7 @@ This pathophysiological event involves increased microglial cell activation (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-orbitofrontal-emotional-motor-processing-dysfunction" data-dismech-node="Orbitofrontal Emotional-Motor Processing Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Orbitofrontal Emotional-Motor Processing Dysfunction</div>
+
 
                 <div class="item-desc">Catatonia couples emotional and motor abnormality, and functional imaging during emotional stimulation localizes that coupling to the orbitofrontal cortex and its connectivity with premotor cortex. Catatonic behavioral and affective symptoms correlate with orbitofrontal activity while motor symptoms track medial prefrontal activity, which is the imaging counterpart of the clinical observation that the syndrome is not purely motor. Because the patients studied were post-acute, the orbitofrontal alteration was interpreted as a trait marker of predisposition rather than a state correlate of the acute episode — an important limitation on how causally this node may be read.</div>
 
@@ -6520,6 +6629,7 @@ This pathophysiological event occurs in prefrontal cortex (UBERON:0000451). UBER
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6541,6 +6651,7 @@ This pathophysiological event occurs in prefrontal cortex (UBERON:0000451). UBER
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6568,6 +6679,7 @@ This pathophysiological event occurs in prefrontal cortex (UBERON:0000451). UBER
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6590,6 +6702,7 @@ This pathophysiological event occurs in prefrontal cortex (UBERON:0000451). UBER
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-distributed-psychomotor-network-destabilization" data-dismech-node="Distributed Psychomotor Network Destabilization" data-dismech-type="pathophysiology">
                 <div class="item-name">Distributed Psychomotor Network Destabilization</div>
+
 
                 <div class="item-desc">The convergence hub of the entry. Multimodal MRI in schizophrenia-spectrum patients with versus without catatonia found predominantly frontothalamic and corticostriatal abnormalities in the catatonic group, with behavioral-symptom scores mapping onto a joint structural-functional system spanning cerebellar and prefrontal/cortical motor regions. Combined with the orbitofrontal and cingulate findings, this defines the shared network substrate that diverse upstream liabilities destabilize. Every downstream clinical manifestation in this entry is generated from this node rather than from any one neurochemical route.</div>
 
@@ -6830,6 +6943,7 @@ This pathophysiological event occurs in primary motor cortex (UBERON:0001384). U
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6851,6 +6965,7 @@ This pathophysiological event occurs in primary motor cortex (UBERON:0001384). U
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6878,6 +6993,7 @@ This pathophysiological event occurs in primary motor cortex (UBERON:0001384). U
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6900,6 +7016,7 @@ This pathophysiological event occurs in primary motor cortex (UBERON:0001384). U
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypokinetic-psychomotor-output" data-dismech-node="Hypokinetic Psychomotor Output" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypokinetic Psychomotor Output</div>
+
 
                 <div class="item-desc">The hypokinetic pole of the syndrome — immobility and stupor, mutism, catalepsy and posturing, rigidity, negativism. This is the classical presentation and the one in which the GABA-A receptor and striatal dopamine findings were made. It is a pole rather than a subtype: hyperkinetic features frequently co-occur within the same episode.</div>
 
@@ -7023,6 +7140,7 @@ This pathophysiological event involves decreased locomotory behavior (GO:0007626
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7044,6 +7162,7 @@ This pathophysiological event involves decreased locomotory behavior (GO:0007626
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7069,6 +7188,7 @@ This pathophysiological event involves decreased locomotory behavior (GO:0007626
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hyperkinetic-and-aberrant-volitional-output" data-dismech-node="Hyperkinetic and Aberrant-Volitional Output" data-dismech-type="pathophysiology">
                 <div class="item-name">Hyperkinetic and Aberrant-Volitional Output</div>
+
 
                 <div class="item-desc">The hyperkinetic and aberrant-volitional pole — excitement, agitation not prompted by external stimuli, stereotypy, mannerism, echolalia and echopraxia. Dimensional work identifies these as components that overlap with the hypokinetic pole within a single episode, so an entry that modeled catatonia as either akinetic or excited would misrepresent the syndrome.</div>
 
@@ -7145,6 +7265,7 @@ This pathophysiological event involves increased locomotory behavior (GO:0007626
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7166,6 +7287,7 @@ This pathophysiological event involves increased locomotory behavior (GO:0007626
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7191,6 +7313,7 @@ This pathophysiological event involves increased locomotory behavior (GO:0007626
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-autonomic-decompensation" data-dismech-node="Autonomic Decompensation" data-dismech-type="pathophysiology">
                 <div class="item-name">Autonomic Decompensation</div>
+
 
                 <div class="item-desc">Malignant catatonia is catatonia with clinically significant autonomic abnormality — disturbance of temperature, blood pressure, heart rate, and respiratory rate. It is a life-threatening form of acute brain dysfunction and is the principal reason catatonia is a medical emergency rather than only a psychiatric one; untreated, it may be fatal. Its phenotypic overlap with neuroleptic malignant syndrome is longstanding and unresolved.</div>
 
@@ -7229,6 +7352,7 @@ This pathophysiological event involves increased locomotory behavior (GO:0007626
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7250,6 +7374,7 @@ This pathophysiological event involves increased locomotory behavior (GO:0007626
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7321,15 +7446,15 @@ This pathophysiological event involves increased locomotory behavior (GO:0007626
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Immune<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Metabolism<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Immune<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Metabolism<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Nervous System<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Musculoskeletal<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Other<span class="pill-count">(7)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Nervous System<span class="pill-count">(7)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -7370,6 +7495,9 @@ This clinical feature is Deep venous thrombosis (HP:0002625). HP:0002625 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7384,6 +7512,7 @@ This clinical feature is Deep venous thrombosis (HP:0002625). HP:0002625 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7438,6 +7567,9 @@ This clinical feature is Disseminated intravascular coagulation (HP:0005521). HP
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7452,6 +7584,7 @@ This clinical feature is Disseminated intravascular coagulation (HP:0005521). HP
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7515,6 +7648,9 @@ This clinical feature is Tachycardia (HP:0001649). HP:0001649 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7529,6 +7665,7 @@ This clinical feature is Tachycardia (HP:0001649). HP:0001649 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7583,6 +7720,9 @@ This clinical feature is Pulmonary embolism (HP:0002204). HP:0002204 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7597,6 +7737,7 @@ This clinical feature is Pulmonary embolism (HP:0002204). HP:0002204 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7628,6 +7769,87 @@ This clinical feature is Pulmonary embolism (HP:0002204). HP:0002204 is a phenot
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Head and Neck
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-facial-grimacing" data-dismech-node="Facial grimacing" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Facial grimacing
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000273" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000273</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Facial grimacing (HP:0000273). HP:0000273 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12384773" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12384773" target="_blank">PMID:12384773</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The disorder is characterized by qualitative hyperkinetic and akinetic psychomotor disturbances through acute psychotic episodes and debilitating symptoms in the long term, with psychomotor weakness, grimacing facial movements and apathy."</div>
+
+
+                <div class="evidence-explanation">Reports grimacing facial movements as a persistent feature in the periodic-catatonia phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Immune
                     <span class="cat-count">1</span>
                 </summary>
@@ -7646,15 +7868,18 @@ This clinical feature is Pulmonary embolism (HP:0002204). HP:0002204 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002090" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0002090</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002090" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0002090</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pneumonia (HP:0002090). HP:0002090 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7674,6 +7899,7 @@ This clinical feature is Pneumonia (HP:0002090). HP:0002090 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7702,7 +7928,7 @@ This clinical feature is Pneumonia (HP:0002090). HP:0002090 is a phenotype from 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
@@ -7723,15 +7949,18 @@ This clinical feature is Pneumonia (HP:0002090). HP:0002090 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001945</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001945</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7751,6 +7980,7 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7779,7 +8009,7 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-5">
+            <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
@@ -7800,15 +8030,18 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002063" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002063</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002063" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0002063</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Rigidity (HP:0002063). HP:0002063 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7828,6 +8061,7 @@ This clinical feature is Rigidity (HP:0002063). HP:0002063 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7868,15 +8102,18 @@ This clinical feature is Rigidity (HP:0002063). HP:0002063 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003201" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0003201</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003201" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0003201</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Rhabdomyolysis (HP:0003201). HP:0003201 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7896,6 +8133,7 @@ This clinical feature is Rhabdomyolysis (HP:0003201). HP:0003201 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7924,87 +8162,10 @@ This clinical feature is Rhabdomyolysis (HP:0003201). HP:0003201 is a phenotype 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Nervous System
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-agitation" data-dismech-node="Agitation" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Agitation
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000713" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000713</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Agitation (HP:0000713). HP:0000713 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:35861966" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35861966" target="_blank">PMID:35861966</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The clinical picture of catatonia ranges from akinetic stupor to severe motoric excitement."</div>
-
-
-                <div class="evidence-explanation">Establishes severe motoric excitement as a recognized pole of the syndrome.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
             <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
+                    Nervous System
                     <span class="cat-count">7</span>
                 </summary>
 
@@ -8036,6 +8197,9 @@ This clinical feature is Mutism (HP:0002300). HP:0002300 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8050,6 +8214,7 @@ This clinical feature is Mutism (HP:0002300). HP:0002300 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8104,6 +8269,9 @@ This clinical feature is Akinesia (HP:0002304). HP:0002304 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8118,6 +8286,7 @@ This clinical feature is Akinesia (HP:0002304). HP:0002304 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8172,6 +8341,9 @@ This clinical feature is Abnormal posturing (HP:0002533). HP:0002533 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8186,6 +8358,7 @@ This clinical feature is Abnormal posturing (HP:0002533). HP:0002533 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8240,6 +8413,9 @@ This clinical feature is Motor stereotypy (HP:0000733). HP:0000733 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8254,6 +8430,7 @@ This clinical feature is Motor stereotypy (HP:0000733). HP:0000733 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8308,6 +8485,9 @@ This clinical feature is Negativism (HP:0410291). HP:0410291 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8322,6 +8502,7 @@ This clinical feature is Negativism (HP:0410291). HP:0410291 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8376,6 +8557,9 @@ This clinical feature is Echolalia (HP:0010529). HP:0010529 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8390,6 +8574,7 @@ This clinical feature is Echolalia (HP:0010529). HP:0010529 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8416,9 +8601,9 @@ This clinical feature is Echolalia (HP:0010529). HP:0010529 is a phenotype from 
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-facial-grimacing" data-dismech-node="Facial grimacing" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-agitation" data-dismech-node="Agitation" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Facial grimacing
+                        Agitation
 
 
 
@@ -8430,15 +8615,18 @@ This clinical feature is Echolalia (HP:0010529). HP:0010529 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000273" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0000273</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000713" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0000713</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Facial grimacing (HP:0000273). HP:0000273 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Agitation (HP:0000713). HP:0000713 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8450,10 +8638,10 @@ This clinical feature is Facial grimacing (HP:0000273). HP:0000273 is a phenotyp
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:12384773" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:35861966" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12384773" target="_blank">PMID:12384773</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35861966" target="_blank">PMID:35861966</a>
                     </span>
 
 
@@ -8461,14 +8649,15 @@ This clinical feature is Facial grimacing (HP:0000273). HP:0000273 is a phenotyp
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"The disorder is characterized by qualitative hyperkinetic and akinetic psychomotor disturbances through acute psychotic episodes and debilitating symptoms in the long term, with psychomotor weakness, grimacing facial movements and apathy."</div>
+                <div class="evidence-snippet">"The clinical picture of catatonia ranges from akinetic stupor to severe motoric excitement."</div>
 
 
-                <div class="evidence-explanation">Reports grimacing facial movements as a persistent feature in the periodic-catatonia phenotype.</div>
+                <div class="evidence-explanation">Establishes severe motoric excitement as a recognized pole of the syndrome.</div>
 
 
 
@@ -8542,6 +8731,9 @@ This clinical feature is Facial grimacing (HP:0000273). HP:0000273 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8556,6 +8748,7 @@ This clinical feature is Facial grimacing (HP:0000273). HP:0000273 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8580,6 +8773,7 @@ This clinical feature is Facial grimacing (HP:0000273). HP:0000273 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8684,6 +8878,31 @@ This treatment uses lorazepam (CHEBI:6539). CHEBI:6539 is a therapeutic agent fr
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">A benzodiazepine positive allosteric modulator at the GABA-A receptor and the first-line treatment for catatonia, sometimes required in very high doses. In the defining prospective study, catatonic signs resolved in 16 of 21 patients (76%) who completed a lorazepam trial. The near-immediate response of akinesia and anxiety to lorazepam is also the clinical observation that motivated the GABA-A receptor hypothesis.</div>
 
 
@@ -8714,6 +8933,7 @@ This treatment uses lorazepam (CHEBI:6539). CHEBI:6539 is a therapeutic agent fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8760,6 +8980,7 @@ This treatment uses lorazepam (CHEBI:6539). CHEBI:6539 is a therapeutic agent fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8781,6 +9002,7 @@ This treatment uses lorazepam (CHEBI:6539). CHEBI:6539 is a therapeutic agent fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8845,6 +9067,31 @@ This treatment is electroconvulsive therapy (NCIT:C93303). NCIT:C93303 is a clin
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Device</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">ECT is first-line alongside benzodiazepines and is the treatment of choice for catatonia refractory to benzodiazepines and for malignant catatonia, where delay is life-threatening. In the defining prospective study, all four patients who failed lorazepam responded promptly to ECT. Its mechanism is not receptor-specific; it is curated here as modulating the distributed network node rather than any single neurochemical route.</div>
 
 
@@ -8875,6 +9122,7 @@ This treatment is electroconvulsive therapy (NCIT:C93303). NCIT:C93303 is a clin
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8921,6 +9169,7 @@ This treatment is electroconvulsive therapy (NCIT:C93303). NCIT:C93303 is a clin
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8942,6 +9191,7 @@ This treatment is electroconvulsive therapy (NCIT:C93303). NCIT:C93303 is a clin
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9005,6 +9255,31 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Because catatonia is a convergence syndrome, treating the upstream liability is part of definitive management rather than an adjunct — most consequentially, immunotherapy in autoimmune encephalitis and withdrawal of a precipitating dopamine antagonist. Multidisciplinary working between psychiatrists and physicians is frequently required.</div>
 
 
@@ -9035,6 +9310,7 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9078,6 +9354,7 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9180,6 +9457,31 @@ This treatment uses memantine (CHEBI:64312). CHEBI:64312 is a therapeutic agent 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Uncompetitive NMDA receptor antagonists used as second-line pharmacotherapy when benzodiazepines fail or are not tolerated. Amantadine additionally enhances central dopamine release and delays synaptic dopamine reuptake, which is the proposed reason it suits a syndrome hypothesised to involve hypodopaminergic tone. The supporting literature is case reports and case series rather than trials, so this is curated as a mechanistically motivated second-line option, not an established one.</div>
 
 
@@ -9210,6 +9512,7 @@ This treatment uses memantine (CHEBI:64312). CHEBI:64312 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9256,6 +9559,7 @@ This treatment uses memantine (CHEBI:64312). CHEBI:64312 is a therapeutic agent 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9277,6 +9581,7 @@ This treatment uses memantine (CHEBI:64312). CHEBI:64312 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9341,6 +9646,31 @@ This treatment is avoidance of contraindicated medications, annotated with Suppo
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Antipsychotic exposure can both induce and worsen catatonia, and catatonia is itself a risk factor for neuroleptic malignant syndrome, so antipsychotic use in an actively catatonic patient is a recognised hazard. The guideline describes this as one of the most controversial areas of catatonia management rather than an absolute prohibition — antipsychotics may still be indicated for an underlying psychotic illness once catatonia has resolved.</div>
 
 
@@ -9371,6 +9701,7 @@ This treatment is avoidance of contraindicated medications, annotated with Suppo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9417,6 +9748,7 @@ This treatment is avoidance of contraindicated medications, annotated with Suppo
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9438,6 +9770,7 @@ This treatment is avoidance of contraindicated medications, annotated with Suppo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9513,6 +9846,7 @@ This treatment is avoidance of contraindicated medications, annotated with Suppo
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9534,6 +9868,7 @@ This treatment is avoidance of contraindicated medications, annotated with Suppo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9588,6 +9923,7 @@ This treatment is avoidance of contraindicated medications, annotated with Suppo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9671,6 +10007,7 @@ This treatment is avoidance of contraindicated medications, annotated with Suppo
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9704,7 +10041,7 @@ This treatment is avoidance of contraindicated medications, annotated with Suppo
                     </span>
 
 
-                    <span class="tag">1–9 per 100,000</span>
+                    <span class="tag">1–9 per 100,000 per year</span>
 
                 </div>
 
@@ -9726,6 +10063,7 @@ This treatment is avoidance of contraindicated medications, annotated with Suppo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9788,6 +10126,7 @@ This treatment is avoidance of contraindicated medications, annotated with Suppo
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9843,6 +10182,7 @@ This treatment is avoidance of contraindicated medications, annotated with Suppo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9941,6 +10281,7 @@ This treatment is avoidance of contraindicated medications, annotated with Suppo
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10006,6 +10347,7 @@ This treatment is avoidance of contraindicated medications, annotated with Suppo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10077,6 +10419,7 @@ This treatment is avoidance of contraindicated medications, annotated with Suppo
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10142,6 +10485,7 @@ This treatment is avoidance of contraindicated medications, annotated with Suppo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10213,6 +10557,7 @@ This treatment is avoidance of contraindicated medications, annotated with Suppo
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10278,6 +10623,7 @@ This treatment is avoidance of contraindicated medications, annotated with Suppo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10349,6 +10695,7 @@ This treatment is avoidance of contraindicated medications, annotated with Suppo
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10414,6 +10761,7 @@ This treatment is avoidance of contraindicated medications, annotated with Suppo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10485,6 +10833,7 @@ This treatment is avoidance of contraindicated medications, annotated with Suppo
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10550,6 +10899,7 @@ This treatment is avoidance of contraindicated medications, annotated with Suppo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
