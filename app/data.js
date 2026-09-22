@@ -81681,26 +81681,42 @@ window.searchData = [
     ],
     "phenotypes": [
       "Recurrent Bacterial Infection",
-      "Systemic Lupus Erythematosus"
+      "Systemic Lupus Erythematosus",
+      "Rheumatological disease",
+      "Atherosclerosis",
+      "Hypogammaglobulinemia"
     ],
     "phenotype_categories": [
-      "Immunological"
+      "Immunological",
+      "Cardiovascular",
+      "Laboratory"
     ],
     "phenotype_hpo_categories": [
-      "Immune"
+      "Blood",
+      "Cardiovascular",
+      "Cellular",
+      "Immune",
+      "Metabolism"
     ],
     "phenotype_ids": [
       "HP:0002718",
-      "HP:0002725"
+      "HP:0002725",
+      "HP:0002960",
+      "HP:0002621",
+      "HP:0004313"
     ],
     "frequencies": [
-      "OCCASIONAL"
+      "OCCASIONAL",
+      "FREQUENT"
     ],
     "genes": [
       "C2",
       "C4A copy number"
     ],
-    "treatments": [],
+    "treatments": [
+      "Vaccination Against Encapsulated Bacteria",
+      "Antibiotic Prophylaxis"
+    ],
     "environmental": [],
     "biochemical": [
       "Serum CH50 (total classical pathway haemolytic activity)",
@@ -81709,11 +81725,11 @@ window.searchData = [
     ],
     "source_file": "Complement_Component_2_Deficiency.yaml",
     "page_url": "../pages/disorders/Complement_Component_2_Deficiency.html",
-    "num_phenotypes": 2,
+    "num_phenotypes": 5,
     "num_pathophysiology": 5,
     "num_genes": 2,
-    "num_treatments": 0,
-    "causal_graph_edges": "6",
+    "num_treatments": 2,
+    "causal_graph_edges": "9",
     "causal_graph_longest_path": "4"
   },
   {
@@ -182485,7 +182501,10 @@ window.searchData = [
       "Family Screening and Genetic Counseling"
     ],
     "environmental": [],
-    "biochemical": [],
+    "biochemical": [
+      "Serum CH50 (total classical pathway haemolytic activity)",
+      "Serum AP50 (alternative pathway haemolytic activity)"
+    ],
     "source_file": "Late_Complement_Component_Deficiency.yaml",
     "page_url": "../pages/disorders/Late_Complement_Component_Deficiency.html",
     "num_phenotypes": 6,
@@ -321816,8 +321835,8 @@ window.searchMetrics = {
   "total_disorder_pages": 3070,
   "total_subtypes": 3834,
   "total_disorders_and_subtypes": 6904,
-  "total_unique_evidence_sources": 44306,
-  "total_unique_publications": 41683,
+  "total_unique_evidence_sources": 44310,
+  "total_unique_publications": 41687,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 283,
   "total_pathographs": 3065,
